@@ -3,30 +3,36 @@ import { t, tr, localizeMessage } from '../../shared/locale';
 import { activeConversationModel } from '../../shared/model-selection';
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { FolderOpen, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
+import { ContextSelector } from './ContextSelector';
 import { Hardware } from './Hardware';
-import { projectDirectoryName } from '../../shared/project-references';
+import { MaximumContextPopover } from './MaximumContextPopover';
+import { ProjectBadge } from './ProjectBadge';
 import type { ContextDiscoveryResult, RuntimeContextEstimate } from '../../shared/context-estimator';
-import { buildContextChoices, cacheModeLabel, contextChoiceId } from '../../shared/context-options';
-import { boundaryReasonLabel, reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkingLabel } from '../../shared/localization';
+import { buildContextChoices, cacheModeLabel, contextChoiceId, describeContextChoice, type ContextChoice } from '../../shared/context-options';
+import { reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkingLabel } from '../../shared/localization';
 import { resolveReasoningSelection, type ReasoningEffort } from '../../shared/reasoning-controls';
 
 export function Toolbar() {
   useLocale();
-  const { conversations, activeId, models, hardware, settings, activeContextWindow, isGenerating, updateConversation, refreshRuntimeStatus } = useAppStore(useShallow((state) => ({ conversations: state.conversations, activeId: state.activeId, models: state.models, hardware: state.hardware, settings: state.settings, activeContextWindow: state.activeContextWindow, isGenerating: state.isGenerating, updateConversation: state.updateConversation, refreshRuntimeStatus: state.refreshRuntimeStatus })));
+  const { conversations, activeId, models, hardware, settings, isGenerating, updateConversation, refreshRuntimeStatus } = useAppStore(useShallow((state) => ({ conversations: state.conversations, activeId: state.activeId, models: state.models, hardware: state.hardware, settings: state.settings, isGenerating: state.isGenerating, updateConversation: state.updateConversation, refreshRuntimeStatus: state.refreshRuntimeStatus })));
   const [estimateResponse, setEstimateResponse] = useState<{ modelId: string; value?: RuntimeContextEstimate; error?: string } | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextLoadError, setContextLoadError] = useState<string | null>(null);
+  const [contextDraft, setContextDraft] = useState<ContextChoice | null>(null);
+  useEffect(() => setContextDraft(null), [activeId, conversations.find(c => c.id === activeId)?.modelId]);
   const [discovery, setDiscovery] = useState<ContextDiscoveryResult | null>(null);
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
-  const [discoveryStage, setDiscoveryStage] = useState('');
   const [currentVramBudget, setCurrentVramBudget] = useState<import('../../shared/vram-budget').VramBudget | undefined>();
   useEffect(() => {
     const timer = window.setInterval(() => void refreshRuntimeStatus(), 4_000);
     return () => window.clearInterval(timer);
   }, [refreshRuntimeStatus]);
   const chat = conversations.find((item) => item.id === activeId);
-  const selectedModelId = activeConversationModel(chat, settings?.llamaRuntime);
+  const activeModelId = activeConversationModel(chat, settings?.llamaRuntime);
+  const selectedModelId = chat?.modelId ?? activeModelId;
   const selectedModel = models.find((model) => model.id === selectedModelId);
   const reasoningCapability = selectedModel?.reasoning;
   const reasoningSelection = resolveReasoningSelection(reasoningCapability, chat?.reasoningMode ?? 'fast', chat ?? {});
@@ -45,16 +51,15 @@ export function Toolbar() {
     setCurrentVramBudget(undefined);
   }, [selectedModelId]);
   useEffect(() => {
-    if (!selectedModelId) { setDiscoveryLoading(false); setDiscoveryStage(''); return undefined; }
+    if (!selectedModelId) { setDiscoveryLoading(false); return undefined; }
     let current = true;
     const poll = async () => {
       try {
         const progress = await window.localAi.contextDiscoveryStatus(selectedModelId);
         if (!current) return;
         setDiscoveryLoading(progress.busy);
-        setDiscoveryStage(progress.busy ? tr`${progress.stage} · проверка ${progress.probeCount}` : '');
         if (progress.modelId === selectedModelId) {
-          setDiscovery(progress.result ?? null);
+          if (progress.result) setDiscovery(progress.result);
           setDiscoveryError(progress.error ?? null);
           setCurrentVramBudget(progress.currentVramBudget);
         }
@@ -68,38 +73,36 @@ export function Toolbar() {
   }, [selectedModelId]);
   if (!chat) return null;
   const chooseDirectory = async (slot: 1 | 2, currentDirectory: string | null) => { const directory = await window.localAi.dialog.chooseDirectory(currentDirectory); if (directory) await updateConversation(chat.id, slot === 1 ? { workingDirectory: directory } : { secondaryWorkingDirectory: directory }); };
-  const contextLabel = selectedModelId ? `${Math.round((activeContextWindow ?? chat.contextWindow) / 1024)}K` : '—';
+  const contextLabel = selectedModelId ? `${chat.contextWindow / 1024}K (${cacheModeLabel(chat.llamaKvCacheType ?? 'f16')}) · KV ${(chat.llamaKvOffload ?? true) ? 'GPU' : 'RAM'}` : '—';
   const contextEstimate = estimateResponse?.modelId === selectedModelId ? estimateResponse.value : undefined;
-  const projectSelector = (slot: 1 | 2, directory: string | null) => <div className={`directory project-selector project-${slot}`}><FolderOpen size={16} /><button title={directory ?? undefined} onClick={() => void chooseDirectory(slot, directory)}>{directory ? projectDirectoryName(directory) : tr`Проект ${slot}: не выбран`}</button>{directory && <button className="icon-button" aria-label={tr`Убрать проект ${slot}`} onClick={() => void updateConversation(chat.id, slot === 1 ? { workingDirectory: null } : { secondaryWorkingDirectory: null })}><X size={14} /></button>}</div>;
+  const projectSelector = (slot: 1 | 2, directory: string | null) => <div className={`directory project-selector project-${slot}`}><button title={directory ?? undefined} onClick={() => void chooseDirectory(slot, directory)}><ProjectBadge path={directory} label={directory ? undefined : tr`Проект ${slot}: не выбран`} /></button>{directory && <button className="icon-button" aria-label={tr`Убрать проект ${slot}`} onClick={() => void updateConversation(chat.id, slot === 1 ? { workingDirectory: null } : { secondaryWorkingDirectory: null })}><X size={14} /></button>}</div>;
   const llama = settings?.llamaRuntime;
+  const requestedContext = contextDraft ?? { contextWindow: chat.contextWindow, kvCacheType: chat.llamaKvCacheType ?? 'f16', kvOffload: chat.llamaKvOffload ?? true };
+  const runtimeMatchesSelection = llama?.status === 'ready' && llama.modelId === selectedModelId && llama.contextWindow === requestedContext.contextWindow && llama.kvCacheType === requestedContext.kvCacheType && llama.kvOffload === requestedContext.kvOffload;
+  const contextBusy = contextLoading || llama?.status === 'starting' || llama?.status === 'switching' || llama?.activation?.phase === 'validating';
   const runtimeLabel = !llama || llama.status === 'ready' ? `llama.cpp${llama?.speculativeMode === 'mtp' ? ' · MTP' : llama?.speculativeMode === 'eagle3' ? ' · EAGLE3' : ''}`
       : llama.status === 'switching' || llama.status === 'starting' ? t("llama.cpp · запуск модели…")
         : t("llama.cpp · не запущен");
-  const missingEstimate = contextEstimate?.unknownReasons.map(localizeMessage).join(', ') ?? '';
-  const estimateLoading = Boolean(selectedModelId && (estimateResponse?.modelId !== selectedModelId || (!estimateResponse.value && !estimateResponse.error)));
   const discoveryForModel = discovery?.modelId === selectedModelId ? discovery : undefined;
-  const maxContextLabel = discoveryLoading ? t("измеряется…") : discoveryForModel?.options.length
-    ? discoveryForModel.options.map((option) => `${cacheModeLabel(option.kvCacheType)} ${option.contextWindow / 1024}K${option.restored ? t(" (сохранено)") : ''}`).join(' · ')
-    : t("не измерен");
-  const actualRuntimeContext = contextEstimate?.observedContextTokens
-    ?? (llama?.status === 'ready' && llama.modelId === chat.modelId ? llama.contextWindow : null);
+  const actualRuntimeContext = llama?.status === 'ready' && llama.modelId === selectedModelId ? llama.contextWindow : null;
+  const actualLabel = actualRuntimeContext ? `${actualRuntimeContext / 1024}K (${llama?.kvCacheType ? cacheModeLabel(llama.kvCacheType) : t('KV-тип не подтверждён')}) · KV ${llama?.kvOffload === undefined ? '?' : llama.kvOffload ? 'GPU' : 'RAM'}` : t('модель не загружена');
+  const activation = llama?.activation?.conversationId === chat.id && llama.activation.modelId === selectedModelId ? llama.activation : undefined;
+  const requestedLabel = contextDraft ? `${contextDraft.contextWindow / 1024}K (${cacheModeLabel(contextDraft.kvCacheType)}) · KV ${contextDraft.kvOffload ? 'GPU' : 'RAM'}` : activation ? `${activation.contextWindow / 1024}K (${cacheModeLabel(activation.kvCacheType)}) · KV ${activation.kvOffload ? 'GPU' : 'RAM'}` : contextLabel;
   const contextOptions = (() => {
     const cacheType = chat.llamaKvCacheType ?? 'f16';
     const kvOffload = chat.llamaKvOffload ?? true;
-    const options = buildContextChoices(selectedModelId ?? '', selectedModel?.supportedContextPresets ?? [], selectedModel?.maxContext ?? 0, discoveryForModel?.options ?? [], selectedModel?.normalContext?.kvCacheType);
+    const options = buildContextChoices(selectedModelId ?? '', selectedModel?.supportedContextPresets ?? [], selectedModel?.maxContext ?? 0, discoveryForModel?.options ?? [], selectedModel?.normalContext?.kvCacheType, selectedModel?.supportedKvCacheTypes);
     if (!options.some((option) => option.contextWindow === chat.contextWindow
       && option.kvCacheType === cacheType && option.kvOffload === kvOffload)) {
-      options.push({ contextWindow: chat.contextWindow, kvCacheType: cacheType, kvOffload, label: tr`${Math.round(chat.contextWindow / 1024)}K · текущий` });
+      options.push({ contextWindow: chat.contextWindow, kvCacheType: cacheType, kvOffload, label: `${chat.contextWindow / 1024}K (${cacheModeLabel(cacheType)}) · ${t('запрошено')}` });
     }
-    return options;
+    return options.map(option => describeContextChoice(option, selectedModelId ?? '', discoveryForModel?.options ?? []));
   })();
-  const selectedContextOption = contextOptions.find((option) => option.contextWindow === chat.contextWindow
+  const selectedContextOption = contextDraft ? describeContextChoice(contextDraft, selectedModelId ?? '', discoveryForModel?.options ?? []) : contextOptions.find((option) => option.contextWindow === chat.contextWindow
     && option.kvCacheType === (chat.llamaKvCacheType ?? 'f16') && option.kvOffload === (chat.llamaKvOffload ?? true));
   const discoverMaximum = async () => {
     if (!selectedModelId) return;
     setDiscoveryLoading(true);
-    setDiscovery(null);
-    setDiscoveryStage(t("Подготовка; llama.cpp будет перезапущен несколько раз…"));
     setDiscoveryError(null);
     try { setDiscovery(await window.localAi.contextDiscover(selectedModelId)); }
     catch (error) { setDiscoveryError(error instanceof Error ? error.message : String(error)); }
@@ -110,35 +113,34 @@ export function Toolbar() {
       <div className="monitoring-row" aria-label={t("Мониторинг llama.cpp")}>
         <Hardware value={hardware} />
         <span className="backend-indicator">{runtimeLabel}{llama?.pendingProjectorDevice ? tr` · После генерации: ${llama.pendingProjectorDevice.toUpperCase()}` : ''}</span>{llama?.deviceError && <span role="status" title={llama.deviceError}>{t("Не удалось переключить обработку изображений")}: {llama.deviceError}</span>}
-        <button className="context-discover" disabled={discoveryLoading || !selectedModelId || isGenerating} onClick={() => void discoverMaximum()}>{discoveryLoading ? t("Идёт проверка…") : t("Найти максимальный контекст")}</button>
-        {discoveryLoading && <span role="status">{localizeMessage(discoveryStage) || t("llama.cpp будет перезапущен несколько раз…")}</span>}
-        <details className="context-estimate">
-          <summary>{t("Максимальный контекст: ")}{maxContextLabel}</summary>
-          <div className="context-estimate-details">
-            <p>{t("Обычные варианты контекста — это возможности модели и llama.cpp, а не гарантия, что хватит памяти. «Максимальный контекст» добавляет варианты FP16 и Q8: ограниченный поиск по реальным запускам с проверкой состояния и пробным запросом и с запасом RAM/VRAM. llama.cpp перезапускается несколько раз, затем исходная конфигурация восстанавливается. Это граница безопасного поиска, а не абсолютный предел до нехватки памяти.")}</p>
-            <p><span>{t("Найдено")}</span><b>{maxContextLabel}</b></p>
-            <p><span>{t("Активное окно")}</span><b>{actualRuntimeContext ? `${Math.round(actualRuntimeContext / 1024)}K` : t("модель не загружена")}</b></p>
-            {discoveryForModel?.options.map((option) => <p key={`${option.kvCacheType}-${option.contextWindow}`}><span>{option.kvCacheType.toUpperCase()} {t(" · запас после пробного запроса")}</span><b>RAM {Math.round(option.measuredHeadroom.hostBytes / 1024 ** 3 * 10) / 10} {t(" ГиБ · VRAM ")}{Math.round(option.measuredHeadroom.deviceBytes / 1024 ** 3 * 10) / 10} {t(" ГиБ")}</b></p>)}
-            {discoveryForModel?.options.map((option) => option.vramBudget && <details key={`budget-${option.kvCacheType}`}><summary>{cacheModeLabel(option.kvCacheType)} {t(" · бюджет VRAM")}</summary>
-              {currentVramBudget && <p>{t("Сейчас другие приложения занимают ")}{currentVramBudget.nonLlmBytes / 1024 ** 2} {t(" МиБ; свободно ")}{currentVramBudget.freeBytes / 1024 ** 2} {t(" МиБ; доступно для LLM ")}{currentVramBudget.availableLlmBytes / 1024 ** 2} {t(" МиБ.")}</p>}
-              <p>{t("Всего на GPU ")}{option.vramBudget.totalBytes / 1024 ** 2} {t(" МиБ; занято не LLM ")}{option.vramBudget.nonLlmBytes / 1024 ** 2} {t(" МиБ; общий бюджет для не-LLM ")}{option.vramBudget.backgroundBudgetBytes / 1024 ** 2} {t(" МиБ; запас ")}{option.vramBudget.marginBytes / 1024 ** 2} {t(" МиБ.")}</p>
-              <p>{t("Бюджет LLM ")}{option.vramBudget.llmBudgetBytes / 1024 ** 2} {t(" МиБ; фактически доступно LLM ")}{option.vramBudget.availableLlmBytes / 1024 ** 2} {t(" МиБ; занято LLM ")}{option.vramBudget.llmBytes / 1024 ** 2} {t(" МиБ; зарезервировано драйвером ")}{option.vramBudget.driverReservedBytes / 1024 ** 2} {t(" МиБ.")}</p>
-              <p>{t("Граница ")}{(option.boundaryTokens ?? 0) / 1024}K ({(option.boundaryReason && boundaryReasonLabel[option.boundaryReason]) ?? option.boundaryReason}{t("); безопасный максимум ")}{option.contextWindow / 1024}K. {option.vramBudget.backgroundOverBudget ? t("Другие приложения превышают бюджет; ограничивает фактически свободная VRAM.") : ''}</p>
-            </details>)}
-            {discoveryError && <small>{t("Поиск не завершён: ")}{localizeMessage(discoveryError)}</small>}
-            {discoveryForModel?.unsupported.map((item) => <small key={item.kvCacheType}>{item.kvCacheType.toUpperCase()} {t(" не предложен: ")}{localizeMessage(item.reason)}</small>)}
-            <details><summary>{t("Диагностика")}</summary>
-              <p><span>{t("Предел модели и llama.cpp")}</span><b>{contextEstimate?.configuredMaxTokens ? `${Math.round(contextEstimate.configuredMaxTokens / 1024)}K` : selectedModel ? `${Math.round(selectedModel.maxContext / 1024)}K` : t("неизвестен")}</b></p>
-              {contextEstimate?.modelTrainContextTokens !== null && contextEstimate?.modelTrainContextTokens !== undefined && <p><span>{t("Лимит из метаданных модели (обучение)")}</span><b>{Math.round(contextEstimate.modelTrainContextTokens / 1024)}K</b></p>}
-              {contextEstimate?.allocationEvidence && <p><span>{t("Фактический KV")}</span><b>{contextEstimate.allocationEvidence.kvTypeK ?? t("неизвестно")} / {contextEstimate.allocationEvidence.kvTypeV ?? t("неизвестно")}{t("; слоты ")}{contextEstimate.allocationEvidence.sequenceSlots ?? '?'}, draft {contextEstimate.allocationEvidence.speculativeSlots ?? '?'}</b></p>}
-              <small>{estimateLoading ? t("Обновление данных llama.cpp…") : estimateResponse?.error ? tr`Не удалось получить метаданные: ${localizeMessage(estimateResponse.error)}.` : missingEstimate ? tr`Нет полных данных о выделении памяти активной модели: ${missingEstimate}.` : discoveryForModel?.options.some((option) => option.restored) ? t("Показан сохранённый результат прошлого измерения; перезапуска проб не было. «Найти максимальный контекст» пересчитает его, а выбор значения всё равно проверяет текущую память.") : discoveryForModel?.restored ? tr`Измерено при ${discoveryForModel.probeContextTokens / 1024}K; исходная конфигурация llama.cpp восстановлена.` : t("Максимум не рассчитан, пока вы не запустите поиск.")}</small>
-            </details>
-          </div>
-        </details>
+        <button className="context-discover" disabled={discoveryLoading || !activeModelId || isGenerating} onClick={() => void discoverMaximum()}>{discoveryLoading ? t("Идёт проверка…") : discoveryForModel?.options.length ? t("Найти максимальный контекст снова") : t("Найти максимальный контекст")}</button>
+        {selectedModelId && <div className="context-activation">
+          <span className="context-selected">{t('Выбрано')}: {requestedContext.contextWindow / 1024}K ({cacheModeLabel(requestedContext.kvCacheType)})</span>
+          <span role="status" className="context-active">{t('Активно')}: {actualLabel}</span>
+          <button className={`context-load ${!runtimeMatchesSelection ? 'primary' : ''}`} aria-busy={contextBusy} disabled={Boolean(runtimeMatchesSelection || isGenerating || discoveryLoading || contextBusy)} onClick={() => {
+            setContextLoading(true); setContextLoadError(null);
+            void updateConversation(chat.id, { modelId: selectedModelId, contextWindow: requestedContext.contextWindow, llamaKvCacheType: requestedContext.kvCacheType, llamaKvOffload: requestedContext.kvOffload })
+              .then(() => setContextDraft(null))
+              .catch((error: unknown) => setContextLoadError(error instanceof Error ? error.message : String(error)))
+              .finally(() => setContextLoading(false));
+          }}>{contextBusy ? t('Проверка и загрузка выбранной конфигурации') : t('Загрузить выбранную конфигурацию')}</button>
+        </div>}
+        {contextLoadError && <span role="alert">{localizeMessage(contextLoadError)}</span>}
+        {llama?.activation?.phase === 'validating' && <span role="status">{t('Проверка и загрузка выбранной конфигурации')}</span>}
+        {(llama?.error || llama?.activation?.error) && <span role="alert">{t('Загрузка не выполнена. Причина — в мониторинге.')}</span>}
+        {discoveryLoading && <span role="status">{t('Поиск максимального контекста…')}</span>}
+        <MaximumContextPopover options={discoveryForModel?.options ?? []} supportedContext={contextEstimate?.configuredMaxTokens ?? selectedModel?.maxContext ?? null}
+          vram={hardware?.available && hardware.vramTotalBytes != null && hardware.vramUsedBytes != null && hardware.vramAvailableBytes != null
+            ? {total:hardware.vramTotalBytes,used:hardware.vramUsedBytes,free:hardware.vramAvailableBytes}
+            : currentVramBudget ? {total:currentVramBudget.totalBytes,used:currentVramBudget.nonLlmBytes+currentVramBudget.llmBytes,free:currentVramBudget.freeBytes} : undefined} />
+        {(llama?.error || llama?.activation?.error) && <details className="context-load-diagnostic"><summary>{t('Ошибка загрузки')}</summary>
+          <p className="context-requested">{t('Запрошено')}: {requestedLabel}</p><p>{localizeMessage(llama.activation?.error ?? llama.error ?? '')}</p>
+        </details>}
+        {discoveryError && <span role="alert">{t('Поиск не завершён: ')}{localizeMessage(discoveryError)}</span>}
       </div>
       <div className="toolbar-controls">
         <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading} value={selectedModelId ?? ''} onChange={(event) => void updateConversation(chat.id, { modelId: event.target.value || null }).catch(() => undefined)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
-        <label className="control"><span>{t("Контекст · ")}{contextLabel}</span><select disabled={discoveryLoading || !selectedModelId} value={selectedContextOption ? contextChoiceId(selectedContextOption) : ''} onChange={(event) => { const option = contextOptions.find((candidate) => contextChoiceId(candidate) === event.target.value); if (option) void updateConversation(chat.id, { contextWindow: option.contextWindow, llamaKvCacheType: option.kvCacheType, llamaKvOffload: option.kvOffload }).catch(() => undefined); }}>{contextOptions.map((option) => <option value={contextChoiceId(option)} key={contextChoiceId(option)}>{option.label}</option>)}</select></label>
+        <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId} onChange={setContextDraft} />
         {reasoningCapability && <label className="control" title={reasoningControlText.thinkingHint}><span>{reasoningControlText.thinking}</span>{reasoningCapability.thinkingToggle
           ? <select value={reasoningSelection.thinking === false ? 'off' : 'on'} onChange={(event) => void updateConversation(chat.id, { thinkingEnabled: event.target.value === 'on' }).catch(() => undefined)}><option value="on">{thinkingLabel.on}</option><option value="off">{thinkingLabel.off}</option></select>
           : <select disabled title={reasoningControlText.thinkingUnavailable} value="unavailable"><option value="unavailable">{reasoningControlText.unavailable}</option></select>}</label>}

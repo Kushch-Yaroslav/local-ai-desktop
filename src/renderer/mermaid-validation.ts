@@ -8,6 +8,7 @@ export async function validateMermaidSource(source: string): Promise<void> {
   await queueMermaidTask(async () => {
     const { default: mermaid } = await import('mermaid');
     mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', suppressErrorRendering: true });
-    await mermaid.parse(source);
+    await parseMermaidWithFormatting(source, value => mermaid.parse(value));
   });
 }
+import { parseMermaidWithFormatting } from '../shared/mermaid-source';

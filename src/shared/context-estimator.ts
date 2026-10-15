@@ -62,6 +62,9 @@ export interface RuntimeContextEstimate {
 }
 
 export interface ContextDiscoveryOption {
+  /** Ephemeral main-process assessment; never inferred from another KV type. */
+  conditions?: 'comparable' | 'changed' | 'unknown';
+  conditionWarning?: string;
   vramBudget?: import('./vram-budget').VramBudget;
   boundaryReason?: 'model-limit' | 'probe-failure' | 'budget-guard' | 'bounded-search';
   failedContextTokens?: number;
@@ -105,6 +108,9 @@ export interface ContextDiscoveryProgress {
 }
 
 export interface ContextDiscoveryResult {
+  /** Historical catalog only; live identity/VRAM validation is still required. */
+  pendingValidation?: boolean;
+  persistenceError?: string;
   modelId: string;
   probeContextTokens: number;
   options: ContextDiscoveryOption[];
@@ -112,6 +118,7 @@ export interface ContextDiscoveryResult {
   restored: boolean;
   hardLimit?: number;
   configurationId?: string;
+  measurementIdentity?: string;
   probes?: ContextProbeRecord[];
 }
 

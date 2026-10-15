@@ -3,12 +3,14 @@ import { useLocale } from './use-locale';
 import { t, tr, localizeMessage, setLanguage } from '../shared/locale';
 import { activeConversationModel } from '../shared/model-selection';
 import { localizeProjectLabel, tokensWord } from '../shared/localization';
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Bot, Check, Copy, File, Folder, Pencil, RotateCcw, X } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { Composer } from './components/Composer';
+import { TaskHistoryCard } from './components/TaskHistoryCard';
+import { ApprovalPanel } from './components/ApprovalPanel';
 import { AgentTimeline } from './components/AgentTimeline';
 import { Markdown } from './components/Markdown';
 import { validateMermaidSource } from './mermaid-validation';
@@ -21,8 +23,9 @@ import type { Attachment, GenerationStats, ProjectReference } from '../shared/ty
 
 function GenerationIndicator({ state, toolLabel }: { state: string; toolLabel?: string }) {
   useLocale();
-  const label = toolLabel ? t(toolLabel) : state === 'thinking' ? t('Ожидаю ответ модели…') : state === 'waiting-for-approval' ? t("Ожидает подтверждения") : state === 'using-tool' ? t("Использую инструмент") : state === 'running-terminal' ? t("Запускаю terminal") : state === 'stopping' ? t("Останавливаю") : state === 'generating' ? t("Пишу ответ") : t("Думаю");
-  return <div className="generation-indicator" role="status" aria-label={label}><span className="generation-orb" /><span>{label}</span><i /><i /><i /></div>;
+  const paused = useAppStore(state => state.loopPaused);
+  const label = paused ? t("Агент приостановлен") : toolLabel ? t(toolLabel) : state === 'thinking' ? t('Ожидаю ответ модели…') : state === 'waiting-for-approval' ? t("Ожидает подтверждения") : state === 'using-tool' ? t("Использую инструмент") : state === 'running-terminal' ? t("Запускаю terminal") : state === 'stopping' ? t("Останавливаю") : state === 'generating' ? t("Пишу ответ") : t("Думаю");
+  return <div className={`generation-indicator${paused ? ' generation-suspended' : ''}`} role="status" aria-label={label}><span className="generation-orb" /><span>{label}</span><i /><i /><i /></div>;
 }
 
 function MessageAttachments({ attachments }: { attachments: Attachment[] }) {
@@ -124,24 +127,27 @@ export function App() {
   }, [scheduleBottomFollow]);
   useEffect(() => () => { if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current); }, []);
   const updateFollowState = () => { const element = conversationRef.current; if (element) followStream.current = element.scrollHeight - element.scrollTop - element.clientHeight < 96; };
-  const rendered = withRunHistory(messages, analysisRuns);
+  const legacyAgentPlan = useAppStore(state => state.legacyAgentPlan);
+  const rendered = useMemo(() => withRunHistory(messages, analysisRuns), [messages, analysisRuns]);
   const embeddedSteeringIds = steeringMessageIds(rendered);
   return <div className="app-shell"><Sidebar /><main className="main"><Toolbar /><section ref={conversationRef} onScroll={updateFollowState} className="conversation">
     {error && <p className="attachment-error" role="alert">{localizeMessage(error)}</p>}
     {generationConversationId && generationConversationId !== activeId && <p role="status">{t("Генерация продолжается в другом чате. Откройте отмеченный чат, чтобы увидеть ход работы или остановить её.")}</p>}
     {active?.mode === 'agent' && <div className="agent-notice"><Bot size={17} /> {active.workingDirectory ? t("Файловые инструменты ограничены выбранным проектом и папками, которые вы назвали в сообщениях; терминал стартует в корне проекта.") : t("Проект не выбран: файловые инструменты и терминал доступны только для папок, абсолютный путь к которым вы укажете в сообщении (терминал стартует в последней названной). Без пути — только рассуждение и планирование.")}</div>}
     {messages.length === 0 && <div className="welcome"><Bot size={34} /><h1>{t("Чем могу помочь?")}</h1><p>{t("Выберите одну из локальных моделей и начните разговор.")}</p></div>}
+    {legacyAgentPlan && <TaskHistoryCard plan={legacyAgentPlan} logicalTaskId={legacyAgentPlan.logicalTaskId} />}
     {rendered.map((message) => {
       if (message.role === 'user' && embeddedSteeringIds.has(message.id)) return null;
       const run = runForMessage(analysisRuns, message.id);
       const activities = message.id.startsWith('stream-') && isGenerating ? toolActivities : run?.actions ?? [];
       const isAgentTurn = message.role === 'assistant' && (active?.mode === 'agent' || message.id === (run && runTurnId(run.id)));
-      const body = editingId === message.id ? <MessageEditor text={editingText} onChange={setEditingText} onSave={() => { void (async () => { if (await editMessage(message, editingText)) setEditingId(null); })(); }} onCancel={() => setEditingId(null)} /> : <>{message.projectReferences?.length ? <MessageProjectReferences references={message.projectReferences} /> : null}{message.attachments?.length ? <MessageAttachments attachments={message.attachments} /> : null}{message.role === 'assistant' && (isAgentTurn || message.thinking || message.thinkingTimeline?.length) ? <AgentTimeline timeline={message.thinkingTimeline} activities={isAgentTurn ? activities : []} messages={rendered} reasoning={message.thinking} now={agentClock} streaming={message.id.startsWith('stream-') && isGenerating} error={message.agentError} cancelled={message.agentCancelled} /> : null}{message.content ? <Markdown streaming={message.id.startsWith('stream-') && isGenerating}>{message.content}</Markdown> : null}{message.role === 'assistant' && message.id.startsWith('stream-') && isGenerating && progressIndicatorLabel(generationState, toolActivities, isAgentTurn) ? <GenerationIndicator state={generationState} toolLabel={progressIndicatorLabel(generationState, toolActivities, isAgentTurn) ?? undefined} /> : null}{message.role === 'assistant' && message.richArtifacts?.length ? <Suspense fallback={null}><RichArtifacts artifacts={message.richArtifacts} /></Suspense> : null}{message.role === 'assistant' && (!message.id.startsWith('stream-') || !isGenerating) && galleryFailureWarning(activities, message.richArtifacts) ? <p className="rich-response-warning" role="status">{t('Галерея не создана. Найденные изображения и ссылки не означают, что галерея была показана.')}</p> : null}{message.role === 'assistant' && message.generationStats ? <GenerationStatsView stats={message.generationStats} /> : null}</>;
+      const snapshot = run?.taskPlan ?? message.taskPlan;
+      const body = editingId === message.id ? <MessageEditor text={editingText} onChange={setEditingText} onSave={() => { void (async () => { if (await editMessage(message, editingText)) setEditingId(null); })(); }} onCancel={() => setEditingId(null)} /> : <>{message.projectReferences?.length ? <MessageProjectReferences references={message.projectReferences} /> : null}{message.attachments?.length ? <MessageAttachments attachments={message.attachments} /> : null}{message.role === 'assistant' && (isAgentTurn || message.thinking || message.thinkingTimeline?.length) ? <AgentTimeline timeline={message.thinkingTimeline} activities={isAgentTurn ? activities : []} messages={rendered} reasoning={message.thinking} now={agentClock} streaming={message.id.startsWith('stream-') && isGenerating} error={message.agentError} cancelled={message.agentCancelled} /> : null}{message.content ? <Markdown streaming={message.id.startsWith('stream-') && isGenerating}>{message.content}</Markdown> : null}{message.role === 'assistant' && message.id.startsWith('stream-') && isGenerating && progressIndicatorLabel(generationState, toolActivities, isAgentTurn) ? <GenerationIndicator state={generationState} toolLabel={progressIndicatorLabel(generationState, toolActivities, isAgentTurn) ?? undefined} /> : null}{message.role === 'assistant' && message.richArtifacts?.length ? <Suspense fallback={null}><RichArtifacts artifacts={message.richArtifacts} /></Suspense> : null}{message.role === 'assistant' && (!message.id.startsWith('stream-') || !isGenerating) && galleryFailureWarning(activities, message.richArtifacts) ? <p className="rich-response-warning" role="status">{t('Галерея не создана. Найденные изображения и ссылки не означают, что галерея была показана.')}</p> : null}{message.role === 'assistant' && message.generationStats ? <GenerationStatsView stats={message.generationStats} /> : null}{message.role === 'assistant' && !message.id.startsWith('stream-') && snapshot ? <TaskHistoryCard plan={snapshot} logicalTaskId={run?.logicalTaskId ?? message.logicalTaskId} status={run?.status} archived={message.archivedAttempt} /> : null}</>;
       const editing = editingId === message.id;
       return <article className={`message ${message.role} ${editing ? 'is-editing' : ''} ${message.id.startsWith('stream-') && isGenerating ? 'is-generating' : ''}`} key={message.id}>{message.role === 'user' ? <div className="user-message-stack"><div className="message-content">{body}</div>{!editing && <UserMessageActions content={message.content} onEdit={() => { if (!generationConversationId) { setEditingId(message.id); setEditingText(message.content); } }} onRegenerate={() => { void regenerateMessage(message); }} regenerateDisabled={!activeConversationModel(active, settings?.llamaRuntime) || Boolean(generationConversationId)} />}</div> : <div className="message-content">{body}</div>}</article>;
     })}
-    {!isGenerating && active?.mode === 'agent' && messages.at(-1)?.role === 'user' && analysisRuns.at(-1)?.status === 'interrupted' && <p className="agent-notice" role="status">{t("Предыдущий запуск был прерван. Его прогресс сохранён: отправьте сообщение, чтобы продолжить, или нажмите «Сгенерировать ответ заново», чтобы начать с чистого состояния.")}</p>}
+    {!isGenerating && active?.mode === 'agent' && messages.at(-1)?.role === 'user' && analysisRuns.at(-1)?.status === 'interrupted' && <p className="agent-notice" role="status">{t("Предыдущий запуск был прерван. Его прогресс сохранён: выберите «Продолжить эту задачу» в истории или «Сгенерировать ответ заново». Обычная отправка начинает новую задачу.")}</p>}
     {lastFinishReason === 'length' && !isGenerating && <p className="truncation-notice" role="status">{t("Ответ сохранён, но достигнут предел продолжения. Текст выше не потерян.")}</p>}
     <div ref={endRef} />
-  </section><Composer /></main></div>;
+  </section><ApprovalPanel /><Composer /></main></div>;
 }

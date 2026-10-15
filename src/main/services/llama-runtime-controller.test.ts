@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LAUNCHER_ABSENT, LlamaRuntimeController, parseLlamaRuntimeState } from './llama-runtime-controller';
+import { LAUNCHER_ABSENT, SERVER_ABSENT, LlamaRuntimeController, parseLlamaRuntimeState } from './llama-runtime-controller';
 
 const qwen = 'qwen3.8:27b-q4_K_M';
 const glm = 'glm-4.7-flash:q4_k';
@@ -14,7 +14,7 @@ async function fixture(timeoutMs = 5_000) {
   const signals: number[] = [];
   let clock = 0;
   return { files, signals, dir, make: (onSignal: (request: Record<string, string>) => Promise<void>) => new LlamaRuntimeController(files, timeoutMs, {
-    readText: async (path) => path === '/proc/4242/cmdline' ? '/bin/bash\0/media/yaroslav/DATA/local-ai-desktop/run-local-ai-desktop-llama-cpp-mtp.sh' : readFile(path, 'utf8'),
+    readText: async (path) => path === '/proc/4242/cmdline' ? '/bin/bash\0/media/yaroslav/DATA/local-ai-desktop/run-local-ai-desktop-llama-cpp-mtp.sh' : path === '/proc/1/cmdline' ? ['/test/custom-server', '--port', '8081', '--ctx-size', '65536'].join('\0') : readFile(path, 'utf8'),
     signal: (pid) => {
       signals.push(pid);
       void readFile(files.requestFile, 'utf8').then((text) => onSignal(Object.fromEntries(text.trim().split('\n').map((line) => line.split('=') as [string, string]))));
@@ -28,10 +28,30 @@ async function fixture(timeoutMs = 5_000) {
 const state = (fields: Record<string, unknown>) => JSON.stringify({ status: 'ready', requestId: '', modelId: '', contextWindow: 0, kvCacheType: 'f16', kvOffload: true, serverPid: 1, launcherPid: 4242, error: '', rolledBack: false, ...fields });
 
 export async function runLlamaRuntimeControllerRegression(): Promise<void> {
+  {
+    const { files, make } = await fixture();
+    const controller = make(async request => {
+      assert.equal(request.CONTEXT, '110592'); assert.equal(request.KV_TYPE, 'f16');
+      await writeFile(files.stateFile, state({ requestId: request.REQUEST_ID, modelId: qwen, contextWindow: 65536, kvCacheType: 'q8_0' }));
+    });
+    const result = await controller.switchTo(qwen, 110592, 'f16');
+    assert.equal(result.ok, false, '64K Q8 must not acknowledge an explicit 108K FP16 request');
+    if (!result.ok) { assert.match(result.error, /108K f16.*64K q8_0/); assert.equal(result.state.contextWindow, 65536); assert.equal(result.state.kvCacheType, 'q8_0'); }
+  }
   assert.equal(parseLlamaRuntimeState('not json'), null);
   assert.equal(parseLlamaRuntimeState(state({ status: 'weird' })), null);
   assert.deepEqual(parseLlamaRuntimeState(state({ modelId: qwen, contextWindow: 65_536, kvCacheType: 'f16', kvOffload: true })), { status: 'ready', modelId: qwen, contextWindow: 65_536, kvCacheType: 'f16', kvOffload: true, launcherPid: 4242, serverPid: 1 });
 
+  {
+    // A live launcher cannot vouch for a server that died after startup.
+    const { files, make } = await fixture();
+    await writeFile(files.stateFile, state({ modelId: qwen, contextWindow: 65_536, serverPid: 999_999 }));
+    const offline = await make(async () => undefined).state();
+    assert.equal(offline.status, 'offline');
+    assert.equal(offline.modelId, null);
+    assert.equal(offline.contextWindow, null);
+    assert.equal(offline.error, SERVER_ABSENT);
+  }
   {
     const { files, make } = await fixture();
     const controller = make(async request => {
@@ -56,6 +76,15 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     assert.equal(captured.KV_TYPE, 'q8_0');
     assert.equal(captured.KV_OFFLOAD, '0');
     assert.deepEqual(signals, [4242]);
+  }
+  for (const [context, kv] of [[73728, 'f16'], [110592, 'q8_0']] as const) {
+    const { files, make } = await fixture();
+    const controller = make(async request => {
+      assert.equal(Number(request.CONTEXT), context); assert.equal(request.KV_TYPE, kv);
+      await writeFile(files.stateFile, state({ requestId: request.REQUEST_ID, modelId: qwen, contextWindow: context, kvCacheType: kv, kvOffload: true }));
+    });
+    const result = await controller.switchTo(qwen, context, kv);
+    assert(result.ok); assert.equal(result.state.contextWindow, context); assert.equal(result.state.kvCacheType, kv);
   }
   {
     // The requested runtime failed, the launcher restored the previous one: the switch is a failure and the active model is the previous one.

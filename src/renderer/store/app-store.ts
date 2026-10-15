@@ -1,3 +1,4 @@
+import type { LoopNotice, LoopLifecycle } from '../../shared/autonomy';
 import { t } from '../../shared/locale';
 import { activeConversationModel } from '../../shared/model-selection';
 import { create } from 'zustand';
@@ -26,9 +27,15 @@ type State = {
   activeContextWindow: number | null;
   analysisProgress: AnalysisProgress[];
   analysisRuns: AnalysisRun[];
+  legacyAgentPlan: AgentPlan | null;
   agentPlan: AgentPlan | null;
+  continuationTaskId: string | null;
+  continuationLabel: string | null;
+  selectTaskContinuation: (logicalTaskId: string | null, label?: string) => void;
   lastFinishReason: FinishReason | null;
   performance: GenerationDiagnostics | null;
+  loopNotice: LoopNotice | null;
+  loopPaused: boolean;
   pendingApproval: { actionId: string; approval: ActionApproval } | null;
   approvalSubmitting: boolean;
   agentTelemetry: AgentTelemetry | null;
@@ -49,7 +56,7 @@ type State = {
   editMessage: (message: ChatMessage, content: string) => Promise<boolean>;
   regenerateMessage: (message: ChatMessage) => Promise<boolean>;
   stop: () => Promise<void>;
-  handleStream: (event: { type: string; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
+  handleStream: (event: { type: string; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; notice?: LoopNotice | null; lifecycle?: LoopLifecycle; paused?: boolean; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
 };
 
 const assistantId = (generationId: string) => `stream-${generationId}`;
@@ -72,7 +79,7 @@ const mergeToolActivity = (prior: ToolActivity | undefined, next: ToolActivity):
   return { ...prior, ...next, ...(terminal ? { terminal } : {}) };
 };
 
-const viewKeys = ['messages', 'isGenerating', 'generationId', 'generationState', 'error', 'toolActivities', 'toolActivityCount', 'activeContextWindow', 'analysisProgress', 'analysisRuns', 'agentPlan', 'lastFinishReason', 'performance', 'pendingApproval', 'approvalSubmitting', 'agentTelemetry', 'steeringStatus'] as const;
+const viewKeys = ['loopNotice', 'loopPaused', 'messages', 'isGenerating', 'generationId', 'generationState', 'error', 'toolActivities', 'toolActivityCount', 'activeContextWindow', 'analysisProgress', 'analysisRuns', 'agentPlan', 'legacyAgentPlan', 'continuationTaskId', 'continuationLabel', 'lastFinishReason', 'performance', 'pendingApproval', 'approvalSubmitting', 'agentTelemetry', 'steeringStatus'] as const;
 type ConversationView = Pick<State, typeof viewKeys[number]>;
 const viewOf = (state: State): ConversationView => Object.fromEntries(viewKeys.map((key) => [key, state[key]])) as ConversationView;
 
@@ -98,7 +105,9 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     routedId = id;
     try { action(); } finally { routedId = previous; }
   };
+  const approvalQueues = new Map<string, Map<string, { actionId: string; approval: ActionApproval }>>();
   const releaseGeneration = (generationId: string) => {
+    approvalQueues.delete(generationId);
     if (rawGet().generationOwnerId === generationId) rawSet({ generationConversationId: null, generationOwnerId: null });
   };
   const pendingTokens = new Map<string, string>();
@@ -144,11 +153,9 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     // The database already truncated the regenerated branch. Refresh its run
     // projection as well as messages; otherwise withRunHistory resurrects the
     // stopped attempt from the renderer cache alongside the new stream.
-    const [analysisRuns, agentPlan] = await Promise.all([
-      window.localAi.analysis.list(activeId), window.localAi.agentPlans.get(activeId),
-    ]);
+    const analysisRuns = await window.localAi.analysis.list(activeId);
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
-    withView(activeId, () => set({ analysisRuns, agentPlan, messages: [...saved, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, pendingApproval: null, approvalSubmitting: false, steeringStatus: null, agentTelemetry: { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } }));
+    withView(activeId, () => set({ analysisRuns, agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...saved, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, steeringStatus: null, agentTelemetry: { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } }));
     try { await window.localAi.chat.send({ conversationId: activeId, model, mode: chat.mode, messages: saved, generationId, persistUserMessage: false }); }
     catch (error) { withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'error', error: error instanceof Error ? error.message : errorMessage, messages: finishAgentStream(state.messages, generationId, { error: error instanceof Error ? error.message : errorMessage }) } : {})); }
     finally { releaseGeneration(generationId); }
@@ -156,7 +163,12 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   };
   return {
   modeTransitions: {},
-  conversations: [], activeId: null, messages: [], models: [], hardware: null, settings: null, isGenerating: false, generationId: null, generationConversationId: null, generationOwnerId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: null, analysisProgress: [], analysisRuns: [], agentPlan: null, lastFinishReason: null, performance: null, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null,
+  conversations: [], activeId: null, messages: [], models: [], hardware: null, settings: null, isGenerating: false, generationId: null, generationConversationId: null, generationOwnerId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: null, analysisProgress: [], analysisRuns: [], agentPlan: null, legacyAgentPlan: null, continuationTaskId: null, continuationLabel: null, lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null,
+  selectTaskContinuation: (logicalTaskId, label) => {
+    if (get().generationConversationId || branchRegenerationPending) return;
+    if (logicalTaskId && !get().analysisRuns.some(run => run.logicalTaskId === logicalTaskId && run.conversationId === get().activeId && !logicalTaskId.startsWith('legacy:'))) return;
+    set({ continuationTaskId: logicalTaskId, continuationLabel: logicalTaskId ? label ?? t('Продолжение задачи') : null });
+  },
   initialize: async () => {
     const [conversations, models, settings] = await Promise.all([window.localAi.conversations.list(), window.localAi.models.list(), window.localAi.settings.get()]);
     set({ conversations, models, settings });
@@ -166,12 +178,21 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   },
   selectConversation: async (id) => {
     const request = ++selection;
-    const [messages, analysisRuns, agentPlan] = await Promise.all([window.localAi.messages.list(id), window.localAi.analysis.list(id), window.localAi.agentPlans.get(id)]);
+    const [messages, analysisRuns, agentPlan, legacyAgentPlan] = await Promise.all([window.localAi.messages.list(id), window.localAi.analysis.list(id), window.localAi.agentPlans.get(id), window.localAi.agentPlans.legacy?.(id) ?? Promise.resolve(null)]);
     if (request !== selection) return;
-    if (get().activeId) views.set(get().activeId!, viewOf(get()));
+    if (get().activeId) {
+      // Completed history is authoritative in SQLite and is reloaded on entry.
+      // Retain only a live execution (or its unresolved error/cancellation UI).
+      if (get().isGenerating || get().generationState === 'error' || get().generationState === 'cancelled') views.set(get().activeId!, viewOf(get()));
+      else views.delete(get().activeId!);
+    }
+    for (const [cachedId, view] of views) {
+      if (views.size <= 4) break;
+      if (!view.isGenerating && cachedId !== id) views.delete(cachedId);
+    }
     const conversation = get().conversations.find((item) => item.id === id);
     const cached = views.get(id);
-    set({ activeId: id, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
+    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
   },
   createConversation: async () => {
     const conversation = await window.localAi.conversations.create();
@@ -196,14 +217,14 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       modeUpdatesInFlight.delete(id);
       set((state) => { const rest = { ...state.modeTransitions }; delete rest[id]; return { modeTransitions: rest }; });
     };
-    if (before) set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? { ...chat, ...patch } : chat), activeContextWindow: state.activeId === id && patch.contextWindow !== undefined ? patch.contextWindow : state.activeContextWindow, performance: state.activeId === id && patch.modelId !== undefined ? null : state.performance }));
+    if (before) set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? { ...chat, ...patch } : chat), performance: state.activeId === id && patch.modelId !== undefined ? null : state.performance }));
     try {
       const updated = await window.localAi.conversations.update(id, patch);
-      set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? updated : chat), activeContextWindow: state.activeId === id ? updated.contextWindow : state.activeContextWindow, performance: state.activeId === id && patch.modelId !== undefined ? null : state.performance }));
+      set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? updated : chat), performance: state.activeId === id && patch.modelId !== undefined ? null : state.performance }));
       settle();
-      if (patch.modelId !== undefined || patch.contextWindow !== undefined) await get().refreshRuntime();
+      if (patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined) await get().refreshRuntime();
     } catch (error) {
-      if (before) set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? revertRefusedPatch(chat, before, patch) : chat), activeContextWindow: state.activeId === id && patch.contextWindow !== undefined ? before.contextWindow : state.activeContextWindow }));
+      if (before) set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? revertRefusedPatch(chat, before, patch) : chat), activeContextWindow: state.activeContextWindow }));
       settle();
       // A refused runtime switch leaves the stored conversation unchanged; show the real reason and the real runtime.
       set({ error: (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '') });
@@ -214,7 +235,8 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   refreshRuntime: async () => {
     try {
       const [settings, models] = await Promise.all([window.localAi.settings.get(), window.localAi.models.list()]);
-      set({ settings, models });
+      const chat = get().conversations.find(item => item.id === get().activeId);
+      set({ settings, models, activeContextWindow: activeConversationModel(chat, settings.llamaRuntime) ? settings.llamaRuntime?.contextWindow ?? null : null });
     } catch { /* the next poll retries */ }
   },
   refreshRuntimeStatus: async () => {
@@ -222,7 +244,8 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       const llamaRuntime = await window.localAi.runtime.state();
       const settings = get().settings;
       if (!settings || JSON.stringify(settings.llamaRuntime) === JSON.stringify(llamaRuntime)) return;
-      set({ settings: { ...settings, llamaRuntime, llamaRuntimeModelId: llamaRuntime.modelId ?? undefined } });
+      const chat = get().conversations.find(item => item.id === get().activeId);
+      set({ settings: { ...settings, llamaRuntime, llamaRuntimeModelId: llamaRuntime.modelId ?? undefined }, activeContextWindow: activeConversationModel(chat, llamaRuntime) ? llamaRuntime.contextWindow : null });
     } catch { /* the next status poll retries */ }
   },
   deleteConversation: async (id) => {
@@ -237,7 +260,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   refreshHardware: async () => set({ hardware: await window.localAi.hardware.get() }),
   sendMessage: async (content, files = [], projectReferences = []) => {
     if (get().generationConversationId || branchRegenerationPending) { set({ error: t("Уже выполняется генерация или подготовка повтора. Дождитесь завершения или остановите её в активном чате.") }); return; }
-    const { activeId, conversations, messages, settings } = get();
+    const { activeId, conversations, messages, settings, continuationTaskId } = get();
     if (!activeId || (!content.trim() && files.length === 0)) return;
     const chat = conversations.find((item) => item.id === activeId); const model = activeConversationModel(chat, settings?.llamaRuntime);
     if (!model) { set({ error: t("Выберите модель перед отправкой сообщения.") }); return; }
@@ -246,13 +269,13 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const attached: Attachment[] = files.map((file, index) => { const isImage = isImageFile(file); return { id: crypto.randomUUID(), messageId: userId, index, kind: isImage ? 'image' : file.name.endsWith('.pdf') ? 'pdf' : /\.(xlsx|xls)$/i.test(file.name) ? 'spreadsheet' : file.name.endsWith('.docx') ? 'document' : 'text', mimeType: file.type || 'application/octet-stream', filename: file.name, size: file.size, storageRef: '', status: 'pending', metadata: isImage ? { imageNumber: ++imageIndex } : undefined, createdAt: now(), updatedAt: now() }; });
     const user: ChatMessage = { id: userId, conversationId: activeId, role: 'user', content: content.trim() || t("Вложения"), createdAt: now(), attachments: attached, projectReferences };
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
-    set({ messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, pendingApproval: null, approvalSubmitting: false, agentTelemetry: chat?.mode === 'agent' ? { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } : null });
+    set({ agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: chat?.mode === 'agent' ? { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } : null });
     try {
       set({ steeringStatus: null });
       if (!chat?.modelId) await get().updateConversation(activeId, { modelId: model });
       if (chat?.title === 'Новый чат') await get().updateConversation(activeId, { title: content.trim().slice(0, 56) });
       const attachmentInputs = await Promise.all(files.map(async (file, index) => ({ id: attached[index].id, messageId: user.id, index: attached[index].index, filename: file.name, mimeType: file.type, data: new Uint8Array(await file.arrayBuffer()) })));
-      await window.localAi.chat.send({ conversationId: activeId, model, mode: chat?.mode, messages: [...messages, user], generationId, persistUserMessage: true, attachments: attachmentInputs });
+      await window.localAi.chat.send({ conversationId: activeId, model, mode: chat?.mode, messages: [...messages, user], generationId, persistUserMessage: true, ...(continuationTaskId ? { continueLogicalTaskId: continuationTaskId } : {}), attachments: attachmentInputs });
     }
     catch (error) { withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'error', error: error instanceof Error ? error.message : t("Не удалось отправить сообщение"), messages: state.messages.filter((message) => message.id !== assistantId(generationId)) } : {})); }
     finally { releaseGeneration(generationId); }
@@ -288,15 +311,17 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const { activeId, generationId, pendingApproval, approvalSubmitting } = get();
     if (!activeId || !generationId || !pendingApproval || approvalSubmitting) return;
     set({ approvalSubmitting: true });
-    const accepted = await window.localAi.chat.approve({ conversationId: activeId, generationId, approvalId: pendingApproval.approval.approvalId, decision });
-    if (!accepted) set((state) => state.generationId === generationId ? { approvalSubmitting: false } : {});
+    try {
+      const accepted = await window.localAi.chat.approve({ conversationId: activeId, generationId, approvalId: pendingApproval.approval.approvalId, decision });
+      if (!accepted) set(state => state.generationId === generationId ? { approvalSubmitting: false, error: t('Запрос разрешения больше не активен.') } : {});
+    } catch { set(state => state.generationId === generationId ? { approvalSubmitting: false, error: t('Не удалось отправить решение. Повторите попытку.') } : {}); }
   },
   stop: async () => {
     const { activeId, generationId } = get(); if (!activeId || !generationId) return;
-    set({ generationState: 'stopping', pendingApproval: null, approvalSubmitting: false });
+    set({ generationState: 'stopping', loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false });
     await window.localAi.chat.stop(activeId, generationId);
     pendingTokens.delete(generationId); pendingThinking.delete(generationId); if (animationFrame !== null) { window.cancelAnimationFrame(animationFrame); animationFrame = null; }
-    withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'cancelled', messages: finishAgentStream(state.messages, generationId, { cancelled: true }), performance: null, pendingApproval: null, approvalSubmitting: false } : {}));
+    withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'cancelled', messages: finishAgentStream(state.messages, generationId, { cancelled: true }), performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false } : {}));
     // `chat:stop` resolves after the main process finalized the run, so the database is authoritative here.
     if (!generationRuns.has(generationId)) return;
     try { const runs = await window.localAi.analysis.list(activeId); withView(activeId, () => set(adoptRuns(generationId, runs))); } catch { /* the analysis-run event already carried the final run */ }
@@ -371,8 +396,25 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         }),
       };
     });
-    if (event.type === 'approval-request' && event.actionId && event.approval) set((state) => ({ generationState: 'waiting-for-approval', pendingApproval: { actionId: event.actionId!, approval: event.approval! }, approvalSubmitting: false, toolActivities: state.toolActivities.map((activity) => activity.id === event.actionId ? { ...activity, approval: event.approval } : activity) }));
-    if (event.type === 'approval-resolved' && event.actionId && event.approvalId && event.status) { const approvalStatus = event.status as Exclude<ApprovalStatus, 'pending'>; set((state) => ({ generationState: state.generationState === 'waiting-for-approval' ? 'using-tool' : state.generationState, pendingApproval: state.pendingApproval?.approval.approvalId === event.approvalId ? null : state.pendingApproval, approvalSubmitting: false, toolActivities: state.toolActivities.map((activity) => activity.id === event.actionId ? { ...activity, approval: { approvalId: event.approvalId!, category: activity.approval?.category ?? 'system_command', status: approvalStatus } } : activity) })); }
+    if (event.type === 'approval-request' && event.actionId && event.approval) {
+      const queue = approvalQueues.get(event.generationId) ?? new Map<string, { actionId: string; approval: ActionApproval }>();
+      queue.set(event.approval.approvalId, { actionId: event.actionId, approval: event.approval });
+      approvalQueues.set(event.generationId, queue);
+      set(state => ({ generationState: 'waiting-for-approval', pendingApproval: queue.values().next().value ?? null, approvalSubmitting: false, toolActivities: state.toolActivities.map(activity => activity.id === event.actionId ? { ...activity, approval: event.approval } : activity) }));
+    }
+    if (event.type === 'approval-resolved' && event.actionId && event.approvalId && event.status) {
+      const queue = approvalQueues.get(event.generationId); queue?.delete(event.approvalId);
+      const next = queue?.values().next().value ?? null;
+      const approvalStatus = event.status as Exclude<ApprovalStatus, 'pending'>;
+      set(state => ({ generationState: next ? 'waiting-for-approval' : state.generationState === 'waiting-for-approval' ? 'using-tool' : state.generationState, pendingApproval: next, approvalSubmitting: false, toolActivities: state.toolActivities.map(activity => activity.id === event.actionId ? { ...activity, approval: { ...activity.approval, approvalId: event.approvalId!, category: activity.approval?.category ?? 'system_command', status: approvalStatus } } : activity) }));
+    }
+    if (event.type === 'loop-state') set({ loopNotice: event.notice ?? null, loopPaused: Boolean(event.paused) });
+    if (event.type === 'loop-event' && event.lifecycle && event.timelinePosition !== undefined) {
+      const lifecycle = event.lifecycle;
+      drainStream(true);
+      set(state => ({ messages: state.messages.map(message => message.id === assistantId(event.generationId)
+        ? { ...message, thinkingTimeline: [...(message.thinkingTimeline ?? []), { id: `loop-${event.timelinePosition}`, kind: 'loop', position: event.timelinePosition!, lifecycle }] } : message) }));
+    }
     if (event.type === 'work-budget' && event.budget) set((state) => ({ agentPlan: { milestones: [], ...state.agentPlan, workBudget: event.budget } }));
     if (event.type === 'task-memory' && event.memory) {
       const prior = get().agentPlan?.taskMemory;
@@ -381,14 +423,15 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         set({ agentPlan: { milestones: [], ...(get().agentPlan?.workBudget ? { workBudget: get().agentPlan!.workBudget } : {}), taskMemory: { entries: [], plan: event.memory.plan, deliverables: event.memory.deliverables, verification: event.memory.verification } } });
       }
     }
+    if (event.type === 'analysis-run' && event.run?.logicalTaskId) set(state => ({ messages: state.messages.map(message => message.id === event.run!.triggeringMessageId || message.id === assistantId(event.generationId) ? { ...message, logicalTaskId: event.run!.logicalTaskId } : message) }));
     if (event.type === 'analysis-run' && event.run) { generationRuns.set(event.generationId, event.run.id); set((state) => adoptRuns(event.generationId, [...state.analysisRuns.filter((run) => run.id !== event.run!.id), event.run!])(state)); }
     if (event.type === 'analysis' && event.progress) set({ analysisProgress: [event.progress] });
     if (event.type === 'context' && event.active) set({ activeContextWindow: event.active });
     if (event.type === 'diagnostics' && event.diagnostics) set({ performance: { ...event.diagnostics, generationId: event.generationId, conversationId: event.conversationId, createdAt: now() } });
     if (event.type === 'token' && get().generationState !== 'generating') set({ generationState: 'generating' });
-    if (event.type === 'error') { releaseGeneration(event.generationId); drainStream(true); pendingTokens.delete(event.generationId); pendingThinking.delete(event.generationId); const message = event.details ? `${event.message}: ${event.details}` : event.message ?? t("Ошибка генерации"); set((state) => ({ isGenerating: false, generationId: null, generationState: 'error', error: message, messages: finishAgentStream(state.messages, event.generationId, { error: message }), lastFinishReason: null, performance: null, pendingApproval: null, approvalSubmitting: false, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
-    if (event.type === 'cancelled') { releaseGeneration(event.generationId); drainStream(true); pendingTokens.delete(event.generationId); pendingThinking.delete(event.generationId); set((state) => ({ isGenerating: false, generationId: null, generationState: 'cancelled', messages: finishAgentStream(state.messages, event.generationId, { cancelled: true }), lastFinishReason: 'cancelled', performance: null, pendingApproval: null, approvalSubmitting: false, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
-    if (event.type === 'done') { releaseGeneration(event.generationId); drainStream(true); set((state) => ({ isGenerating: false, generationId: null, generationState: 'idle', messages: state.messages.flatMap((message) => message.id === assistantId(event.generationId) ? (event.assistant ? [event.assistant] : []) : [message]), lastFinishReason: event.finishReason ?? 'stop', agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
+    if (event.type === 'error') { releaseGeneration(event.generationId); drainStream(true); pendingTokens.delete(event.generationId); pendingThinking.delete(event.generationId); const message = event.details ? `${event.message}: ${event.details}` : event.message ?? t("Ошибка генерации"); set((state) => ({ isGenerating: false, generationId: null, generationState: 'error', error: message, messages: finishAgentStream(state.messages, event.generationId, { error: message }), lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
+    if (event.type === 'cancelled') { releaseGeneration(event.generationId); drainStream(true); pendingTokens.delete(event.generationId); pendingThinking.delete(event.generationId); set((state) => ({ isGenerating: false, generationId: null, generationState: 'cancelled', messages: finishAgentStream(state.messages, event.generationId, { cancelled: true }), lastFinishReason: 'cancelled', performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
+    if (event.type === 'done') { releaseGeneration(event.generationId); drainStream(true); set((state) => ({ isGenerating: false, generationId: null, generationState: 'idle', loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, messages: state.messages.flatMap((message) => message.id === assistantId(event.generationId) ? (event.assistant ? [event.assistant] : []) : [message]), lastFinishReason: event.finishReason ?? 'stop', agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, finishedAt: now() } : null })); }
     });
   },
 };

@@ -8,6 +8,9 @@ export type ContextChoice = {
   kvCacheType: LlamaKvCacheType;
   kvOffload: boolean;
   label: string;
+  status?: 'unevaluated' | 'fit' | 'maximum' | 'above';
+  explanation?: string;
+  warning?: string;
 };
 
 export const contextChoiceId = (option: Pick<ContextChoice, 'contextWindow' | 'kvCacheType' | 'kvOffload'>) =>
@@ -22,18 +25,34 @@ export function buildContextChoices(
   hardLimit: number,
   discovered: readonly ContextDiscoveryOption[],
   normalCacheType: LlamaKvCacheType = 'f16',
+  supportedKvTypes: readonly LlamaKvCacheType[] = ['f16', 'q8_0'],
 ): ContextChoice[] {
-  const options: ContextChoice[] = [...new Set(normalPresets)]
-    .filter((contextWindow) => contextWindow > 0 && contextWindow <= hardLimit)
-    .map((contextWindow) => ({ contextWindow, kvCacheType: normalCacheType, kvOffload: true, label: `${contextWindow / 1024}K${normalCacheType === 'q8_0' ? ' (Q8)' : ''}` }));
-  for (const candidate of discovered) {
-    if (candidate.modelId !== modelId || candidate.contextWindow > hardLimit) continue;
+  const limit = Math.min(hardLimit, 262144);
+  const catalog = discovered.filter(option => option.modelId === modelId && option.contextWindow > 0 && option.contextWindow <= limit && supportedKvTypes.includes(option.kvCacheType));
+  const options: ContextChoice[] = supportedKvTypes.flatMap(kvCacheType =>
+    [...new Set([16384,32768,65536,131072,262144, ...catalog.filter(option => option.kvCacheType === kvCacheType).map(option => option.contextWindow)])]
+      .filter(contextWindow => contextWindow > 0 && contextWindow <= limit).map(contextWindow => ({
+        contextWindow, kvCacheType, kvOffload: true, label: `${contextWindow / 1024}K (${cacheModeLabel(kvCacheType)})`,
+      })));
+
+  void normalCacheType; void normalPresets;
+  for (const candidate of catalog) {
+    if (candidate.modelId !== modelId || candidate.contextWindow > limit || !supportedKvTypes.includes(candidate.kvCacheType)) continue;
     const existing = options.find((option) => contextChoiceId(option) === contextChoiceId(candidate));
-    const label = `${candidate.contextWindow / 1024}K (${cacheModeLabel(candidate.kvCacheType)})`;
+    const label = `${candidate.contextWindow / 1024}K (${cacheModeLabel(candidate.kvCacheType)})${candidate.kvOffload ? '' : ' · KV RAM'}`;
     if (existing) existing.label = label;
     else options.push({ ...candidate, label });
   }
-  return options.sort((left, right) => left.contextWindow - right.contextWindow || left.kvCacheType.localeCompare(right.kvCacheType));
+  return options.map(option => describeContextChoice(option, modelId, catalog)).sort((left, right) => left.contextWindow - right.contextWindow || left.kvCacheType.localeCompare(right.kvCacheType));
+}
+
+export function describeContextChoice(choice: ContextChoice, modelId: string, discovered: readonly ContextDiscoveryOption[]): ContextChoice {
+  const measurement = discovered.filter(option => option.modelId === modelId && option.kvCacheType === choice.kvCacheType && option.kvOffload === true && choice.kvOffload === true)
+    .sort((a,b) => b.discoveredAt.localeCompare(a.discoveredAt))[0];
+  if (!measurement) return { ...choice, status: 'unevaluated', warning: undefined, explanation: 'Не оценено для этой конфигурации' };
+  if (choice.contextWindow > measurement.contextWindow) return { ...choice, status: 'above', explanation: 'Выше измеренного GPU-fit предела: требуется больше памяти; возможна ошибка загрузки', warning: measurement.conditions !== 'comparable' ? measurement.conditionWarning ?? 'Условия прошлого измерения не подтверждены' : undefined };
+  if (measurement.conditions !== 'comparable') return { ...choice, status: 'unevaluated', explanation: 'Условия прошлого измерения не подтверждены', warning: measurement.conditionWarning ?? 'Доступная память или конфигурация runtime могли измениться' };
+  return { ...choice, status: choice.contextWindow === measurement.contextWindow ? 'maximum' : 'fit', warning: undefined, explanation: choice.contextWindow === measurement.contextWindow ? 'Точный найденный GPU-fit максимум' : 'В проверенном GPU-fit диапазоне при сопоставимых условиях' };
 }
 
 export function normalContextPatch(contextWindow: number) {
@@ -51,9 +70,8 @@ export function resolveLlamaKvSelection(
   modelChanged: boolean,
   normalKv: { llamaKvCacheType: LlamaKvCacheType; llamaKvOffload: boolean } = defaultLlamaKv,
 ) {
-  const normalRequest = patch.contextWindow !== undefined && patch.llamaKvCacheType === undefined && patch.llamaKvOffload === undefined;
   return {
-    llamaKvCacheType: patch.llamaKvCacheType ?? (modelChanged || normalRequest ? normalKv.llamaKvCacheType : current.llamaKvCacheType ?? normalKv.llamaKvCacheType),
-    llamaKvOffload: patch.llamaKvOffload ?? (modelChanged || normalRequest ? normalKv.llamaKvOffload : current.llamaKvOffload ?? normalKv.llamaKvOffload),
+    llamaKvCacheType: patch.llamaKvCacheType ?? (modelChanged ? normalKv.llamaKvCacheType : current.llamaKvCacheType ?? normalKv.llamaKvCacheType),
+    llamaKvOffload: patch.llamaKvOffload ?? (modelChanged ? normalKv.llamaKvOffload : current.llamaKvOffload ?? normalKv.llamaKvOffload),
   };
 }

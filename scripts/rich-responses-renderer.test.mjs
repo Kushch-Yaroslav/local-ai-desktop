@@ -46,12 +46,15 @@ try {
       hardware: { get: async () => null }, models: { list: async () => [{ id: 'fixture', name: 'Fixture', shortName: 'Fixture', installed: true, supportedContextPresets: [32768], maxContext: 32768, reasoning: { thinkingToggle: true, efforts: [] } }] },
       contextEstimate: async () => ({ unknownReasons: [], configuredMaxTokens: 32768 }), contextDiscoveryStatus: async () => ({ busy: false }),
       webImages: { load: async () => ({ dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=', mimeType: 'image/png' }), openSource: async url => { window.richFixture.source = url; } },
-      chat: { onStream: listener => { stream = listener; return () => {}; }, onDiagramValidation: listener => { validator = listener; return () => {}; }, diagramValidationResult: (_id, error) => { window.richFixture.validation = error ?? 'valid'; }, send: value => { request = value; return new Promise(done => { resolveSend = done; }); }, stop: async () => { stream({ type: 'cancelled', conversationId: request.conversationId, generationId: request.generationId }); resolveSend(); } },
+      chat: { permissions: async () => ({ mode: 'trusted', trusted_roots: [] }), grants: async () => [], setPermissions: async (_id, mode) => ({ mode, trusted_roots: [] }), revokeApprovals: async () => true, loopControl: async () => {}, onStream: listener => { stream = listener; return () => {}; }, onDiagramValidation: listener => { validator = listener; return () => {}; }, diagramValidationResult: (_id, error) => { window.richFixture.validation = error ?? 'valid'; }, send: value => { request = value; return new Promise(done => { resolveSend = done; }); }, stop: async () => { stream({ type: 'cancelled', conversationId: request.conversationId, generationId: request.generationId }); resolveSend(); } },
     };
   }, { examples, gallery });
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await page.waitForSelector('.rich-chart .recharts-wrapper');
   await page.waitForSelector('.rich-diagram .mermaid-canvas svg');
+  // Exercise the actual language event; uiLanguage is no longer a settings field.
+  await page.evaluate(() => window.richFixture.language('ru'));
+  await page.waitForFunction(() => document.documentElement.lang === 'ru');
   assert.equal(await page.locator('.rich-gallery img').count(), 4);
   assert.equal(await page.locator('.rich-response-warning').count(), 1);
   assert.match(await page.locator('.rich-response-warning').innerText(), /Галерея не создана/);

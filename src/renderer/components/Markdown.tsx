@@ -9,6 +9,7 @@ import { mermaidGitThemeVariables, mermaidLabelColorForContrast, mermaidThemeVar
 import { downloadSvg } from '../svg-export';
 import { layoutGitLabels } from '../git-label-layout';
 import { queueMermaidTask } from '../mermaid-validation';
+import { parseMermaidWithFormatting } from '../../shared/mermaid-source';
 
 function correctRenderedLabelContrast(svg: SVGSVGElement, underlayColor: string) {
   const surfaces = [
@@ -62,6 +63,7 @@ function MermaidBlock({ source }: { source: string }) {
   const [naturalWidth, setNaturalWidth] = useState(0);
   const [gitDescriptions, setGitDescriptions] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
@@ -94,6 +96,7 @@ function MermaidBlock({ source }: { source: string }) {
   useEffect(() => {
     let cancelled = false;
     setSvg('');
+    setGitDescriptions([]);
     setNaturalWidth(0);
     setError('');
     setZoom(1);
@@ -116,7 +119,9 @@ function MermaidBlock({ source }: { source: string }) {
           fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
           flowchart: { htmlLabels: true },
         });
-        const result = await mermaid.render(`mermaid-${id}`, source, scratch);
+        const renderSource = await parseMermaidWithFormatting(source, value => mermaid.parse(value));
+        if (cancelled) return;
+        const result = await mermaid.render(`mermaid-${id}-${retry}`, renderSource, scratch);
         if (!cancelled) {
           const preview = document.createElement('div');
           preview.className = `mermaid-block mermaid-${theme}${gitGraph ? ' mermaid-git' : ''}`;
@@ -145,14 +150,14 @@ function MermaidBlock({ source }: { source: string }) {
             preview.remove();
           }
         }
-      } catch {
-        if (!cancelled) setError(t("Не удалось отобразить диаграмму. Проверьте исходный Mermaid-код."));
+      } catch (failure) {
+        if (!cancelled) setError(`${t("Не удалось отобразить диаграмму. Проверьте исходный Mermaid-код.")} ${failure instanceof Error ? failure.message.slice(0, 1200) : String(failure).slice(0, 1200)}`);
       } finally {
         scratch.remove();
       }
     });
     return () => { cancelled = true; };
-  }, [id, source, theme, gitGraph]);
+  }, [id, source, theme, gitGraph, retry]);
 
   const reset = () => {
     setZoom(1);
@@ -206,6 +211,7 @@ function MermaidBlock({ source }: { source: string }) {
     <details className="mermaid-source" open={error ? true : undefined}>
       <summary>{t("Исходный Mermaid-код")}</summary>
       <div className="mermaid-source-actions">
+        {error && <button type="button" onClick={() => setRetry(value => value + 1)}>{t('Повторить отрисовку')}</button>}
         <button type="button" onClick={copy}>{copied ? t("Скопировано") : t("Копировать код")}</button>
         {copyError && <span role="status">{t("Не удалось скопировать. Выделите код ниже.")}</span>}
       </div>

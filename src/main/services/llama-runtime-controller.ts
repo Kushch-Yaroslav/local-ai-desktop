@@ -2,7 +2,7 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { llamaRuntimeProfile } from '../models/llama-runtime-policy';
-import type { LlamaKvCacheType } from '../../shared/types';
+import type { LlamaKvCacheType, RuntimeActivation } from '../../shared/types';
 import { llamaCapabilityLimit } from './gguf-context';
 
 /**
@@ -10,6 +10,8 @@ import { llamaCapabilityLimit } from './gguf-context';
  * server that answers on the port right now, never a requested value.
  */
 export type LlamaRuntimeState = {
+  /** Explicit activation diagnostics, attached by the coordinator; not effective settings. */
+  activation?: RuntimeActivation;
   status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped';
   modelId: string | null;
   contextWindow: number | null;
@@ -26,6 +28,8 @@ export type LlamaRuntimeState = {
   /** The launcher that wrote this state; a state whose launcher is gone describes nothing. */
   launcherPid?: number;
   serverPid?: number;
+  serverStartTime?: string;
+  launcherStartTime?: string;
 };
 
 export type LlamaSwitchResult =
@@ -56,6 +60,7 @@ const defaultDeps: Deps = {
 
 /** Error text of a state with no live launcher; never implies an active model. */
 export const LAUNCHER_ABSENT = 'Launcher llama.cpp не запущен';
+export const SERVER_ABSENT = 'Процесс llama-server недоступен. Загрузите модель повторно и продолжите задачу.';
 
 /** Parses the launcher's state document defensively: it is another process's output. */
 export function parseLlamaRuntimeState(raw: string): LlamaRuntimeState | null {
@@ -76,6 +81,8 @@ export function parseLlamaRuntimeState(raw: string): LlamaRuntimeState | null {
       ...(value.rolledBack === true ? { rolledBack: true } : {}),
       ...(typeof value.launcherPid === 'number' && value.launcherPid > 0 ? { launcherPid: value.launcherPid } : {}),
       ...(typeof value.serverPid === 'number' && value.serverPid > 0 ? { serverPid: value.serverPid } : {}),
+      ...(typeof value.serverStartTime === 'string' && value.serverStartTime ? { serverStartTime: value.serverStartTime } : {}),
+      ...(typeof value.launcherStartTime === 'string' && value.launcherStartTime ? { launcherStartTime: value.launcherStartTime } : {}),
     };
   } catch { return null; }
 }
@@ -102,6 +109,20 @@ export class LlamaRuntimeController {
     if (!parsed) return { status: 'offline', modelId: null, contextWindow: null, error: 'Состояние llama.cpp не читается' };
     // A state file outlives its launcher; only a live launcher can vouch for it.
     if (parsed.launcherPid !== undefined && !(await this.deps.readText(`/proc/${parsed.launcherPid}/cmdline`).then((text) => text.includes('run-local-ai-desktop-llama-cpp-mtp.sh'), () => false))) return gone;
+    const startTime = async (pid: number) => {
+      const raw = await this.deps.readText(`/proc/${pid}/stat`).catch(() => '');
+      return raw.slice(raw.lastIndexOf(') ') + 2).trim().split(/\s+/)[19];
+    };
+    if (parsed.launcherPid && parsed.launcherStartTime && await startTime(parsed.launcherPid) !== parsed.launcherStartTime) return gone;
+    if (parsed.status === 'ready' && parsed.serverPid) {
+      const commandLine = await this.deps.readText(`/proc/${parsed.serverPid}/cmdline`).catch(() => '');
+      // Runtime settings permit renamed/custom server binaries. Recognize the
+      // launch arguments, rather than requiring a particular executable name.
+      const args = commandLine.split('\0');
+      if (!args.includes('--port') || !args.includes('--ctx-size') || parsed.serverStartTime && await startTime(parsed.serverPid) !== parsed.serverStartTime) {
+        return { ...parsed, status: 'offline', modelId: null, contextWindow: null, error: SERVER_ABSENT };
+      }
+    }
     if (parsed.status === 'ready' && !parsed.projectorDevice && parsed.serverPid) {
       // Older launchers did not publish projector placement. Inspect only the live
       // command line so upgrading does not require an otherwise redundant restart.
@@ -144,7 +165,7 @@ export class LlamaRuntimeController {
       const state = await this.state();
       if (state.requestId === requestId && (state.status === 'ready' || state.status === 'offline')) {
         if (state.status === 'ready' && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || state.projectorDevice === projectorDevice)) return { ok: true, state };
-        return { ok: false, state, error: state.error ?? 'llama.cpp не подтвердил запрошенную модель' };
+        return { ok: false, state, error: state.error ?? `llama.cpp не подтвердил запрошенную конфигурацию: ${modelId}, ${contextWindow / 1024}K ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}; активно ${state.modelId ?? 'none'}, ${(state.contextWindow ?? 0) / 1024}K ${state.kvCacheType ?? '?'}, KV ${state.kvOffload ? 'GPU' : 'RAM'}.` };
       }
       await this.deps.sleep(500);
     }
