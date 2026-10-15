@@ -25,7 +25,7 @@ These are measurement statuses, not guarantees. FP16 and Q8 results never valida
 
 The **Maximum Context** popover shows a short FP16/Q8 explanation, separate discovered maxima, one current total/used/free VRAM summary and the actual supported model/backend limit. A discovered maximum is not the active context. Missing telemetry is shown as unknown. The popover adapts to narrow windows and scrolls vertically. More diagnostics are available in monitoring.
 
-Total/used/free VRAM is a current shared summary, not a separate measurement for each cache type. See the [v0.2.0 context screenshots](../releases/v0.2.0.md#context-screenshots-and-discovery) for an illustrative selector and popover; their values are not defaults.
+Total/used/free VRAM is a current shared summary, not a separate measurement for each cache type. See the [v0.2.0 context screenshots](../archive/releases/v0.2.0-validation-history.md#context-screenshots-and-discovery) for an illustrative selector and popover; their values are not defaults.
 
 Larger contexts consume more memory and may slow prompt processing. CPU/RAM offload occurs only with a supported, configured backend layout; memory exhaustion may instead fail loading. KV precision is separate from model weight quantization.
 
@@ -53,7 +53,7 @@ Historical verification describes the saved attempt. Continuing, Stop/resume or 
 
 The selector near the composer changes the permission workflow, not the mandatory sandbox or workspace boundary.
 
-The approval dialog shows the full proposed command and target project, with **Allow once**, **Always allow for this session** and **Deny**. Review the operation before allowing it. The [v0.2.0 permission screenshots](../releases/v0.2.0.md#permission-screenshots-and-approval-flow) illustrate these controls; the shown command is not an instruction to execute.
+The approval dialog shows the full proposed command and target project, with **Allow once**, **Always allow for this session** and **Deny**. Review the operation before allowing it. The [v0.2.0 permission screenshots](../archive/releases/v0.2.0-validation-history.md#permission-screenshots-and-approval-flow) illustrate these controls; the shown command is not an instruction to execute.
 
 There is no trusted-folder management step. “Always allow in this session” means a scoped grant for the current run, not permanent trust for a directory or arbitrary future commands. Review/revoke grants in the permission controls. Restart does not restore them. Mode changes affect subsequent operations, not a completed action.
 
@@ -63,7 +63,7 @@ Mandatory blocks cannot be approved away. Autopilot returns an explanation rathe
 
 Ask for concrete outputs and relevant checks. **Implemented** is the agent's claim; **Verified** requires fresh runtime evidence of the appropriate kind and project. Tests in A do not prove B was unchanged. Without a trusted prior integrity baseline, that claim remains unverified. Real source changes require fresh checks; identical supported writes do not. Conservative classification of complex shell scripts may require a simpler scoped check, such as `python3 -m unittest`.
 
-A completed plan is not itself verification. The [v0.2.0 Agent screenshot](../releases/v0.2.0.md#agent-screenshot-reasoning-and-plan) illustrates reasoning, Mermaid, plan and deliverables together; displayed counts describe one task, not release acceptance.
+A completed plan is not itself verification. The [v0.2.0 Agent screenshot](../archive/releases/v0.2.0-validation-history.md#agent-screenshot-reasoning-and-plan) illustrates reasoning, Mermaid, plan and deliverables together; displayed counts describe one task, not release acceptance.
 
 The agent starts long-lived development servers through managed terminal tasks and checks/stops them by their returned handles. Historical PID/port text is not a valid cleanup handle. Use managed stop rather than `kill`, `pkill`, `killall` or port-based termination. Stopping a task does not authorize stopping the model server.
 

@@ -1,30 +1,67 @@
 # Changelog / История выпусков
 
-Release history lives here; current usage is documented in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides.
+User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides. This file summarizes changes; it does not replace the guides.
 
-История выпусков хранится здесь; текущие сценарии — в [английском](docs/en/USER_GUIDE.md) и [русском](docs/ru/USER_GUIDE.md) руководствах.
+## v0.2.0 — 2026-10-15 — Experimental Alpha (pre-release)
 
-## v0.2.0 — 2026-10-15 — Experimental Alpha (pre-release) / Экспериментальная Alpha (предварительный выпуск)
+### Added
 
-- Agent V2 reliability: task-scoped state/history, evidence freshness and attribution, bounded two-stage loop recovery, permission and lifecycle fixes.
-- Two user-facing modes, mandatory terminal isolation and protected-runtime process handling.
-- Saved FP16/Q8 context loading, independent discovery status, compact selector and Maximum Context summary.
-- File recovery/downloads, clearer diagnostics, Mermaid handling and long-history UX improvements.
-- RC2 fixes: explicit Selected/Active context loading, live terminal elapsed time, verified fail-closed migration of the known legacy Bubblewrap helper, and terminal stdin isolation from the runtime control pipe.
-- The installed RC2 passed local acceptance with Qwen Agent tasks, recovery from a previously paused loop, cross-chat continuation and package upgrade. This is developer-machine acceptance, not clean-install or broad distro certification.
-- RC2 package inspection, extracted application smoke tests, enforcing sandbox checks and disposable Ubuntu 24.04 package-lifecycle checks passed. A clean Ubuntu installation has not been independently verified; see the [detailed notes](docs/releases/v0.2.0.md#validation).
+- Continue saved Agent tasks across chats, with previous attempts and verification results kept in the task history.
+- Detect repeated, unproductive Agent actions and attempt bounded recovery before pausing.
+- Select FP16 or Q8 KV cache, save context discovery results and review clearer loading status.
+- Choose between Ask for confirmation and Absolute Autopilot.
 
-Надёжность Agent V2: состояние и история отдельных задач, свежесть/принадлежность evidence, двухэтапное восстановление циклов, разрешения и lifecycle. Два режима UI, обязательная изоляция терминала и защита runtime. Сохранённые FP16/Q8, раздельные статусы discovery, компактные selector/справка. Восстановление файлов, загрузки, диагностика, Mermaid и длинные истории.
-- Исправления RC2: явная загрузка Selected/Active context, live elapsed time терминала, проверенная fail-closed миграция известного старого Bubblewrap helper и отделение stdin терминала от runtime control pipe.
-- Установленный RC2 прошёл локальную приёмку с задачами Qwen Agent, восстановлением после ранее приостановленного цикла, продолжением между чатами и обновлением пакета. Это приёмка на машине разработчика, не сертификация clean install или других дистрибутивов.
-- Проверки содержимого RC2, извлечённого приложения, enforcing sandbox и lifecycle в disposable Ubuntu 24.04 прошли. Установка на независимую чистую Ubuntu не проверялась; см. [подробные заметки](docs/releases/v0.2.0.ru.md#validation).
+### Changed
 
-[Detailed notes (EN)](docs/releases/v0.2.0.md) · [Подробности (RU)](docs/releases/v0.2.0.ru.md) · [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) · [Download amd64 DEB](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.0/local-ai-desktop_0.2.0_amd64.deb) · [SHA256SUMS](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.0/SHA256SUMS) · [Checklist / Условия выпуска](docs/releases/v0.2.0-checklist.md)
+- Agent plans, progress and checks follow their task when you switch conversations.
+- Agent timelines, terminal status, long histories, model loading and error messages are clearer.
+
+### Fixed
+
+- Improved Agent recovery guidance, verification freshness, file recovery and managed terminal lifecycle.
+
+### Security
+
+- Linux package setup provisions an enforcing AppArmor policy and dedicated Bubblewrap helper. An administrator must authorize accounts for terminal use; isolation failures stop command execution.
+
+[Release notes (EN)](docs/releases/v0.2.0.md) · [Примечания (RU)](docs/releases/v0.2.0.ru.md) · [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) · [amd64 DEB](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.0/local-ai-desktop_0.2.0_amd64.deb) · [SHA256SUMS](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.0/SHA256SUMS)
 
 ## v0.1.0 — 2026-10-10 — Experimental Alpha (pre-release)
 
-Initial tagged baseline: Linux desktop Chat/local GGUF inference via external llama.cpp; Rust Agent V2, project references, tools/planning, context compaction/discovery, attachments and Rich Responses. Ubuntu developer-machine package/first-run smoke tests were recorded; clean-OS and broad compatibility were not established.
+Initial published version for Linux x86_64: local GGUF chat through an external llama.cpp server, Agent coding tasks, project references, planning and tools, context controls, attachments and rich responses. The release was tested on the developer's Ubuntu system; clean-install and broad compatibility were not established.
 
-Первый tagged baseline: Linux Chat/локальный GGUF через внешний llama.cpp, Rust Agent V2, ссылки на проекты, инструменты/планы, компактизация/discovery, вложения и Rich Responses. Записаны smoke-tests пакета/первого запуска на Ubuntu разработчика; чистая ОС и широкая совместимость не подтверждены.
+[Tag](https://github.com/Kushch-Yaroslav/local-ai-desktop/tree/v0.1.0) · [Published releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases)
 
-[Tag / Тег](https://github.com/Kushch-Yaroslav/local-ai-desktop/tree/v0.1.0) · [Published releases / Выпуски](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases)
+## История на русском
+
+### v0.2.0 — 2026-10-15 — Experimental Alpha (предварительный выпуск)
+
+#### Добавлено
+
+- Продолжение сохранённых задач Agent между чатами с историей попыток и результатами проверок.
+- Обнаружение повторяющихся бесполезных действий Agent и ограниченное восстановление перед приостановкой.
+- Выбор KV-кэша FP16 или Q8, сохранение результатов поиска контекста и более понятный статус загрузки.
+- Режимы «Запрашивать подтверждение» и «Абсолютный автопилот».
+
+#### Изменено
+
+- Планы, прогресс и проверки Agent следуют за задачей при переключении бесед.
+- Временная шкала Agent, статус терминала, длинные истории, загрузка модели и сообщения об ошибках стали понятнее.
+
+#### Исправлено
+
+- Улучшены подсказки при восстановлении Agent, актуальность проверок, восстановление файлов и жизненный цикл управляемого терминала.
+
+#### Безопасность
+
+- Установщик Linux-пакета настраивает enforcing-policy AppArmor и отдельный Bubblewrap helper. Администратор разрешает учётным записям использование терминала; если изоляция не работает, команды не запускаются.
+
+[Примечания (RU)](docs/releases/v0.2.0.ru.md) · [Release notes (EN)](docs/releases/v0.2.0.md) · [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0)
+
+### v0.1.0 — 2026-10-10 — Experimental Alpha (предварительный выпуск)
+
+Первая опубликованная версия для Linux x86_64: локальный чат с GGUF через внешний сервер llama.cpp, задачи Agent по коду, ссылки на проект, планирование и инструменты, настройки контекста, вложения и форматированные ответы. Выпуск проверялся на Ubuntu разработчика; чистая установка и широкая совместимость не подтверждены.
+
+[Тег](https://github.com/Kushch-Yaroslav/local-ai-desktop/tree/v0.1.0) · [Опубликованные выпуски](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases)
+
+Historical release validation records are kept in the [documentation archive](docs/archive/README.md).

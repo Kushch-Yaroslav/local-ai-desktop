@@ -46,6 +46,6 @@ Context compaction is lossy. Requested/effective context, KV precision, offload 
 
 ## Validation references
 
-Implementation and regression anchors are in the [v0.2.0 audit map](releases/v0.2.0.md#implementationtest-audit-map). Archived fixture/model results retain their original provenance in the [release evidence section](releases/v0.2.0.md#validation); fresh package, migration, model/GPU and lifecycle acceptance remain in the [release checklist](releases/v0.2.0-checklist.md).
+Implementation links and the detailed release evidence remain in the [archived v0.2.0 validation record](archive/releases/v0.2.0-validation-history.md). The [archived release checklist](archive/releases/v0.2.0-checklist.md) records package, migration, model/GPU and lifecycle acceptance status for that candidate; it is not a current validation procedure.
 
 The historical listener-kill incident was not conclusively diagnosed: terminated PIDs were not captured. Later isolation closes that class of unsafe host-process operation without retroactively proving causation; an intentional later project deletion is not a runtime defect.

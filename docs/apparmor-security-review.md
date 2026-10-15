@@ -2,7 +2,7 @@
 
 [Documentation](README.md) · [Installation and acceptance](bwrap-installation-acceptance.md) · [Runtime architecture](runtime-self-protection.md)
 
-This maintained reference consolidates the earlier AppArmor staging, pre-exec and loader investigations. It describes the current source boundary and retained deployment evidence, not a security certification or an instruction to install a historical policy. v0.2.0 is published as an Experimental Alpha. Enforcing acceptance passed on the tested developer installation; clean-OS installation and broad distribution validation remain unverified ([release limitations](releases/v0.2.0.md#limitations)).
+This maintained reference consolidates the earlier AppArmor staging, pre-exec and loader investigations. It describes the current source boundary and retained deployment evidence, not a security certification or an instruction to install a historical policy. v0.2.0 is published as an Experimental Alpha. Enforcing acceptance passed on the tested developer installation; clean-OS installation and broad distribution validation remain unverified ([release limitations](releases/v0.2.0.md#compatibility-and-known-limitations)).
 
 ## Layers and enforcement
 
@@ -56,7 +56,7 @@ No universal sandbox-escape, kernel-security or availability guarantee is claime
 
 Retained enforcing fixture reports measured the stacked label, Seccomp=2, NoNewPrivs=1 and zero capabilities, exercised ordinary commands/project writes and owned HTTP lifecycle, and checked helper denial and fail-closed startup. Their model provider was scripted; OS checks were real. Loader-marker positive controls and absence checks are separate from real Qwen inference.
 
-The [October 13 evidence record](noop-loader-validation-2026-10-13.md) preserves the later loader/no-op regression and real Qwen source run, including recovered rejected calls and cleanup. Those results were not independently rerun during documentation cleanup and do not certify a frozen package.
+The [October 13 evidence record](archive/noop-loader-validation-2026-10-13.md) preserves the later loader/no-op regression and real Qwen source run, including recovered rejected calls and cleanup. Those results were not independently rerun during documentation cleanup and do not certify a frozen package.
 
 For a separately approved deployment, use the [installation reference](bwrap-installation-acceptance.md), then the production [sandbox fixture](../scripts/sandbox-startup-electron.test.mjs) and [loader regression](../scripts/sandbox-loader-injection.test.mjs). A complain/inherited-label run, parser check or fixture pass alone is not enforcing acceptance. No policy or system setting was changed by this documentation cleanup.
 

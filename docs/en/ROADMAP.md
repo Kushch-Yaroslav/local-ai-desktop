@@ -2,11 +2,13 @@
 
 [English](ROADMAP.md) · [Русский](../ru/ROADMAP.md) · [Home](../../README.md)
 
-Future directions under consideration, without delivery dates or commitments. Implemented capabilities belong in [Features](FEATURES.md); release gates belong in the [checklist](../releases/v0.2.0-checklist.md).
+These are areas the project may explore. They have no promised delivery dates; plans can change.
 
-- **MCP interoperability:** external tool servers with explicit authorization and lifecycle boundaries.
-- **Long-term experience across tasks:** carefully scoped retained knowledge beyond existing task-specific Task Memory and project observations.
-- **Diff/review UX:** more convenient review of actual file changes and recoverable versions.
-- **Multi-agent coordination:** investigate ownership, shared state, permissions and resource costs before promising parallel agents.
-- **Broader validation:** repeatable model/hardware/distribution coverage, large-history performance and packaging/upgrade reliability.
-- **Mobile Chat Remote:** exploratory only, not a committed core feature.
+- Connect external tool providers with clear permission and lifecycle controls.
+- Make it easier to review agent edits and recover earlier file versions.
+- Explore useful project knowledge that can be shared safely between tasks.
+- Study whether multiple agents can coordinate without confusing ownership or permissions.
+- Improve compatibility testing across Linux systems, models, hardware and larger conversations.
+- Explore a way to use Local AI Desktop chat from a phone.
+
+Task continuation and task-specific memory already exist. They should not be confused with shared knowledge across unrelated tasks. See [current features](FEATURES.md) for what is available today.
