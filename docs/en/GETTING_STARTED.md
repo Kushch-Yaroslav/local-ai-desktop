@@ -2,52 +2,84 @@
 
 [English](GETTING_STARTED.md) · [Русский](../ru/GETTING_STARTED.md) · [Home](../../README.md)
 
-## Platform and package status
+## Requirements
 
-**Verified:** The Local AI Desktop v0.1.0 Linux amd64 `.deb` was successfully installed and first-run smoke-tested on the developer's Ubuntu 24.04 x86_64 machine. After setup and UI fixes, the installed application was repeatedly tested with fresh, isolated XDG configuration, data, and cache profiles. The final test confirmed installation and launch, initial configuration, selecting and validating the `llama-server` executable, model selection, and successful application startup.
+Linux x86_64 is the implemented Agent isolation target; Ubuntu 24.04 with Bubblewrap 0.9.0 is the primary validated environment. The Debian package includes Electron and Rust Agent Runtime, but not llama.cpp or GGUF weights. Other distributions, ARM, drivers and desktop environments need separate validation. The developer's RTX 3090 24 GB, Ryzen 7 5700X3D and 64 GB RAM are a test configuration, not minimum requirements.
 
-**Not verified:** Installation on a completely fresh operating system, other Linux distributions, other hardware configurations, or general compatibility. The package includes Electron and the Rust Agent runtime, but not `llama-server` or model weights. The repository build target is available with `npm run package:linux`.
+Published packages are listed on [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases). v0.2.0 passed installed-package acceptance on the developer's Ubuntu system; a clean-OS installation has not been independently verified.
 
-The app is Linux-focused. Debian-family x64 is the current packaging target. Other distributions, ARM systems, GPU driver combinations, and desktop environments need individual validation. The author's development/test machine is an RTX 3090 with 24 GB VRAM, Ryzen 7 5700X3D, and 64 GB DDR4; this is not a minimum requirement.
+## Install the latest published package
 
-## Install a published `.deb`
+Download the amd64 `.deb` from [the v0.2.0 Experimental Alpha release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0), then install it with:
 
-Download the Linux x86_64 `.deb` for **v0.1.0 — Experimental Alpha (Pre-release)** from [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases), then install it on Ubuntu with:
-
-```bash
-sudo apt install ./local-ai-desktop_0.1.0_amd64.deb
+```sh
+sudo apt install ./local-ai-desktop_0.2.0_amd64.deb
 ```
 
-Installation and first-run smoke testing were completed on the developer's Ubuntu 24.04 x86_64 machine; a completely fresh operating system and other Linux distributions have not been tested.
+This installs the package and dependencies. Do not run Electron as root. The package provisions its dedicated helper and AppArmor profiles during configuration. An administrator must explicitly authorize each desktop account for the dedicated group, as described below. Missing isolation fails closed; there is no host-shell fallback.
 
-## Prepare llama.cpp and GGUF models
+## Ubuntu Agent terminal prerequisites
 
-Install or build a llama.cpp version that provides a compatible `llama-server`. The app package does not provide this server or model weights. Runtime options can vary with llama.cpp builds, so a version that supports the requested model architecture, GPU backend, projector, and any MTP configuration is needed.
+The tested deployment needs distro Bubblewrap, enabled AppArmor/user namespaces, and the application's dedicated enforcing policy/helper. Do not disable global AppArmor or user-namespace restrictions to resolve a startup refusal. Without secure startup, terminal tools fail closed; working file tools alone do not prove terminal readiness.
 
-Open **Settings → Models and runtime**. In **Path to llama-server or its folder**, enter the executable or a folder containing it, including an ancestor of a nested llama.cpp build. You can browse for either a file or folder. The app validates the file or searches the supplied folder within fixed limits; if several executables are found, select one. Review the resolved executable and save before launching. Existing saved executable paths remain supported. Set the directory where your GGUF models are stored. Add a model with its GGUF file and any required vision projector; paths are user-provided. Save settings, then choose a model in the toolbar and launch it.
+For a packaged installation, an administrator authorizes the intended desktop account with `sudo adduser ACCOUNT local-ai-desktop`; log out and back in before Agent terminal use. Package configuration must succeed first. Local policy modifications and unmanaged helpers require review rather than automatic replacement. Do not combine package management with the source installer.
 
-![Settings for llama-server, model directory, GPU layers, and web provider](../img/settings.png)
+For a source checkout only, run the reviewed standalone installer from the repository root:
 
-The default CPU/GPU layer value is `999`, which asks llama.cpp to offload as many model layers as it can to the GPU. A value of `0` asks it to run model layers on the CPU. These are requests to the backend; actual placement depends on the model, build, and hardware.
+```sh
+installer="$PWD/scripts/install-bwrap-apparmor.sh"
+test -n "$installer"
+bash "$installer" --check
+sudo /bin/bash "$installer" --install --group "$(id -gn)"
+```
 
-If the whole model does not fit in VRAM, you can configure partial offloading: some layers run on the GPU and the rest on the CPU, using system RAM for model data. This can make a larger model usable, often at a much lower speed. Partial offloading is an intentional configuration; it is different from an out-of-memory failure.
+This copies `/usr/bin/bwrap` to `/usr/lib/local-ai-desktop/bwrap` (root:application-group, 0750, no setuid), writes `/etc/apparmor.d/local-ai-desktop-bwrap` (root:root, 0644), and loads/verifies the two dedicated enforcing profiles. It does not attach to or replace `/usr/bin/bwrap`, create groups, or change global security settings. The installed AppArmor parser must accept the shipped policy. The installer refuses an existing differing policy; review it and keep a backup before any separate update. It is not automatic or transactional.
 
-The author has not tested total VRAM/RAM exhaustion, and the app has no verified automatic recovery for it. Exhaustion may cause a model-load error, allocation error, or another runtime failure. If startup fails, reduce GPU layers or context, or try CPU execution.
+Read-only verification, where profile visibility requires administrator access:
 
-## First session
+```sh
+sudo grep -E '^local_ai_desktop_bwrap(_child)? \(enforce\)$' /sys/kernel/security/apparmor/profiles
+```
 
-1. Start the app and complete the runtime settings above.
-2. Select a configured model and wait for the runtime status to become ready. Watch the RAM/VRAM indicators.
-3. Start a **Chat** and send a simple prompt. For a vision test, attach an image only after selecting a model with supported image input.
-4. For **Agent**, select a project and begin with a small read-only request such as summarizing the project structure. Review each requested approval before allowing changes or commands.
+Both profiles must appear. For packages, a dpkg trigger refreshes the managed helper after distro Bubblewrap updates; failed configuration leaves it unavailable until repaired. Standalone source copies require an administrator refresh through the reviewed installer. Helper access by a group is not exclusive caller authentication. The deployment is not an automatic rollback transaction. See the [technical installation record](../bwrap-installation-acceptance.md) for detail, read together with the newer [validation record](../noop-loader-validation-2026-10-13.md).
 
-## Common problems
+## Configure the model runtime
 
-- **Server not found:** verify the executable path or `PATH`; check that the file is executable and matches your CPU architecture.
-- **Model missing:** verify the model directory, filename, and GGUF integrity; model files are not downloaded automatically.
-- **Out of memory or failed startup:** lower context size or GPU layers, disable optional MTP, or select CPU layers. A model's listed maximum context does not imply that your machine can allocate it.
-- **Vision input rejected:** only models with a supported vision capability and compatible projector can process images. Image Processing CPU/GPU configures that image path, not the whole language model.
-- **GPU not detected:** check that llama.cpp was built with the relevant backend and that the driver works. NVIDIA metrics require `nvidia-smi`; other GPU telemetry may be unavailable.
-- **Package or desktop launch issue:** use the terminal to capture the exact error and check that the host satisfies the package dependencies. Electron sandbox setup varies by host.
+1. Install/build a compatible external `llama-server` supporting your GGUF architecture, GPU backend, optional MTP and projector.
+2. Open **Settings → Models and runtime**. Set **Path to llama-server or its folder**. The app validates/searches the folder within bounds; choose the intended executable if several are found.
+3. Set the model directory and actual GGUF path, plus a projector only where required. Models are not downloaded automatically. Save and select the model in the toolbar.
+4. Explicitly load the selected context/KV configuration, wait for ready, then send a simple Chat request.
+5. Select a disposable project, switch to Agent and test a small read/edit/test task. Start with Ask, or deliberately choose Absolute Autopilot within the same restrictions.
 
-See [User guide](USER_GUIDE.md) for controls and [Features](FEATURES.md) for behavior and limitations.
+![Runtime settings](../img/settings.png)
+
+GPU layers `999` requests maximum supported offload; `0` requests CPU layers. Partial offload is an intentional backend configuration, not an automatic response guaranteed after OOM. NVIDIA telemetry uses `nvidia-smi`; other GPU telemetry may be unavailable. Memory fit depends on weights, context, KV type and workload. Failed loading reports backend errors; reduce the request explicitly if needed.
+
+## Build from source
+
+Use Node.js 24, npm 10 or 11, a Rust toolchain compatible with the locked dependencies, and Linux development prerequisites. With no active run using the executable being rebuilt:
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+`npm run dev` also builds Rust and starts the development renderer/main workflow. Do not rebuild the running Rust executable during an Agent task; finish/stop your own task and restart normally after the build. The enforcing terminal acceptance command is `npm run test:sandbox-startup:electron`; it uses isolated fixtures and does not invoke a real model. Run tests as the desktop user, never via sudo.
+
+## Data and upgrade precautions
+
+Fresh installs use XDG directories: data in `$XDG_DATA_HOME/local-ai-desktop` (default `~/.local/share/local-ai-desktop`), configuration in `$XDG_CONFIG_HOME/local-ai-desktop`, cache in `$XDG_CACHE_HOME/local-ai-desktop`, and logs in `$XDG_STATE_HOME/local-ai-desktop/logs`. Defaults for the latter three are `~/.config`, `~/.cache` and `~/.local/state`. Existing source installations with `runtime/sqlite/local-ai-desktop.db` retain that legacy runtime layout; `LOCAL_AI_RUNTIME_ROOT` can select a separate instance root.
+
+Before upgrading, close your instance cleanly and back up its actual data/config roots, including SQLite and attachments. Do not overwrite a different configuration file merely because it has an old model path. Correct the active profile's path through Settings. Task migration preserves legacy plans but cannot reconstruct missing old ownership/snapshots. Do not downgrade a migrated database without restoring a matching backup.
+
+## Troubleshooting
+
+- **UID map/newroot/old-root sandbox denial:** inspect the actual setup diagnostic and kernel AppArmor denial; verify the matching helper/policy. Switching permission modes cannot repair isolation.
+- **Helper differs from distro binary:** request an administrator refresh; no unsafe fallback is provided.
+- **Runtime executable replaced:** complete the build and restart that instance; do not replace another running session.
+- **Connection refused/server offline:** inspect runtime logs and the selected endpoint; explicitly load a valid model, then continue the saved task.
+- **Missing GGUF/projector/server:** correct the active settings path; do not download or overwrite files automatically.
+- **Memory/vision failure:** check context, KV type, GPU layers and compatible projector. Recovery from total exhaustion is not guaranteed.
+
+Continue with the [User guide](USER_GUIDE.md).

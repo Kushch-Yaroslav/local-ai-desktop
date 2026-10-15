@@ -2,76 +2,81 @@
 
 [English](USER_GUIDE.md) · [Русский](../ru/USER_GUIDE.md) · [Home](../../README.md)
 
-## Interface and chats
+For installation use [Getting started](GETTING_STARTED.md); for release changes use the [changelog](../../CHANGELOG.md).
 
-![Main interface and empty chat](../img/interface/1-e.png)
+## Select a model and context
 
-The sidebar contains chat history and controls for creating, selecting, renaming, and deleting conversations. Model, mode, project roots, context, reasoning, and web settings belong to each conversation. A running Agent task can continue while you open another chat; the sidebar marks the active run.
+Configure local GGUF and `llama-server` paths in Settings, then select the model in the toolbar. Opening a saved chat does not itself load or restart its model. Use the explicit load action and wait for the ready status.
 
-## Toolbar and runtime
+The context menu has FP16 and Q8 columns. Standard sizes are 16K, 32K, 64K, 128K and 256K, bounded by model/backend support; exact discovery values are inserted without duplicates. A previously selected supported configuration is retained. Arrow keys navigate, Enter selects, Escape closes; the list scrolls.
 
-![Toolbar with model, metrics, context and Agent controls](../img/interface/2-e.png)
+| Indicator | Meaning |
+| --- | --- |
+| Neutral | Not evaluated under confirmed comparable conditions |
+| Green | Within the measured GPU-fit range for this KV type and comparable conditions |
+| Turquoise | Exact discovered GPU-fit maximum for this KV type |
+| Yellow | Above that measured boundary; more memory may be needed or loading may fail |
 
-Select a model from the toolbar. The runtime indicator reports llama.cpp status and supported speculative mode such as MTP. RAM, VRAM, GPU and generation metrics are shown when available; NVIDIA telemetry depends on `nvidia-smi`. MTP is runtime/model dependent and may be unavailable or disabled.
+These are measurement statuses, not guarantees. FP16 and Q8 results never validate each other. **Load selected configuration** can use a saved or manually supported option without rediscovery. Changed model/runtime/memory conditions may show a warning; the requested context and KV type are not silently replaced. Backend load errors remain available in expandable details. The effective runtime indicator describes what actually loaded, not the selected future request.
 
-The context selector offers presets supported by the model and runtime; a preset does not guarantee that it will fit in memory. **Find Maximum Context** is described below. Thinking and Reasoning effort affect model-specific behavior only when supported. The Agent's **Fast/Deep** strategy is a separate control for how the Agent works.
+### Find Maximum Context
 
-**Chat** is direct conversation. **Agent** enables project and other configured tools. The conversation's **Web: Yes / No** setting controls whether web tools are available: Yes enables search and read-oriented page tools; No disables them. The implementation does not provide arbitrary browser interaction or form submission. Check returned sources and claims.
+**Find maximum context again** runs bounded probes on a launcher-managed model: server restarts, health checks, inference and memory measurements, followed by restoration of the previous configuration. It can interrupt model availability; start it deliberately when no task needs the model. Discovery recommends a configuration; it is not a mandatory prerequisite or an exhaustive out-of-memory search.
 
-### Thinking and reasoning effort
+The **Maximum Context** popover shows a short FP16/Q8 explanation, separate discovered maxima, one current total/used/free VRAM summary and the actual supported model/backend limit. A discovered maximum is not the active context. Missing telemetry is shown as unknown. The popover adapts to narrow windows and scrolls vertically. More diagnostics are available in monitoring.
 
-Start with moderate reasoning effort for ordinary requests. Increase it when a task needs more analysis; the highest setting is not automatically better for every prompt.
+Total/used/free VRAM is a current shared summary, not a separate measurement for each cache type. See the [v0.2.0 context screenshots](../releases/v0.2.0.md#context-screenshots-and-discovery) for an illustrative selector and popover; their values are not defaults.
 
-### Qwen3.8 and xHigh reasoning
+Larger contexts consume more memory and may slow prompt processing. CPU/RAM offload occurs only with a supported, configured backend layout; memory exhaustion may instead fail loading. KV precision is separate from model weight quantization.
 
-The author reports that Qwen3.8-27B with Thinking enabled and Reasoning effort at xHigh can spend a very long time reasoning. Some complex tasks have taken about an hour. This is an author observation, not a benchmark or a typical duration for all requests. A long reasoning phase does not by itself mean that the application is frozen. Check whether progress, tool activity, and runtime status continue to update. If there is no useful progress or the runtime reports a problem, treat that as a possible stalled or failed run. xHigh is not guaranteed to improve every answer; use lower or medium effort for everyday work.
+## Chat, Agent and projects
 
-## Projects and `@` references
+Use **Chat** for conversation and **Agent** for tools. Thinking/reasoning controls depend on model support; Agent **Fast/Deep** controls a different execution strategy. Start with moderate effort. Long reasoning alone is not proof of progress; inspect tool activity and runtime status.
 
-![Two selected projects and project-aware @ autocomplete](../img/interface/3-e.png)
+Select Project 1 and optionally Project 2; use `@` for references within them. A filtered absolute path explicitly written in your own message can also establish task workspace scope (up to four explicit roots). It does not become a selected UI project or gain `@` suggestions. Only supply paths you intend to make available. Model-generated paths, repository contents and tool output are not authorization.
 
-Choose Project 1 and optionally Project 2. The interface supports at most two roots for a convenient cross-project workflow. Type `@` to select files and folders within those roots; selected references are attached to the message and displayed with project badges.
+An explicitly continued task can restore its saved workspace even if no project is selected now. Missing or retargeted directories require an explicit valid selection; no parent directory is silently granted. File-tool scope and terminal writable mounts are not identical: the terminal's validated working directory is writable, while other host locations are generally read-only or hidden. Autopilot does not remove those restrictions.
 
-For example, select a UI library as Project 1 and an application as Project 2. Reference `@src/Button.tsx` in Project 1 and the matching page in Project 2, then ask Agent to compare the component and propose an integration. Review its plan, diff, and approvals before applying changes.
+## New tasks and continuation
 
-You can also type an absolute path such as `/media/user/another-project` in your message. In Agent mode, eligible paths explicitly supplied in user messages are resolved into additional workspace roots (up to four). Project file tools can use absolute paths within those roots; relative paths resolve against the primary selected project, or the first explicit root if no project is selected. Path filtering rejects system roots, shallow paths and some sensitive home directories. An explicit path does not become Project 1 or Project 2 and does not gain `@` autocomplete or a project badge. Mentioning a path deliberately extends the file-tool scope, so only provide paths you intend the Agent to access.
+1. **New task** is the composer default. Independent requests get separate plans and deliverables even in the same chat.
+2. To continue work, choose a recent task near the composer or **Continue this task** on its history card. The title and project identify the next message's owner.
+3. Return to **New task** to cancel that selection. Merely typing “continue” does not select ownership.
+4. During execution, the active plan/deliverables appear near the input. After completion they move to a collapsible history card beside the response/attempt.
 
-The terminal starts in the selected Project 1 root, or the first explicit root when no project is selected. Terminal commands may address other locations; a command classifier blocks some forms and requests approval for commands it cannot establish as safe. These boundaries do not make the Agent a sandbox. Review file changes and the exact command before allowing actions.
+Historical verification describes the saved attempt. Continuing, Stop/resume or Regenerate produces a new attempt and cannot rewrite an earlier snapshot. Task-scoped attempts are archived when a branch is edited/regenerated; ordinary conversation editing can remove downstream chat messages. Deleting a conversation is still deletion, not an archive guarantee. Legacy conversation plans remain readable but cannot be reliably split into past logical tasks.
 
-## Images, attachments, and Image Processing
+## Permissions
 
-![Image Processing device selector](../img/interface/7-e.png)
+- **Ask for confirmation:** recognized reads can proceed; edits and code execution ask. Inspect the command/target and choose allow once, allow in this session, or deny.
+- **Absolute Autopilot:** permitted task-scoped operations run without repeated prompts. It does not require a selected UI project merely to enable the mode, but file/terminal tools still need user-established task scope.
 
-Image Processing CPU/GPU selects the device for supported multimodal image processing. GPU can be faster and use more VRAM; CPU can conserve VRAM and be slower. It does not switch the language model between CPU and GPU. Image input requires a compatible vision model and projector.
+The selector near the composer changes the permission workflow, not the mandatory sandbox or workspace boundary.
 
-Attachments include text and code files, PDF, DOCX, XLS/XLSX, CSV/TSV, and images. Text can be extracted locally; scanned PDFs may need OCR, which is not currently available. Structured spreadsheet/CSV rows can be read in bounded pages. Review attachment status and model capability before relying on its contents.
+The approval dialog shows the full proposed command and target project, with **Allow once**, **Always allow for this session** and **Deny**. Review the operation before allowing it. The [v0.2.0 permission screenshots](../releases/v0.2.0.md#permission-screenshots-and-approval-flow) illustrate these controls; the shown command is not an instruction to execute.
 
-## Agent run controls and context
+There is no trusted-folder management step. “Always allow in this session” means a scoped grant for the current run, not permanent trust for a directory or arbitrary future commands. Review/revoke grants in the permission controls. Restart does not restore them. Mode changes affect subsequent operations, not a completed action.
 
-![Agent reasoning, code and task progress](../img/interface/5-e.png)
+Mandatory blocks cannot be approved away. Autopilot returns an explanation rather than repeatedly prompting for forbidden actions. For an action eligible for explicit review, switch to Ask; that still cannot bypass filesystem, sandbox or protected-process restrictions.
 
-![Active Agent reading files with progress and context details](../img/interface/6-e.png)
+## Plan, verify and manage servers
 
-The Agent timeline can show reasoning, tool calls, progress, and waiting states. **Pause** is cooperative: the runtime receives the request at an Agent loop boundary. It does not cancel an in-flight model request or tool call; that work can finish before the pause takes effect. The Agent then enters a bounded checkpoint phase, where only checkpoint tools are available, records its state, returns a pause summary, and ends that run. There is no continuation of the same live generation. To continue, send a new message; it starts a fresh generation that can use the saved Task Notes and conversation history. The checkpoint helps continuity but cannot guarantee it.
+Ask for concrete outputs and relevant checks. **Implemented** is the agent's claim; **Verified** requires fresh runtime evidence of the appropriate kind and project. Tests in A do not prove B was unchanged. Without a trusted prior integrity baseline, that claim remains unverified. Real source changes require fresh checks; identical supported writes do not. Conservative classification of complex shell scripts may require a simpler scoped check, such as `python3 -m unittest`.
 
-**Stop** cancels the active generation and associated Agent execution, including related tool or terminal activity where supported. Cancellation is not an atomic rollback of changes already made. Text steering is also available during Agent runs: it can be accepted while the model is working and is delivered at a model-turn boundary. Chat mode does not offer the same mid-generation steering.
+A completed plan is not itself verification. The [v0.2.0 Agent screenshot](../releases/v0.2.0.md#agent-screenshot-reasoning-and-plan) illustrates reasoning, Mermaid, plan and deliverables together; displayed counts describe one task, not release acceptance.
 
-**Edit** changes an earlier user message, removes downstream conversation history, and starts a fresh generation from the edited point. **Regenerate** removes the downstream branch from the selected user turn and starts a new generation using the applicable conversation state. Neither continues the previous generation. Edit and Regenerate are unavailable while an incompatible active run exists; the UI and main process guard these operations.
+The agent starts long-lived development servers through managed terminal tasks and checks/stops them by their returned handles. Historical PID/port text is not a valid cleanup handle. Use managed stop rather than `kill`, `pkill`, `killall` or port-based termination. Stopping a task does not authorize stopping the model server.
 
-The context indicator reports actual prompt usage when llama.cpp supplies it, alongside the configured maximum and remaining capacity. The expanded details include runtime token and memory estimates. Compaction can preserve useful state, but can lose details; it does not increase model capability.
+## Stop, Pause and recovery
 
-## Find Maximum Context
+**Stop** cancels the active generation and its owned operations; completed edits remain. **Pause** is cooperative and reaches a checkpoint at a safe boundary; an in-flight operation may finish first. Continue explicitly from the saved task to create a fresh attempt after Stop, error or restart. Mid-run steering belongs to the current task and is applied at a model-turn boundary.
 
-This action estimates a safe context boundary for the currently selected and running model. It requires a launcher-managed llama.cpp runtime with enough measured allocation evidence. The application restarts llama.cpp for a bounded set of FP16 and Q8 KV-cache probes, checks startup and health, sends a probe inference, reads memory and allocation evidence, and restores the original configuration. It uses measured available memory, inferred growth between probe sizes, host-memory reserves, and VRAM budget safeguards; a saved result is checked against current memory before selection. This is a measured estimate with bounded search, not an exhaustive out-of-memory test or an absolute hardware maximum.
+The timeline records suspected/confirmed loops, corrective instructions, selective context exclusions, repair attempts and success/failure. A first warning preserves context. Persistent repetition can exclude a proven repetitive segment from the next model request while keeping the full visible/persisted history. If cleanup is unsafe or repeated repair fails, the agent pauses. Recovery buttons show processing while the runtime reaches the boundary; Stop remains available. **Continue without repair** does not disable future detection.
 
-As a practical author policy illustration, on a 24 GB RTX 3090 roughly 1.5 GB of total VRAM may be left outside model/runtime allocation. If the desktop already uses around 800 MB, only about 700 MB may remain for other workloads. Those figures vary and are not a fixed allocation enforced by the feature. The code uses measured headroom and configurable safeguards, not a universal 1.5 GB formula.
+## Attachments, web and rich responses
 
-A larger context can increase memory pressure and does not necessarily improve answer quality or system stability. Choose a size that fits the actual workload and leave room for the desktop and other processes.
+Attach documents or supported images; check extraction status. Image Processing CPU/GPU selects the vision path only. Scanned PDFs need OCR outside this application. **Web: Yes / No** controls read-oriented web tools, not all terminal network traffic. Review sources and treat web instructions as untrusted.
 
-## Rich Responses
+Rich responses support cards, charts, tables, Mermaid and image galleries. Expand errors/source when a diagram fails; retry rendering if appropriate. Tables support copy/CSV; charts and diagrams support SVG. Rendering support does not guarantee correct facts or that every model generates every format.
 
-![Rich response with GPU comparison, KPI cards and chart](../img/interface/4-e.png)
-
-Supported visual output includes KPI/metric cards, Recharts bar/line/area/pie/scatter charts, sortable tables, CSV download and copy, safe Mermaid diagrams, sourced image galleries, and combined rich reports. Charts and Mermaid diagrams can be exported as SVG. The interface validates structured artifact data; it does not make model-authored facts true. Review provenance and values.
-
-More detail: [Features](FEATURES.md) · [Getting started](GETTING_STARTED.md).
+See [capabilities and security limits](FEATURES.md) and [model observations](MODELS.md).

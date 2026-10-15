@@ -1,69 +1,55 @@
-# Features
+# Current capabilities
 
 [English](FEATURES.md) · [Русский](../ru/FEATURES.md) · [Home](../../README.md)
 
-## Local inference and model management
+This is the current source capability reference. Release-specific changes and validation belong in the [release history](../../CHANGELOG.md).
 
-The Electron main process controls a launcher-managed `llama-server` backend and user-configured GGUF paths. The runtime supports model selection, context, KV-cache settings, CPU/GPU layer offload, optional MTP where validated, and a separately selected vision projector device. Built-in profiles provide capability hints; custom GGUFs can be added. GGUF compatibility does not imply equal tool, reasoning, or vision behavior.
+## Inference, Chat and presentation
 
-## Chat and persistence
+- Launcher-managed external `llama-server`, local GGUF profiles and custom model paths; context, KV cache, GPU layer placement and optional model/backend-dependent MTP.
+- Streaming Chat, model-supported thinking/reasoning controls, cancellation, message editing and regeneration. Agent Fast/Deep strategy is a separate setting.
+- SQLite conversations, attachments, run history, logical tasks, checkpoints and context-discovery records. Active Agent execution can continue while another chat is displayed.
+- Local extraction of text/code, PDF, DOCX, XLS/XLSX and CSV/TSV; bounded structured table reads. No OCR or spreadsheet formula evaluation. Images require a compatible model/projector; image CPU/GPU selection does not move the whole LLM.
+- Rich Responses: KPI cards, charts, tables, restricted Mermaid, sourced image galleries and combined reports; CSV/table copy and SVG chart/diagram export. Schema validation does not establish factual accuracy. Mermaid retains source and actionable render errors.
+- Optional web search/image search and read-oriented page navigation; no general browser automation or form submission. Web content remains untrusted.
 
-SQLite stores conversations, messages, per-chat model/runtime controls, attachments, run history, and context discovery results. Streaming output, cancellation, editing user messages, and regeneration are supported. Editing truncates downstream messages. Active Agent runs are owned by the main process and can continue when the user changes chats.
+## Agent tasks and continuity
 
-## Agent V2, planning, progress, and Task Notes
+Rust Agent Runtime V2 orchestrates model and tool turns. A stable logical task owns its plan, deliverables, Task Memory, observations, verification state and checkpoint, separately from conversation, message, execution attempt and managed-process IDs.
 
-Agent orchestration runs in the Rust runtime. It handles model/tool turns, task state, progress events, verification evidence, stop/pause/steer events, and bounded action budgets. Plans expose step status. Task Notes preserve a concise objective, findings, decisions, and next step through context compaction. They are working state, not durable long-term memory.
+New independent requests start new tasks. Explicit continuation, regeneration and follow-up steering retain the appropriate ownership. Finished attempts have immutable snapshots next to their responses; the active panel appears only during execution. The recent-task selector avoids scrolling back through reasoning traces. SQLite preserves state across restarts; resumption starts a new execution attempt, not a resurrected process.
 
-## File and project tools
+Task Memory records findings, decisions, blockers and next steps with observation references. It supports continuity through compaction; it is not general experience shared automatically across unrelated tasks. Legacy conversation plans are retained without inventing missing task ownership or historical evidence.
 
-Read-only project tools list directories, find files, search text, read bounded file chunks, inspect package metadata, and inspect Git status/diff. File tools use Project 1 as their relative-path root, Project 2 as a separately identified tool scope, and can also use eligible workspace roots derived from absolute paths typed by the user in chat. Up to four explicit roots are accepted after path filtering; these are additional filesystem grants, not UI-selected projects. System roots, shallow paths, selected sensitive home directories, and paths that cannot be resolved are excluded. Traversal and symlink escapes from allowed roots are rejected, and common generated directories are skipped. `apply_patch`, file creation/write, and deletion can modify real files; delete and selected terminal operations require approval under runtime policy. `@` autocomplete and badges apply only to the two UI-selected projects.
+## Files, commands and verification
 
-## Git inspection and patching
+Two selected UI projects support `@` references. Filtered absolute paths explicitly supplied by the user can also establish task scope; model output, files and tool results cannot grant it. Explicit continuation can restore its saved canonical scope without a currently selected UI project. File tools reject traversal, symlink escapes and protected metadata writes.
 
-Git status and diff are available as project tools. Read-only Git inspection through terminal can be automatically permitted for recognized commands. Git mutation, arbitrary command composition, and redirection are approval-gated or blocked according to policy. Patch application validates paths within the active filesystem scope, including selected project roots and eligible explicit grants. These checks reduce accidental access; they are not a general OS sandbox.
+File reads/searches, Git inspection, writes, replacements, patches and deletion are supported subject to policy. Supported writes retain recovery copies and use atomic replacement; multi-file rollback is best effort, with no general Undo UI. Identical `write_file` and no-op patches avoid rewriting files or invalidating evidence. Controlled public HTTP(S) downloads include bounds, cancellation, checksums and atomic placement; they do not bypass gated access, resume downloads or install models.
 
-## Terminal execution and approvals
+Terminal commands run in mandatory isolation. Managed task handles support development-server start/status/stop; host PIDs and listening ports do not confer cleanup authority. Stop/shutdown clean up owned activity. Unsupported process-management commands are blocked; use managed handles for cleanup.
 
-The terminal starts in Project 1, or in the first explicit workspace root when no project is selected. Its working directory does not confine every command: commands may address other locations. A classifier allows recognized low-risk diagnostics, blocks prohibited forms, and asks for approval when it cannot establish a command as safe. Process groups are tied to generation cancellation. Approval is not proof that a command is harmless: inspect the exact command before approving. Explicit paths expand file-tool access only to filtered roots, and neither path mentions nor terminal approval make arbitrary access safe.
+Verification distinguishes readback, static checks, builds, tests, runtime checks, browser checks and integrity claims. Evidence must have an appropriate kind, scope, task and fresh revisions; a passing test is not universal proof of every selected deliverable. Recognized scoped wrappers and standard observed Python unittest drivers can supply test evidence. Real changes invalidate relevant checks; arbitrary scripts remain conservatively classified. Non-modification claims remain unverified when no trusted pre-operation integrity baseline/journal exists. Historical verification is a snapshot of that attempt, not a current filesystem guarantee.
 
-## Web search and browser tools
+## Permissions and lifecycle
 
-The conversation setting **Web: Yes / No** enables or disables those tools for that conversation. Internally these map to stored `auto`/`off` values. Web tools include search, image search, opening and reading pages, following links, and going back. The browser uses a temporary context and implements read-oriented navigation; forms and downloads are blocked. URL and page checks, timeouts, and provider failures can reject content. These measures do not make web content trustworthy or eliminate malicious instructions embedded in pages.
+Only **Ask for confirmation** and **Absolute Autopilot** are offered. Ask automatically permits recognized reads and requests approval for edits/execution. Autopilot permits routine operations within established task scope without repeated prompts; mandatory or out-of-scope actions return a blocked explanation. It does not add filesystem access. Legacy mode values are accepted; trusted-folder management is no longer a user workflow.
 
-## Project References and cross-project workflows
+Approval may be one-off or scoped to the current run; grants can be revoked and are not durable authorization after restart. Mode changes apply to subsequent operations. Stop cancels owned work without rolling back completed edits. Pause records a checkpoint at a safe runtime boundary; steering is delivered at turn boundaries. Server-exit diagnostics and bounded pre-send connection retries preserve saved work without replaying partially submitted inference.
 
-The UI supports Project 1 and optional Project 2. `@` autocomplete searches within chosen roots and message references retain the selected project identity. An eligible absolute path explicitly typed in a user message can grant the Agent file tools access to that filtered workspace root, but it does not select a project or enable `@` suggestions/badges. Runtime scope rules still apply. A practical workflow is to select a source library and destination app, reference corresponding components, ask Agent to compare interfaces, then review a patch before applying it.
+## Loop recovery and context
 
-## Context management and compaction
+Repetition detection considers tool arguments/results and observable progress, not reasoning text alone. Stage A injects specific corrective guidance. If the same unproductive loop returns, Stage B excludes only a provable repetitive segment from the next model request. Complete tool pairs and productive context are preserved; persisted history, Task Memory and verification evidence are not deleted. Ambiguous boundaries or exhausted recovery attempts pause execution. Continue without repair re-arms detection; recovery processing is visible in the timeline.
 
-The circular indicator uses llama.cpp prompt-evaluation counts when available. Detailed status can include runtime allocation evidence and memory estimates. Find Maximum Context runs bounded real server probes: supported FP16/Q8 KV modes are restarted, health-checked, sent a probe inference, measured, and the previous runtime restored. Results are tied to model/runtime configuration and checked against current memory before use. It is an estimate and bounded search, not an exhaustive failure-boundary test.
+Context options use separate FP16/Q8 columns: 16K, 32K, 64K, 128K and 256K, bounded by actual model/backend support, plus exact discovered values. Discovery records are separate by model, KV configuration and measurement conditions. Saved/manual selections can load without a new search; changed conditions warn rather than silently downgrade the request. Requested and effective settings remain distinct. Discovery runs bounded real probes and restores the previous configuration; it is not an exhaustive hardware maximum. The compact information popover shows two measured maxima, shared current VRAM telemetry and the supported limit.
 
-Compaction may summarize history and tool results into retained working state so a long task can continue. It is lossy: repeated compaction can drop details, weaken reasoning, repeat work, or lead to wrong decisions. Task Notes and retained state help but do not guarantee continuity. A huge repository with a 16K context is not a recommended setup for complex autonomous coding; use a context and task scope appropriate to available memory.
+<a id="security-boundaries"></a>
+## Security boundaries
 
-## Multimodal inputs and attachments
+On the validated Ubuntu deployment, a dedicated, root-owned non-setuid Bubblewrap helper uses enforcing setup and stacked child AppArmor profiles. Terminal execution has separate user/PID/mount/IPC/UTS namespaces, private `/proc`, `/run` and `/tmp`, dropped capabilities, NoNewPrivs and seccomp. The setup environment is an explicit allowlist; payload environment is transported separately and applied after confinement. Direct helper execution from the child is denied. Isolation failure does not fall back to a host shell.
 
-Text, DOCX, XLS/XLSX, CSV/TSV, PDF, and image attachments are supported through local extraction or model vision. Structured tables can be read in bounded row/column pages; formulas are not evaluated. Scanned PDFs may require OCR, which is unavailable. Images use a supported vision model/projector. CPU/GPU image-processing selection applies to that image path only, not LLM placement.
+The host root is largely read-only inside the terminal; the validated working directory is writable, with protected application/model paths overlaid read-only. This is not a confidentiality sandbox: readable host files may remain visible. The network namespace is shared for development HTTP; arbitrary TCP control APIs and resource exhaustion are not fully contained. Some socket/namespace-dependent developer tools will not work. File tools enforce their own canonical path scope outside Bubblewrap.
 
-## Rich Responses
+A process registry tracks PID plus start time/executable, roles, groups, parentage, lifecycle and endpoints. PID isolation and kernel restrictions protect against indirect signal attempts independently of command classification. Dedicated application Stop Model/Restart/Quit paths retain their authority. This does not establish protection against malicious unconfined programs of the same user, root or kernel flaws. Group-scoped helper access is not authentication of Electron as its sole caller.
 
-The renderer can display validated metric/KPI cards, Recharts bar/line/area/pie/scatter charts, structured tables, Mermaid diagrams, sourced image galleries, and combined reports. Tables can be sorted, copied, or downloaded as CSV. Charts and Mermaid diagrams can be exported as SVG. Artifact validation checks the data shape and restricts risky Mermaid content; it cannot confirm factual accuracy. Gallery images must come from current web image-search results.
-
-Renderer support is separate from model support. A model must produce valid structured content before the renderer can show an artifact. The author has not comprehensively retested every Rich Response format with every model listed in [Model observations](MODELS.md). Do not assume every model can generate every artifact reliably.
-
-## Runtime metrics and controls
-
-The toolbar can show RAM, NVIDIA VRAM/GPU utilization when available, llama.cpp state, speculative mode, generation speed, context, Thinking, reasoning effort, Agent strategy, web mode, and projects. Runtime metrics depend on backend reporting and host tools. **Pause** is cooperative: a request is handled at an Agent loop boundary, so an in-flight model request or tool call can finish first. The runtime then restricts tools to checkpoint operations, saves working state, emits a pause summary, and ends that run. Continuing requires a new user message and a fresh generation; retained Task Notes may help, but continuity is not guaranteed. **Stop** cancels the active generation and related Agent, web, or terminal activity where supported; already applied file changes are not rolled back. Agent text steering can be accepted mid-run and applied at the next model-turn boundary; Chat does not offer identical steering.
-
-Edit and Regenerate also start fresh generations. Edit changes a user message and removes everything downstream before generating from the edited point. Regenerate removes the downstream branch from the selected user turn and generates again from the applicable conversation state. Both are guarded while an incompatible generation is active; neither continues the prior run.
-
-## Model testing and compatibility
-
-The application and Agent were developed and optimized primarily through extensive practical testing with Qwen3.8-27B. Other models listed in [Model observations](MODELS.md) have also been run and tested, generally less extensively. Basic text Chat was successfully used with other supported models before Rich Responses was introduced; that history does not mean every model has been retested against recent changes.
-
-Agent workflows, tool calling, context management, and long-running tasks have received the most development and testing with Qwen3.8-27B. Weaker results on another model can reflect its capabilities, tool-call format, prompt template, runtime configuration, or less extensive application optimization; it does not by itself mean that model is broken. Generation speed benchmarks measure token throughput, not Agent reliability or reasoning quality.
-
-## Safety boundaries and limitations
-
-Electron renderer isolation uses `contextIsolation`, disabled `nodeIntegration`, and typed preload IPC. File tools constrain paths to selected project roots plus eligible explicit workspace grants, and reject traversal/symlink escapes. Terminal policy blocks or requests approval for classified operations, and process cancellation is managed. Web tools limit navigation and use temporary browser state.
-
-The Agent is not a fully isolated sandbox. Approved commands and file changes affect real user data. Keep projects under version control and maintain backups. Model outputs and web content can be inaccurate or malicious; tool calling reliability varies by model. Abliterated/uncensored models deserve particular caution in autonomous workflows. Inspect plans, diffs, commands, and results.
+Only Linux x86_64 has the implemented seccomp bootstrap. Other hosts need validation; successful parsing or fixture execution alone is not security certification. See [installation prerequisites](GETTING_STARTED.md) and [release limitations](../releases/v0.2.0.md#limitations).
