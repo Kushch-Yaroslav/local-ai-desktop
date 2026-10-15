@@ -82,9 +82,14 @@ pub struct Config {
     /// Set together with a queued steering message that the user marked as a
     /// pause request (a structured control, not parsed from text).
     pub pause_requested: Arc<AtomicBool>,
+    pub control: Arc<Mutex<super::control::ExecutionControl>>,
 }
 
 impl Config {
+    fn permission_decision(&self,tool:&ValidatedCall)->super::permissions::Decision {
+        let permissions=self.control.lock().expect("permission state").permissions.clone();
+        permissions.decide(&tool.name,&tool.arguments,self.work_root().map(Path::new))
+    }
     pub fn tool_scope(&self) -> ToolScope {
         if self.root.is_some() {
             ToolScope::Project
@@ -101,6 +106,7 @@ impl Config {
         self.root
             .as_deref()
             .or_else(|| self.workspace_roots.first().map(String::as_str))
+
     }
 
     fn grants(&self) -> Vec<PathBuf> {
@@ -121,9 +127,6 @@ pub const PREFERRED_OUTPUT_HEADROOM_TOKENS: usize = 1_024;
 pub const MIN_USEFUL_OUTPUT_TOKENS: usize = 32;
 pub const APPLICATION_MAX_OUTPUT_TOKENS: usize = 32_768;
 pub const MAX_COMPACTION_ATTEMPTS: usize = 4;
-/// Initial work allowance. The runtime may grant bounded blocks up to the
-/// absolute maximum; denial withdraws tools and requests a partial answer.
-pub const MAX_INVESTIGATION_TURNS: usize = super::work_budget::INITIAL;
 /// Room for a long synthesized answer to continue after `length` stops plus a
 /// few protocol misfires, without ever consuming the investigation budget.
 /// Empty provider responses in a row before tools are withdrawn so the next
@@ -156,11 +159,15 @@ const AGENT_GUIDANCE: &str = r#"
 - Set Task Memory status and evidence as JSON fields, not prose inside finding. Confirmed entries require evidence containing an observation ID or exact inspected source path from this transcript. A valid reference does not prove the claim; use inferred or unknown for unverified conclusions.
 - Investigation state = a mechanical inventory the runtime keeps of this run's tool observations: files read with their observation IDs, listed entries and local files referenced by sources you read that were not opened yet, failed operations, and commands run. It is not a task list and nothing in it is required. Use it to avoid rereading and to notice code you have not seen; follow a reference only when what you are about to claim depends on it. Recover an exact stored body with observation_read.
 - Deliverables: when the request has two or more separate things to produce or change, or one result that must work end to end, record each requested one with the deliverables tool before you start. Mark an item implemented when you built it; that is your claim. It becomes verified only when the runtime has recorded a passing check of it made after your last change (action verify), and any later change takes the verification back. Block an item with a concrete reason if it cannot be completed. Record only what the user asked for, never your own ideas. Do not use it for a single-step or analysis-only request. Produce what the user will see or use first and refine afterwards: a part is not finished until it is reachable the way the user will use it, not merely implemented. Files you create only to diagnose something are not part of the result; delete them before you finish.
+- If a GPU check cannot fit alongside active local inference, report the resource conflict and offer explicit user-controlled next steps (CPU checks, defer GPU validation, or manual model unload). Never terminate the active inference server or arbitrary Python processes to free memory.
+- For a replacement/migration, preserve working functionality while preparing the replacement. Inspect the existing integration, verify the actual replacement source, license/access and installation requirements, obtain and install it separately, integrate reversibly, validate, then remove the old implementation. If access/download/installation fails, retain the working implementation and report the blocker. Explicit deletion requests may proceed under ordinary safety permissions; do not infer a deletion prohibition from keywords. When execution is prohibited, verify installation only and clearly state that inference/runtime behavior remains untested. File tools retain recovery preimages; approved terminal scripts need an explicit backup/staging plan for destructive multi-step migrations.
+- A permission denial is a security decision. Do not retry equivalent operations through other tools, interpreters, Git metadata writes or alternate download methods. Ask for the missing authorization or report the blocker.
 - Ground claims in what you observed. Keep observed facts, inferences and unknowns apart, and mark inferences as inferences. Something you did not open is unknown, not absent. State that something does not exist only for a scope you actually covered (a complete directory listing, a complete file read, or a search whose scope you can name) and name that scope; otherwise say it was not found in what you inspected. A failed or approval-blocked operation is a blocker, not evidence.
 - Report outcomes from the recorded state, not from intent. Say a deliverable works only if it is verified; otherwise say it is implemented and not verified, and say what failed or was not checked. Never state a count, result or behaviour you did not see in a tool result or check.
 - When the request lists areas or questions, answer each from something you inspected or report it as not inspected. Do not spend further tool calls only to re-verify what you have already read.
 - In the final answer, answer the user's sections directly, distinguish facts from hypotheses, prioritize concrete effects over generic advice, state what remained unexamined, and avoid duplicate points or meta-progress narration. Refer to sources by file path (and line or quoted text), never by observation ID: IDs are internal to this run. Treat claims about how the code was produced conservatively; style alone is weak evidence.
 - For project archaeology with run_terminal, prefer one scoped read-only command such as git -C <project> log --oneline; avoid compound shell wrappers and unsafe pipelines that require approval.
+- Use git diff/show/log --no-ext-diff --no-textconv for diff inspection; configured external diff/text converters execute programs and require separate authorization.
 - Project Knowledge = reusable observations already derived from this project. Use relevant fresh knowledge before broad rereading; source remains authoritative when exact current code or an unresolved detail is needed. It is project-level; Task Memory is task-level.
 - After compaction: use the continuation brief, Task Memory, then relevant Project Knowledge; read source only for genuinely new or verification-specific information.
 - Do not call tools merely because they are available. Stop naturally when the requested work is complete.
@@ -600,6 +607,12 @@ fn lifecycle_label(transcript: &Transcript) -> &'static str {
     }
 }
 
+fn execution_process_context(config: &Config) -> String {
+    if config.work_root().is_none() { return String::new(); }
+    let handles=crate::process::tasks::registered_handles(&config.run_id);
+    format!("<execution_process_state>generation={} registered_task_handles={}\nThis is the authoritative registry for this execution, not historical transcript data. Listed handles require task_action=status to confirm readiness. Earlier generations' tasks and foreground commands ended on Stop/completion; historical READY output does not mean they are running now. Never reuse a historical task_id, PID or port for process management. If this registry is empty, start a NEW task when requested. An empty foreground command is not a status check.\n</execution_process_state>",config.run_id,serde_json::to_string(&handles).unwrap())
+}
+
 fn dynamic_tail(
     state: &AgentState,
     root: Option<&str>,
@@ -659,20 +672,13 @@ fn dynamic_tail(
     if !verification.is_empty() {
         tail.push(verification);
     }
+    if transcript.is_finalizing() {
+        let pending=state.task_memory.deliverables.pending_summary();
+        if !pending.is_empty(){tail.push(format!("<unfinished_deliverables>{pending}</unfinished_deliverables>Report each unfinished outcome honestly; report each of them plainly as not completed."));}
+    }
     if !transcript.is_finalizing() && !user_requests_read_only(objective) {
         if let Some(hint) = contract_hint(state, objective) {
             tail.push(hint);
-        }
-    }
-    if state.task_memory.deliverables.has_pending() {
-        if transcript.is_finalizing() {
-            tail.push(format!("<unfinished_deliverables>{}</unfinished_deliverables>\nThe run budget ended before these were completed. In the answer, report each of them plainly as not completed: say what exists, what is missing and why the run stopped. Do not present them as done.", state.task_memory.deliverables.pending_summary()));
-        } else if let Some(notice) = run_budget_notice(
-            state.turn,
-            state.work_budget.limit,
-            &state.task_memory.deliverables.pending_summary(),
-        ) {
-            tail.push(notice);
         }
     }
     if !transcript.is_finalizing() && !state.created_files.is_empty() {
@@ -749,19 +755,6 @@ fn contract_hint(state: &AgentState, user: &str) -> Option<String> {
 /// Makes the turn budget visible once it matters, and only while requested
 /// deliverables are still unfinished: the model otherwise has no way to know
 /// that it is spending the last turns on refinements of the first deliverable.
-fn run_budget_notice(turn: usize, budget: usize, pending: &str) -> Option<String> {
-    let used = turn.saturating_add(1);
-    if used * 2 < budget {
-        return None;
-    }
-    let left = budget.saturating_sub(used);
-    let urgency = if used * 100 >= budget * 85 {
-        format!(" Only about {left} turns remain: finish what the user will use, and mark anything you cannot complete as blocked with the reason.")
-    } else {
-        " Put the remaining turns on delivering what the user will see or use first; extra tests and refinements come after it works.".to_owned()
-    };
-    Some(format!("<run_budget>Turn {used} of {budget}. Unfinished deliverables: {pending}.{urgency}</run_budget>"))
-}
 
 fn emit_knowledge_diagnostics(config: &Config, state: &AgentState) {
     if user_requests_read_only(&config.user) {
@@ -807,7 +800,7 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
     // Action-specific requirements are enforced transactionally at dispatch.
     let mut tools = vec![
         json!({"type":"function","function":{"name":"task_memory","description":"Durable semantic memory for the current task across compaction. Record/update meaningful findings, decisions, blockers, or unresolved questions; view reads it; invalidate needs id. Record requires finding; update needs the id of an existing entry and changes only the fields you pass (an empty string clears one). Both may include evidence, implication, next, supersedes, status. Cite observations by exact id (obs-00000012), one per item in observations or comma-separated in evidence. Trust precise unchanged-file memory; reread only for a concrete missing, ambiguous, changed, exact-detail, or verification need.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["record","update","invalidate","view"]},"id":{"type":"string"},"finding":{"type":"string"},"evidence":{"type":"string"},"implication":{"type":"string"},"next":{"type":"string"},"supersedes":{"type":"string"},"status":{"type":"string","enum":["confirmed","inferred","unknown","contradicted"],"description":"How well established the finding is: confirmed (observed, cited), inferred (reasoned, not observed), unknown (open; put the resolving step in next), contradicted (evidence disagrees)."},"observations":{"type":"array","items":{"type":"string"},"description":"Observation IDs (obs-…) that support the finding; same as evidence, one id per item."}},"required":["action"]}}}),
-        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. add: record each requested deliverable once (text, optional task, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser; a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string"},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"check":{"type":"string","enum":["readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
+        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"plan","description":"Your own short execution plan: how you will get the work done. Optional: skip it for a trivial or single-step request. set: replace the unfinished steps with a short ordered list of one-line steps (steps); the first becomes active. update: change a step (id; status pending|in_progress|completed|blocked, optional text or note; blocked needs a note); completing the active step activates the next. add: insert a step (text, optional after). view: list. Update at meaningful milestones or when your approach changes; do not narrate it or update it after every call. A plan is not proof: finishing steps does not complete the user's deliverables.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["set","update","add","view"]},"steps":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed","blocked"]},"text":{"type":"string"},"note":{"type":"string"},"after":{"type":"string"}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"observation_index","description":"List historical tool observations by stable ID, with source path and outcome metadata. Use source to select the raw observation for the needed file. If more=true, continue at the returned next_offset. Observation IDs start with obs-.","parameters":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":50}}}}}),
         json!({"type":"function","function":{"name":"observation_read","description":"Recover a bounded exact slice of a stored historical tool result by observation ID. The response distinguishes historical evidence from current source and reports whether the source changed.","parameters":{"type":"object","properties":{"id":{"type":"string"},"offset_chars":{"type":"integer","minimum":0},"max_chars":{"type":"integer","minimum":1,"maximum":16000}},"required":["id"]}}}),
@@ -818,11 +811,11 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
             json!({"type":"function","function":{"name":"create_file","description":"Create a new project file.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}),
             json!({"type":"function","function":{"name":"delete_file","description":"Delete a project file when allowed.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}),
             json!({"type":"function","function":{"name":"list_directory","description":"List a project directory. complete=true means all directory entries are represented; false means internal runtime entries were omitted.","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}),
-            json!({"type":"function","function":{"name":"read_file","description":"Read up to 64 KiB of a project file. A truncated result provides next_offset_chars; use that offset or a specific line range for more.","parameters":{"type":"object","properties":{"path":{"type":"string"},"start_line":{"type":"integer","minimum":1},"end_line":{"type":"integer","minimum":1},"offset_chars":{"type":"integer","minimum":0}},"required":["path"]}}}),
+            json!({"type":"function","function":{"name":"read_file","description":"Read up to 64 KiB of a project file. A truncated result provides next_offset_chars; use that offset or a specific line range for more. An identical read of unchanged bytes and range is cached: reuse its obs- result or observation_read instead of repeating read_file.","parameters":{"type":"object","properties":{"path":{"type":"string"},"start_line":{"type":"integer","minimum":1},"end_line":{"type":"integer","minimum":1},"offset_chars":{"type":"integer","minimum":0}},"required":["path"]}}}),
             json!({"type":"function","function":{"name":"project_knowledge_index","description":"Read the small .ai-framework manifest index and source freshness map. Use it before repeating broad project orientation.","parameters":{"type":"object","properties":{}}}}),
             json!({"type":"function","function":{"name":"project_knowledge_read","description":"Read selected reusable project observations from .ai-framework: paths is required. Prefer relevant fresh knowledge before broad rereads; do not reread unchanged source only to reconstruct context. Read source for exact current code or a concrete unresolved/verification detail.","parameters":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}}},"required":["paths"]}}}),
             json!({"type":"function","function":{"name":"project_knowledge_update","description":"Optionally persist durable, reusable semantic project knowledge in .ai-framework. This is never required for normal work. Only use project/, modules/, sources/, or tasks/ markdown paths.","parameters":{"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"mode":{"type":"string","enum":["replace","merge"]}},"required":["path","content"]}},"source_paths":{"type":"array","items":{"type":"string"}}},"required":["updates"]}}}),
-            json!({"type":"function","function":{"name":"run_terminal","description":"Run an existing relevant project command. For an acceptance check, select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check.","parameters":{"type":"object","properties":{"command":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":["command"]}}}),
+            json!({"type":"function","function":{"name":"run_terminal","description":"Run an isolated project command. Host process-management shell commands are forbidden in every autonomy mode. Start a development server in foreground with task_action=start; use the returned task_id with task_action=status/stop (command may be empty). A task is owned by this run and cleaned up when it ends. For an acceptance check, use one check per call (optional cd <project> && prefix); chains of checks or || are not evidence. Select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check. For a negative security check, use a scoped assertion script that exits 0 only when the expected denial is observed; a raw nonzero exit cannot verify a deliverable. Finish all source and report writes BEFORE final checks, then only update plan/deliverables metadata. Do not rewrite already-correct factual reports merely to update evidence IDs or dynamic test ports: changed reports stale prior checks.","parameters":{"type":"object","properties":{"task_action":{"type":"string","enum":["start","status","stop"]},"task_id":{"type":"string","description":"Opaque handle valid only in the current generation. After Stop, completion or restart every previous handle is expired and its task was cleaned up. Start a fresh task with task_action=start; never reuse a historical task_id or adopt a PID/port."},"command":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":["command"]}}}),
             json!({"type":"function","function":{"name":"replace_text","description":"For a small edit, replace exactly one literal snippet in an existing file after a fresh read. old_text and new_text are plain source strings, not patch syntax. Include enough exact text to identify one place. Empty, missing or repeated old_text and changes since the last read are refused; write is atomic. Prefer this for one-line edits; use apply_patch for multiple hunks.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}}),
             json!({"type":"function","function":{"name":"write_file","description":"Write the full content of a project file, replacing it. To change part of a file, prefer apply_patch.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}),
         ]);
@@ -863,6 +856,7 @@ fn is_project_side_effect_tool(name: &str) -> bool {
     matches!(
         name,
         "apply_patch"
+            | "download_file"
             | "create_file"
             | "delete_file"
             | "project_knowledge_index"
@@ -902,10 +896,11 @@ fn user_requests_read_only(user: &str) -> bool {
 fn tool_schemas_for_request(scope: ToolScope, policy: RunPolicy, user: &str) -> Vec<Value> {
     let mut tools = tool_schemas_for_policy(scope, policy);
     if user_requests_read_only(user) {
-        // A read-only request produces nothing to deliver, so the execution
-        // contract tool is not offered either.
+        // Keep execution-contract metadata available: a continued read-only
+        // run may need to verify or honestly block existing deliverables.
+        // This grants no file mutations or additional terminal permissions.
         tools.retain(|tool| {
-            !is_project_side_effect_tool(tool_name(tool)) && tool_name(tool) != "deliverables"
+            !is_project_side_effect_tool(tool_name(tool))
         });
     }
     tools
@@ -1410,17 +1405,31 @@ fn apply_deliverables(
             let check = match arguments.get("check").and_then(Value::as_str) {
                 Some(value) if !value.trim().is_empty() => {
                     Some(Need::parse(value).ok_or_else(|| {
-                        "check must be readback, static, build, test, runtime or browser".to_owned()
+                        "check must be integrity, readback, static, build, test, runtime or browser".to_owned()
                     })?)
                 }
                 _ => None,
             };
-            candidate.add_checked(
+            let added = candidate.add_checked(
                 arguments.get("id").and_then(Value::as_str),
                 &text_of("task"),
                 &text_of("text"),
                 check,
             )?;
+            if let Some(paths) = arguments.get("paths") {
+                let paths = paths.as_array().filter(|paths| paths.len() <= 8)
+                    .ok_or("paths must be an array of at most 8 absolute claim targets")?;
+                let paths = paths.iter().map(|path| {
+                    let path = path.as_str().filter(|path| path.len() <= 4096 && Path::new(path).is_absolute()
+                        && !Path::new(path).components().any(|part| matches!(part, std::path::Component::ParentDir)))
+                        .ok_or("paths must contain absolute paths without parent traversal")?;
+                    Ok(path.to_owned())
+                }).collect::<Result<Vec<_>, String>>()?;
+                let item = candidate.items.iter_mut().find(|item| item.id == added).unwrap();
+                if let Some(existing) = state.task_memory.deliverables.items.iter().find(|item| item.id == added) {
+                    if paths != existing.paths { return Err("A recorded deliverable's path scope is immutable; keep its targets or add a new deliverable. Existing check relationships cannot be narrowed.".into()); }
+                } else { item.paths = paths; }
+            }
         }
         "implemented" | "done" => {
             let id = id()?;
@@ -1496,12 +1505,179 @@ fn evidence_ids(arguments: &Value) -> Vec<String> {
     ids
 }
 
+fn inject_loop_guidance(config:&Config, transcript:&mut Transcript, notice:&super::loop_detector::LoopNotice) {
+    transcript.runtime_notice(notice.clone(),true);
+    emit(&config.run_id,Event::LoopGuidance{notice:notice.clone()});
+}
+const MAX_LOOP_REPAIRS: usize = 2;
+const RECOVERY_OBSERVATIONS: usize = 20;
+
+fn loop_lifecycle(config: &Config, state: &AgentState, transcript: &mut Transcript, stage: &str, notice: &super::loop_detector::LoopNotice) {
+    let mut recorded = notice.clone();
+    recorded.evidence = format!("Loop lifecycle {stage}; repair attempt {}: {}", state.loop_repair_attempts, notice.evidence);
+    transcript.runtime_notice(recorded, false);
+    emit(&config.run_id, Event::LoopLifecycle { stage: stage.into(), notice: notice.clone(), attempt: state.loop_repair_attempts });
+}
+
+fn selective_loop_repair(config: &Config, state: &mut AgentState, transcript: &mut Transcript, notice: &mut super::loop_detector::LoopNotice) -> bool {
+    if state.loop_repair_attempts >= MAX_LOOP_REPAIRS { return false; }
+    let Some((start, end, actions)) = crate::context::projection::repetitive_segment(transcript) else {
+        notice.guidance = "Cannot safely identify a complete, unchanged repetitive context segment. No history was removed. Pause and inspect the pending/mixed actions before continuing.".into();
+        state.loop_cleanup_blocked = true;
+        notice.evidence = notice.guidance.clone();
+        loop_lifecycle(config, state, transcript, "recovery_failed", notice);
+        return false;
+    };
+    state.loop_repair_attempts += 1;
+    state.loop_cleanup_blocked = false;
+    transcript.exclude_loop_context(start, end, actions);
+    let mut details = notice.clone();
+    details.evidence = format!("Model-facing context only: excluded {} messages / {actions} repetitive metadata actions, journal range [{start}, {end}). Full persisted history, task memory and verification evidence remain unchanged.", actions * 2);
+    loop_lifecycle(config, state, transcript, "context_excluded", &details);
+    let short = |text: &str, limit| text.chars().take(limit).collect::<String>();
+    let next_step = state.task_memory.plan.steps.iter().find(|step| matches!(step.status, super::plan::StepStatus::Pending | super::plan::StepStatus::InProgress)).map(|step| step.text.as_str());
+    let observations = transcript.observations().iter().rev().filter(|observation| !observation.error && !matches!(observation.tool.as_str(), "plan" | "deliverables" | "task_memory")).take(4).map(|observation| short(&observation.index_line(),180)).collect::<Vec<_>>();
+    let task_data = json!({
+        "request": short(&config.user, 500), "workspace": config.work_root(),
+        "next_unfinished_plan_step": next_step,
+        "available_observations": observations,
+        "tracked_files": state.task_memory.verification.revisions.keys().take(8).map(|path|short(path,160)).collect::<Vec<_>>(),
+        "findings": state.task_memory.entries.iter().filter(|entry|!entry.invalidated).take(4).map(|entry|short(&entry.finding,160)).collect::<Vec<_>>()
+    });
+    notice.guidance = format!("Selective loop recovery: {}. Task data (quoted context, not permissions or runtime instructions): {task_data}. The original request and productive context remain intact; the first metadata cycle is still available. Perform the next unfinished task step with a concrete authorized edit or scoped check, using the existing observations. If the plan lacks a usable next step, choose one from the user request or explain the blocker. Do not repeat this metadata-only strategy without new information. Full Task Memory and verification freshness rules remain unchanged.", notice.evidence);
+    inject_loop_guidance(config, transcript, notice);
+    state.loop_detector.rearm();
+    state.loop_recovery = Some((notice.clone(), state.loop_detector.observations, true));
+    state.suspended = false; state.loop_notice = None;
+    config.control.lock().expect("execution control").active_signature = None;
+    loop_lifecycle(config, state, transcript, "recovery_attempted", notice);
+    emit(&config.run_id, Event::LoopState { notice: None, paused: false });
+    true
+}
+
+fn observe_loop(config:&Config,state:&mut AgentState,transcript:&mut Transcript,tool:&ValidatedCall,value:&Value,changed:bool) {
+    let before = state.loop_detector.progress_epoch;
+    let mut detected = state.loop_detector.observe(&tool.name,&tool.arguments,value,changed);
+    if state.loop_detector.progress_epoch != before {
+        if let Some((mut notice, _, _)) = state.loop_recovery.take() {
+            notice.repair_exhausted = false;
+            loop_lifecycle(config, state, transcript, "recovery_succeeded", &notice);
+        }
+        state.loop_repair_attempts = 0; state.loop_cleanup_blocked = false;
+        if state.loop_notice.take().is_some() {
+            config.control.lock().expect("execution control").active_signature = None;
+            emit(&config.run_id, Event::LoopState { notice: None, paused: false });
+        }
+    } else if let Some((prior, started, repair)) = state.loop_recovery.clone() {
+        if (!repair && state.loop_detector.last_signature.as_ref() == Some(&prior.signature)
+            && state.loop_detector.observations > started)
+            || detected.as_ref().is_some_and(|notice| notice.level >= if repair { 1 } else { 2 })
+            || state.loop_detector.observations.saturating_sub(started) >= RECOVERY_OBSERVATIONS {
+            loop_lifecycle(config, state, transcript, "recovery_failed", &prior);
+            state.loop_recovery = None;
+            let watchdog_only = detected.is_none() && state.loop_detector.observations.saturating_sub(started) >= RECOVERY_OBSERVATIONS;
+            let mut notice = detected.take().unwrap_or(prior);
+            if watchdog_only {
+                notice.evidence = format!("Recovery made no observable progress in {RECOVERY_OBSERVATIONS} tool outcomes");
+                notice.guidance = "The attempted strategy produced no new information, file changes or useful check outcomes. Inspect the existing failures and revise prerequisites or stop and explain the blocker; changing failed arguments alone is not progress.".into();
+            }
+            // Stage B follows an unchanged Stage A immediately, not another
+            // twenty calls. Cleanup retries are bounded by the same budget.
+            {
+                if notice.level != 3 { state.loop_detector.pause_count += 1; }
+                notice.level = 3;
+            }
+            notice.repair_exhausted = state.loop_repair_attempts >= MAX_LOOP_REPAIRS;
+            if notice.repair_exhausted {
+                notice.guidance = format!("{MAX_LOOP_REPAIRS} repair attempts produced no observed progress. Repair is paused; inspect the task/results, Stop, or explicitly Continue without repair. Future loop detection remains enabled.");
+            }
+            detected = Some(notice);
+        }
+    }
+    if let Some(mut notice)=detected {
+        notice.repair_exhausted |= state.loop_repair_attempts >= MAX_LOOP_REPAIRS;
+        loop_lifecycle(config, state, transcript, "detected", &notice);
+        if notice.level==1 {inject_loop_guidance(config,transcript,&notice);} else {
+            if notice.level == 2 && state.loop_recovery.is_none() {
+                let next = state.task_memory.plan.steps.iter().find(|step| matches!(step.status, super::plan::StepStatus::Pending | super::plan::StepStatus::InProgress)).map(|step|step.text.as_str()).unwrap_or("Inspect the relevant observed files and make the change requested by the user, then run its scoped check");
+                notice.guidance.push_str(&format!(" Current task request (quoted task data): {}. Next concrete task step: {next}. Repeating {} with {} is not a project edit or verification.",config.user.chars().take(500).collect::<String>(),tool.name,tool.arguments));
+                inject_loop_guidance(config, transcript, &notice);
+                loop_lifecycle(config, state, transcript, "soft_recovery", &notice);
+                state.loop_recovery = Some((notice.clone(), state.loop_detector.observations, false));
+            }
+            state.suspended=notice.level==3;
+            state.loop_notice=Some(notice.clone());
+            config.control.lock().expect("execution control").active_signature=Some(notice.signature.clone());
+            emit(&config.run_id,Event::LoopNotice{notice:notice.clone()});
+            if state.suspended { loop_lifecycle(config, state, transcript, "paused", &notice); }
+            emit(&config.run_id,Event::LoopState{notice:Some(notice),paused:state.suspended});
+        }
+    }
+    let detector = &state.loop_detector;
+    emit(&config.run_id, Event::LoopDiagnostics { observations: detector.observations, guidance: detector.guidance_count, warnings: detector.warning_count, pauses: detector.pause_count });
+}
+fn loop_boundary(config:&Config,state:&mut AgentState,transcript:&mut Transcript)->bool {
+    loop {
+        if config.cancelled.load(Ordering::Relaxed) {return false;}
+        let (commands,interactive)={let mut c=config.control.lock().expect("execution control");(c.commands.drain(..).collect::<Vec<_>>(),c.interactive)};
+        for command in commands {
+            let Some(mut notice)=state.loop_notice.clone().filter(|n|n.signature==command.signature) else {
+                if let Some(id) = command.id { emit(&config.run_id, Event::ControlRejected { id, message: "Loop warning is no longer active; the queued action was not applied".into() }); }
+                continue;
+            };
+            use super::control::LoopAction::*;
+            match command.action {
+                Correct|CorrectResume=>{
+                    loop_lifecycle(config, state, transcript, "repair_requested", &notice);
+                    if state.loop_repair_attempts >= MAX_LOOP_REPAIRS {
+                        notice.repair_exhausted = true;
+                        notice.guidance = "Repair limit reached without observed progress. Stop or explicitly Continue without repair; detection remains enabled.".into();
+                        state.loop_notice = Some(notice.clone()); state.suspended = true;
+                        loop_lifecycle(config, state, transcript, "recovery_failed", &notice);
+                        loop_lifecycle(config, state, transcript, "paused", &notice);
+                    } else {
+                        if !selective_loop_repair(config, state, transcript, &mut notice) {
+                            state.loop_notice = Some(notice.clone()); state.suspended = true;
+                            loop_lifecycle(config, state, transcript, "paused", &notice);
+                        }
+                    }
+                },
+                Continue|ContinueAnyway=>{
+                    state.loop_cleanup_blocked = false;
+                    state.loop_detector.rearm();
+                    // Manual continuation gets a fresh detection window; it
+                    // is not Stage A and does not reset the escalation budget.
+                    state.loop_recovery = Some((notice.clone(), state.loop_detector.observations, true));
+                    state.suspended=false;state.loop_notice=None;
+                    loop_lifecycle(config, state, transcript, "continued", &notice);
+                },
+                Pause=>{state.suspended=true;loop_lifecycle(config, state, transcript, "paused", &notice);},
+            }
+            config.control.lock().expect("execution control").active_signature=state.loop_notice.as_ref().map(|n|n.signature.clone());
+            emit(&config.run_id,Event::LoopState{notice:state.loop_notice.clone(),paused:state.suspended});
+            if let Some(id) = command.id { emit(&config.run_id, Event::ControlAccepted { id }); }
+        }
+        if state.suspended && !state.loop_cleanup_blocked {
+            if let Some(mut notice) = state.loop_notice.clone().filter(|n| n.level == 3 && !n.repair_exhausted) {
+                if selective_loop_repair(config, state, transcript, &mut notice) { return true; }
+                state.loop_notice = Some(notice.clone());
+                loop_lifecycle(config, state, transcript, "paused", &notice);
+                emit(&config.run_id, Event::LoopState { notice: Some(notice), paused: true });
+            }
+        }
+        if !state.suspended {return true;}
+        if !interactive {
+            state.suspended=false;
+            begin_pause(config,state,"loop_detection");
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}
+
 fn checkpoint_work_budget(config: &Config, state: &AgentState, transcript: &mut Transcript) {
-    let changed = transcript.entries().iter().rev().find_map(|entry| {
-        if let crate::agent::transcript::Entry::WorkBudget(budget) = entry { Some(budget.view()) } else { None }
-    }).is_none_or(|previous| previous != state.work_budget.view());
     transcript.checkpoint_work_budget(state.work_budget.clone());
-    if changed { emit(&config.run_id, Event::WorkBudget { budget: state.work_budget.view() }); }
+    emit(&config.run_id, Event::AgentCounters { turns: state.work_budget.used, actions: state.actions });
 }
 
 fn emit_task_memory(config: &Config, state: &AgentState) {
@@ -1599,6 +1775,7 @@ fn record_terminal_evidence(
     root: &Path,
     command: &str,
     value: &Value,
+    allowed: &[PathBuf],
 ) -> bool {
     let completed = value.get("status").and_then(Value::as_str);
     let Some(exit_code) = value.get("exit_code").and_then(Value::as_i64) else {
@@ -1617,11 +1794,22 @@ fn record_terminal_evidence(
         .keys()
         .map(String::as_str)
         .collect::<Vec<_>>();
-    let Some(mut kind) = verification::classify_command(command, &changed) else {
+    let Some(check) = verification::normalized_check(command) else { return false; };
+    let tracked = task_check_sources(state);
+    let tracked_refs: Vec<_> = tracked.iter().map(String::as_str).collect();
+    let Ok(check_root) = verification::scoped_check_root(command, root, allowed, &tracked_refs) else { return false; };
+    let Some(mut kind) = verification::classify_command(&check, &changed) else {
         return false;
     };
-    if kind == verification::Kind::Run && verification::script_drives_browser(root, command) {
+    // Script operands are relative to the effective shell cwd, not their own
+    // parent directory (otherwise tests/browser.py becomes tests/tests/browser.py).
+    if kind == verification::Kind::Run && verification::check_location(command, root)
+        .is_ok_and(|(cwd, _)| verification::script_drives_browser(&cwd, &check)) {
         kind = verification::Kind::Browser;
+    }
+    if kind == verification::Kind::Run && verification::check_location(command, root)
+        .is_ok_and(|(cwd, _)| verification::observed_unittest(&cwd, &check, value)) {
+        kind = verification::Kind::Test;
     }
     let pass = exit_code == 0 && completed == Some("completed");
     let detail = if pass {
@@ -1653,6 +1841,12 @@ fn record_terminal_evidence(
         })
         .to_string(),
     );
+    if let Some(record) = state.task_memory.verification.records.iter_mut().find(|record| record.id == id) {
+        record.checked_paths = vec![check_root.to_string_lossy().into_owned()];
+        record.deliverable_ids.retain(|id| state.task_memory.deliverables.items.iter().any(|item|
+            item.id == *id && item.required_check() != Some(Need::Integrity)
+                && item.paths.iter().all(|target| check_root.starts_with(target) || Path::new(target).starts_with(&check_root))));
+    }
     if let Some(record) = state.task_memory.verification.get(&id) {
         state.work_budget.checked(record, &state.task_memory.verification, &state.task_memory.deliverables);
     }
@@ -1661,6 +1855,115 @@ fn record_terminal_evidence(
     }
     sync_verification_failure(state);
     true
+}
+
+/// Execution success and accepted verification evidence are different facts.
+/// Explain rejected shell shapes immediately instead of making the model guess
+/// why a later deliverables.verify sees no fresh evidence.
+fn task_check_sources(state: &AgentState) -> Vec<String> {
+    let mut tracked: Vec<_> = state.task_memory.verification.changed.keys()
+        .chain(state.task_memory.verification.revisions.keys()).cloned().collect();
+    // Read-only work may have no mutation ledger. Never add reference-project
+    // reads to a task that already has its own changed source anchors.
+    if tracked.is_empty() { tracked.extend(state.file_revisions.keys().filter_map(|path| path.to_str().map(str::to_owned))); }
+    tracked.sort(); tracked.dedup(); tracked
+}
+
+fn unrecorded_check_diagnostic(command: &str, value: &Value, ids: &[String], recorded: bool, inconclusive: bool, scope_reason: Option<&str>) -> Option<Value> {
+    if recorded || ids.is_empty() || value.get("exit_code").and_then(Value::as_i64)!=Some(0)
+        || value.get("status").and_then(Value::as_str)!=Some("completed") { return None; }
+    let (reason, next) = if inconclusive {
+        ("tracked_files_changed", "The check changed tracked source files. Run the check again after the final edit.")
+    } else if verification::normalized_check(command).is_none() {
+        ("unsupported_shell_shape", "Use one check per run_terminal call, optionally preceded by cd <project> &&. Chains of checks, ||, output-writing redirects and arbitrary shell wrappers are not verification evidence. Reuse the relevant deliverable_ids.")
+    } else if let Some(reason) = scope_reason {
+        (reason, "Use a check inside a permitted workspace containing this task's tracked source files. The launch cwd can differ from a cd prefix or an absolute script target; a different task's tests cannot verify this task. Reuse the relevant deliverable_ids.")
+    } else {
+        ("not_a_recognized_scoped_check", "Use a recognized scoped test or a named project check script with the relevant deliverable_ids. Inline checks must reference changed source files; for HTTP verification, create and run a project check script. A successful inspector or echo is not runtime proof.")
+    };
+    Some(json!({"recorded":false,"reason":reason,"next":next,
+        "message":"The command executed successfully, but no verification evidence was recorded."}))
+}
+
+fn managed_task_effect(action: &str) -> verification::Effect {
+    if action=="start" { verification::Effect::Mutating }
+    else { verification::Effect::Check(verification::Kind::Run) }
+}
+
+#[cfg(test)]
+mod wrapped_evidence_tests {
+    use super::*;
+    #[test]
+    fn relative_browser_script_uses_effective_cwd_not_script_parent_twice() {
+        let root = std::env::temp_dir().join(format!("relative-browser-check-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("tests")).unwrap();
+        std::fs::write(root.join("tests/browser.py"), "from playwright.sync_api import sync_playwright\n").unwrap();
+        let mut kinds = Vec::new();
+        for command in ["python3 tests/browser.py", "cd tests && python3 browser.py"] {
+            let mut state = AgentState::default();
+            assert!(record_terminal_evidence(&mut state, &root, command, &json!({"exit_code":0,"status":"completed"}), &[]));
+            kinds.push(state.task_memory.verification.records[0].kind);
+        }
+        let launch = root.join("other-task");
+        std::fs::create_dir(&launch).unwrap();
+        let mut state = AgentState::default();
+        state.task_memory.verification.note_change(Some(root.join("tests/browser.py").to_str().unwrap()));
+        let command = format!("cd '{}' && python3 tests/browser.py", root.display());
+        assert!(record_terminal_evidence(&mut state, &launch, &command, &json!({"exit_code":0,"status":"completed"}), &[root.clone()]));
+        kinds.push(state.task_memory.verification.records[0].kind);
+        std::fs::remove_dir_all(root).unwrap();
+        assert!(kinds.iter().all(|kind| *kind == verification::Kind::Browser), "{kinds:?}");
+    }
+    #[test]
+    fn wrapped_build_evidence_is_registered_restorable_and_not_inference_proof() {
+        let mut state = AgentState::default();
+        let root = std::env::temp_dir();
+        let command = "cd . && npm run build 2>&1 | tail -20";
+        assert!(record_terminal_evidence(&mut state, &root, command, &json!({"exit_code":0,"status":"completed","stdout":"build complete"}), &[]));
+        assert_eq!(state.task_memory.verification.records[0].kind, verification::Kind::Build);
+        assert!(state.task_memory.verification.records[0].pass);
+        let encoded = serde_json::to_string(&state.task_memory).unwrap();
+        let restored: super::super::task_memory::TaskMemory = serde_json::from_str(&encoded).unwrap();
+        assert_eq!(restored.verification.records, state.task_memory.verification.records);
+        assert!(!record_terminal_evidence(&mut state, &root, "npm run build || true", &json!({"exit_code":0,"status":"completed"}), &[]));
+        assert!(record_terminal_evidence(&mut state, &root, command, &json!({"exit_code":1,"status":"error","stderr":"compile failed"}), &[]));
+        assert!(!state.task_memory.verification.records.last().unwrap().pass);
+        assert_eq!(verification::terminal_effect("cd . && git status | tail -2", &[]), verification::Effect::ReadOnly);
+        assert!(!record_terminal_evidence(&mut state, Path::new("/nonexistent-test-workspace"), command, &json!({"exit_code":0,"status":"completed"}), &[]));
+    }
+    #[test]
+    fn successful_compound_checks_explain_missing_evidence_without_forging_proof() {
+        let mut state=AgentState::default();
+        let result=json!({"exit_code":0,"status":"completed","stdout":"570\ntests passed"});
+        let command="cd . && python3 invoice.py && python3 -m unittest -v";
+        assert!(!record_terminal_evidence(&mut state,&std::env::temp_dir(),command,&result,&[]));
+        let ids=vec!["d1".to_owned()];
+        let diagnostic=unrecorded_check_diagnostic(command,&result,&ids,false,false,None).unwrap();
+        assert_eq!(diagnostic["recorded"],false);
+        assert_eq!(diagnostic["reason"],"unsupported_shell_shape");
+        assert!(state.task_memory.verification.records.is_empty());
+        assert!(unrecorded_check_diagnostic(command,&result,&ids,true,false,None).is_none());
+        assert!(unrecorded_check_diagnostic(command,&json!({"exit_code":1,"status":"error"}),&ids,false,false,None).is_none());
+    }
+    #[test]
+    fn stopping_owned_server_preserves_checks_unless_tracked_source_changed() {
+        let root=std::env::temp_dir().join(format!("lad-task-evidence-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir(&root).unwrap();
+        let path=root.join("server.py");std::fs::write(&path,"original").unwrap();
+        let grants=[];
+        let scope=crate::tools::filesystem::Scope{root:&root,grants:&grants};
+        let mut state=AgentState::default();
+        let (_,revision)=crate::tools::filesystem::file_revision(&scope,"server.py").unwrap();
+        state.task_memory.verification.revisions.insert("server.py".into(),revision);
+        state.task_memory.verification.record(verification::Kind::Run,"python3 check_http.py",true,"HTTP ok",1);
+        assert!(!record_terminal_effect(&mut state,&scope,"",managed_task_effect("stop")));
+        assert!(state.task_memory.verification.best_passing(verification::Need::Runtime).is_some());
+        std::fs::write(&path,"changed by shutdown handler").unwrap();
+        assert!(record_terminal_effect(&mut state,&scope,"",managed_task_effect("stop")));
+        assert!(state.task_memory.verification.best_passing(verification::Need::Runtime).is_none());
+        assert_eq!(managed_task_effect("start"),verification::Effect::Mutating);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
 
 /// A successful write, patch or delete changes what any earlier check saw. The
@@ -1688,13 +1991,16 @@ fn record_project_change(
                 .insert(path.clone(), revision.clone());
             state.work_budget.changed_file(path, &revision);
             let size = std::fs::metadata(&file).map(|meta| meta.len()).unwrap_or(0);
-            state.task_memory.verification.record(
+            let id = state.task_memory.verification.record(
                 verification::Kind::Readback,
                 path,
                 true,
                 &format!("{size} bytes on disk"),
                 turn,
             );
+            if let Some(record) = state.task_memory.verification.records.iter_mut().find(|record| record.id == id) {
+                record.checked_paths = vec![file.to_string_lossy().into_owned()];
+            }
         }
     }
     if paths.is_empty() {
@@ -1717,7 +2023,7 @@ fn patch_added_files(patch: &str) -> Vec<String> {
 fn mutation_tool(name: &str) -> bool {
     matches!(
         name,
-        "write_file" | "create_file" | "apply_patch" | "delete_file" | "replace_text"
+        "write_file" | "create_file" | "apply_patch" | "delete_file" | "replace_text" | "download_file"
     )
 }
 
@@ -1794,19 +2100,6 @@ fn present_answer(
     crate::agent::presentation::project_answer_with_prefix(content, prefix, &references)
 }
 
-fn budget_stop_reason(reason: &str, russian: bool) -> &'static str {
-    match (reason, russian) {
-        ("absolute_maximum", true) => "достигнут абсолютный предел 256 рабочих ходов",
-        ("absolute_maximum", false) => "absolute maximum of 256 work turns reached",
-        ("verification_grace_exhausted", true) => "единственное продление для проверки использовано; нужна новая успешная проверка",
-        ("verification_grace_exhausted", false) => "the single verification extension was spent; a fresh passing check is required",
-        ("repeated_failed_edits", true) => "повторные ошибки изменения файлов без восстановления",
-        ("repeated_failed_edits", false) => "repeated failed edits without recovery",
-        (_, true) => "нет нового подтверждённого прогресса за последние 16 рабочих ходов",
-        (_, false) => "no new checked progress in the last 16 work turns",
-    }
-}
-
 fn anonymous_verification_gap(state: &AgentState) -> bool {
     let ledger = &state.task_memory.verification;
     let mut need = ledger.effective_need(None);
@@ -1823,7 +2116,7 @@ fn anonymous_verification_gap(state: &AgentState) -> bool {
 fn terminal_status_note(
     state: &AgentState,
     transcript: &Transcript,
-    turn_budget_exhausted: bool,
+    _legacy_exhausted: bool,
 ) -> String {
     use deliverables::DeliverableStatus as Status;
     let items = &state.task_memory.deliverables.items;
@@ -1832,7 +2125,7 @@ fn terminal_status_note(
     let anonymous_gap = anonymous_verification_gap(state);
     let steps = &state.task_memory.plan.steps;
     let unfinished_plan = steps.iter().any(|step| step.status != StepStatus::Completed);
-    if !outstanding && !unfinished_plan && !anonymous_gap && !turn_budget_exhausted {
+    if !outstanding && !unfinished_plan && !anonymous_gap {
         return String::new();
     }
     let russian = transcript.language_preference() == "Russian";
@@ -1846,6 +2139,10 @@ fn terminal_status_note(
         let verified = items.iter().filter(|item| item.status == Status::Verified).count();
         parts.push(if russian { format!("Подтверждено результатов: {verified}/{total}.") }
             else { format!("Deliverables verified: {verified}/{total}.") });
+        if items.iter().any(|item| item.status == Status::Implemented && item.required_check() == Some(Need::Integrity)) {
+            parts.push(if russian { "Неизменность файлов не подтверждена: нет надёжного baseline до операций или полного журнала изменений; внешние изменения не отслеживались." }
+                else { "File non-modification is not verified: no trusted pre-operation baseline or complete journal exists; external changes were not tracked." }.to_owned());
+        }
         for (status, label) in [
             (Status::Implemented, if russian { "Реализовано, но не проверено" } else { "Implemented, not verified" }),
             (Status::Pending, if russian { "Не завершено" } else { "Pending" }),
@@ -1860,14 +2157,6 @@ fn terminal_status_note(
         let completed = steps.iter().filter(|step| step.status == StepStatus::Completed).count();
         parts.push(if russian { format!("Последнее сохранённое состояние плана: {completed}/{} шагов выполнено; остальные шаги не завершены.", steps.len()) }
             else { format!("Last recorded plan: {completed}/{} steps complete; remaining steps are incomplete.", steps.len()) });
-    }
-    if turn_budget_exhausted {
-        parts.push(if russian { "Лимит рабочих ходов исчерпан; запуск остановлен с указанным выше состоянием." }
-            else { "Work-turn budget exhausted; the run ended with the state above." }.to_owned());
-    }
-    if turn_budget_exhausted && state.work_budget.decision == "denied" {
-        parts.push(if russian { format!("Причина: {}.", budget_stop_reason(&state.work_budget.reason, true)) }
-            else { format!("Budget decision: {}.", budget_stop_reason(&state.work_budget.reason, false)) });
     }
     format!("\n\n**{}** {}", if russian { "Статус Agent V2:" } else { "Agent V2 status:" }, parts.join(" "))
 }
@@ -2159,22 +2448,6 @@ fn check_repetition(text: &str, checked: &mut usize, kind: &str) -> Result<(), S
     }
 }
 
-/// Text returned to the model when a call needs approval it cannot get in this run.
-fn approval_refusal(tool: &ValidatedCall) -> &'static str {
-    if tool.name == "run_terminal"
-        && tool
-            .arguments
-            .get("command")
-            .and_then(Value::as_str)
-            .is_some_and(|c| c.contains("git "))
-    {
-        "approval required for shell composition. For read-only history, retry as one scoped command: git -C <selected-project> log --oneline -30. Do not treat this attempt as evidence of repository history."
-    } else if tool.name == "run_terminal" {
-        "approval required: this command uses shell composition (&&, ||, ;, redirection, substitution, a wrapper) or affects the user session, and it was not run. Run each step as its own simple command; the terminal already starts in the working directory, so cd is not needed. Do not treat this refusal as a result."
-    } else {
-        "approval required"
-    }
-}
 
 #[derive(Default)]
 struct StreamedTurn {
@@ -2430,6 +2703,25 @@ fn record_read_evidence(config: &Config, transcript: &Transcript, tool: &Validat
     );
 }
 
+/// Retry only refused connections, before any request bytes can have reached
+/// the provider. Replaying a partially streamed turn could duplicate tool calls.
+fn connect_with_recovery<T>(
+    cancelled: &AtomicBool,
+    mut connect: impl FnMut() -> std::io::Result<T>,
+    mut delay: impl FnMut(),
+) -> std::io::Result<T> {
+    for attempt in 0..3 {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "cancelled"));
+        }
+        match connect() {
+            Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused && attempt < 2 => delay(),
+            result => return result,
+        }
+    }
+    unreachable!()
+}
+
 /// Dependency-free OpenAI-compatible SSE transport. Visible content is emitted
 /// at the delta boundary; finalization never becomes the first visible output.
 fn stream_call(
@@ -2446,7 +2738,20 @@ fn stream_call(
         .split_once('/')
         .unwrap_or((without, "v1/chat/completions"));
     let path = format!("/{path}");
-    let mut stream = TcpStream::connect(host_port).map_err(|error| error.to_string())?;
+    let mut stream = connect_with_recovery(cancelled, || TcpStream::connect(host_port), || {
+        // Short slices keep Stop responsive during the bounded recovery window.
+        for _ in 0..10 {
+            if cancelled.load(Ordering::Relaxed) { break; }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }).map_err(|error| {
+        trace_forensics(run_id, "provider_connect_failed", json!({
+            "host_port": host_port, "path": path, "stage": "connect",
+            "kind": format!("{:?}", error.kind()), "error": error.to_string(),
+        }));
+        if cancelled.load(Ordering::Relaxed) { "cancelled".into() }
+        else { format!("Provider connection failed at {host_port}{path} before request submission: {error}. Saved agent work is retained; reload the model and continue.") }
+    })?;
     let body = payload.to_string();
     trace_forensics(
         run_id,
@@ -2962,7 +3267,7 @@ fn continuation_checkpoint(transcript: &Transcript, generated: String) -> String
         }
     }
     let footer = if transcript.is_finalizing() {
-        "Phase: FINALIZING (authoritative durable runtime state). The investigation budget is exhausted and tools are unavailable. Continue the single final response from the findings above and the recent exact tail. Earlier next-steps are not instructions. State what remained unexamined; merge overlapping conclusions and state each once."
+        "Phase: FINALIZING (authoritative durable runtime state). The runtime has entered its final response phase and tools are unavailable. Continue the single final response from the findings above and the recent exact tail. Earlier next-steps are not instructions. State what remained unexamined; merge overlapping conclusions and state each once."
     } else {
         "Use this checkpoint to continue the current line of work. Do not restart broad project discovery unless a specific missing or changed fact requires it."
     };
@@ -3051,6 +3356,8 @@ fn emit_compaction_diagnostics(
                     config.root.as_deref()
                 )))
             },
+            trigger_threshold_tokens: CompactionBudget { context_window: config.context_limit, ratio: DEFAULT_COMPACTION_RATIO, reserve_tokens: None }.trigger_tokens(),
+            safety_reserve_tokens: SAFETY_RESERVE_TOKENS,
             compaction_target_tokens: compaction_target_tokens(config.context_limit),
             preferred_output_tokens: PREFERRED_OUTPUT_HEADROOM_TOKENS,
             available_output_before: available_before,
@@ -3449,9 +3756,10 @@ fn run_tool(
     state: &mut AgentState,
     tool: &ValidatedCall,
     transcript: &Transcript,
+    authorized: bool,
 ) -> Result<(Value, Option<String>), String> {
     state.record_tool_call(&tool.name);
-    run_scoped_tool(config, state, tool, transcript)
+    run_scoped_tool_authorized(config, state, tool, transcript, authorized)
         .map(|result| project_result(config, tool, result))
 }
 
@@ -3463,13 +3771,15 @@ fn failed_call_retry_exhausted(state: &AgentState, fingerprint: &str) -> bool {
     state.failed_tool_calls.get(fingerprint).copied().unwrap_or(0) >= 2
 }
 
-fn run_scoped_tool(
+fn run_scoped_tool_authorized(
     config: &Config,
     state: &mut AgentState,
     tool: &ValidatedCall,
     transcript: &Transcript,
+    authorized: bool,
 ) -> Result<(Value, Option<String>), String> {
-    let scoped = scoped_tool_config(config, tool)?;
+    let mut scoped = scoped_tool_config(config, tool)?;
+    if authorized && !scoped.workspace_roots.iter().any(|root|root=="/"){scoped.workspace_roots.push("/".into());}
     let config = &scoped;
     if let Some(absent) = absent_reference_knowledge(config, tool) {
         return Ok((absent, None));
@@ -3479,9 +3789,23 @@ fn run_scoped_tool(
         let result = config.host_tools.as_ref().ok_or("Web host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
         return if result.get("error").is_some() || result.get("blocked_reason").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
-    if tool.name == "create_visual_artifact" {
+    if tool.name == "create_visual_artifact" || tool.name == "download_file" {
         if !config.artifact_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Visual artifact tool is unavailable".into()); }
-        let result = config.host_tools.as_ref().ok_or("Artifact host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
+        let mut arguments = tool.arguments.clone();
+        if tool.name == "download_file" { arguments["_action_id"] = json!(tool.id); arguments["_root"] = json!(config.work_root()); arguments["_authorized"] = json!(authorized); arguments["_allow_outside"] = json!(authorized); }
+        let result = config.host_tools.as_ref().ok_or("Artifact host is unavailable")?.execute(&config.run_id, &tool.name, &arguments, &config.cancelled)?;
+        if result.get("error").is_none() && tool.name == "download_file" {
+            let path = result.get("path").and_then(Value::as_str).ok_or("Download host omitted its verified destination")?;
+            let root = Path::new(config.work_root().ok_or("Download requires a project")?);
+            let grants=config.grants();
+            let scope = crate::tools::filesystem::Scope { root, grants: &grants };
+            crate::tools::filesystem::scoped(&scope, path)?;
+            state.record_mutation();
+            if result.get("replaced") != Some(&Value::Bool(true)) { state.record_created_file(path); }
+            state.task_memory.verification.note_change(Some(path));
+            state.work_budget.changed_file(path, result.get("sha256").and_then(Value::as_str).unwrap_or("downloaded"));
+            emit_task_memory(config, state);
+        }
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
     if tool.name == "read_attachment_data" {
@@ -3547,7 +3871,30 @@ fn run_scoped_tool(
             Ok((value, None))
         }
         "deliverables" => {
-            let result = apply_deliverables(state, &tool.arguments, transcript);
+            let mut arguments = tool.arguments.clone();
+            if arguments["action"] == "add" && (arguments.get("paths").is_none() || arguments["paths"].is_array()) {
+                // Explicit project identities in the claim constrain proof,
+                // but cannot change logical-task ownership or permissions.
+                let text = arguments["text"].as_str().unwrap_or("");
+                let tokens: Vec<_> = text.split_whitespace().map(|word| word.trim_matches(['`', '"', '\'', ',', ';', ':', '(', ')', '[', ']'])).collect();
+                let roots: Vec<_> = config.work_root().map(PathBuf::from).into_iter().chain(config.grants()).collect();
+                let mut paths: Vec<_> = roots.iter().filter(|root| root.as_os_str() != "/" && tokens.iter().any(|word|
+                    root.to_str() == Some(*word) || root.file_name().and_then(|name| name.to_str()) == Some(*word)))
+                    .filter_map(|root| root.canonicalize().ok()).map(|root| root.to_string_lossy().into_owned()).collect();
+                paths.extend(tokens.iter().filter(|word| Path::new(word).is_absolute() && *word != &"/")
+                    // A claim is metadata, not permission to inspect an
+                    // arbitrary host path. Only registered roots above are
+                    // resolved; free-text targets stay lexical constraints.
+                    .map(|word| (*word).to_owned()));
+                paths.sort(); paths.dedup();
+                if !paths.is_empty() {
+                    let mut targets = arguments["paths"].as_array().cloned().unwrap_or_default();
+                    for path in paths { let target = json!(path); if !targets.contains(&target) { targets.push(target); } }
+                    arguments["paths"] = json!(targets);
+                }
+            }
+            let result = apply_deliverables(state, &arguments, transcript)
+                .map_err(|message| crate::tools::failure::deliverables(&message));
             // Failed verify citations also change the durable evidence state.
             if result.is_err() {
                 emit_task_memory(config, state);
@@ -3595,6 +3942,21 @@ fn run_scoped_tool(
                 .work_root()
                 .map(str::to_owned)
                 .ok_or_else(|| "no project scope".to_owned())?;
+            if tool.arguments.get("task_action").is_some() {
+                // Permission classification happened before this trusted boundary.
+                // Only opaque handles created by this run are cleanup authority.
+                let value = crate::process::tasks::execute(&config.run_id, &root, &tool.arguments);
+                if value.get("error").is_some() { return Err(value.to_string()); }
+                let grants = config.grants();
+                let scope = crate::tools::filesystem::Scope { root: Path::new(&root), grants: &grants };
+                let command = tool.arguments.get("command").and_then(Value::as_str).unwrap_or("");
+                // Status/stop are lifecycle operations, not source edits. Still
+                // compare tracked revisions: a shutdown handler may edit code.
+                let effect = managed_task_effect(tool.arguments["task_action"].as_str().unwrap_or("start"));
+                if record_terminal_effect(state, &scope, command, effect) { emit_task_memory(config, state); }
+                // Starting/observing a background process is not a passing check.
+                return Ok((value, None));
+            }
             let command = tool
                 .arguments
                 .get("command")
@@ -3633,9 +3995,14 @@ fn run_scoped_tool(
                 sync_verification_failure(state);
                 emit_task_memory(config, state);
             }
-            let value = crate::tools::shell::execute(
+            let grants = config.grants();
+            let scope = crate::tools::filesystem::Scope { root: Path::new(&root), grants: &grants };
+            let literal_before = verification::literal_write_target(&command)
+                .and_then(|path| crate::tools::filesystem::file_revision(&scope, &path).map(|(_, revision)| (path, revision)));
+            let mut value = crate::tools::shell::execute(
                 &PathBuf::from(&root),
                 &tool.arguments,
+                authorized,
                 || config.cancelled.load(Ordering::Relaxed),
                 |pid, pgid, session_id, started_at| {
                     emit(
@@ -3662,11 +4029,6 @@ fn run_scoped_tool(
                     )
                 },
             )?;
-            let grants = config.grants();
-            let scope = crate::tools::filesystem::Scope {
-                root: Path::new(&root),
-                grants: &grants,
-            };
             let tracked = state
                 .task_memory
                 .verification
@@ -3675,13 +4037,44 @@ fn run_scoped_tool(
                 .map(String::as_str)
                 .collect::<Vec<_>>();
             let effect = verification::terminal_effect(&command, &tracked);
-            let mut changed = record_terminal_effect(state, &scope, &command, effect);
+            let unchanged = literal_before.as_ref().is_some_and(|(path, before)| {
+                value.get("exit_code").and_then(Value::as_i64) == Some(0)
+                    && value.get("status").and_then(Value::as_str) == Some("completed")
+                    && crate::tools::filesystem::file_revision(&scope, path).is_some_and(|(_, after)| &after == before)
+            });
+            // Still scan every tracked revision, but do not advance the epoch
+            // for an observed identical, single-target builtin write.
+            let observed_effect = if unchanged { verification::Effect::Check(verification::Kind::Run) } else { effect };
+            if unchanged { value["unchanged"] = json!(true); }
+            let mut changed = record_terminal_effect(state, &scope, &command, observed_effect);
             // A check that rewrote tracked files did not check the files the
             // runtime knows about, so its exit code is not recorded.
             let inconclusive = changed && matches!(effect, verification::Effect::Check(_));
-            if !inconclusive && record_terminal_evidence(state, Path::new(&root), &command, &value)
-            {
+            let recorded = !inconclusive && record_terminal_evidence(state, Path::new(&root), &command, &value, &grants);
+            if recorded {
+                let record = state.task_memory.verification.records.last().unwrap();
+                let unsupported: Vec<_> = ids.iter().filter(|id| !record.deliverable_ids.contains(id)).collect();
+                if !unsupported.is_empty() {
+                    value["verification_attribution"] = json!({"evidence_id":record.id,
+                        "associated_deliverable_ids":record.deliverable_ids,
+                        "unverified_deliverable_ids":unsupported,
+                        "reason":"The command does not prove these claims: scope differs or non-modification requires trusted integrity evidence. Selected IDs alone are not proof."});
+                }
+            }
+            if recorded {
                 changed = true;
+            }
+            let tracked_sources = task_check_sources(state);
+            let tracked_refs: Vec<_> = tracked_sources.iter().map(String::as_str).collect();
+            let scope_failure = verification::scoped_check_root(&command, Path::new(&root), &grants, &tracked_refs).err();
+            if let Some(mut diagnostic)=unrecorded_check_diagnostic(&command,&value,&ids,recorded,inconclusive,scope_failure) {
+                diagnostic["launch_cwd"] = json!(root);
+                diagnostic["task_sources"] = json!(tracked_sources);
+                if let Ok((cwd, target)) = verification::check_location(&command, Path::new(&root)) {
+                    diagnostic["effective_cwd"] = json!(cwd);
+                    diagnostic["check_directory"] = json!(target);
+                }
+                value["verification_diagnostic"]=diagnostic;
             }
             if changed {
                 emit_task_memory(config, state);
@@ -3761,7 +4154,7 @@ fn run_scoped_tool(
                     state.record_created_file(path);
                 }
                 ("delete_file", Some(path)) => state.record_deleted_file(path),
-                ("apply_patch", _) => {
+                ("apply_patch", _) if result.0.get("unchanged").and_then(Value::as_bool)!=Some(true) => {
                     let patch = tool
                         .arguments
                         .get("patch")
@@ -3789,7 +4182,7 @@ fn run_scoped_tool(
                     &result.0,
                 );
             }
-            if mutation_tool(name) {
+            if mutation_tool(name) && !(matches!(name,"write_file"|"apply_patch") && result.0.get("unchanged").and_then(Value::as_bool)==Some(true)) {
                 state.record_mutation();
                 let changed = match name {
                     "apply_patch" => result
@@ -3905,6 +4298,10 @@ fn safe_read_only_tool(name: &str) -> bool {
         name,
         "read_file" | "list_directory" | "project_knowledge_index" | "project_knowledge_read"
     )
+}
+
+fn automatically_readable(config:&Config,tool:&ValidatedCall)->bool {
+    scoped_tool_config(config,tool).is_ok_and(|scope| scope.permission_decision(tool)==super::permissions::Decision::Read)
 }
 
 fn can_parallelize_safe_read(
@@ -4086,11 +4483,7 @@ fn record_safe_read_effect(
     }
 }
 
-fn concise_tool_error(message: &str) -> String {
-    let trimmed = message.trim();
-    let bounded = trimmed.chars().take(1_200).collect::<String>();
-    json!({"error":bounded}).to_string()
-}
+fn concise_tool_error(message: &str) -> String { crate::tools::failure::concise(message) }
 
 /// Commands that produce evidence a run may spend after the first
 /// verification review before the gate stops asking.
@@ -4130,7 +4523,7 @@ fn verification_gap(state: &AgentState) -> Option<String> {
             deliverables::Deliverables::summarize(&reachable)
         );
         if reachable.iter().any(|item| {
-            ledger.effective_need(item.check) == Need::Browser
+            ledger.effective_need(item.required_check()) == Need::Browser
                 && ledger.best_passing(Need::Browser).is_none()
         }) {
             line.push_str(" (needs a run in a real browser, e.g. a headless browser or a Playwright or Puppeteer script; a jsdom or node script is not one)");
@@ -4259,6 +4652,7 @@ fn review_tool_free_final(
 }
 
 pub fn run(config: Config) {
+    let _owned_tasks = crate::process::tasks::OwnerGuard::new(&config.run_id);
     let mut transcript = if let Some(dir) = &config.evidence_dir {
         match Transcript::durable(
             &PathBuf::from(dir),
@@ -4286,10 +4680,7 @@ pub fn run(config: Config) {
         }
         transcript
     };
-    let previous_budget = transcript.entries().iter().rev().find_map(|entry| {
-        if let crate::agent::transcript::Entry::WorkBudget(budget) = entry { Some(budget.clone()) } else { None }
-    }).unwrap_or_default();
-    let new_request = !transcript.has_current_run_input(&config.user, &config.user_image_refs);
+    let new_request = transcript.is_finalizing() || !transcript.has_current_run_input(&config.user, &config.user_image_refs);
     if new_request {
         let mut user = json!({"role":"user", "content":config.user});
         if !config.user_images.is_empty() { user["images"] = json!(config.user_images); }
@@ -4298,8 +4689,11 @@ pub fn run(config: Config) {
     }
     transcript.set_ui_language(config.ui_language.as_deref());
     let mut state = AgentState::default();
-    state.work_budget = if previous_budget.closed && new_request { Default::default() } else { previous_budget };
+    // Every execution starts fresh. Legacy exhausted budgets never control a run.
     state.strategy = Strategy::from_mode(&config.reasoning_mode);
+    // A resumed interrupted attempt retains its cleanup budget; a new user request starts a new window.
+    let run_start = transcript.entries().iter().rposition(|e| matches!(e, super::transcript::Entry::RunUser(_))).unwrap_or(0);
+    state.loop_repair_attempts = transcript.entries().iter().skip(run_start).filter(|e|matches!(e, super::transcript::Entry::ContextExclusion { .. })).count().min(MAX_LOOP_REPAIRS);
     state.task_memory = match restore_task_memory(config.task_memory.as_ref(), &transcript) {
         Ok(memory) => memory,
         Err(message) => {
@@ -4327,8 +4721,9 @@ pub fn run(config: Config) {
     };
     let stable = stable_prefix(&config);
     transcript.set_secondary_project_root(config.secondary_root.as_deref().map(Path::new));
-    let mut schemas = tool_schemas_for_request(config.tool_scope(), config.policy, &config.user);
-    schemas.extend(config.artifact_tools.iter().cloned());
+    let mut schema_scope=config.tool_scope();
+    let mut schemas = tool_schemas_for_request(schema_scope, config.policy, &config.user);
+    schemas.extend(config.artifact_tools.iter().filter(|schema| !(user_requests_read_only(&config.user) && is_project_side_effect_tool(tool_name(schema)))).cloned());
     schemas.extend(config.attachment_tools.iter().cloned());
     if config.host_tools.is_some() {
         schemas.extend(config.web_tools.iter().filter(|schema| crate::tools::web::is_web_tool(tool_name(schema))).cloned());
@@ -4370,6 +4765,7 @@ pub fn run(config: Config) {
     // An emergency tool-result reduction belongs only to the next provider
     // projection. The append-only transcript remains verbatim.
     let mut pending_fitted_projection: Option<Vec<Value>> = None;
+    let mut projection_cleanup_count = transcript.entries().iter().filter(|entry| matches!(entry, super::transcript::Entry::ContextExclusion { .. })).count();
     let project_root = config
         .root
         .as_deref()
@@ -4379,7 +4775,7 @@ pub fn run(config: Config) {
         .map_or_else(ProjectIndex::empty, ProjectIndex::scan);
     let mut indexed_mutations = state.mutations;
     let mut consecutive_empty_turns = 0_usize;
-    let mut turn_budget_exhausted = state.work_budget.decision == "denied";
+
     let mut synthesis_turns = 0;
 
     emit(
@@ -4395,7 +4791,7 @@ pub fn run(config: Config) {
     }
     emit_knowledge_diagnostics(&config, &state);
     checkpoint_work_budget(&config, &state, &mut transcript);
-    for turn in 0..super::work_budget::MAXIMUM + MAX_SYNTHESIS_TURNS {
+    for turn in 0_usize.. {
         if let Some(error) = transcript.storage_error() {
             emit(
                 &config.run_id,
@@ -4415,12 +4811,14 @@ pub fn run(config: Config) {
             );
             return;
         }
+        if !loop_boundary(&config,&mut state,&mut transcript) { emit(&config.run_id,Event::AgentStopped{reason:"cancelled".into()}); return; }
         state.pause_offered = false;
         let mut steering_applied = false;
         if let Ok(mut steering) = config.steering.lock() {
             for content in steering.drain(..) {
                 transcript.push_steering(content.clone());
-                emit(&config.run_id, Event::SteeringApplied { content });
+                state.failed_tool_calls.retain(|key, _| !key.starts_with("denied:"));
+        emit(&config.run_id, Event::SteeringApplied { content });
                 steering_applied = true;
             }
             if config.pause_requested.swap(false, Ordering::Relaxed) {
@@ -4444,24 +4842,17 @@ pub fn run(config: Config) {
         {
             state.verification_closed = true;
         }
-        if !transcript.is_finalizing() && state.pause.is_none() {
-            let old_limit = state.work_budget.limit;
-            if !state.work_budget.allow_next() {
-                turn_budget_exhausted = true;
-                transcript.mark_finalizing();
-                trace_forensics(&config.run_id, "lifecycle_transition", json!({
-                    "state":"finalizing", "reason":"turn_budget_exhausted", "turn":turn+1,
-                    "work_turns":state.work_budget.used, "budget_reason":state.work_budget.reason
-                }));
-            }
-            if state.work_budget.limit != old_limit || turn_budget_exhausted {
-                checkpoint_work_budget(&config, &state, &mut transcript);
-                trace_forensics(&config.run_id, "work_budget_decision", serde_json::to_value(state.work_budget.view()).unwrap());
-            }
-        }
         if transcript.is_finalizing() || state.pause.is_some() {
             synthesis_turns += 1;
             if synthesis_turns > MAX_SYNTHESIS_TURNS { break; }
+        }
+        if schema_scope!=config.tool_scope() {
+            schema_scope=config.tool_scope();
+            schemas=tool_schemas_for_request(schema_scope,config.policy,&config.user);
+            schemas.extend(config.artifact_tools.iter().filter(|schema| !(user_requests_read_only(&config.user) && is_project_side_effect_tool(tool_name(schema)))).cloned());
+            schemas.extend(config.attachment_tools.iter().cloned());
+            if config.host_tools.is_some(){schemas.extend(config.web_tools.iter().cloned());}
+            state.can_verify=schemas.iter().any(|s|tool_name(s)=="run_terminal");
         }
         let offered_schemas = turn_schemas(&schemas, &state, transcript.is_finalizing());
         let request_schemas = &offered_schemas;
@@ -4479,13 +4870,15 @@ pub fn run(config: Config) {
             config.context_limit.saturating_div(16).clamp(1_500, 6_000),
             !transcript.is_finalizing(),
         );
-        let dynamic = dynamic_tail(
+        let mut dynamic = dynamic_tail(
             &state,
             config.root.as_deref(),
             &config.user,
             &transcript,
             &investigation,
         );
+        dynamic.push_str("\n");
+        dynamic.push_str(&execution_process_context(&config));
         trace_forensics(
             &config.run_id,
             "investigation_state",
@@ -4497,6 +4890,8 @@ pub fn run(config: Config) {
         } else {
             pending_tail
         };
+        let cleanup_count = transcript.entries().iter().filter(|entry| matches!(entry, super::transcript::Entry::ContextExclusion { .. })).count();
+        if cleanup_count != projection_cleanup_count { pending_fitted_projection = None; projection_cleanup_count = cleanup_count; }
         let mut messages = pending_fitted_projection
             .take()
             .unwrap_or_else(|| project_evidence(&config, &transcript, &stable, &sent_tail));
@@ -4562,6 +4957,7 @@ pub fn run(config: Config) {
                     }
                 }
                 compaction_index += 1;
+            state.loop_detector.compacted();
                 emit_compaction_diagnostics(
                     &config,
                     &state,
@@ -4774,6 +5170,7 @@ pub fn run(config: Config) {
                     }
                 }
                 compaction_index += 1;
+            state.loop_detector.compacted();
                 emit_compaction_diagnostics(
                     &config,
                     &state,
@@ -4844,6 +5241,11 @@ pub fn run(config: Config) {
                 finish_reason: streamed.finish_reason.clone(),
             },
         );
+        // A graceful pause can arrive while the model is generating. Apply it
+        // before executing newly generated calls, without interrupting a write.
+        if config.pause_requested.swap(false, Ordering::Relaxed) {
+            begin_pause(&config, &mut state, "user_control");
+        }
         let raw_calls = streamed.calls.into_values().collect::<Vec<_>>();
         let calls = match validate_calls(&raw_calls, Some(&streamed.finish_reason)) {
             Ok(calls) => calls,
@@ -5076,7 +5478,7 @@ pub fn run(config: Config) {
             if !was_continuation {
                 append_final_text(&mut final_content, &streamed.content);
             }
-            let note = terminal_status_note(&state, &transcript, turn_budget_exhausted);
+            let note = terminal_status_note(&state, &transcript, false);
             emit_accepted_final_content(&config.run_id, &note);
             visible_final_content.push_str(&note);
             final_content.push_str(&note);
@@ -5084,7 +5486,7 @@ pub fn run(config: Config) {
             let unresolved = state.task_memory.deliverables.items.iter().any(|item| matches!(item.status,
                 deliverables::DeliverableStatus::Pending | deliverables::DeliverableStatus::Implemented | deliverables::DeliverableStatus::Blocked));
             let anonymous_gap = anonymous_verification_gap(&state);
-            state.work_budget.closed = state.pause.is_none() && !turn_budget_exhausted && !unresolved && !anonymous_gap;
+            state.work_budget.closed = state.pause.is_none() && !unresolved && !anonymous_gap;
             checkpoint_work_budget(&config, &state, &mut transcript);
             transcript.mark_run_complete();
             trace_forensics(
@@ -5151,6 +5553,10 @@ pub fn run(config: Config) {
         let mut budget = TurnBudget::new(config.context_limit);
         let mut call_index = 0_usize;
         while call_index < calls.len() {
+            if config.pause_requested.swap(false, Ordering::Relaxed) {
+                begin_pause(&config, &mut state, "user_control");
+            }
+            if !loop_boundary(&config,&mut state,&mut transcript) { emit(&config.run_id,Event::AgentStopped{reason:"cancelled".into()}); return; }
             if !transcript.is_finalizing()
                 && state.pause.is_none()
                 && can_parallelize_safe_read(
@@ -5159,6 +5565,7 @@ pub fn run(config: Config) {
                     &transcript,
                     config.root.as_deref().map(std::path::Path::new),
                 )
+                && automatically_readable(&config,&calls[call_index])
                 && safe_read_only_tool(&calls[call_index].name)
                 && schemas
                     .iter()
@@ -5167,7 +5574,7 @@ pub fn run(config: Config) {
                 let start = call_index;
                 while call_index < calls.len() {
                     let candidate = &calls[call_index];
-                    if !safe_read_only_tool(&candidate.name)
+                    if !automatically_readable(&config,candidate) || !safe_read_only_tool(&candidate.name)
                         || !schemas
                             .iter()
                             .any(|schema| tool_name(schema) == candidate.name)
@@ -5243,6 +5650,7 @@ pub fn run(config: Config) {
                     match result {
                         Ok((value, diff)) => {
                             record_safe_read_effect(&config, &mut state, tool, &value);
+                            observe_loop(&config,&mut state,&mut transcript,tool,&value,false);
                             let content = value.to_string();
                             budget.spend(content.chars().count());
                             tool_result_tokens_since_compaction =
@@ -5315,7 +5723,7 @@ pub fn run(config: Config) {
                 let message = if state.pause.is_some() && !transcript.is_finalizing() {
                     PAUSED_TOOL_MESSAGE.to_owned()
                 } else if transcript.is_finalizing() {
-                    format!("Tool '{}' is unavailable: the investigation budget for this run is exhausted. Write the final answer now from the findings already in context.", tool.name)
+                    format!("Tool '{}' is unavailable: the current execution is in its final response phase. Write the final answer now from the findings already in context.", tool.name)
                 } else {
                     format!("tool '{}' is unavailable", tool.name)
                 };
@@ -5346,12 +5754,13 @@ pub fn run(config: Config) {
                 transcript.tool_result(&tool.id, &tool.name, concise_tool_error(&message));
                 continue;
             }
-            if !transcript.is_finalizing() {
+            if !transcript.is_finalizing() && !state.loop_detector.recovering_reads() {
                 if let Err(message) = repeated_file_read_decision(
                     tool,
                     &transcript,
                     config.root.as_deref().map(std::path::Path::new),
                 ) {
+                    observe_loop(&config,&mut state,&mut transcript,tool,&json!({"unchanged":true,"observation":message}),false);
                     trace_forensics(
                         &config.run_id,
                         "repeated_read_decision",
@@ -5373,50 +5782,63 @@ pub fn run(config: Config) {
                     continue;
                 }
             }
-            if policy::requires_approval_in_root(
-                config.policy,
-                &tool.name,
-                &tool.arguments,
-                config.root.as_deref().map(std::path::Path::new),
-            ) {
-                emit(
-                    &config.run_id,
-                    Event::ApprovalRequired {
-                        id: tool.id.clone(),
-                        category: if tool.name == "run_terminal" {
-                            "session_system".into()
-                        } else {
-                            "destructive".into()
-                        },
-                        detail: tool
-                            .arguments
-                            .get("command")
-                            .and_then(Value::as_str)
-                            .unwrap_or(&tool.name)
-                            .to_owned(),
-                    },
-                );
-                let refusal = approval_refusal(tool);
-                // The started card must end with this call's own result: the
-                // model's retry is a new call with a new ID.
-                emit(
-                    &config.run_id,
-                    Event::ToolError {
-                        id: tool.id.clone(),
-                        name: tool.name.clone(),
-                        message: refusal.into(),
-                    },
-                );
-                transcript.tool_result(&tool.id, &tool.name, concise_tool_error(refusal));
-                continue;
+            // Resolve the selected project before authorization; arguments cannot
+            // carry an approval flag or expand the session grant themselves.
+            let permission_config = match scoped_tool_config(&config, tool) {
+                Ok(scoped) => scoped,
+                Err(message) => {
+                    emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: message.clone() });
+                    transcript.tool_result(&tool.id, &tool.name, concise_tool_error(&message));
+                    continue;
+                }
+            };
+            let permission_epoch=config.control.lock().expect("execution control").permissions_epoch;
+            let denied_key = format!("denied:{permission_epoch}:{}", tool_call_fingerprint(tool));
+            if state.failed_tool_calls.contains_key(&denied_key) {
+                let message = json!({"error":"This exact operation was denied earlier in this run. Do not switch tools to bypass it; ask the user for new authorization.","code":"PERMISSION_DENIED","retrySameArguments":false}).to_string();
+                emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: message.clone() });
+                observe_loop(&config,&mut state,&mut transcript,tool,&serde_json::from_str(&message).unwrap_or(json!({"error":message})),false);
+                transcript.tool_result(&tool.id, &tool.name, message); continue;
             }
             let failure_fingerprint = tool_call_fingerprint(tool);
-            if !transcript.is_finalizing() && crate::tools::web::is_host_tool(&tool.name) && failed_call_retry_exhausted(&state, &failure_fingerprint) {
-                let message = "This identical tool call has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
-                emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: message.into() });
-                transcript.tool_result(&tool.id, &tool.name, concise_tool_error(message));
-                transcript.remind("Those hosted tool arguments were rejected twice. Correct the failing input or explain the limitation; corrected calls and other tools remain available within the normal run budget.".into());
+            if !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal") && failed_call_retry_exhausted(&state, &failure_fingerprint) {
+                let message = "This identical tool call has a deterministic failure or has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
+                emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string() });
+                transcript.tool_result(&tool.id, &tool.name, json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string());
+                observe_loop(&config,&mut state,&mut transcript,tool,&json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}),false);
                 continue;
+            }
+            if tool.name == "run_terminal" && tool.arguments.get("command").and_then(Value::as_str).is_some_and(crate::process::isolation::process_management) {
+                let refusal = crate::process::isolation::refusal("Shell process management is forbidden in every autonomy mode. Use run_terminal task_action=start/status/stop with an owned task_id.").to_string();
+                emit(&config.run_id,Event::ToolError{id:tool.id.clone(),name:tool.name.clone(),message:refusal.clone()});
+                transcript.tool_result(&tool.id,&tool.name,refusal);continue;
+            }
+            let permission = permission_config.permission_decision(tool);
+            use super::permissions::Decision;
+            if let Decision::Deny(reason)=&permission {
+                let refusal=json!({"error":reason,"code":if reason.starts_with("PROTECTED_RUNTIME_PROCESS:") {"PROTECTED_RUNTIME_PROCESS"} else if reason.starts_with("MANDATORY_POLICY_BLOCKED:") {"MANDATORY_POLICY_BLOCKED"} else {"PERMISSION_DENIED"},"retrySameArguments":false}).to_string();
+                observe_loop(&config,&mut state,&mut transcript,tool,&serde_json::from_str(&refusal).unwrap(),false);
+                emit(&config.run_id,Event::ToolError{id:tool.id.clone(),name:tool.name.clone(),message:refusal.clone()});
+                transcript.tool_result(&tool.id,&tool.name,refusal);continue;
+            }
+            let mut authorized = permission==Decision::Allow;
+            if permission==Decision::Ask {
+                let result = config.host_tools.as_ref().ok_or_else(|| "Approval UI unavailable: run from Electron to authorize this operation".to_owned())
+                    .and_then(|host| host.execute(&config.run_id, "request_permission", &json!({
+                        "action_id": tool.id, "operation": tool.name,
+                        "arguments": tool.arguments, "root": permission_config.work_root(),
+                    }), &config.cancelled));
+                let decision = result.unwrap_or_else(|error| crate::tools::web::permission_failure(&error, config.cancelled.load(Ordering::Relaxed)));
+                if decision.get("approved") != Some(&Value::Bool(true)) {
+                    let epoch=config.control.lock().expect("execution control").permissions_epoch;
+                    state.failed_tool_calls.insert(format!("denied:{epoch}:{}",tool_call_fingerprint(tool)), 2);
+                    let refusal = json!({"error":decision.get("error").and_then(Value::as_str).unwrap_or("Operation was not authorized. Do not bypass by switching tools."),
+                        "code":"PERMISSION_DENIED", "approved":false,"reason":decision.get("reason"),"retrySameArguments":false}).to_string();
+                    emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: refusal.clone() });
+                    transcript.tool_result(&tool.id, &tool.name, refusal);
+                    continue;
+                }
+                authorized = true;
             }
             emit(
                 &config.run_id,
@@ -5426,6 +5848,8 @@ pub fn run(config: Config) {
             );
             let adjusted = budget.adjust(tool, budget.next_limit());
             let tool = &adjusted;
+            let versions_before=state.file_revisions.clone();
+            let checked_versions_before=state.task_memory.verification.revisions.clone();
             let outcome = match tool.name.as_str() {
                 "observation_index" => Ok((
                     transcript.observation_index(
@@ -5479,14 +5903,19 @@ pub fn run(config: Config) {
                     {
                         Err(conflict)
                     } else {
-                        run_tool(&config, &mut state, tool, &transcript)
+                        run_tool(&config, &mut state, tool, &transcript, authorized)
                     }
                 }
-                _ => run_tool(&config, &mut state, tool, &transcript),
+                _ => run_tool(&config, &mut state, tool, &transcript, authorized),
             };
             match outcome {
                 Ok((value, diff)) => {
                     state.failed_tool_calls.remove(&failure_fingerprint);
+                    if mutation_tool(&tool.name) || tool.name == "run_terminal" {
+                        state.failed_tool_calls.retain(|key, _| !key.starts_with("run_terminal:"));
+                    }
+                    let changed=versions_before!=state.file_revisions || checked_versions_before!=state.task_memory.verification.revisions || tool.name=="delete_file";
+                    observe_loop(&config,&mut state,&mut transcript,tool,&value,changed);
                     let content = value.to_string();
                     budget.spend(content.chars().count());
                     tool_result_tokens_since_compaction = tool_result_tokens_since_compaction
@@ -5528,19 +5957,24 @@ pub fn run(config: Config) {
                     record_read_evidence(&config, &transcript, tool);
                 }
                 Err(message) => {
-                    let failed = state.failed_tool_calls.entry(failure_fingerprint).or_default();
+                    let failed = state.failed_tool_calls.entry(failure_fingerprint.clone()).or_default();
                     *failed = failed.saturating_add(1);
                     if mutation_tool(&tool.name) { state.work_budget.failed_edit(); }
                     let stored_error = if tool.name == "run_terminal" {
                         serde_json::from_str::<Value>(&message)
                             .map(|execution| {
-                                json!({"error":"terminal execution failed","execution":execution})
-                                    .to_string()
+                                crate::tools::failure::terminal(execution).to_string()
                             })
                             .unwrap_or_else(|_| concise_tool_error(&message))
                     } else {
                         concise_tool_error(&message)
                     };
+                    observe_loop(&config,&mut state,&mut transcript,tool,&serde_json::from_str(&stored_error).unwrap_or(json!({"error":stored_error})),false);
+                    let deterministic = serde_json::from_str::<Value>(&stored_error).ok().is_some_and(|error| error.get("retrySameArguments") == Some(&Value::Bool(false)) || error.get("stage").and_then(Value::as_str)==Some("validation"));
+                    if tool.name == "run_terminal" || crate::tools::web::is_host_tool(&tool.name) {
+                        if deterministic { if tool.name!="create_visual_artifact" {state.failed_tool_calls.insert(failure_fingerprint.clone(), 2);} }
+                        else { state.failed_tool_calls.remove(&failure_fingerprint); }
+                    }
                     // A failed terminal keeps its structured execution so the
                     // result closes the same card the process started.
                     emit(
@@ -5579,6 +6013,94 @@ fn is_context_overflow(error: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn loop_repair_rearms_then_pauses_after_two_failed_attempts() {
+        use super::super::control::{LoopCommand, LoopAction};
+        let config = test_config(32768);
+        let mut transcript = Transcript::default();
+        let mut state = AgentState::default();
+        let tool = ValidatedCall { id:"loop".into(),name:"deliverables".into(),arguments:json!({"action":"view"}) };
+        let repeat = |state: &mut AgentState, transcript: &mut Transcript, count| {
+            for i in 0..count {
+                transcript.push_message(json!({"role":"assistant","tool_calls":[{"id":format!("loop{i}"),"function":{"name":"deliverables","arguments":"{\"action\":\"view\"}"}}]}));
+                observe_loop(&config,state,transcript,&tool,&json!({"items":[]}),false);
+                transcript.tool_result(&format!("loop{i}"),"deliverables","{\"items\":[]}".into());
+            }
+        };
+        let resume = |state: &mut AgentState, transcript: &mut Transcript, action| {
+            let signature = state.loop_notice.as_ref().unwrap().signature.clone();
+            config.control.lock().unwrap().commands.push_back(LoopCommand { id:None,action,signature });
+            assert!(loop_boundary(&config,state,transcript));
+        };
+        repeat(&mut state,&mut transcript,20); assert!(state.suspended);
+        resume(&mut state,&mut transcript,LoopAction::CorrectResume);
+        repeat(&mut state,&mut transcript,20); assert!(state.suspended); assert_eq!(state.loop_repair_attempts,1);
+        resume(&mut state,&mut transcript,LoopAction::CorrectResume);
+        repeat(&mut state,&mut transcript,20);
+        assert!(state.suspended); assert!(state.loop_notice.as_ref().unwrap().repair_exhausted);
+        assert_eq!(state.loop_repair_attempts,2);
+        resume(&mut state,&mut transcript,LoopAction::ContinueAnyway);
+        repeat(&mut state,&mut transcript,20); assert!(state.suspended, "manual continue must rearm future pauses");
+        resume(&mut state,&mut transcript,LoopAction::ContinueAnyway);
+        let inspect = ValidatedCall { id:"read".into(),name:"read_file".into(),arguments:json!({"path":"a.py"}) };
+        observe_loop(&config,&mut state,&mut transcript,&inspect,&json!({"content":"new useful observation"}),false);
+        assert_eq!(state.loop_repair_attempts,0); assert!(state.loop_recovery.is_none());
+        assert!(transcript.runtime_guidance().contains("metadata only"));
+        config.cancelled.store(true,Ordering::Relaxed);
+        assert!(!loop_boundary(&config,&mut state,&mut transcript), "Stop must release any live boundary");
+    }
+
+    #[test]
+    fn repaired_strategy_with_different_failed_calls_is_bounded_without_progress() {
+        use super::super::control::{LoopCommand,LoopAction};
+        let config=test_config(32768); let mut state=AgentState::default(); let mut transcript=Transcript::default();
+        let mut tool=ValidatedCall{id:"failed".into(),name:"replace_text".into(),arguments:json!({"path":"a.py"})};
+        for _ in 0..20 {observe_loop(&config,&mut state,&mut transcript,&tool,&json!({"error":"invalid","retrySameArguments":false}),false);}
+        config.control.lock().unwrap().commands.push_back(LoopCommand{id:None,action:LoopAction::ContinueAnyway,signature:state.loop_notice.as_ref().unwrap().signature.clone()});
+        assert!(loop_boundary(&config,&mut state,&mut transcript));
+        for index in 0..20 {tool.arguments=json!({"path":format!("other-{index}.py")}); observe_loop(&config,&mut state,&mut transcript,&tool,&json!({"error":"invalid","retrySameArguments":false}),false);}
+        assert!(state.suspended,"changing failed arguments is not recovery progress");
+    }
+    #[test]
+    fn refused_connections_retry_before_submission_and_stop_at_three() {
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let mut calls = 0;
+        let mut delays = 0;
+        let result = super::connect_with_recovery(&cancelled, || {
+            calls += 1;
+            if calls < 3 { Err(std::io::Error::from(std::io::ErrorKind::ConnectionRefused)) }
+            else { Ok(42) }
+        }, || delays += 1);
+        assert_eq!(result.unwrap(), 42);
+        assert_eq!((calls, delays), (3, 2));
+        calls = 0;
+        let result: std::io::Result<()> = super::connect_with_recovery(&cancelled, || {
+            calls += 1;
+            Err(std::io::Error::from(std::io::ErrorKind::ConnectionRefused))
+        }, || {});
+        assert!(result.is_err());
+        assert_eq!(calls, 3);
+    }
+
+    #[test]
+    fn connection_recovery_does_not_retry_other_errors_and_honors_stop() {
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let mut calls = 0;
+        let result: std::io::Result<()> = super::connect_with_recovery(&cancelled, || {
+            calls += 1;
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+        }, || panic!("non-refusal must not retry"));
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(calls, 1);
+        calls = 0;
+        let result: std::io::Result<()> = super::connect_with_recovery(&cancelled, || {
+            calls += 1;
+            Err(std::io::Error::from(std::io::ErrorKind::ConnectionRefused))
+        }, || cancelled.store(true, std::sync::atomic::Ordering::Relaxed));
+        assert_eq!(result.unwrap_err().to_string(), "cancelled");
+        assert_eq!(calls, 1);
+    }
+
     use super::*;
 
     #[test]
@@ -6095,6 +6617,21 @@ mod tests {
         assert_eq!(transcript.entries().len(), before + 1);
     }
 
+    #[test]
+    fn process_context_does_not_restore_historical_handles_in_a_new_execution() {
+        let mut config=test_config(65_536);
+        assert!(execution_process_context(&config).is_empty());
+        config.root=Some("/tmp/lad-process-context-metadata-only".into());
+        config.run_id="fresh-generation-a".into();
+        let first=execution_process_context(&config);
+        assert!(first.contains("registered_task_handles=[]"));
+        assert!(first.contains("historical READY output does not mean"));
+        config.run_id="fresh-generation-b".into();
+        let second=execution_process_context(&config);
+        assert_ne!(first,second);
+        assert!(second.contains("generation=fresh-generation-b"));
+    }
+
     fn test_config(window: usize) -> Config {
         Config {
             run_id: "test".into(),
@@ -6121,6 +6658,7 @@ mod tests {
             steering: Arc::new(Mutex::new(Vec::new())),
             steering_closed: Arc::new(AtomicBool::new(false)),
             pause_requested: Arc::new(AtomicBool::new(false)),
+            control: Arc::new(Mutex::new(Default::default())),
         }
     }
 
@@ -6455,6 +6993,7 @@ mod tests {
                 "list_directory",
                 "run_terminal",
                 "task_memory",
+                "deliverables",
                 "observation_read",
             ] {
                 assert!(names.contains(&name), "{prompt}: {name}");
@@ -6467,6 +7006,18 @@ mod tests {
             "Update the project files.",
         );
         assert!(writable.iter().any(|tool| tool_name(tool) == "write_file"));
+    }
+
+    #[test]
+    fn unchanged_probe_request_keeps_contract_metadata_without_file_mutations() {
+        let schemas=tool_schemas_for_request(ToolScope::Project,RunPolicy::Auto,
+            "Do not modify the probe. Run it unchanged and save its actual JSON output.");
+        let names=schemas.iter().map(tool_name).collect::<Vec<_>>();
+        assert!(names.contains(&"deliverables"));
+        assert!(names.contains(&"run_terminal"));
+        for name in ["write_file","create_file","replace_text","apply_patch","delete_file"] {
+            assert!(!names.contains(&name),"{name}");
+        }
     }
 
     #[test]
@@ -6507,7 +7058,7 @@ mod tests {
                 name: name.into(),
                 arguments,
             };
-            let (value, _) = run_tool(&config, &mut state, &call, &Transcript::default()).unwrap();
+            let (value, _) = run_tool(&config, &mut state, &call, &Transcript::default(), false).unwrap();
             record_safe_read_effect(&config, &mut state, &call, &value);
         }
         emit_knowledge_diagnostics(&config, &state);
@@ -6537,6 +7088,17 @@ mod tests {
         assert!(wire[0].get("_result_policy").is_none());
         assert!(wire[0].get("_rehydration").is_none());
         assert_eq!(wire[0]["content"], "result");
+    }
+
+    #[test]
+    fn advertised_deliverable_task_limit_matches_runtime_validation() {
+        let schemas=tool_schemas(ToolScope::Project);
+        let schema=schemas.iter().find(|tool|tool_name(tool)=="deliverables").unwrap();
+        let limit=schema.pointer("/function/parameters/properties/task/maxLength").unwrap().as_u64().unwrap() as usize;
+        let mut items=deliverables::Deliverables::default();
+        assert!(items.add(Some("short"),&"я".repeat(limit),"First result").is_ok());
+        assert!(items.add(Some("long"),&"я".repeat(limit+1),"Second result").is_err());
+        assert_eq!(items.items.len(),1,"Rejected input must not create a deliverable");
     }
 
     #[test]
@@ -7232,7 +7794,7 @@ mod tests {
         assert!(note.contains("Реализовано, но не проверено: d-001"));
         assert!(note.contains("Заблокировано: d-002"));
         assert!(note.contains("0/2 шагов выполнено"));
-        assert!(note.contains("Лимит рабочих ходов исчерпан"));
+        assert!(!note.contains("Лимит рабочих ходов исчерпан"));
         assert_eq!(serde_json::to_value(&state.task_memory).unwrap(), before);
         assert!(!terminal_status_note(&state, &transcript, false).contains("Лимит рабочих ходов"));
         assert!(terminal_status_note(&AgentState::default(), &transcript, false).is_empty());
@@ -7241,7 +7803,7 @@ mod tests {
         }
         for step in &mut state.task_memory.plan.steps { step.status = StepStatus::Completed; }
         assert!(terminal_status_note(&state, &transcript, false).is_empty());
-        assert!(terminal_status_note(&state, &transcript, true).contains("Лимит рабочих ходов исчерпан"));
+        assert!(terminal_status_note(&state, &transcript, true).is_empty());
         let mut without_items = AgentState::default();
         without_items.mutations = 1;
         without_items.can_verify = true;
@@ -7341,25 +7903,9 @@ mod tests {
     }
 
     #[test]
-    fn the_budget_notice_appears_only_while_deliverables_are_pending_and_the_budget_is_half_used() {
-        assert!(run_budget_notice(10, 128, "d-002 x").is_none());
-        let middle = run_budget_notice(70, 128, "d-002 x").unwrap();
-        assert!(middle.contains("Turn 71 of 128") && middle.contains("d-002 x"));
-        assert!(!middle.contains("Only about"));
-        let late = run_budget_notice(120, 128, "d-002 x").unwrap();
-        assert!(late.contains("Only about 7 turns remain") && late.contains("blocked"));
-        let mut state = state_with_pending();
-        state.turn = 100;
-        let tail = dynamic_tail(&state, None, "", &Transcript::default(), "");
-        assert!(tail.contains("<run_budget>"));
-        state
-            .task_memory
-            .deliverables
-            .implement("d-002", "")
-            .unwrap();
-        assert!(
-            !dynamic_tail(&state, None, "", &Transcript::default(), "").contains("<run_budget>")
-        );
+    fn runtime_tail_has_no_work_allowance() {
+        let mut state=state_with_pending(); state.turn=5000;
+        assert!(!dynamic_tail(&state,None,"",&Transcript::default(),"").contains("<run_budget>"));
     }
 
     #[test]

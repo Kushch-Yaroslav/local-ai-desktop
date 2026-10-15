@@ -34,7 +34,8 @@ pub fn requires_approval_in_root(
     if tool == "run_terminal" && terminal_requires_explicit_approval_in_root(arguments, root) {
         return true;
     }
-    policy == RunPolicy::Safe && (tool == "delete_file" || tool == "run_terminal")
+    tool == "delete_file" || (tool == "apply_patch" && crate::tools::filesystem::patch_deletes(arguments))
+        || (policy == RunPolicy::Safe && tool == "run_terminal")
 }
 
 /// Model-issued commands which can end or reconfigure the desktop/user/system
@@ -57,14 +58,14 @@ fn terminal_requires_explicit_approval_in_root(
     if let Some(allowed) = scoped_read_only_git_chain(command, root) {
         return !allowed;
     }
-    if let Some(allowed) = read_only_git_and_chain(command) {
+    if let Some(allowed) = read_only_git_and_chain(command, root) {
         return !allowed;
     }
     let Ok(stages) = shell_stages(command) else {
         return true;
     };
     stages.iter().enumerate().any(|(index, words)| {
-        stage_requires_explicit_approval(words) || (index > 0 && !safe_pipe_filter(words))
+        stage_paths_require_approval(words, root) || stage_requires_explicit_approval(words) || (index > 0 && !safe_pipe_filter(words))
     })
 }
 
@@ -86,12 +87,12 @@ fn scoped_read_only_git_chain(command: &str, root: Option<&std::path::Path>) -> 
         selected.join(&words[0][1])
     })
     .ok()?;
-    if !entered.starts_with(selected) {
+    if !entered.starts_with(&selected) {
         return Some(false);
     }
     let suffix = suffix.trim();
     let parts = if suffix.contains("&&") {
-        return read_only_git_and_chain(suffix);
+        return read_only_git_and_chain(suffix, Some(&selected));
     } else {
         vec![suffix]
     };
@@ -103,9 +104,9 @@ fn scoped_read_only_git_chain(command: &str, root: Option<&std::path::Path>) -> 
             if index == 0 {
                 words.first().is_some_and(|program| {
                     matches!(program.as_str(), "git" | "/usr/bin/git" | "/bin/git")
-                }) && !stage_requires_explicit_approval(words)
+                }) && !stage_requires_explicit_approval(words) && !stage_paths_require_approval(words, Some(&selected))
             } else {
-                safe_pipe_filter(words) && !stage_requires_explicit_approval(words)
+                safe_pipe_filter(words) && !stage_requires_explicit_approval(words) && !stage_paths_require_approval(words, Some(&selected))
             }
         })
     }))
@@ -114,7 +115,7 @@ fn scoped_read_only_git_chain(command: &str, root: Option<&std::path::Path>) -> 
 /// Permit a quoted, explicit `git inspection && git inspection` chain while
 /// refusing any segment that is not independently read-only Git. Other shell
 /// list forms remain approval-gated.
-fn read_only_git_and_chain(command: &str) -> Option<bool> {
+fn read_only_git_and_chain(command: &str, root: Option<&std::path::Path>) -> Option<bool> {
     let mut parts = Vec::new();
     let mut quote = None;
     let mut escaped = false;
@@ -165,9 +166,9 @@ fn read_only_git_and_chain(command: &str) -> Option<bool> {
             if i == 0 {
                 words.first().is_some_and(|program| {
                     matches!(program.as_str(), "git" | "/usr/bin/git" | "/bin/git")
-                }) && !stage_requires_explicit_approval(words)
+                }) && !stage_requires_explicit_approval(words) && !stage_paths_require_approval(words, root)
             } else {
-                safe_pipe_filter(words) && !stage_requires_explicit_approval(words)
+                safe_pipe_filter(words) && !stage_requires_explicit_approval(words) && !stage_paths_require_approval(words, root)
             }
         })
     }))
@@ -176,7 +177,7 @@ fn read_only_git_and_chain(command: &str) -> Option<bool> {
 /// Lex only the shell forms the policy can prove safe. Pipes inside quotes are
 /// data; substitutions, redirections, command lists and unbalanced quotes
 /// require approval rather than being misclassified as a Git option.
-fn shell_stages(command: &str) -> Result<Vec<Vec<String>>, ()> {
+pub(crate) fn shell_stages(command: &str) -> Result<Vec<Vec<String>>, ()> {
     let mut stages = Vec::new();
     let mut words = Vec::new();
     let mut word = String::new();
@@ -236,6 +237,19 @@ fn shell_stages(command: &str) -> Result<Vec<Vec<String>>, ()> {
     Ok(stages)
 }
 
+fn stage_paths_require_approval(words: &[String], root: Option<&std::path::Path>) -> bool {
+    let Some(root) = root else { return false; };
+    let Ok(root) = std::fs::canonicalize(root) else { return true; };
+    for word in words.iter().skip(1) {
+        if word.starts_with('~') || word.contains('*') || word.contains('?') || word.contains('[') { return true; }
+        let path = word.split_once('=').map_or(word.as_str(), |(_, value)| value);
+        let candidate = root.join(path);
+        if (path.starts_with('/') || path.contains('/') || candidate.exists()) && !path.starts_with('-')
+            && crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, path).is_err() { return true; }
+    }
+    false
+}
+
 fn safe_pipe_filter(words: &[String]) -> bool {
     let Some((program, _args)) = words.split_first() else {
         return false;
@@ -288,47 +302,23 @@ fn stage_requires_explicit_approval(words: &[String]) -> bool {
         return git_requires_approval(args);
     }
     match program {
-        "loginctl" => args.iter().any(|arg| {
-            matches!(
-                arg.as_str(),
-                "terminate-session"
-                    | "terminate-user"
-                    | "kill-session"
-                    | "kill-user"
-                    | "activate"
-                    | "lock-session"
-            )
-        }),
-        "systemctl" => args.iter().any(|arg| {
-            matches!(
-                arg.as_str(),
-                "exit"
-                    | "poweroff"
-                    | "reboot"
-                    | "halt"
-                    | "suspend"
-                    | "hibernate"
-                    | "isolate"
-                    | "stop"
-                    | "restart"
-                    | "kill"
-            )
-        }),
-        "gnome-session-quit" | "shutdown" | "reboot" | "poweroff" | "halt" => true,
-        // A model cannot prove that a numeric/name target belongs to its own
-        // transient shell tree. Require approval; the runtime's own child-PGID
-        // cancellation path remains automatic and is not represented here.
-        "kill" | "pkill" | "killall" => true,
-        "dbus-send" | "gdbus" => args.iter().any(|arg| {
-            let lower = arg.to_ascii_lowercase();
-            lower.contains("session")
-                || lower.contains("logout")
-                || lower.contains("power")
-                || lower.contains("reboot")
-                || lower.contains("org.gnome.shell")
-                || lower.contains("login1")
-        }),
-        _ => false,
+        "loginctl" | "systemctl" | "dbus-send" | "gdbus"
+            | "gnome-session-quit" | "shutdown" | "reboot" | "poweroff" | "halt"
+            | "kill" | "pkill" | "killall" => true,
+        // Unknown executables (including Python inline scripts, curl, rm and
+        // project binaries) can perform arbitrary writes/network operations.
+        // Approval is the concrete security boundary for those capabilities.
+        "pwd" | "whoami" | "uname" | "ls" | "cat" | "head" | "tail" | "wc" | "stat" | "du" | "grep" | "rg" | "cut" | "echo" | "printf" => {
+            !matches!(unqualified, p if p == program || p == format!("/usr/bin/{program}") || p == format!("/bin/{program}"))
+                || args.iter().any(|arg| arg.starts_with("--files0-from") || program == "rg" && (arg == "--follow" || arg.starts_with('-') && !arg.starts_with("--") && arg.contains('L')) || program == "grep" && (arg.starts_with("--dereference-recursive") || arg.starts_with('-') && !arg.starts_with("--") && arg.contains('R')) || program == "du" && (arg.starts_with("--dereference") || arg.starts_with('-') && !arg.starts_with("--") && (arg.contains('L') || arg.contains('H'))))
+                || args.iter().any(|arg| arg == "--pre" || arg.starts_with("--pre=") || arg == "--pre-glob" || arg == "-o" || arg.starts_with("-o") && program == "sort" || arg == "--output" || arg.starts_with("--output="))
+        }
+        "npm" | "pnpm" | "yarn" => {
+            // Project scripts can be rewritten by file tools to carry out a
+            // denied Git/delete/network operation. They need execution approval.
+            true
+        }
+        _ => true,
     }
 }
 
@@ -375,11 +365,20 @@ fn git_requires_approval(args: &[String]) -> bool {
     if rest.iter().any(|arg| {
         arg == "--output"
             || arg.starts_with("--output=")
+            || arg.starts_with("--open-files-in-pager=")
             || matches!(
                 arg.as_str(),
                 "--ext-diff" | "--textconv" | "--open-files-in-pager" | "--exec" | "--paginate"
             )
     }) {
+        return true;
+    }
+    // Git show/diff can run configured external diff and textconv programs.
+    // A model can modify .gitattributes through normal file tools, so only a
+    // diff with those execution hooks disabled qualifies as an automatic read.
+    let displays_diff = matches!(verb.as_str(), "show" | "diff")
+        || verb == "log" && rest.iter().any(|arg| arg.starts_with("--patch") || arg == "-p" || arg == "-u");
+    if displays_diff && !(rest.iter().any(|arg| arg == "--no-ext-diff") && rest.iter().any(|arg| arg == "--no-textconv")) {
         return true;
     }
     match verb.as_str() {
@@ -450,7 +449,7 @@ mod tests {
         for command in ["loginctl terminate-session 9", "loginctl --no-ask-password terminate-user yaroslav", "systemctl --user exit", "systemctl --user --no-block reboot", "gnome-session-quit --logout", "shutdown now", "pkill gnome-shell", "gdbus call --session --dest org.gnome.SessionManager --method org.gnome.SessionManager.Logout 0", "bash -c 'gnome-session-quit --logout'", "sudo reboot", "env FOO=1 gnome-session-quit --logout", "timeout 10 reboot", "exec reboot", "eval 'reboot'"] {
             assert!(terminal_requires_explicit_approval(&json!({"command":command})), "{command}");
         }
-        assert!(!terminal_requires_explicit_approval(
+        assert!(terminal_requires_explicit_approval(
             &json!({"command":"npm run build"})
         ));
         assert!(requires_approval(
@@ -466,8 +465,8 @@ mod tests {
             "git status --short",
             "git -C src log --oneline -20 -- api.php",
             "git --no-pager log --format='%h | %s' --all | head -30",
-            "git show HEAD:public/api.php",
-            "git diff --stat HEAD~1 -- public/api.php",
+            "git show --no-ext-diff --no-textconv HEAD:public/api.php",
+            "git diff --no-ext-diff --no-textconv --stat HEAD~1 -- public/api.php",
             "git branch",
             "git branch -avv",
             "git branch --list 'feature/*'",
@@ -479,7 +478,6 @@ mod tests {
             "git log --oneline | grep Casino | head -5",
             "git status --short && git log --oneline -5",
             "git log --format='%h && %s' | head -5",
-            "npm test | tail -20",
         ] {
             assert!(
                 !terminal_requires_explicit_approval(&json!({"command":command})),
@@ -554,9 +552,9 @@ mod tests {
         for suffix in [
             "git log",
             "git log --oneline",
-            "git show HEAD:file",
+            "git show --no-ext-diff --no-textconv HEAD:file",
             "git status --short",
-            "git diff",
+            "git diff --no-ext-diff --no-textconv",
             "git branch --list",
             "git remote -v",
             "git log --format='%h | %s' | head -20",

@@ -1,15 +1,17 @@
 use crate::agent::transcript::{project_accepted_message, Entry, Transcript};
 use serde_json::{json, Value};
 
-/// A pure request projection. The first system message is byte-stable within a
-/// session. Accepted volatile tails remain at their original transcript
-/// position; only genuinely new guidance is appended below history.
+/// A pure request projection. The system prefix remains stable except for
+/// bounded, trusted runtime guidance. Accepted volatile tails remain at their
+/// original transcript position; notices never become human user messages.
 #[must_use]
 pub fn project(transcript: &Transcript, stable_prefix: &str, dynamic_tail: &str) -> Vec<Value> {
     let (summary, start) = transcript
         .latest_summary()
         .map_or((None, 0), |(summary, covers)| (Some(summary), covers));
-    let mut messages = vec![json!({"role":"system", "content":stable_prefix})];
+    let guidance=transcript.runtime_guidance();
+    let system=if guidance.is_empty(){stable_prefix.to_owned()}else{format!("{stable_prefix}\n\n[INTERNAL AGENT RUNTIME GUIDANCE]\n{guidance}")};
+    let mut messages = vec![json!({"role":"system", "content":system})];
     let mut imported_system = Vec::new();
     for entry in transcript.entries() {
         if let Entry::Message(message) = entry {
@@ -46,6 +48,7 @@ pub fn project(transcript: &Transcript, stable_prefix: &str, dynamic_tail: &str)
         }
     }
     for (index, entry) in transcript.entries().iter().enumerate().skip(start) {
+        if transcript.context_excluded(index) { continue; }
         match entry {
             Entry::Message(message)
                 if message.get("role").and_then(Value::as_str) != Some("system") =>
@@ -67,7 +70,7 @@ pub fn project(transcript: &Transcript, stable_prefix: &str, dynamic_tail: &str)
                 }
                 previous_state = Some(content);
             }
-            Entry::Compaction { .. } | Entry::Reminder(_) | Entry::ClearReminders | Entry::Finalizing | Entry::CloseoutRequested | Entry::RunComplete | Entry::LanguagePreference(_) | Entry::Evidence(_) | Entry::EvidenceRejection { .. } | Entry::Frontier(_) | Entry::FrontierDisposition(_) | Entry::Message(_) | Entry::PromptTail(_) | Entry::WorkBudget(_) => {}
+            Entry::ContextExclusion { .. } | Entry::Compaction { .. } | Entry::Reminder(_) | Entry::ClearReminders | Entry::Finalizing | Entry::CloseoutRequested | Entry::RunComplete | Entry::LanguagePreference(_) | Entry::Evidence(_) | Entry::EvidenceRejection { .. } | Entry::Frontier(_) | Entry::FrontierDisposition(_) | Entry::Message(_) | Entry::PromptTail(_) | Entry::RuntimeNotice { .. } | Entry::WorkBudget(_) => {}
         }
     }
     // Retain an exact current prompt even if an unusually small context made
@@ -88,10 +91,131 @@ pub fn project(transcript: &Transcript, stable_prefix: &str, dynamic_tail: &str)
     messages
 }
 
+/// Complete, repeated metadata cycles with identical semantic results only.
+/// Keep the first cycle; never infer a boundary through an edit, pending call,
+/// mixed turn, user steering, evidence or compaction.
+pub fn repetitive_segment(transcript: &Transcript) -> Option<(usize, usize, usize)> {
+    let entries = transcript.entries();
+    let lower = entries.iter().rposition(|entry| matches!(entry, Entry::RunUser(_) | Entry::Compaction { .. } | Entry::ContextExclusion { .. })).unwrap_or(0);
+    let messages: Vec<_> = entries.iter().enumerate().skip(lower + 1).filter_map(|(i, entry)| match entry {
+        Entry::Message(message) if !transcript.context_excluded(i) => Some((i, message)),
+        _ => None,
+    }).collect();
+    let mut pairs = Vec::new();
+    for pair in messages.rchunks_exact(2) {
+        let (ai, assistant) = pair[0];
+        let (ti, tool) = pair[1];
+        if assistant["role"] != "assistant" || tool["role"] != "tool" { break; }
+        let Some(calls) = assistant["tool_calls"].as_array() else { break; };
+        if calls.len() != 1 { break; }
+        let call = &calls[0];
+        if call["id"] != tool["tool_call_id"] { break; }
+        let Some(name) = call["function"]["name"].as_str() else { break; };
+        let Some(args) = call["function"]["arguments"].as_str().and_then(|s|serde_json::from_str::<Value>(s).ok()) else { break; };
+        if !(matches!(name, "deliverables" | "plan" | "task_memory") && args["action"] == "view"
+            || name == "deliverables" && args["action"] == "implemented") { break; }
+        let Some(result) = tool["content"].as_str().and_then(|s|serde_json::from_str::<Value>(s).ok()) else { break; };
+        if result.get("error").is_some() { break; }
+        fn stable(v: &Value) -> Value {
+            match v {
+                Value::Object(o) => Value::Object(o.iter().filter(|(k,_)| !matches!(k.as_str(), "revision" | "updated" | "observation_id")).map(|(k,v)|(k.clone(),stable(v))).collect()),
+                Value::Array(a) => Value::Array(a.iter().map(stable).collect()),
+                _ => v.clone(),
+            }
+        }
+        pairs.push((ai, ti, format!("{}:{}", crate::agent::loop_detector::call_key(name, &args), stable(&result))));
+    }
+    let mut best = None;
+    for period in 1..=4 {
+        if pairs.len() < period * 3 { continue; }
+        let tail = &pairs[..period];
+        let cycles = pairs.chunks_exact(period).take_while(|chunk|chunk.iter().zip(tail).all(|(a,b)|a.2 == b.2)).count();
+        if cycles < 3 { continue; }
+        let actions = (cycles - 1) * period;
+        let start = pairs[actions - 1].0;
+        let end = pairs[0].1 + 1;
+        if entries[start..end].iter().any(|entry| matches!(entry, Entry::Steering(_) | Entry::RunUser(_) | Entry::Compaction { .. } | Entry::Evidence(_) | Entry::EvidenceRejection { .. })) { continue; }
+        if best.is_none_or(|(_,_,old)| actions > old) { best = Some((start,end,actions)); }
+    }
+    best
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn alternating_implemented_cleanup_preserves_changes_and_complete_pairs() {
+        let mut t=Transcript::default();
+        t.push_run_user(json!({"role":"user","content":"continue task"}));
+        for i in 0..12 {
+            t.push_message(json!({"role":"assistant","tool_calls":[{"id":format!("i{i}"),"function":{"name":"deliverables","arguments":format!("{{\"action\":\"implemented\",\"id\":\"d{}\"}}",i%2)}}]}));
+            t.tool_result(&format!("i{i}"),"deliverables",format!("{{\"items\":[\"same\"],\"revision\":{i},\"updated\":true}}"));
+        }
+        let (start,end,actions)=repetitive_segment(&t).unwrap();
+        assert_eq!(actions,10);
+        let length=t.entries().len();t.exclude_loop_context(start,end,actions);
+        let context=project(&t,"system","memory and evidence");
+        assert_eq!(t.entries().len(),length+1);
+        assert_eq!(context.iter().filter(|m|m["role"]=="tool").count(),2);
+        for message in context.iter().filter(|m|m["role"]=="tool") {
+            assert!(context.iter().filter_map(|m|m["tool_calls"].as_array()).flatten().any(|call|call["id"]==message["tool_call_id"]));
+        }
+        t.push_message(json!({"role":"assistant","tool_calls":[{"id":"edit","function":{"name":"write_file","arguments":"{}"}}]}));
+        t.tool_result("edit","write_file","{\"ok\":true}".into());
+        assert!(repetitive_segment(&t).is_none(),"successful edit is never removed");
+    }
     use super::*;
     use crate::agent::transcript::Transcript;
+
+    fn view_pair(t: &mut Transcript, id: usize, result: &str) {
+        t.push_message(json!({"role":"assistant", "reasoning_content":"consider next step", "tool_calls":[{"id":format!("v{id}"),"function":{"name":"deliverables","arguments":"{\"action\":\"view\"}"}}]}));
+        t.tool_result(&format!("v{id}"), "deliverables", result.into());
+    }
+    #[test]
+    fn selective_loop_projection_preserves_history_productive_pairs_and_current_state() {
+        let mut t = Transcript::default();
+        t.push_run_user(json!({"role":"user","content":"implement modulo"}));
+        t.push_message(json!({"role":"assistant","tool_calls":[{"id":"edit","function":{"name":"write_file","arguments":"{}"}}]}));
+        t.tool_result("edit", "write_file", "{\"ok\":true}".into());
+        for i in 0..20 { view_pair(&mut t, i, "{\"items\":[\"modulo\"]}"); }
+        let original = t.entries().len();
+        let (start, end, actions) = repetitive_segment(&t).unwrap();
+        assert_eq!(actions,19);
+        t.exclude_loop_context(start,end,actions);
+        assert_eq!(t.entries().len(), original+1, "journal is append only");
+        let projected = project(&t,"system","<task_memory>unchanged evidence and plan</task_memory>");
+        assert!(projected.iter().any(|m|m["tool_call_id"]=="edit"));
+        assert!(projected.iter().any(|m|m["content"]=="implement modulo"));
+        assert_eq!(projected.iter().filter(|m|m["name"]=="deliverables").count(),1);
+        for message in projected.iter().filter(|m|m["role"]=="tool" && m.get("name").is_some()) {
+            assert!(projected.iter().any(|m|m["tool_calls"].as_array().is_some_and(|calls|calls.iter().any(|c|c["id"]==message["tool_call_id"]))));
+        }
+        let serialized=serde_json::to_string(t.entries()).unwrap();
+        assert_eq!(serde_json::from_str::<Vec<Entry>>(&serialized).unwrap().len(),original+1);
+        t.push_run_user(json!({"role":"user","content":"different task"}));
+        assert!(t.context_excluded(start), "same task journal keeps the projection overlay on continuation");
+        assert!(!Transcript::default().context_excluded(start), "another task journal has no inherited overlay");
+    }
+    #[test]
+    fn unsafe_or_productive_loop_boundaries_are_not_guessed() {
+        let mut t=Transcript::default(); t.push_run_user(json!({"role":"user","content":"task"}));
+        for i in 0..20 { view_pair(&mut t,i,&format!("{{\"items\":[{i}]}}")); }
+        assert!(repetitive_segment(&t).is_none(), "changing observations are progress");
+        for i in 20..40 {view_pair(&mut t,i,"{\"items\":[]}");}
+        t.push_message(json!({"role":"assistant","tool_calls":[{"id":"pending","function":{"name":"write_file","arguments":"{}"}}]}));
+        assert!(repetitive_segment(&t).is_none(), "pending or mixed actions cannot be trimmed");
+    }
+    #[test]
+    fn runtime_guidance_survives_compaction_as_system_context_without_a_user_turn() {
+        let mut transcript=Transcript::default();
+        transcript.push_run_user(json!({"role":"user","content":"original task"}));
+        transcript.runtime_notice(crate::agent::loop_detector::LoopNotice{repair_exhausted:false,signature:"same".into(),level:1,evidence:"five identical 404 results".into(),guidance:"Runtime guidance: use changed conditions".into()},true);
+        transcript.compact("Findings preserved".into(),transcript.entries().len());
+        let messages=project(&transcript,"stable","");
+        assert!(messages[0]["content"].as_str().unwrap().contains("Runtime guidance"));
+        assert_eq!(messages.iter().filter(|m|m["role"]=="user" && m["content"]=="original task").count(),1);
+        assert!(!messages.iter().any(|m|m["role"]=="user" && m["content"].as_str().unwrap_or("").contains("Runtime guidance")));
+        assert!(messages.iter().any(|m|m["content"]=="original task"));
+    }
 
     #[test]
     fn accepted_runtime_updates_preserve_wire_prefix_and_unchanged_state_is_not_recorded() {

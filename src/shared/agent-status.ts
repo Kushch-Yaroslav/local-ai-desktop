@@ -26,8 +26,5 @@ export const isStatusSnapshot = (activity: ToolActivity): boolean => activity.ki
 /** Runtime semantics, not tool counts, determine whether task telemetry is useful. */
 export function showAgentStatus(plan: AgentPlan | null, recovery = false): boolean {
   const { steps, deliverables, warnings } = agentStatus(plan);
-  const budget = plan?.workBudget;
-  return Boolean(steps.length || deliverables.length || warnings.length || (recovery && budget)
-    || (budget && plan?.taskMemory?.verification?.code_changed)
-    || (budget && (budget.extensions > 0 || budget.decision === 'denied' || budget.used >= budget.limit - 16)));
+  return Boolean(steps.length || deliverables.length || warnings.length || recovery && Boolean(plan) || plan?.taskMemory?.verification?.code_changed);
 }

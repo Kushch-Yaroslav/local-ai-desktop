@@ -1,12 +1,15 @@
+import { projectPath, snapshotFile, atomicProjectWrite, PathPolicyError } from './project-path';
 import { signalOwnedGroup } from './process-group';
+import { agentRuntimePath } from '../services/paths';
+import { protectedRuntime } from '../services/protected-runtime';
 import { execFile, spawn } from 'node:child_process';
-import { open, readdir, readFile, realpath, stat, unlink, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { open, readdir, readFile, realpath, stat, unlink } from 'node:fs/promises';
+import { relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { RiskCategory } from '../../shared/types';
 
 const execFileAsync = promisify(execFile);
-const ignoredDirectories = new Set(['.git', '.ai-framework', 'node_modules', 'dist', 'build', '.next', '.cache', 'coverage']);
+const ignoredDirectories = new Set(['.git', '.local-ai-backups', '.ai-framework', 'node_modules', 'dist', 'build', '.next', '.cache', 'coverage']);
 const maxLineReadBytes = 8_000_000;
 const defaultPageSize = 100;
 const maxPageSize = 250;
@@ -17,7 +20,7 @@ const maxChunkBytes = 128_000;
 export type ProjectToolCall = { name: string; arguments: Record<string, unknown>; toolCallId?: string };
 export type ProjectToolDefinition = { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } };
 export type ConfirmationRequest = { title: string; detail: string; category: RiskCategory; actionId: string; root?: string };
-export type ApprovalResult = { approved: boolean; reason: 'user_rejected' | 'cancelled' | 'once' | 'session' };
+export type ApprovalResult = { approved: boolean; reason: 'user_rejected' | 'cancelled' | 'once' | 'session' | 'ui_unavailable' | 'timeout' };
 export type ConfirmAction = (request: ConfirmationRequest, signal: AbortSignal) => Promise<ApprovalResult>;
 export type TerminalPolicy = { kind: 'allow' | 'confirm' | 'block'; category?: RiskCategory };
 
@@ -64,7 +67,7 @@ export class ReadonlyProjectTools {
       if (call.name === 'write_file' || call.name === 'create_file') return await this.createFile(this.requiredText(call.arguments.path, 'path'), this.requiredContent(call.arguments.content), signal);
       if (call.name === 'delete_file') return await this.deleteFile(this.requiredText(call.arguments.path, 'path'), signal, actionId);
       return JSON.stringify({ error: `Неизвестный инструмент проекта: ${call.name}` });
-    } catch (error) { return JSON.stringify({ error: error instanceof Error ? error.message : 'Ошибка чтения проекта' }); }
+    } catch (error) { return JSON.stringify({ error: error instanceof Error ? error.message : 'Ошибка чтения проекта', ...(error instanceof PathPolicyError ? { code: error.code, approved: false, retrySameArguments: false } : {}) }); }
   }
 
   private async listDirectory(path: string, depth: number, offset: number, limit: number): Promise<string> {
@@ -151,7 +154,7 @@ export class ReadonlyProjectTools {
   }
 
   private async gitDiff(): Promise<string> {
-    try { const { stdout } = await execFileAsync('/usr/bin/git', ['-C', this.root, 'diff', '--no-ext-diff'], { timeout: 5_000, maxBuffer: 200_000 }); return JSON.stringify({ diff: stdout || 'Нет незакоммиченных изменений' }); }
+    try { const { stdout } = await execFileAsync('/usr/bin/git', ['-C', this.root, 'diff', '--no-ext-diff', '--no-textconv'], { timeout: 5_000, maxBuffer: 200_000 }); return JSON.stringify({ diff: stdout || 'Нет незакоммиченных изменений' }); }
     catch { return JSON.stringify({ error: 'Git diff недоступен' }); }
   }
 
@@ -159,72 +162,100 @@ export class ReadonlyProjectTools {
     if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
     const candidate = await this.resolveWritePath(path); const exists = await stat(candidate).then(() => true).catch(() => false);
     if (exists) return JSON.stringify({ error: 'Файл уже существует. Для изменения существующего файла используй apply_patch.' });
-    await writeFile(candidate, content, { encoding: 'utf8', flag: 'wx' });
-    return JSON.stringify({ path, created: true, bytes: Buffer.byteLength(content) });
+    const backup = await snapshotFile(candidate);
+    await atomicProjectWrite(candidate, content, true);
+    return JSON.stringify({ path, created: true, backup, bytes: Buffer.byteLength(content) });
   }
 
   private async deleteFile(path: string, signal: AbortSignal, actionId: string): Promise<string> {
     const file = await this.resolveExisting(path); const info = await stat(file);
     if (!info.isFile()) return JSON.stringify({ error: 'Можно удалить только один файл, не каталог.' });
     const approval = await this.confirm({ title: 'Удалить файл?', detail: path, category: 'file_delete', actionId, root: this.root }, signal);
-    if (!approval.approved) return JSON.stringify({ approved: false, reason: approval.reason });
+    if (!approval.approved) return JSON.stringify({ error: 'Operation was not authorized; do not bypass using another tool.', code: 'PERMISSION_DENIED', retrySameArguments: false, approved: false, reason: approval.reason });
     if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
-    await unlink(file); return JSON.stringify({ path, deleted: true });
+    const backup = await snapshotFile(file);
+    await this.resolveWritePath(path); await unlink(file); return JSON.stringify({ path, deleted: true, backup });
   }
 
   private async applyPatch(patch: string, signal: AbortSignal, actionId: string): Promise<string> {
     const lines = patch.replace(/\r\n/g, '\n').split('\n');
-    if (lines[0] !== '*** Begin Patch' || !lines.includes('*** End Patch')) return JSON.stringify({ error: 'Ожидается patch в формате *** Begin Patch ... *** End Patch.' });
-    const changed: string[] = []; let index = 1;
+    if (lines[0] !== '*** Begin Patch' || !lines.includes('*** End Patch')) throw new Error('Expected *** Begin Patch ... *** End Patch');
+    const staged = new Map<string, { path: string; original: string | null; next: string | null }>();
+    const deletions: string[] = []; let index = 1;
     while (index < lines.length && lines[index] !== '*** End Patch') {
-      if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
-      const header = lines[index++]; const update = header.match(/^\*\*\* Update File: (.+)$/); const add = header.match(/^\*\*\* Add File: (.+)$/); const remove = header.match(/^\*\*\* Delete File: (.+)$/);
+      const header = lines[index++];
+      if (!header.trim()) continue;
+      const match = /^\*\*\* (Add|Update|Delete) File: (.+)$/.exec(header);
+      if (!match) throw new Error(`Unknown patch section: ${header}`);
+      const [, kind, path] = match;
+      const target = await this.resolveWritePath(path);
       const body: string[] = [];
-      while (index < lines.length && !lines[index].startsWith('*** ') && lines[index] !== '*** End Patch') body.push(lines[index++]);
-      if (add) {
-        const file = await this.resolveWritePath(add[1]); const exists = await stat(file).then(() => true).catch(() => false);
-        if (exists) return JSON.stringify({ error: `Файл уже существует: ${add[1]}` });
-        await writeFile(file, body.filter((line) => line.startsWith('+')).map((line) => line.slice(1)).join('\n'), 'utf8'); changed.push(add[1]); continue;
+      while (index < lines.length && !lines[index].startsWith('*** ')) body.push(lines[index++]);
+      let change = staged.get(target);
+      if (!change) {
+        const info = await stat(target).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return undefined; });
+        if (info && info.size > maxLineReadBytes) throw new Error('Patch target exceeds the 8 MB text-edit limit; use an explicitly approved terminal migration for large/binary files');
+        const original = await readFile(target, 'utf8').catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return null; });
+        change = { path, original, next: original }; staged.set(target, change);
       }
-      if (remove) {
-        const file = await this.resolveExisting(remove[1]); const info = await stat(file); if (!info.isFile()) return JSON.stringify({ error: `Можно удалить только файл: ${remove[1]}` });
-        const approval = await this.confirm({ title: 'Удалить файл?', detail: remove[1], category: 'file_delete', actionId, root: this.root }, signal);
-        if (!approval.approved) return JSON.stringify({ approved: false, reason: approval.reason });
-        await unlink(file); changed.push(remove[1]); continue;
+      if (kind === 'Add') {
+        if (change.next !== null) throw new Error(`File already exists: ${path}`);
+        if (body.some(line => line && !line.startsWith('+'))) throw new Error(`Invalid added line: ${path}`);
+        change.next = body.filter(line => line.startsWith('+')).map(line => line.slice(1)).join('\n');
+      } else if (kind === 'Delete') {
+        if (change.next === null) throw new Error(`Missing file: ${path}`);
+        change.next = null; deletions.push(path);
+      } else {
+        if (change.next === null) throw new Error(`Missing file: ${path}`);
+        for (const raw of body.join('\n').split('\n@@\n')) {
+          const hunk = raw.replace(/^@@[^\n]*\n?/, '').split('\n').filter(line => line !== '\\ No newline at end of file');
+          const before = hunk.filter(line => line.startsWith(' ') || line.startsWith('-')).map(line => line.slice(1)).join('\n');
+          const after = hunk.filter(line => line.startsWith(' ') || line.startsWith('+')).map(line => line.slice(1)).join('\n');
+          if (!before || change.next.indexOf(before) < 0 || change.next.indexOf(before) !== change.next.lastIndexOf(before)) throw new Error(`Patch must match exactly one current snippet: ${path}`);
+          change.next = change.next.replace(before, () => after);
+        }
       }
-      if (!update) return JSON.stringify({ error: `Неизвестная секция patch: ${header}` });
-      const file = await this.resolveExisting(update[1]); let content = await readFile(file, 'utf8');
-      const hunks = body.join('\n').split('\n@@\n');
-      for (const rawHunk of hunks) {
-        const hunk = rawHunk.replace(/^@@\n?/, '').split('\n').filter((line) => line !== '\\ No newline at end of file');
-        const before = hunk.filter((line) => line.startsWith(' ') || line.startsWith('-')).map((line) => line.slice(1)).join('\n');
-        const after = hunk.filter((line) => line.startsWith(' ') || line.startsWith('+')).map((line) => line.slice(1)).join('\n');
-        if (!before) return JSON.stringify({ error: `Patch для ${update[1]} не содержит контекста удаления/замены.` });
-        const position = content.indexOf(before); if (position < 0) return JSON.stringify({ error: `Patch не совпадает с текущим содержимым: ${update[1]}` });
-        content = `${content.slice(0, position)}${after}${content.slice(position + before.length)}`;
-      }
-      if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
-      await writeFile(file, content, 'utf8'); changed.push(update[1]);
     }
-    return JSON.stringify({ applied: true, files: changed });
+    if (deletions.length) {
+      const decision = await this.confirm({ title: 'Delete files in patch?', detail: deletions.join('\n'), category: 'file_delete', actionId, root: this.root }, signal);
+      if (!decision.approved) return JSON.stringify({ error: 'Patch deletion not authorized; no files changed', code: 'PERMISSION_DENIED', approved: false, reason: decision.reason, retrySameArguments: false });
+    }
+    const backups: string[] = [];
+    for (const [target, change] of staged) {
+      if (await this.resolveWritePath(change.path) !== target) throw new PathPolicyError('Patch destination changed');
+      const current = await readFile(target, 'utf8').catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return null; });
+      if (current !== change.original) throw new Error(`File changed while staging patch: ${change.path}`);
+      if (signal.aborted) return JSON.stringify({ error: 'Patch cancelled; no files changed', code: 'CANCELLED' });
+      backups.push(await snapshotFile(target));
+    }
+    const applied: string[] = [];
+    try {
+      for (const [target, change] of staged) {
+        if (signal.aborted) throw new Error('Patch cancelled');
+        if (await this.resolveWritePath(change.path) !== target) throw new PathPolicyError('Patch destination changed');
+        if (change.next === null) await unlink(target); else await atomicProjectWrite(target, change.next, change.original === null);
+        applied.push(target);
+      }
+    } catch (error) {
+      const rollbackErrors: string[] = [];
+      for (const target of applied.reverse()) {
+        const change = staged.get(target)!;
+        try {
+          if (await this.resolveWritePath(change.path) !== target) throw new PathPolicyError('Rollback path changed');
+          if (change.original === null) await unlink(target); else await atomicProjectWrite(target, change.original);
+        } catch (rollback) { rollbackErrors.push(String(rollback)); }
+      }
+      return JSON.stringify({ error: String(error), backups, rollbackErrors });
+    }
+    return JSON.stringify({ applied: true, files: [...staged.values()].map(change => change.path), backups });
   }
 
   private async resolveWritePath(input: string): Promise<string> {
-    if (isAbsolute(input)) throw new Error('Разрешены только относительные пути внутри рабочей папки');
-    const candidate = resolve(this.root, input); const rel = relative(this.root, candidate);
-    if (!input || rel === '..' || rel.startsWith(`..${sep}`)) throw new Error('Выход за пределы рабочей папки запрещён');
-    const actualParent = await realpath(dirname(candidate)); const parentRel = relative(this.root, actualParent);
-    if (parentRel === '..' || parentRel.startsWith(`..${sep}`)) throw new Error('Символическая ссылка ведёт за пределы рабочей папки');
-    return candidate;
+    if (!input) throw new PathPolicyError('A workspace path is required');
+    return projectPath(this.root, input, true);
   }
-
   private async resolveExisting(input: string): Promise<string> {
-    if (isAbsolute(input)) throw new Error('Разрешены только относительные пути внутри рабочей папки');
-    const candidate = resolve(this.root, input || '.'); const rel = relative(this.root, candidate);
-    if (rel === '..' || rel.startsWith(`..${sep}`)) throw new Error('Выход за пределы рабочей папки запрещён');
-    const actual = await realpath(candidate); const actualRel = relative(this.root, actual);
-    if (actualRel === '..' || actualRel.startsWith(`..${sep}`)) throw new Error('Символическая ссылка ведёт за пределы рабочей папки');
-    return actual;
+    return realpath(await projectPath(this.root, input || '.'));
   }
   private text(value: unknown): string { return typeof value === 'string' ? value : ''; }
   private requiredText(value: unknown, field: string): string { const text = this.text(value).trim(); if (!text) throw new Error(`Не указан обязательный параметр "${field}"`); return text; }
@@ -248,15 +279,27 @@ export class TerminalTools {
       if (call.name !== 'run_terminal') return JSON.stringify({ error: `Неизвестный terminal-инструмент: ${call.name}` });
       const command = typeof call.arguments.command === 'string' ? call.arguments.command.trim() : '';
       if (!command) return JSON.stringify({ error: 'Не указан обязательный параметр "command"' });
+      if (command.split(/[^\w-]+/).some(token => ['kill', 'pkill', 'killall', 'fuser', 'killpg', 'pidfd_send_signal', 'systemctl', 'service', 'reboot', 'shutdown'].includes(token))) {
+        return JSON.stringify({ code: 'PROTECTED_RUNTIME_PROCESS', retrySameArguments: false, error: 'Operation blocked: application infrastructure is required for agent execution. Use the Rust agent owned-task controls for process cleanup.' });
+      }
       const timeout = typeof call.arguments.timeout_ms === 'number' ? Math.max(1_000, Math.min(120_000, Math.floor(call.arguments.timeout_ms))) : 60_000;
       const policy = terminalPolicy(command);
+      if (policy.kind === 'allow') {
+        for (const stage of splitPipeline(command) ?? []) for (const token of (words(stage) ?? []).slice(1)) {
+          const path = token.includes('=') ? token.slice(token.indexOf('=') + 1) : token;
+          if (/[~*?[]/.test(path)) { policy.kind = 'confirm'; policy.category = 'system_command'; break; }
+          if (!path.startsWith('-') && (path.includes('/') || await stat(resolve(this.cwd, path)).then(() => true, () => false))) {
+            try { await projectPath(this.cwd, path); } catch { policy.kind = 'confirm'; policy.category = 'system_command'; break; }
+          }
+        }
+      }
       if (policy.kind === 'block') return JSON.stringify({ error: 'Команда заблокирована terminal policy.' });
       if (policy.kind === 'confirm') {
         const approval = await this.confirm({ title: 'Разрешить terminal command?', detail: command, category: policy.category!, actionId, root: this.cwd }, signal);
-        if (!approval.approved) return JSON.stringify({ approved: false, reason: approval.reason });
+        if (!approval.approved) return JSON.stringify({ error: 'Operation was not authorized; do not bypass using another tool.', code: 'PERMISSION_DENIED', retrySameArguments: false, approved: false, reason: approval.reason });
       }
       if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
-      return await runTerminal(command, timeout, this.cwd, signal);
+      return await runTerminal(command, timeout, this.cwd, signal, policy.kind !== 'allow');
     } catch (error) { return JSON.stringify({ error: error instanceof Error ? error.message : 'Ошибка terminal' }); }
   }
 }
@@ -300,7 +343,7 @@ function words(stage: string): string[] | null {
 }
 type TerminalStageClassification = 'read_only' | 'trusted_project_execution' | null;
 function classifyTerminalStage(stage: string): TerminalStageClassification {
-  return readOnlyStage(stage) ? 'read_only' : trustedProjectExecutionStage(stage) ? 'trusted_project_execution' : null;
+  return readOnlyStage(stage) ? 'read_only' : null;
 }
 function readOnlyGitBranch(args: string[]): boolean {
   if (!args.length) return true;
@@ -316,32 +359,29 @@ function readOnlyGitBranch(args: string[]): boolean {
 function readOnlyStage(stage: string): boolean {
   const tokens = words(stage); if (!tokens?.length || /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0])) return false;
   const [bin, ...args] = tokens; const command = bin.replace(/^.*\//, '');
-  if (['pwd', 'whoami', 'uname', 'echo', 'printf', 'ls', 'find', 'grep', 'rg', 'cat', 'head', 'tail', 'wc', 'stat', 'file', 'du', 'sort', 'uniq'].includes(command)) return command !== 'find' || !args.some((arg) => ['-delete', '-exec', '-execdir', '-ok', '-okdir', '-fprint', '-fprint0'].includes(arg));
+  if (![command, `/usr/bin/${command}`, `/bin/${command}`].includes(bin) || args.some(arg => arg === '--pre' || arg.startsWith('--pre=') || arg === '--output' || arg.startsWith('--output=') || command === 'sort' && arg.startsWith('-o'))) return false;
+  if (args.some(arg => arg.startsWith('--files0-from') || command === 'rg' && (arg === '--follow' || /^-[^-]*L/.test(arg)) || command === 'grep' && (arg.startsWith('--dereference-recursive') || /^-[^-]*R/.test(arg)) || command === 'du' && (arg.startsWith('--dereference') || /^-[^-]*[LH]/.test(arg)))) return false;
+  if (['pwd', 'whoami', 'uname', 'echo', 'printf', 'ls', 'grep', 'rg', 'cat', 'head', 'tail', 'wc', 'stat', 'du'].includes(command)) return command !== 'find' || !args.some((arg) => ['-delete', '-exec', '-execdir', '-ok', '-okdir', '-fprint', '-fprint0', '-fprintf', '-fls'].includes(arg));
   if (command === 'git') {
     const subcommandIndex = args.findIndex((arg) => !arg.startsWith('-'));
     const subcommand = args[subcommandIndex];
+    if (args.some(arg => arg === '-c' || arg.startsWith('--output') || arg === '--ext-diff' || arg === '--textconv' || arg === '--paginate') || args[0] !== subcommand) return false;
+    const displaysDiff = ['diff', 'show'].includes(subcommand ?? '') || subcommand === 'log' && args.some(arg => arg.startsWith('--patch') || arg === '-p' || arg === '-u');
+    if (displaysDiff && !(args.includes('--no-ext-diff') && args.includes('--no-textconv'))) return false;
     if (['status', 'diff', 'log', 'show', 'rev-parse'].includes(subcommand ?? '')) return true;
     return subcommand === 'branch' && readOnlyGitBranch(args.slice(subcommandIndex + 1));
   }
-  if (command === 'nvidia-smi' || (command === 'gsettings' && args[0] === 'get')) return true;
+  if (command === 'gsettings' && args[0] === 'get') return true;
   if (command === 'systemctl' && args[0] === '--user' && ['status', 'is-active', 'is-enabled', 'show'].includes(args[1] ?? '')) return true;
-  if (command === 'xargs') { let index = 0; while (index < args.length && args[index].startsWith('-')) { if (['-n', '-P', '-I', '-d', '-E'].includes(args[index])) index += 2; else index += 1; } return index < args.length && readOnlyStage(args.slice(index).join(' ')); }
   return false;
 }
-/** Project scripts may be auto-allowed for compatibility, but they are not read-only. */
-function trustedProjectExecutionStage(stage: string): boolean {
-  const tokens = words(stage); if (!tokens?.length) return false;
-  const [bin, ...args] = tokens; const command = bin.replace(/^.*\//, ''); const safeScripts = new Set(['lint', 'typecheck', 'test', 'build']);
-  return ['npm', 'pnpm', 'yarn'].includes(command) && ((args[0] === 'run' && safeScripts.has(args[1] ?? '')) || (command !== 'npm' && safeScripts.has(args[0] ?? '')));
-}
-
-function runTerminal(command: string, timeout: number, cwd: string, signal: AbortSignal): Promise<string> {
+function runTerminal(command: string, timeout: number, cwd: string, signal: AbortSignal, authorized = true): Promise<string> {
   return new Promise((resolve) => {
     // The assistant call already retains the full command. Repeating a large
     // heredoc in the tool result can consume the entire Agent context without
     // retaining a large heredoc adds little value, so keep only a bounded diagnostic echo here.
     const commandDiagnostic = command.length > 1_200 ? `${command.slice(0, 1_200)}\n[command diagnostic truncated]` : command;
-    const child = spawn('/bin/bash', ['-lc', command], { cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(agentRuntimePath(), ['--terminal-exec', cwd, command, String(timeout)], { cwd, env: protectedRuntime.environment(!authorized), detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = ''; let stdoutTruncated = false; let stderrTruncated = false; let finished = false;
     const append = (current: string, chunk: string, limit: number): string => { if (current.length >= limit) return current; const next = `${current}${chunk}`; return next.length > limit ? next.slice(0, limit) : next; };
     const finish = (result: Record<string, unknown>) => { if (finished) return; finished = true; signal.removeEventListener('abort', abort); clearTimeout(timer); resolve(JSON.stringify(result)); };
@@ -349,7 +389,11 @@ function runTerminal(command: string, timeout: number, cwd: string, signal: Abor
     const abort = () => { terminate(); finish({ cancelled: true, reason: 'Generation cancelled' }); };
     const timer = setTimeout(() => { terminate(); finish({ timed_out: true, error: `Terminal command exceeded timeout of ${timeout}ms`, command: commandDiagnostic, cwd, stdout: stdoutTruncated ? `${stdout}\n[diagnostic output truncated]` : stdout, stderr: stderrTruncated ? `${stderr}\n[diagnostic output truncated]` : stderr }); }, timeout);
     signal.addEventListener('abort', abort, { once: true });
-    child.stdout.on('data', (chunk: Buffer) => { const text = chunk.toString(); stdoutTruncated ||= stdout.length + text.length > 80_000; stdout = append(stdout, text, 80_000); }); child.stderr.on('data', (chunk: Buffer) => { const text = chunk.toString(); stderrTruncated ||= stderr.length + text.length > 20_000; stderr = append(stderr, text, 20_000); });
-    child.on('error', (error) => finish({ error: error.message, cwd })); child.on('close', (code, signalName) => finish({ command: commandDiagnostic, cwd, exit_code: code, signal: signalName, stdout: stdoutTruncated ? `${stdout}\n[diagnostic output truncated]` : stdout, stderr: stderrTruncated ? `${stderr}\n[diagnostic output truncated]` : stderr }));
+    child.stdout.on('data', (chunk: Buffer) => { const text = chunk.toString(); stdoutTruncated ||= stdout.length + text.length > 800_000; stdout = append(stdout, text, 800_000); }); child.stderr.on('data', (chunk: Buffer) => { const text = chunk.toString(); stderrTruncated ||= stderr.length + text.length > 20_000; stderr = append(stderr, text, 20_000); });
+    child.on('error', (error) => finish({ error: error.message, code: 'PROTECTED_RUNTIME_PROCESS', retrySameArguments: false, cwd }));
+    child.on('close', (code, signalName) => {
+      try { const result = JSON.parse(stdout); finish(result); }
+      catch { finish({ command: commandDiagnostic, cwd, exit_code: code, signal: signalName, code: 'PROTECTED_RUNTIME_PROCESS', retrySameArguments: false, error: 'Isolated terminal unavailable; unprotected execution is forbidden.', stdout, stderr }); }
+    });
   });
 }

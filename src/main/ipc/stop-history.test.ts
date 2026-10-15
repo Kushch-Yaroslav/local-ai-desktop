@@ -40,18 +40,20 @@ async function run(): Promise<void> {
   LlamaCppBackend.prototype.resolveContextWindow = async (_model, requested) => ({ requested, active: requested, supported: requested });
   let script: Script = async function* () { /* replaced per run */ };
   let steered!: () => void;
-  RustAgentRuntime.prototype.stream = function (...args: unknown[]) { return script(args[3] as AbortSignal); } as typeof RustAgentRuntime.prototype.stream;
+  const streamRequests: unknown[][] = [];
+  RustAgentRuntime.prototype.stream = function (...args: unknown[]) { streamRequests.push(args); return script(args[3] as AbortSignal); } as typeof RustAgentRuntime.prototype.stream;
   RustAgentRuntime.prototype.steer = async () => { steered(); };
   WebChatService.prototype.stream = function (...args: unknown[]) { return script(args[2] as AbortSignal); } as typeof WebChatService.prototype.stream;
   const artifact = validateRichArtifact(visualArtifactExamples.chart, undefined, 'interrupted-chart').artifact!;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(JSON.stringify({ data: [] }), { status: 200 });
   const events: Sent[] = [];
-  const invoke = async <T>(channel: string, ...args: unknown[]) => await handlers.get(channel)!({ sender: { send: (_channel: string, event: Sent) => events.push(event) } }, ...args) as T;
+  let rendererClosed = false;
+  const invoke = async <T>(channel: string, ...args: unknown[]) => await handlers.get(channel)!({ sender: { send: (_channel: string, event: Sent) => { if (rendererClosed) throw new Error('fixture renderer closed'); events.push(event); } } }, ...args) as T;
   const tool = (id: string, extra: Record<string, unknown>): StreamEvent => ({ type: 'tool', activity: { id, label: id, ...extra } } as StreamEvent);
   const db = new Database();
   try {
-    const { registerIpc } = await import('./register-ipc'); registerIpc();
+    const { registerIpc, shutdownRuntime } = await import('./register-ipc'); registerIpc();
     const model = 'qwen3.8:27b-q4_K_M';
     const chat = await invoke<Conversation>('conversations:create');
     mkdirSync(join(root, 'project'));
@@ -69,6 +71,7 @@ async function run(): Promise<void> {
       yield tool('progress-1', { kind: 'progress', state: 'completed', detail: 'Found the move generator' });
       yield tool('term-1', { kind: 'terminal', state: 'running', terminal: { command: 'node test.js', startedAt: new Date().toISOString(), status: 'running' } });
       yield tool('term-1', { kind: 'terminal', state: 'error', terminal: { command: 'node test.js', exitCode: 1, finishedAt: new Date().toISOString(), status: 'error', stderr: 'AssertionError' } });
+      yield { type: 'loop-event', lifecycle: { stage: 'paused', notice: { signature: 'fixture-loop', level: 3, evidence: 'Repeated command', guidance: 'Correct the check' }, attempt: 0 } };
       yield { type: 'paused' };
       await new Promise<void>((resolve) => { steered = resolve; });
       yield { type: 'steering', userMessage: { id: 'runtime', conversationId: chat.id, role: 'user', content: 'Focus on captures', createdAt: '' }, status: 'applied' };
@@ -87,7 +90,7 @@ async function run(): Promise<void> {
     const steering = await invoke<ChatMessage>('chat:steer', chat.id, 'stalled', 'Focus on captures');
     await waitUntil(() => events.some((event) => event.generationId === 'stalled' && event.type === 'token'), 'stalled stream');
     const liveTimeline = kinds(runsOf('stalled').length ? db.listAnalysisRuns(chat.id)[0].timeline : undefined);
-    assert.deepEqual(liveTimeline, ['reasoning', 'activity:read-1', 'activity:progress-1', 'activity:term-1', 'paused', 'steering', 'reasoning', 'activity:read-2', 'activity:term-2', 'reasoning'], 'committed events must be checkpointed before any Stop');
+    assert.deepEqual(liveTimeline, ['reasoning', 'activity:read-1', 'activity:progress-1', 'activity:term-1', 'loop', 'paused', 'steering', 'reasoning', 'activity:read-2', 'activity:term-2', 'reasoning'], 'committed events must be checkpointed before any Stop');
     await invoke('chat:stop', chat.id, 'stalled');
     await first;
 
@@ -95,7 +98,7 @@ async function run(): Promise<void> {
     const stoppedIndex = events.findIndex((event) => event.generationId === 'stalled' && event.type === 'cancelled');
     const finalIndex = events.findIndex((event) => event.generationId === 'stalled' && event.type === 'analysis-run' && (event as { run: AnalysisRun }).run.status === 'cancelled');
     assert(finalIndex >= 0 && stoppedIndex > finalIndex, 'the finalized run must reach the renderer before the cancellation');
-    const expected = ['reasoning', 'activity:read-1', 'activity:progress-1', 'activity:term-1', 'paused', 'steering', 'reasoning', 'activity:read-2', 'activity:term-2', 'reasoning'];
+    const expected = ['reasoning', 'activity:read-1', 'activity:progress-1', 'activity:term-1', 'loop', 'paused', 'steering', 'reasoning', 'activity:read-2', 'activity:term-2', 'reasoning'];
     const verify = (database: InstanceType<typeof Database>, label: string) => {
       const [stopped] = database.listAnalysisRuns(chat.id);
       assert.equal(stopped.status, 'cancelled', label);
@@ -131,11 +134,16 @@ async function run(): Promise<void> {
       yield { type: 'token', content: 'Fixed.' };
       yield { type: 'done' };
     };
-    await invoke('chat:send', request('continue', [...db.listMessages(chat.id)], 'Continue'));
-    assert.equal(restarted.getAgentPlan(chat.id)?.workBudget?.used, 140, 'budget projection survives Stop/restart/Continue and memory updates');
+    await invoke('chat:send', { ...request('continue', [...db.listMessages(chat.id)], 'Continue'), continueLogicalTaskId: stopped.logicalTaskId });
+    assert.equal(restarted.getAgentPlan(chat.id, stopped.logicalTaskId)?.workBudget?.used, 140, 'budget projection survives Stop/restart/Continue and memory updates');
     const [afterStop, continued] = restarted.listAnalysisRuns(chat.id);
     assert.deepEqual(afterStop, stopped, 'Continue must not alter the stopped run');
     assert.equal(continued.status, 'completed');
+    assert.equal(continued.logicalTaskId, stopped.logicalTaskId);
+    assert.equal(steering.logicalTaskId, stopped.logicalTaskId, 'in-flight follow-up stays in its task');
+    assert.equal(streamRequests[0][17], stopped.logicalTaskId);
+    assert.equal(streamRequests[1][17], stopped.logicalTaskId, 'runtime journal owner remains stable through Stop/resume');
+    assert((streamRequests[1][8] as { entries?: unknown[] })?.entries, 'continuation passes only its own checkpoint');
     const assistant = restarted.listMessages(chat.id).at(-1)!;
     assert.equal(continued.assistantMessageId, assistant.id);
     assert.deepEqual(kinds(assistant.thinkingTimeline), ['reasoning', 'activity:read-3'], 'normal completion stores its timeline once');
@@ -155,6 +163,8 @@ async function run(): Promise<void> {
     assert(failedEvents.findIndex((event) => event.type === 'analysis-run' && (event as { run: AnalysisRun }).run.status === 'error') < failedEvents.findIndex((event) => event.type === 'error'), 'failure is announced after its run is final');
     const failed = restarted.listAnalysisRuns(chat.id).at(-1)!;
     assert.equal(failed.status, 'error');
+    assert.notEqual(failed.logicalTaskId, stopped.logicalTaskId, 'ordinary follow-up text alone does not imply continuation');
+    assert.equal(streamRequests[2][8], undefined, 'independent task gets no old evidence');
     assert.equal(failed.error, 'Rust Agent Runtime V2 error: repetition_loop');
     assert.deepEqual(kinds(failed.timeline), ['reasoning', 'activity:term-3']);
     assert.equal(failed.actions[0].state, 'error', 'a running terminal is closed on failure');
@@ -162,6 +172,15 @@ async function run(): Promise<void> {
     assert.deepEqual(afterFailure.map((message) => message.id).slice(-2), ['failed-user', runTurnId(failed.id)]);
     assert.equal(afterFailure.at(-1)?.agentError, 'Rust Agent Runtime V2 error: repetition_loop');
     assert.equal(new Set(afterFailure.map((message) => message.id)).size, afterFailure.length, 'no duplicated turns');
+    const frozenFailed = JSON.stringify(failed.taskPlan);
+    const retained = await invoke<ChatMessage[]>('messages:regenerate', 'failed-user');
+    script = async function* () { yield { type: 'token', content: 'Retry complete.' }; yield { type: 'done' }; };
+    await invoke('chat:send', { conversationId: chat.id, generationId: 'retry-failed', model, mode: 'agent', messages: retained, persistUserMessage: false });
+    const retried = restarted.listAnalysisRuns(chat.id).at(-1)!;
+    assert.equal(retried.logicalTaskId, failed.logicalTaskId);
+    assert.equal(retried.generationId, 'retry-failed');
+    const oldFailed = restarted.listAnalysisRuns(chat.id).find(run => run.id === failed.id)!;
+    assert(oldFailed.archived); assert.equal(JSON.stringify(oldFailed.taskPlan), frozenFailed);
     // Chat uses the same durable artifact checkpoint, without forcing plans or Agent tools.
     const simpleChat = await invoke<Conversation>('conversations:create');
     await invoke('conversations:update', simpleChat.id, { modelId: model, mode: 'chat', webMode: 'off' });
@@ -183,6 +202,27 @@ async function run(): Promise<void> {
     script = async function* () { yield { type: 'rich-artifact', artifact: replacement }; yield { type: 'done' }; };
     await invoke('chat:send', { ...chatRequest, generationId: 'chat-regenerated', persistUserMessage: false });
     assert.deepEqual(restarted.listMessages(simpleChat.id).at(-1)?.richArtifacts, [replacement]);
+    // Stop during startup, before the runtime iterator starts, still freezes its task.
+    let releaseStartup!: () => void;
+    LlamaCppBackend.prototype.ensureModelAvailable = async () => { await new Promise<void>(resolve => { releaseStartup = resolve; }); };
+    const starting = invoke('chat:send', request('stop-during-startup', db.listMessages(chat.id), 'Prepare this task'));
+    await waitUntil(() => Boolean(releaseStartup), 'blocked startup');
+    const stopping = invoke('chat:stop', chat.id, 'stop-during-startup');
+    releaseStartup(); await starting; await stopping;
+    const startupStopped = restarted.listAnalysisRuns(chat.id).at(-1)!;
+    assert.equal(startupStopped.status, 'cancelled'); assert(startupStopped.taskPlan, 'startup Stop snapshot is durable before acknowledgment');
+    // Normal application shutdown uses this same production export. A closed
+    // renderer must not prevent snapshot persistence or settled notification.
+    let releaseShutdown!: () => void;
+    LlamaCppBackend.prototype.ensureModelAvailable = async () => { await new Promise<void>(resolve => { releaseShutdown = resolve; }); };
+    const shutdownStarting = invoke('chat:send', request('shutdown-during-startup', db.listMessages(chat.id), 'Start before shutdown'));
+    await waitUntil(() => Boolean(releaseShutdown), 'shutdown startup');
+    rendererClosed = true;
+    const shutdownAt = Date.now(); const shuttingDown = shutdownRuntime();
+    releaseShutdown(); await shutdownStarting; await shuttingDown;
+    assert(Date.now() - shutdownAt < 3000, 'shutdown must settle, not wait for the four-second fallback');
+    const shutdownStopped = restarted.listAnalysisRuns(chat.id).at(-1)!;
+    assert.equal(shutdownStopped.status, 'cancelled'); assert(shutdownStopped.taskPlan);
     restarted.close();
     console.log('stalled Agent → Stop → restart → Continue keeps the full persisted timeline; completion and failure persist once');
   } finally { globalThis.fetch = originalFetch; loader._load = originalLoad; db.close(); rmSync(root, { recursive: true, force: true }); }

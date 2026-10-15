@@ -29,8 +29,7 @@ async function run(): Promise<void> {
   assert(!markup.includes(agentStatusText.saved));
   const workBudget = { used: 140, limit: 160, maximum: 256, extensions: 1, decision: 'extended', reason: 'changed_code_check_passed' };
   const budgetMarkup = renderToStaticMarkup(createElement(AgentStatusPanel, { plan: { workBudget }, running: true }));
-  assert.match(budgetMarkup, /140\/160/);
-  assert(budgetMarkup.includes('Максимум 256') && budgetMarkup.includes('продлений: 1'));
+  assert.equal(budgetMarkup, '');
   assert.equal(memory.plan!.steps[1].status, 'in_progress', 'terminal presentation must not mutate the saved plan or invent completion');
   const evidencePlan: AgentPlan = { taskMemory: { entries: [], deliverables: { items: [
     { id: 'runtime', text: 'Automatic response', status: 'verified', proof: ['ev-pass'], verification_scope: 'acceptance' },
@@ -85,7 +84,11 @@ async function run(): Promise<void> {
   await useAppStore.getState().selectConversation('A');
   assert.equal(useAppStore.getState().agentPlan?.taskMemory?.plan?.steps[2].status, 'in_progress');
   emit('paused', { timelinePosition: 3 });
+  emit('loop-state', { notice: { signature: 'fixture', level: 2, evidence: 'Repeated observation', guidance: 'Review previous results' }, paused: true });
+  assert.equal(useAppStore.getState().loopPaused, true);
   emit('done');
+  assert.equal(useAppStore.getState().loopNotice, null);
+  assert.equal(useAppStore.getState().loopPaused, false);
   assert.deepEqual(useAppStore.getState().agentPlan?.taskMemory, changed, 'completion/pause must preserve the current panel');
   await useAppStore.getState().sendMessage('Continue after pause');
   const nextId = useAppStore.getState().generationId!;
@@ -106,7 +109,7 @@ const initialBudget = { used: 2, limit: 128, maximum: 256, extensions: 0, decisi
 assert.equal(showAgentStatus({ workBudget: initialBudget }), false);
 assert.equal(showAgentStatus({ workBudget: initialBudget }, true), true);
 assert.equal(showAgentStatus(null, true), false);
-assert.equal(showAgentStatus({ workBudget: { ...initialBudget, used: 112 } }), true);
-assert.equal(showAgentStatus({ workBudget: { ...initialBudget, extensions: 1, limit: 160 } }), true);
+assert.equal(showAgentStatus({ workBudget: { ...initialBudget, used: 112 } }), false);
+assert.equal(showAgentStatus({ workBudget: { ...initialBudget, extensions: 1, limit: 160 } }), false);
 assert.equal(showAgentStatus({ workBudget: initialBudget, taskMemory: { entries: [], verification: { code_changed: true, records: [] } } }), true);
 assert.equal(showAgentStatus({ taskMemory: { entries: [{ id: '1', finding: 'read only' }] } }), false);

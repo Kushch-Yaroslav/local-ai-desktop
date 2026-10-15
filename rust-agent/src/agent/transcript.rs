@@ -43,6 +43,9 @@ impl Clone for Transcript {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Entry {
+    /// Append-only projection overlay. Original messages and evidence remain intact.
+    ContextExclusion { start: usize, end: usize, actions: usize },
+    RuntimeNotice { notice: super::loop_detector::LoopNotice, guidance: bool },
     WorkBudget(super::work_budget::WorkBudget),
     Message(Value),
     RunUser(Value),
@@ -125,6 +128,20 @@ impl CompactionPlan {
 }
 
 impl Transcript {
+    pub fn exclude_loop_context(&mut self, start: usize, end: usize, actions: usize) {
+        self.record(Entry::ContextExclusion { start, end, actions });
+    }
+    pub fn context_excluded(&self, index: usize) -> bool {
+        // The evidence journal already belongs to one logical task lineage.
+        // Keep its overlays across Stop/resume and follow-up attempts.
+        self.entries.iter().any(|entry| matches!(entry, Entry::ContextExclusion { start, end, .. } if index >= *start && index < *end))
+    }
+    pub fn runtime_notice(&mut self, notice: super::loop_detector::LoopNotice, guidance: bool) { self.record(Entry::RuntimeNotice { notice, guidance }); }
+    pub fn runtime_guidance(&self) -> String {
+        let start=self.entries.iter().rposition(|e|matches!(e,Entry::RunUser(_))).unwrap_or(0);
+        self.entries.iter().skip(start).rev().filter_map(|entry|match entry{Entry::RuntimeNotice{notice,guidance:true}=>Some(notice.guidance.as_str()),_=>None}).take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+    }
+
     pub fn checkpoint_work_budget(&mut self, budget: super::work_budget::WorkBudget) {
         self.record(Entry::WorkBudget(budget));
     }
@@ -564,6 +581,7 @@ impl Transcript {
             sources.push(boundary);
         }
         for (index, entry) in self.entries.iter().enumerate().skip(boundary) {
+            if self.context_excluded(index) { continue; }
             match entry {
                 Entry::Message(message)
                     if message.get("role").and_then(Value::as_str) != Some("system") =>
@@ -589,10 +607,12 @@ impl Transcript {
                     }
                     previous_state = Some(content);
                 }
-                Entry::Compaction { .. }
+                Entry::ContextExclusion { .. }
+                | Entry::Compaction { .. }
                 | Entry::Reminder(_)
                 | Entry::ClearReminders
                 | Entry::Finalizing
+                | Entry::RuntimeNotice { .. }
                 | Entry::WorkBudget(_)
                 | Entry::CloseoutRequested
                 | Entry::RunComplete

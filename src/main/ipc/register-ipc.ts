@@ -1,16 +1,20 @@
+import { AutonomySessions } from '../services/autonomy-session';
+import type { AutonomyMode, LoopAction } from '../../shared/autonomy';
+import { ApprovalBroker } from '../services/approval-broker';
 import { resolveLlamaExecutable } from '../services/llama-executable';
 import { DiagramValidationBridge } from '../services/diagram-validation';
 import { VisionDeviceController, type VisionDevice } from '../services/vision-device-controller';
 import { t } from '../../shared/locale';
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { randomUUID } from 'node:crypto';
-import type { AnalysisRun, ApprovalDecision, ApprovalStatus, ChatRequest, Conversation, ProjectReference, ProjectSuggestion, RiskCategory, SteeringIntent, ThinkingTimelineEvent } from '../../shared/types';
+import type { AnalysisRun, ApprovalDecision, ChatRequest, Conversation, ProjectReference, ProjectSuggestion, SteeringIntent, ThinkingTimelineEvent } from '../../shared/types';
 import { findFreshContextDiscoveryOption, type ContextDiscoveryOption, type ContextDiscoveryResult, type ContextDiscoveryProgress, type RuntimeContextEstimate } from '../../shared/context-estimator';
 import { activeConversationModel, initialModelContext } from '../../shared/model-selection';
 import { defaultLlamaKv, normalContextForModel, resolveLlamaKvSelection } from '../../shared/context-options';
 import { Database } from '../services/database';
 import { getGpuIdentity, getHardwareStats, getOwnedServerVramBudget } from '../services/hardware';
 import { buildContextDiscoveryIdentity, contextDiscoveryKey, mergeSavedDiscoveryOptions } from '../services/context-discovery-persistence';
+import { DiscoveryConditionTracker, discoveryConditionSample } from '../services/context-discovery-conditions';
 import { vramBudgetStillFits, vramProbeGuardBytes } from '../../shared/vram-budget';
 import { LlamaCppBackend } from '../backends/llama-cpp-backend';
 import { LlamaRuntimeController, type LlamaRuntimeState } from '../services/llama-runtime-controller';
@@ -26,14 +30,14 @@ import { WebBrowserService } from '../web/web-tools';
 import { WebChatService } from '../services/web-chat';
 import { RemoteImageService } from '../services/remote-image-service';
 import { richArtifactFingerprint } from '../../shared/rich-artifacts';
-import { ReadonlyProjectTools, type ApprovalResult } from '../tools/project-tools';
+import { ReadonlyProjectTools } from '../tools/project-tools';
 import { imageMimeType, AttachmentService } from '../services/attachment-service';
 import { AttachmentPipeline } from '../services/attachment-pipeline';
 import { readFile } from 'node:fs/promises';
 import { saveGenerationDiagnosticsBestEffort } from '../services/generation-diagnostics';
 import { projectDirectoryName } from '../../shared/project-references';
 import { executionMode } from '../../shared/generation-mode';
-import { enabledAgentTools, explicitWorkspaceRoots } from '../services/agent-workspace';
+import { enabledAgentTools, explicitWorkspaceRoots, restoreHistoricalTaskScope } from '../services/agent-workspace';
 import { homedir } from 'node:os';
 import { pinLegacyReasoning, touchesRuntime } from '../../shared/conversation-settings';
 import { existingProjectDirectory } from '../services/project-picker';
@@ -61,6 +65,7 @@ const rustAgent = new RustAgentRuntime(process.env.LOCAL_AI_AGENT_ENDPOINT ?? `$
 const webChat = new WebChatService(backend, web);
 const attachmentPipeline = new AttachmentPipeline(database, attachments);
 type ActiveGeneration = {
+  logicalTaskId?: string;
   id: string;
   abort: AbortController;
   settled: Promise<void>;
@@ -74,8 +79,8 @@ type ActiveGeneration = {
   lastTimelineKind: ThinkingTimelineEvent['kind'] | null;
 };
 const activeGenerations = new Map<string, ActiveGeneration>();
-type PendingApproval = { approvalId: string; conversationId: string; generation: ActiveGeneration; actionId: string; category: RiskCategory; root: string; resolve: (result: ApprovalResult) => void; settled: boolean; abort: () => void; emit: (payload: Record<string, unknown>) => void };
-const pendingApprovals = new Map<string, PendingApproval>();
+const approvalBroker = new ApprovalBroker();
+const autonomySessions = new AutonomySessions();
 const llamaRuntime = new LlamaRuntimeController({
   stateFile: `${paths.dataRoot}/llama-cpp-runtime-state.json`,
   requestFile: `${paths.dataRoot}/llama-cpp-runtime-request.env`,
@@ -85,6 +90,7 @@ const discoveredContextOptions = new Map<string, { option: ContextDiscoveryOptio
 let contextDiscoveryBusy = false;
 let savedDiscoveryAttempted: string | null = null;
 let runtimeSelectionBusy = false;
+let runtimeActivation: LlamaRuntimeState['activation'];
 let runtimeShuttingDown = false;
 let deviceChanged = () => {};
 export function onImageProcessingDeviceChanged(listener: () => void): void { deviceChanged = listener; }
@@ -180,21 +186,23 @@ async function loadSavedDiscovery(modelId: string): Promise<{ options: ContextDi
   }
 }
 async function adoptSavedDiscovery(modelId: string, error?: string): Promise<void> {
-  discoveredContextOptions.clear();
-  const saved = await loadSavedDiscovery(modelId);
-  if (!saved) return;
+  const measured = await loadSavedDiscovery(modelId);
+  const hardLimit = await llamaCapabilityLimit(modelId);
+  const saved = measured?.options.length ? measured : { options: database.loadLatestContextDiscoveryOptions(modelId, hardLimit), hardLimit, key: 'historical' };
+  if (!saved.options.length) return;
   savedDiscoveryAttempted = modelId;
   if (!saved.options.length) return;
   const configurationId = await runtimeConfigurationIdentity(modelId);
-  for (const option of saved.options) discoveredContextOptions.set(discoveryKey(modelId, option.contextWindow, option.kvCacheType, option.kvOffload), { option, modelIdentity: configurationId });
+  discoveredContextOptions.clear();
+  for (const option of saved.options) discoveredContextOptions.set(discoveryKey(modelId, option.contextWindow, option.kvCacheType, option.kvOffload), { option, modelIdentity: saved.key === 'historical' ? 'unvalidated-history' : configurationId });
   contextDiscoveryProgress = { busy: false, modelId, stage: 'Сохранённый результат', probeCount: 0, error,
-    result: { modelId, probeContextTokens: Math.min(16_384, saved.hardLimit), options: saved.options, unsupported: [], restored: true, hardLimit: saved.hardLimit, configurationId } };
+    result: { modelId, probeContextTokens: Math.min(16_384, saved.hardLimit), options: saved.options, unsupported: [], restored: true, hardLimit: saved.hardLimit, configurationId, measurementIdentity: saved.key } };
   log('context.discovery.saved.restored', { modelId, options: saved.options.map((option) => ({ contextWindow: option.contextWindow, kvCacheType: option.kvCacheType, kvOffload: option.kvOffload })) });
 }
 /** Only the live launcher's state can attest to an explicitly selected runtime. */
 async function currentLlamaRuntime(): Promise<LlamaRuntimeState> {
-  const state = await llamaRuntime.state();
-  if (!modelSelectedThisProcess && state.status === 'ready') return { status: 'idle', modelId: null, contextWindow: null };
+  const state = { ...await llamaRuntime.state(), ...(runtimeActivation ? { activation: runtimeActivation } : {}) };
+  if (!modelSelectedThisProcess && state.status === 'ready') return { status: 'idle', modelId: null, contextWindow: null, ...(runtimeActivation ? { activation: runtimeActivation } : {}) };
   if (state.status === 'ready') {
     // The state file records the last transition; a server that died since then must not be reported as running.
     const health = await llamaCpp.getStatus();
@@ -258,10 +266,10 @@ async function discoverModelContexts(modelId: string): Promise<ContextDiscoveryR
   const profile = llamaRuntimeProfile(modelId);
   if (contextDiscoveryBusy) throw new Error('Поиск максимального контекста уже выполняется.');
   if (runtimeSelectionBusy) throw new Error('Дождитесь завершения переключения runtime.');
-  discoveredContextOptions.clear();
   if (!profile) throw new Error('Для поиска максимального контекста нужна установленная модель llama.cpp.');
   contextDiscoveryBusy = true;
-  contextDiscoveryProgress = { busy: true, modelId, stage: 'Подготовка; llama.cpp будет перезапущен несколько раз…', probeCount: 0 };
+  const previousProgress = contextDiscoveryProgress.modelId === modelId ? contextDiscoveryProgress : { busy: false, modelId, stage: '', probeCount: 0 };
+  contextDiscoveryProgress = { ...previousProgress, busy: true, error: undefined, stage: 'Подготовка; llama.cpp будет перезапущен несколько раз…', probeCount: 0 };
   let original: LlamaRuntimeState | null = null;
   try {
     if (activeGenerations.size) throw new Error('Остановите генерацию перед измерением Max Context.');
@@ -287,7 +295,7 @@ async function discoverModelContexts(modelId: string): Promise<ContextDiscoveryR
     if (hostReserve.bytes === null) throw new Error(hostReserve.error);
     const result = await discoverContextBoundary({
       modelId, hardLimit, kvOffload: offload, hostReserveBytes: hostReserve.bytes, deviceReserveBytes: 0,
-      progress: (stage, probeCount) => { contextDiscoveryProgress = { busy: true, modelId, stage, probeCount }; },
+      progress: (stage, probeCount) => { contextDiscoveryProgress = { ...contextDiscoveryProgress, busy: true, modelId, stage, probeCount }; },
       probe: async (contextWindow, kvCacheType, phase): Promise<DiscoveryProbe> => {
         const started = Date.now();
         const record: DiscoveryProbe['record'] = { contextWindow, kvCacheType, phase, startup: false, health: false, inference: false, fits: false, headroom: null, memoryBaseline: null, elapsedMs: 0 };
@@ -340,21 +348,23 @@ async function discoverModelContexts(modelId: string): Promise<ContextDiscoveryR
     let saved: ContextDiscoveryOption[] = [];
     try {
       const identity = await persistentDiscoveryIdentity(modelId);
+      result.measurementIdentity = identity.key;
       database.saveContextDiscoveryOptions(identity.key, identity.serialized, result.options);
       saved = database.loadContextDiscoveryOptions(identity.key, modelId, identity.hardLimit);
       log('context.discovery.saved', { modelId, options: result.options.map((option) => ({ contextWindow: option.contextWindow, kvCacheType: option.kvCacheType })) });
     } catch (error) {
-      log('context.discovery.save.failed', { modelId, message: error instanceof Error ? error.message : String(error) });
+      result.persistenceError = error instanceof Error ? error.message : String(error);
+      log('context.discovery.save.failed', { modelId, message: result.persistenceError });
     }
     result.options = mergeSavedDiscoveryOptions(result.options, saved);
+    discoveredContextOptions.clear();
     for (const option of result.options) discoveredContextOptions.set(discoveryKey(modelId, option.contextWindow, option.kvCacheType, option.kvOffload), { option, modelIdentity: result.configurationId });
     savedDiscoveryAttempted = modelId;
-    contextDiscoveryProgress = { busy: false, modelId, stage: 'Готово', probeCount: result.probes?.length ?? 0, result };
+    contextDiscoveryProgress = { busy: false, modelId, stage: 'Готово', probeCount: result.probes?.length ?? 0, result, error: result.persistenceError };
     return result;
   } catch (error) {
-    discoveredContextOptions.clear();
     const message = error instanceof Error ? error.message : String(error);
-    contextDiscoveryProgress = { busy: false, modelId, stage: 'Поиск не завершён', probeCount: contextDiscoveryProgress.probeCount, error: message };
+    contextDiscoveryProgress = { ...previousProgress, busy: false, modelId, stage: 'Поиск не завершён', probeCount: contextDiscoveryProgress.probeCount, error: message };
     // A failed or interrupted run leaves the previously saved result untouched and selectable.
     await adoptSavedDiscovery(modelId, message).catch(() => undefined);
     throw error;
@@ -378,55 +388,86 @@ async function verifyContextProbeInference(modelId: string): Promise<void> {
     throw new Error('Пробный запрос к модели не вернул завершённый ответ.');
   }
 }
-async function validateDiscoveredOption(modelId: string, contextWindow: number, kvCacheType: 'f16' | 'q8_0', kvOffload: boolean): Promise<void> {
+async function assessDiscoveredOption(modelId: string, contextWindow: number, kvCacheType: 'f16' | 'q8_0', kvOffload: boolean): Promise<void> {
   if (!discoveredContextOptions.size && !contextDiscoveryBusy) await adoptSavedDiscovery(modelId).catch(() => undefined);
-  const cachedOptions = [...discoveredContextOptions.values()];
-  const option = findFreshContextDiscoveryOption(cachedOptions.map((item) => item.option), { modelId, contextWindow, kvCacheType, kvOffload });
-  if (!option) throw new Error('Результат поиска максимального контекста отсутствует, устарел или не подтверждает эту конфигурацию KV и размер контекста; запустите «Найти максимальный контекст» заново.');
+  let cachedOptions = [...discoveredContextOptions.values()];
+  let option = findFreshContextDiscoveryOption(cachedOptions.map((item) => item.option), { modelId, contextWindow, kvCacheType, kvOffload });
+  if (!option) {
+    await adoptSavedDiscovery(modelId);
+    cachedOptions = [...discoveredContextOptions.values()];
+    option = findFreshContextDiscoveryOption(cachedOptions.map((item) => item.option), { modelId, contextWindow, kvCacheType, kvOffload });
+  }
+  if (!option) throw new Error('Нет подходящего предыдущего измерения для этой пары контекст/KV. Новый поиск необязателен.');
   const cached = cachedOptions.find((item) => item.option === option);
-  if (!cached || await runtimeConfigurationIdentity(modelId) !== cached.modelIdentity) throw new Error('Конфигурация llama.cpp изменилась с момента поиска; запустите «Найти максимальный контекст» заново.');
+  if (!cached || await runtimeConfigurationIdentity(modelId) !== cached.modelIdentity) throw new Error('Конфигурация llama.cpp изменилась с момента предыдущего измерения.');
   const current = await estimateModelContext(modelId);
-  if (current.status !== 'estimated' || !current.memoryBaseline || current.observedContextTokens === null) throw new Error('Нет данных о текущей памяти llama.cpp; запустите «Найти максимальный контекст» заново.');
+  if (current.status !== 'estimated' || !current.memoryBaseline || current.observedContextTokens === null) throw new Error('Нет полного измерения текущей памяти llama.cpp.');
   if (!hostBaselineStable(option, current) || !currentDiscoveryHeadroomFits(option, current)) {
-    throw new Error('Доступная память заметно изменилась с момента поиска; перед выбором этого контекста запустите «Найти максимальный контекст» заново.');
+    const gib = (value?: number) => value === undefined ? '?' : (value / 1024 ** 3).toFixed(2);
+    const details = `RAM baseline: сохранено ${gib(option.memoryBaseline.hostAvailableBytes)} GiB, сейчас ${gib(current.memoryBaseline.hostAvailableBytes)} GiB; VRAM модели: требуется ${gib(option.vramBudget?.llmBytes)} GiB, доступно ${gib(current.vramBudget?.availableLlmBytes)} GiB; фон VRAM: сохранено ${gib(option.vramBudget?.nonLlmBytes)} GiB, сейчас ${gib(current.vramBudget?.nonLlmBytes)} GiB.`;
+    log('context.activation.memory.changed', { modelId, contextWindow, kvCacheType, kvOffload, hostStable: hostBaselineStable(option, current), option: { memoryBaseline: option.memoryBaseline, measuredHeadroom: option.measuredHeadroom, vramBudget: option.vramBudget }, current: { memoryBaseline: current.memoryBaseline, vramBudget: current.vramBudget } });
+    throw new Error(`Доступная память не подтверждает сохранённую конфигурацию ${contextWindow / 1024}K ${kvCacheType}. ${details} Можно загрузить выбранную конфигурацию, повторить поиск или выбрать меньший контекст.`);
   }
 }
-async function discoveryStatus(_event?: unknown, requestedModelId?: string): Promise<ContextDiscoveryProgress> {
-  if (!modelSelectedThisProcess) return { busy: false, modelId: null, stage: '', probeCount: 0 };
+/** Catalog visibility is independent of permission to activate a profile. */
+const discoveryConditions = new DiscoveryConditionTracker();
+const discoveryStatusRequests = new Map<string, Promise<ContextDiscoveryProgress>>();
+function discoveryStatus(_event?: unknown, requestedModelId?: string): Promise<ContextDiscoveryProgress> {
+  if (!requestedModelId) return Promise.resolve(contextDiscoveryProgress);
+  const pending = discoveryStatusRequests.get(requestedModelId);
+  if (pending) return pending;
+  const request = assessDiscoveryStatus(requestedModelId).finally(() => discoveryStatusRequests.delete(requestedModelId));
+  discoveryStatusRequests.set(requestedModelId, request);
+  return request;
+}
+async function assessDiscoveryStatus(requestedModelId: string): Promise<ContextDiscoveryProgress> {
+  // Inference activity is not invalidation of a measurement. Keep the last
+  // assessment while busy; re-evaluate real identity/memory conditions afterward.
   if (contextDiscoveryBusy || runtimeSelectionBusy || activeGenerations.size) return contextDiscoveryProgress;
-  if (typeof requestedModelId === 'string' && requestedModelId && savedDiscoveryAttempted !== requestedModelId && !contextDiscoveryProgress.error) {
-    if (contextDiscoveryProgress.modelId !== requestedModelId) contextDiscoveryProgress = { busy: false, modelId: requestedModelId, stage: '', probeCount: 0 };
-    if (!contextDiscoveryProgress.result) await adoptSavedDiscovery(requestedModelId).catch(() => undefined);
+  const state = await currentLlamaRuntime();
+  if (state.status !== 'ready' || state.modelId !== requestedModelId) {
+    const hardLimit = await llamaCapabilityLimit(requestedModelId);
+    const options = database.loadLatestContextDiscoveryOptions(requestedModelId, hardLimit);
+    return { busy: false, modelId: requestedModelId, stage: 'Сохранённый результат', probeCount: 0,
+      ...(options.length ? { result: { modelId: requestedModelId, probeContextTokens: Math.min(16384, hardLimit), options, unsupported: [], restored: true, pendingValidation: true, hardLimit } } : {}) };
   }
-  if (!contextDiscoveryProgress.result) return contextDiscoveryProgress;
+  if (savedDiscoveryAttempted !== requestedModelId || contextDiscoveryProgress.modelId !== requestedModelId || !contextDiscoveryProgress.result) {
+    await adoptSavedDiscovery(requestedModelId, contextDiscoveryProgress.modelId === requestedModelId ? contextDiscoveryProgress.error : undefined);
+  }
   const result = contextDiscoveryProgress.result;
+  if (!result || result.modelId !== requestedModelId) return { busy: false, modelId: requestedModelId, stage: '', probeCount: 0 };
+  const assessmentKey = (option: ContextDiscoveryOption) => JSON.stringify([result.configurationId, result.measurementIdentity,
+    option.modelId, option.discoveredAt, option.contextWindow, option.kvCacheType, option.kvOffload]);
+  const annotate = (option: ContextDiscoveryOption, conditions: ContextDiscoveryOption['conditions']) => ({ ...option, conditions,
+    conditionWarning: conditions === 'comparable' ? undefined : conditions === 'unknown' ? 'Текущие условия измерения не подтверждены'
+      : 'Условия GPU/RAM или идентичность модели/runtime отличаются от измерения; GPU-fit сейчас не подтверждён' });
+  let sameIdentity = false;
+  let identityConfirmed = false;
   try {
-    if (!result.configurationId || await runtimeConfigurationIdentity(result.modelId) !== result.configurationId) throw new Error('Модель/runtime/draft изменились; повторите discovery.');
-    const estimate = await estimateModelContext(result.modelId);
-    // Saved options stay listed under memory pressure; selecting one re-runs these same checks.
-    const measured = result.options.filter((option) => !option.restored);
-    if (measured.length && (!estimate.memoryBaseline || measured.some((option) => !findFreshContextDiscoveryOption([option], option)
-      || !hostBaselineStable(option, estimate)
-      || !currentDiscoveryHeadroomFits(option, estimate)))) {
-      throw new Error('Ресурсы существенно изменились или результат устарел; повторите discovery.');
-    }
+    const runtimeIdentity = await runtimeConfigurationIdentity(requestedModelId);
+    const measurementIdentity = await persistentDiscoveryIdentity(requestedModelId);
+    sameIdentity = result.configurationId === runtimeIdentity && result.measurementIdentity === measurementIdentity.key;
+    identityConfirmed = true;
+    const estimate = await estimateModelContext(requestedModelId);
+    const hostReserve = resolveContextReserve(process.env.LOCAL_AI_CONTEXT_HOST_RESERVE_BYTES, 'LOCAL_AI_CONTEXT_HOST_RESERVE_BYTES', defaultContextHostReserveBytes);
+    if (hostReserve.bytes === null) throw new Error(hostReserve.error ?? 'Некорректный резерв памяти для поиска.');
+    const options = result.options.map(option => {
+      const sample = discoveryConditionSample(option, estimate, sameIdentity, hostReserve.bytes!);
+      return annotate(option, discoveryConditions.assess(assessmentKey(option), sample));
+    });
     if (contextDiscoveryProgress.result === result && !contextDiscoveryBusy && !runtimeSelectionBusy) {
-      contextDiscoveryProgress = { ...contextDiscoveryProgress, currentVramBudget: estimate.vramBudget };
+      contextDiscoveryProgress = { ...contextDiscoveryProgress, currentVramBudget: estimate.vramBudget, result: { ...result, options } };
     }
   } catch (error) {
-    if (contextDiscoveryProgress.result !== result || contextDiscoveryBusy || runtimeSelectionBusy) return contextDiscoveryProgress;
-    discoveredContextOptions.clear();
-    if (result.options.every((option) => option.restored)) {
-      // A saved calibration is never discarded by a transient runtime state; it is re-adopted once the runtime matches again.
-      savedDiscoveryAttempted = null;
-      contextDiscoveryProgress = { busy: false, modelId: result.modelId, stage: '', probeCount: 0 };
-      return contextDiscoveryProgress;
+    if (contextDiscoveryProgress.result === result && !contextDiscoveryBusy && !runtimeSelectionBusy) {
+      const options = result.options.map(option => annotate(option, discoveryConditions.assess(assessmentKey(option), sameIdentity ? 'missing' : identityConfirmed ? 'identity-changed' : 'unknown')));
+      // Sampling errors are not failed discovery runs. Never fabricate current telemetry.
+      contextDiscoveryProgress = { ...contextDiscoveryProgress, currentVramBudget: undefined, result: { ...result, options } };
+      log('context.discovery.telemetry.unavailable', { modelId: requestedModelId, message: error instanceof Error ? error.message : String(error) });
     }
-    contextDiscoveryProgress = { busy: false, modelId: result.modelId, stage: 'Результат недействителен', probeCount: 0, error: error instanceof Error ? error.message : String(error) };
   }
   return contextDiscoveryProgress;
 }
-const sessionApprovals = new Map<string, { root: string; categories: Set<RiskCategory> }>();
 
 const waitFor = (promise: Promise<void>, timeoutMs: number): Promise<void> => new Promise((resolve) => {
   const timeout = setTimeout(resolve, timeoutMs);
@@ -442,17 +483,6 @@ export async function shutdownRuntime(): Promise<void> {
   for (const generation of active) generation.abort.abort();
   await Promise.allSettled(active.map((generation) => waitFor(generation.settled, 4_000)));
   log('runtime.shutdown.finished', { backend: 'llama-cpp' });
-}
-
-function settleApproval(pending: PendingApproval, result: ApprovalResult, status: Exclude<ApprovalStatus, 'pending'>): void {
-  if (pending.settled) return;
-  pending.settled = true;
-  pendingApprovals.delete(pending.approvalId);
-  pending.generation.abort.signal.removeEventListener('abort', pending.abort);
-  pending.resolve(result);
-  if (activeGenerations.get(pending.conversationId) === pending.generation && !pending.generation.abort.signal.aborted) {
-    pending.emit({ type: 'approval-resolved', conversationId: pending.conversationId, generationId: pending.generation.id, actionId: pending.actionId, approvalId: pending.approvalId, status });
-  }
 }
 
 async function cancelGeneration(conversationId: string, generationId?: string, reason: 'user_stop' | 'superseded' = 'superseded'): Promise<void> {
@@ -483,7 +513,7 @@ export function registerIpc(): void {
       const reasoningError = reasoningPatchError(patch, reasoningCapability(llamaRuntimeProfile(existing.modelId ?? '')));
       if (reasoningError) throw new Error(reasoningError);
       const stored = database.updateConversation(id, pinLegacyReasoning(existing, reasoningCapability(llamaRuntimeProfile(existing.modelId ?? '')), patch));
-      if ((patch.workingDirectory !== undefined && patch.workingDirectory !== existing.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== existing.secondaryWorkingDirectory)) sessionApprovals.delete(id);
+      if ((patch.workingDirectory !== undefined && patch.workingDirectory !== existing.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== existing.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
       return database.getConversation(id) ?? stored;
     }
     if (contextDiscoveryBusy) throw new Error('Дождитесь завершения Max Context discovery перед изменением настроек runtime.');
@@ -505,17 +535,27 @@ export function registerIpc(): void {
     const firstSelection = patch.modelId !== undefined && !activeConversationModel(current, runtime);
     const normalConfiguration = llamaRuntimeProfile(nextModelId ?? '')?.normalContext;
     const initial = initialModelContext(allowed, normalConfiguration);
-    const contextWindow = (firstSelection || (modelChanged && normalConfiguration)) && patch.contextWindow === undefined ? initial.contextWindow : modelChanged && patch.contextWindow === undefined && allowed.length ? normalContextForModel(requestedContext, allowed) : requestedContext;
-    if (allowed.length && !allowed.includes(contextWindow)) {
-      if (contextWindow % 4_096 !== 0 || contextWindow > capability || contextWindow <= 0) {
+    const contextWindow = (modelChanged && (firstSelection || normalConfiguration)) && patch.contextWindow === undefined ? initial.contextWindow : modelChanged && patch.contextWindow === undefined && allowed.length ? normalContextForModel(requestedContext, allowed) : requestedContext;
+    if (profile) {
+      if (!Number.isSafeInteger(contextWindow) || contextWindow % 4_096 !== 0 || contextWindow > Math.min(capability, 262144) || contextWindow <= 0) {
         throw new Error(`Запрошенный контекст ${contextWindow} выходит за пределы возможностей модели и llama.cpp или не кратен допустимому шагу.`);
       }
     }
     if (nextModelId && profile) {
       const isRuntimeRequest = patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined;
-      const { llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload } = resolveLlamaKvSelection(current, patch, modelChanged || firstSelection, initial);
-      const requiresDiscovery = !allowed.includes(contextWindow) || kvCacheType !== initial.llamaKvCacheType || kvOffload !== initial.llamaKvOffload;
-      if (isRuntimeRequest && requiresDiscovery) await validateDiscoveredOption(nextModelId, contextWindow, kvCacheType, kvOffload);
+      const { llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload } = resolveLlamaKvSelection(current, patch, modelChanged, initial);
+      if (!['f16', 'q8_0'].includes(kvCacheType)) throw new Error('Неподдерживаемый тип KV-cache.');
+      runtimeActivation = { conversationId: id, modelId: nextModelId, contextWindow, kvCacheType, kvOffload, phase: 'validating' };
+      log('context.activation.requested', runtimeActivation);
+      // Discovery is a recommendation, not authorization to load a configuration.
+      // This explicit renderer action is the sole trigger for a runtime switch.
+      if (isRuntimeRequest) {
+        try { await assessDiscoveredOption(nextModelId, contextWindow, kvCacheType, kvOffload); }
+        catch (error) {
+          runtimeActivation.warning = `Условия измерения не подтверждены; выбранная конфигурация может потребовать больше памяти или не загрузиться. ${error instanceof Error ? error.message : String(error)}`;
+          log('context.activation.warning', { ...runtimeActivation });
+        }
+      }
       patch = { ...patch, llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload };
       const runtimeDiffers = runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload;
       // Re-selecting the stored model is a retry when the server is not running it.
@@ -526,20 +566,32 @@ export function registerIpc(): void {
         if (result.ok) modelSelectedThisProcess = true;
         await syncLlamaBackend();
         log('llama.runtime.switch.finished', { conversationId: id, ok: result.ok, state: result.state, error: result.ok ? undefined : result.error });
-        // Nothing is persisted for a failed switch: the stored conversation must keep
-        // naming the model that is really running (or none, when the server is down).
+        // A failed switch preserves the requested conversation configuration.
+        // The runtime separately reports the active/rolled-back configuration.
         if (!result.ok) throw new Error(`Не удалось переключить llama.cpp на ${profile.displayName} (${Math.round(contextWindow / 1024)}K, ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}): ${result.error}${result.state.rolledBack ? ` Продолжает работать ${result.state.modelId}.` : result.state.status === 'offline' ? ' llama.cpp сейчас не запущен.' : ''}`);
       }
-      if (modelChanged || firstSelection) {
+      if (modelChanged) {
         discoveredContextOptions.clear();
         savedDiscoveryAttempted = null;
         contextDiscoveryProgress = { busy: false, modelId: nextModelId, stage: '', probeCount: 0 };
       }
     }
     const updated = database.updateConversation(id, { ...patch, contextWindow });
-    if ((patch.workingDirectory !== undefined && patch.workingDirectory !== current.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== current.secondaryWorkingDirectory)) sessionApprovals.delete(id);
+    if ((patch.workingDirectory !== undefined && patch.workingDirectory !== current.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== current.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
     if (patch.modelId !== undefined && patch.modelId !== current.modelId) database.setContextUsage(id, null, null);
+    runtimeActivation = undefined;
     return database.getConversation(id) ?? updated;
+    } catch (error) {
+      if (runtimeActivation?.conversationId === id && runtimeActivation.phase === 'validating') {
+        const actual = await llamaRuntime.state();
+        const reason = error instanceof Error ? error.message : String(error);
+        const message = `Не загружено: ${runtimeActivation.contextWindow / 1024}K ${runtimeActivation.kvCacheType}, KV ${runtimeActivation.kvOffload ? 'GPU' : 'RAM'}. ${reason} Активно: ${actual.status === 'ready' ? `${(actual.contextWindow ?? 0) / 1024}K ${actual.kvCacheType ?? '?'}, KV ${actual.kvOffload ? 'GPU' : 'RAM'}` : actual.status}.`;
+        database.updateConversation(id, { modelId: runtimeActivation.modelId, contextWindow: runtimeActivation.contextWindow, llamaKvCacheType: runtimeActivation.kvCacheType, llamaKvOffload: runtimeActivation.kvOffload });
+        runtimeActivation = { ...runtimeActivation, phase: 'failed', error: message };
+        log('context.activation.failed', { requested: runtimeActivation, actual, reason });
+        throw new Error(message);
+      }
+      throw error;
     } finally {
       runtimeSelectionBusy = false;
       deviceChanged();
@@ -548,17 +600,19 @@ export function registerIpc(): void {
   });
   ipcMain.handle('conversations:delete', async (_event, id: string) => {
     if (activeGenerations.has(id)) throw new Error('Нельзя удалить чат с активной генерацией.');
-    sessionApprovals.delete(id); await attachments.removeManagedFiles(database.deleteConversation(id));
+    approvalBroker.revoke(id); await attachments.removeManagedFiles(database.deleteConversation(id));
     await discardAgentEvidence(paths.userData, id, true);
   });
   ipcMain.handle('messages:list', (_event, conversationId: string) => database.listMessages(conversationId));
+  ipcMain.handle('agent-plan:legacy', (_event, conversationId: string) => database.getLegacyAgentPlan(conversationId));
+  ipcMain.handle('agent-tasks:list', (_event, conversationId: string, includeTaskId?: string) => database.listAgentTasks(conversationId, includeTaskId));
   ipcMain.handle('agent-plan:get', (_event, conversationId: string) => database.getAgentPlan(conversationId));
   ipcMain.handle('messages:edit', async (_event, messageId: string, content: string, fallback?: { conversationId: string; content: string }) => {
     if (activeGenerations.size) throw new Error('Дождитесь завершения активной генерации перед редактированием.');
     const message = database.getMessage(messageId) ?? (fallback ? database.findUserMessage(fallback.conversationId, fallback.content) : null); if (!message) throw new Error('Сообщение не найдено');
     const before = database.listAttachmentsForConversation(message.conversationId);
     await cancelGeneration(message.conversationId); const edited = database.editUserMessageAndTruncate(message.id, content);
-    await discardAgentEvidence(paths.userData, message.conversationId);
+    await archiveAgentEvidence(paths.userData, message.conversationId, message.logicalTaskId);
     const kept = new Set(database.listAttachmentsForConversation(message.conversationId).map((attachment) => attachment.id));
     await attachments.removeManagedFiles(before.filter((attachment) => !kept.has(attachment.id)));
     return edited;
@@ -569,7 +623,7 @@ export function registerIpc(): void {
     const before = database.listAttachmentsForConversation(message.conversationId);
     await cancelGeneration(message.conversationId);
     const retained = database.regenerateUserMessageAndTruncate(message.id);
-    await archiveAgentEvidence(paths.userData, message.conversationId);
+    await archiveAgentEvidence(paths.userData, message.conversationId, message.logicalTaskId);
     const kept = new Set(database.listAttachmentsForConversation(message.conversationId).map((attachment) => attachment.id));
     await attachments.removeManagedFiles(before.filter((attachment) => !kept.has(attachment.id)));
     return retained;
@@ -662,7 +716,8 @@ export function registerIpc(): void {
   ipcMain.handle('context:discover', async (_event, modelId: string): Promise<ContextDiscoveryResult> => {
     if (typeof modelId !== 'string' || !modelId) throw new Error('Не указана модель для discovery контекста');
     if (!modelSelectedThisProcess) throw new Error('Выберите модель перед поиском максимального контекста.');
-    return discoverModelContexts(modelId);
+    const result = await discoverModelContexts(modelId);
+    return (await discoveryStatus(undefined, modelId)).result ?? result;
   });
   ipcMain.handle('context:discovery-status', discoveryStatus);
   ipcMain.handle('dialog:chooseDirectory', async (_event, initialDirectory?: string | null) => {
@@ -682,7 +737,8 @@ export function registerIpc(): void {
     if (typeof content !== 'string' || !content.trim() || content.length > 16_000) throw new Error('Уточнение должно содержать от 1 до 16000 символов.');
     if (intent !== undefined && intent !== 'pause') throw new Error('Неизвестный тип уточнения.');
     await rustAgent.steer(generation.id, content.trim(), intent);
-    const message = database.addMessage(conversationId, 'user', content.trim());
+    if (intent === 'pause') approvalBroker.pauseRun(generation.id);
+    const message = database.addMessage(conversationId, 'user', content.trim(), undefined, [], { logicalTaskId: generation.logicalTaskId });
     // The model has not seen this message yet and its current turn is still streaming, so nothing is added to the
     // chronological timeline now: the entry is placed when the runtime applies it at a turn boundary.
     (generation.followups ??= []).push({ message, applied: false });
@@ -690,18 +746,30 @@ export function registerIpc(): void {
     event.sender.send('chat:stream', { type: 'steering', conversationId, generationId, userMessage: message, status: 'accepted' });
     return message;
   });
-  ipcMain.handle('chat:approve', (_event, request: { conversationId: string; generationId: string; approvalId: string; decision: ApprovalDecision }) => {
-    const pending = pendingApprovals.get(request.approvalId);
-    if (!['reject', 'once', 'session'].includes(request.decision) || !pending || pending.conversationId !== request.conversationId || pending.generation.id !== request.generationId || activeGenerations.get(request.conversationId) !== pending.generation || pending.generation.abort.signal.aborted) return false;
-    if (request.decision === 'session') {
-      const session = sessionApprovals.get(pending.conversationId);
-      const categories = session?.root === pending.root ? session.categories : new Set<RiskCategory>();
-      categories.add(pending.category);
-      sessionApprovals.set(pending.conversationId, { root: pending.root, categories });
-    }
-    const approved = request.decision !== 'reject';
-    settleApproval(pending, approved ? { approved: true, reason: request.decision === 'session' ? 'session' : 'once' } : { approved: false, reason: 'user_rejected' }, approved ? request.decision === 'session' ? 'session-approved' : 'approved' : 'rejected');
-    return true;
+  ipcMain.handle('chat:approve', (event, request: { conversationId: string; generationId: string; approvalId: string; decision: ApprovalDecision }) => {
+    const generation = activeGenerations.get(request.conversationId);
+    if (!generation || generation.id !== request.generationId || generation.abort.signal.aborted) return false;
+    return approvalBroker.reply(event.sender.id, request);
+  });
+  ipcMain.handle('chat:revoke-approvals', (_event, conversationId: string, generationId: string, grantId?: string) => {
+    const generation = activeGenerations.get(conversationId);
+    if (!generation || generation.id !== generationId) return false;
+    approvalBroker.revoke(generationId, grantId); return true;
+  });
+  ipcMain.handle('chat:permissions', (_event, id: string) => autonomySessions.get(id));
+  ipcMain.handle('chat:grants', (_event, id: string, runId: string) => activeGenerations.get(id)?.id === runId ? approvalBroker.list(runId) : []);
+  ipcMain.handle('chat:set-permissions', async (event, id: string, mode: AutonomyMode, trust: boolean) => {
+    const conversation = database.listConversations().find(item => item.id === id);
+    if (!conversation) throw new Error('Чат недоступен');
+    const permissions = await autonomySessions.set(id, mode, [conversation.workingDirectory, conversation.secondaryWorkingDirectory].filter((root): root is string => Boolean(root)), trust === true, async () => false);
+    const generation = activeGenerations.get(id);
+    if (generation?.mode === 'agent' && !generation.abort.signal.aborted && rustAgent.hasRun(generation.id)) await rustAgent.control(generation.id, { permissions });
+    return permissions;
+  });
+  ipcMain.handle('chat:loop-control', async (_event, id: string, runId: string, signature: string, action: LoopAction) => {
+    const generation = activeGenerations.get(id);
+    if (generation?.id !== runId || generation.mode !== 'agent' || !['correct', 'continue', 'pause', 'correct_resume', 'continue_anyway'].includes(action) || typeof signature !== 'string') throw new Error('Управление циклом недоступно');
+    await rustAgent.control(runId, { action, signature });
   });
   ipcMain.handle('chat:send', async (event, request: ChatRequest) => {
     const requestStarted = performance.now();
@@ -715,6 +783,8 @@ export function registerIpc(): void {
     activeGenerations.set(request.conversationId, generation);
     const current = () => activeGenerations.get(request.conversationId) === generation && !abort.signal.aborted;
     let run: AnalysisRun | null = null;
+    let runFinalized = false;
+    let logicalTaskId: string | undefined;
     let output = ''; let thinking = ''; let messageDiagnostics: import('../../shared/types').GenerationDiagnostics | undefined; let completed = false; let failed = false; let cancelled = false; let finishReason: 'stop' | 'length' = 'stop';
     const { thinkingTimeline, activityTimelinePositions } = generation;
     let failure: string | undefined;
@@ -726,7 +796,9 @@ export function registerIpc(): void {
     const finishRun = (status: AnalysisRun['status'], assistantMessageId: string | null = null) => {
       if (!run) return null;
       closeReasoning();
-      return database.finishAnalysisRun(run.id, status, assistantMessageId, { timeline: thinkingTimeline, richArtifacts: generation.richArtifacts, ...(status === 'completed' ? {} : { partialOutput: output, ...(failure ? { error: failure } : {}) }) });
+      const finished = database.finishAnalysisRun(run.id, status, assistantMessageId, { timeline: thinkingTimeline, richArtifacts: generation.richArtifacts, ...(status === 'completed' ? {} : { partialOutput: output, ...(failure ? { error: failure } : {}) }) });
+      runFinalized = true;
+      return finished;
     };
     const sendRun = (finished: AnalysisRun | null) => { if (finished) event.sender.send('chat:stream', { type: 'analysis-run', conversationId: request.conversationId, generationId: generation.id, run: finished }); };
     try {
@@ -735,14 +807,32 @@ export function registerIpc(): void {
     const conversation = database.getConversation(request.conversationId);
     if (!conversation) throw new Error('Чат не найден');
     const runtime = await syncLlamaBackend();
+    const activation = runtime.activation;
+    if (activation?.phase === 'failed' && (activation.conversationId === conversation.id || activation.modelId === request.model)) {
+      const expected = activation.conversationId === conversation.id ? activation : { modelId: request.model, contextWindow: conversation.contextWindow, kvCacheType: conversation.llamaKvCacheType ?? 'f16', kvOffload: conversation.llamaKvOffload ?? true };
+      if (runtime.modelId !== expected.modelId || runtime.contextWindow !== expected.contextWindow || runtime.kvCacheType !== expected.kvCacheType || runtime.kvOffload !== expected.kvOffload) {
+        throw new Error(`${activation.error} Загрузите запрошенную конфигурацию или явно выберите активную перед генерацией.`);
+      }
+    }
     if (activeConversationModel(conversation, runtime) !== request.model) throw new Error('Выберите модель перед отправкой сообщения.');
     const mode = executionMode(conversation.mode, request.mode);
     generation.mode = mode;
+    const triggeringUser = user ?? [...request.messages].reverse().find(message => message.role === 'user');
+    if (mode === 'agent') {
+      logicalTaskId = database.resolveLogicalTask(request.conversationId, request.continueLogicalTaskId, request.persistUserMessage ? undefined : triggeringUser?.id);
+      generation.logicalTaskId = logicalTaskId;
+      database.prepareTaskAttempt(request.conversationId, logicalTaskId);
+    }
     if (conversation.modelId && conversation.modelId !== request.model) throw new Error('Выбранная модель была изменена. Повторите отправку сообщения.');
     const primaryProject = conversation.workingDirectory && conversation.primaryProjectId ? { id: conversation.primaryProjectId, slot: 1 as const, root: conversation.workingDirectory, label: `Project 1 — ${projectDirectoryName(conversation.workingDirectory)}` } : null;
     const selectedProjects: AgentProject[] = primaryProject ? [primaryProject, ...(conversation.secondaryWorkingDirectory && conversation.secondaryProjectId ? [{ id: conversation.secondaryProjectId, slot: 2 as const, root: conversation.secondaryWorkingDirectory, label: `Project 2 — ${projectDirectoryName(conversation.secondaryWorkingDirectory)}` }] : [])] : [];
     const validReferences = (references: ProjectReference[] | undefined): ProjectReference[] => (references ?? []).filter((reference) => selectedProjects.some((project) => project.id === reference.projectId && project.slot === reference.projectSlot && project.root === reference.projectPath) && (reference.kind === 'file' || reference.kind === 'folder') && Boolean(reference.relativePath));
-    if (user) { user.projectReferences = validReferences(user.projectReferences); database.addMessage(request.conversationId, 'user', user.content, user.id, user.projectReferences); }
+    if (user) { user.projectReferences = validReferences(user.projectReferences); database.addMessage(request.conversationId, 'user', user.content, user.id, user.projectReferences, { logicalTaskId }); }
+    if (logicalTaskId && triggeringUser) {
+      database.bindMessageTask(triggeringUser.id, request.conversationId, logicalTaskId);
+      run = database.createAnalysisRun(request.conversationId, conversation.reasoningMode, { logicalTaskId, generationId: generation.id, triggeringMessageId: triggeringUser.id });
+      if (current()) sendRun(run);
+    }
     const emitAttachment = (chunk: import('../../shared/types').StreamEvent) => event.sender.send('chat:stream', { ...chunk, conversationId: request.conversationId, generationId: generation.id });
     const attachmentIds = [...(request.attachmentIds ?? [])];
     if (user) {
@@ -755,10 +845,12 @@ export function registerIpc(): void {
     if (!current()) return;
     // Runtime capabilities govern routing for every image turn in the active
     // history, rather than guessing from model names.
-    const hasImages = database.listAttachmentsForConversation(request.conversationId).some((attachment) => attachment.kind === 'image');
+    const requestMessages = logicalTaskId ? database.taskHistory(request.conversationId, logicalTaskId, request.messages) : request.messages;
+    const requestMessageIds = new Set(requestMessages.map(message => message.id));
+    const hasImages = database.listAttachmentsForConversation(request.conversationId).some((attachment) => attachment.kind === 'image' && (!logicalTaskId || requestMessageIds.has(attachment.messageId)));
     const requestUser = user ?? [...request.messages].reverse().find((message) => message.role === 'user');
     const retryAttachmentIds = requestUser ? database.listAttachments(requestUser.id).filter((attachment) => attachment.status === 'pending' || attachment.status === 'cancelled').map((attachment) => attachment.id) : [];
-    const nativeImagesRequested = attachmentPipeline.hasNativeImagesForRequest(request.messages);
+    const nativeImagesRequested = attachmentPipeline.hasNativeImagesForRequest(requestMessages);
     const nativeVision = nativeImagesRequested && await backend.supportsVision(request.model);
     const preprocessIds = [...new Set([...attachmentIds, ...retryAttachmentIds])];
     log('attachment.vision-routing', { generationId: generation.id, modelId: request.model, hasImages, nativeImagesRequested, route: nativeVision ? 'native' : nativeImagesRequested ? 'unsupported' : hasImages ? 'deferred' : 'none' });
@@ -766,30 +858,42 @@ export function registerIpc(): void {
     if (!current()) return;
     await backend.ensureModelAvailable(request.model);
     if (!current()) return;
-    const agentProjects: AgentProject[] = mode === 'agent' ? [...selectedProjects] : [];
+    const historicalScope = mode === 'agent' && logicalTaskId && (request.continueLogicalTaskId || !request.persistUserMessage) && !selectedProjects.length ? database.getTaskScope(request.conversationId, logicalTaskId) : null;
+    if (historicalScope) await restoreHistoricalTaskScope(historicalScope, homedir());
+    // Only an explicit continuation can reuse the selected task's persisted scope.
+    // No fallback to model-generated file paths or roots of other tasks.
+    const agentProjects: AgentProject[] = mode === 'agent' ? selectedProjects.length ? [...selectedProjects] : (historicalScope?.projects ?? []).map((project, index) => ({ ...project, slot: (index + 1) as 1 | 2, label: `Task project — ${projectDirectoryName(project.root)}` })) : [];
     const agentRoot = agentProjects[0]?.root ?? null;
-    // Directories the user named in their own messages extend the file/terminal scope; without a project they are the scope.
-    const workspaceRoots = mode === 'agent' ? await explicitWorkspaceRoots(request.messages.filter((message) => message.role === 'user').map((message) => message.content), homedir()) : [];
+    const taskNamedRoots = mode === 'agent' ? await explicitWorkspaceRoots((logicalTaskId ? database.taskHistory(request.conversationId, logicalTaskId, request.messages) : request.messages).filter((message) => message.role === 'user').map((message) => message.content), homedir()) : [];
+    // Persisted roots are a set for evidence identity; recover cwd ordering only
+    // from this task's owned user messages, never from another task or the model.
+    const workspaceRoots = historicalScope ? [...historicalScope.roots].sort((a,b) => {
+      const rank = (root: string) => taskNamedRoots.includes(root) ? taskNamedRoots.indexOf(root) : taskNamedRoots.length;
+      return rank(a)-rank(b);
+    }) : taskNamedRoots;
     if (!current()) return;
     const enabledTools = enabledAgentTools(mode, { hasProject: Boolean(agentRoot), workspaceRootCount: workspaceRoots.length }, conversation.webMode);
-    log('generation.snapshot', { generationId: generation.id, chatId: request.conversationId, mode, storedMode: conversation.mode, requestedMode: request.mode, workingDirectory: conversation.workingDirectory, resolvedWorkingDirectory: agentRoot, workspaceRoots, projects: agentProjects.map((project) => ({ id: project.id, slot: project.slot })), webMode: conversation.webMode, modelId: request.model, contextSize: conversation.contextWindow, reasoningMode: conversation.reasoningMode, enabledTools });
-    run = mode === 'agent' ? database.createAnalysisRun(request.conversationId, conversation.reasoningMode) : null;
+    log('generation.snapshot', { generationId: generation.id, logicalTaskId, chatId: request.conversationId, mode, storedMode: conversation.mode, requestedMode: request.mode, workingDirectory: conversation.workingDirectory, resolvedWorkingDirectory: agentRoot, workspaceRoots, projects: agentProjects.map((project) => ({ id: project.id, slot: project.slot })), webMode: conversation.webMode, modelId: request.model, contextSize: conversation.contextWindow, reasoningMode: conversation.reasoningMode, enabledTools });
+    if (logicalTaskId && database.setTaskScope(request.conversationId, logicalTaskId, JSON.stringify({ projects: agentProjects.map(project => ({ id: project.id, root: project.root })), roots: [...workspaceRoots].sort() }))) {
+      await archiveAgentEvidence(paths.userData, request.conversationId, logicalTaskId);
+    }
     if (run && current()) event.sender.send('chat:stream', { type: 'analysis-run', conversationId: request.conversationId, generationId: generation.id, run });
       const context = await backend.resolveContextWindow(request.model, conversation.contextWindow, abort.signal);
       if (!current()) return;
       event.sender.send('chat:stream', { type: 'context', conversationId: request.conversationId, generationId: generation.id, ...context });
       // Image descriptions are excluded for native-vision requests: the original
       // image payload is attached only to its owning user turn below.
-      let history = attachmentPipeline.buildContext(request.messages, !hasImages);
+      let history = attachmentPipeline.buildContext(requestMessages, !hasImages);
       if (nativeVision) history = await attachmentPipeline.prepareNativeImages(history, abort.signal);
-      const persistedTaskMemory = mode === 'agent' ? taskPlan(database.getAgentPlan(request.conversationId) ?? {}).taskMemory : undefined;
+      const persistedTaskMemory = mode === 'agent' ? taskPlan(database.getAgentPlan(request.conversationId, logicalTaskId) ?? {}).taskMemory : undefined;
+      if (persistedTaskMemory && current()) event.sender.send('chat:stream', { type: 'task-memory', memory: structuredClone(persistedTaskMemory), conversationId: request.conversationId, generationId: generation.id });
       const agentSupportsReasoning = mode === 'agent' && llamaCpp.supportsReasoning(request.model);
       const reasoningCapabilityForModel = reasoningCapability(llamaRuntimeProfile(request.model));
       const reasoningSelection = resolveReasoningSelection(reasoningCapabilityForModel, conversation.reasoningMode, conversation);
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram)
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId)
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));
@@ -821,6 +925,16 @@ export function registerIpc(): void {
           event.sender.send('chat:stream', { type: 'paused', timelinePosition, conversationId: request.conversationId, generationId: generation.id });
           continue;
         }
+        if (chunk.type === 'loop-event') {
+          closeReasoning();
+          const timelinePosition = ++generation.timelinePosition;
+          thinkingTimeline.push({ id: `loop-${timelinePosition}`, kind: 'loop', position: timelinePosition, lifecycle: chunk.lifecycle });
+          generation.lastTimelineKind = 'loop';
+          checkpoint();
+          log('agent.loop.lifecycle', { generationId: generation.id, ...chunk.lifecycle });
+          event.sender.send('chat:stream', { ...chunk, timelinePosition, conversationId: request.conversationId, generationId: generation.id });
+          continue;
+        }
         if (chunk.type === 'token') output += chunk.content;
         if (chunk.type === 'thinking') {
           thinking += chunk.content;
@@ -831,13 +945,13 @@ export function registerIpc(): void {
           }
         }
         if (chunk.type === 'task-memory') {
-          const workBudget = database.getAgentPlan(request.conversationId)?.workBudget;
-          database.saveAgentPlan(request.conversationId, { milestones: [], ...(workBudget ? { workBudget } : {}), taskMemory: structuredClone(chunk.memory) });
+          const workBudget = database.getAgentPlan(request.conversationId, logicalTaskId)?.workBudget;
+          database.saveAgentPlan(request.conversationId, { milestones: [], ...(workBudget ? { workBudget } : {}), taskMemory: structuredClone(chunk.memory) }, logicalTaskId);
           event.sender.send('chat:stream', { ...chunk, conversationId: request.conversationId, generationId: generation.id });
           continue;
         }
         if (chunk.type === 'work-budget') {
-          database.saveAgentPlan(request.conversationId, { milestones: [], ...database.getAgentPlan(request.conversationId), workBudget: structuredClone(chunk.budget) });
+          database.saveAgentPlan(request.conversationId, { milestones: [], ...database.getAgentPlan(request.conversationId, logicalTaskId), workBudget: structuredClone(chunk.budget) }, logicalTaskId);
           event.sender.send('chat:stream', { ...chunk, conversationId: request.conversationId, generationId: generation.id });
           continue;
         }
@@ -906,8 +1020,11 @@ export function registerIpc(): void {
         ...(messageDiagnostics.timeToFirstTokenMs !== undefined ? { timeToFirstTokenMs: messageDiagnostics.timeToFirstTokenMs } : {}),
         ...(inputTokens !== undefined ? { inputTokens } : {}),
       };
-      const assistant = output || generation.richArtifacts.length ? database.addMessage(request.conversationId, 'assistant', output, undefined, [], { ...(thinking.trim() ? { thinking } : {}), ...(thinkingTimeline.length ? { thinkingTimeline } : {}), ...(generationStats ? { generationStats } : {}), ...(generation.richArtifacts.length ? { richArtifacts: generation.richArtifacts } : {}) }) : null;
-      sendRun(finishRun('completed', assistant?.id ?? null));
+      const response = { ...(thinking.trim() ? { thinking } : {}), ...(thinkingTimeline.length ? { thinkingTimeline } : {}), ...(generationStats ? { generationStats } : {}), ...(generation.richArtifacts.length ? { richArtifacts: generation.richArtifacts } : {}) };
+      const result = run ? database.completeAnalysisRun(run.id, output, response) : null;
+      if (result) runFinalized = true;
+      const assistant = result ? result.assistant : output || generation.richArtifacts.length ? database.addMessage(request.conversationId, 'assistant', output, undefined, [], response) : null;
+      if (result) sendRun(result.run);
       event.sender.send('chat:stream', { type: 'done', conversationId: request.conversationId, generationId: generation.id, assistant, finishReason });
     } catch (error) {
       log('generation.failed', { generationId: generation.id, conversationId: request.conversationId, model: request.model, message: error instanceof Error ? error.message : String(error) });
@@ -918,12 +1035,24 @@ export function registerIpc(): void {
       }
       if (current()) event.sender.send('chat:stream', { type: 'error', conversationId: request.conversationId, generationId: generation.id, message: 'Не удалось выполнить запрос', details: error instanceof Error ? error.message : String(error) });
     } finally {
-      if (activeGenerations.get(request.conversationId) === generation) {
-        activeGenerations.delete(request.conversationId);
-        if (abort.signal.aborted) event.sender.send('chat:stream', { type: 'cancelled', conversationId: request.conversationId, generationId: generation.id });
+      try {
+        // Task ownership is persisted before model/attachment preparation. Stop
+        // during an awaited startup step must finalize that attempt as well.
+        if (run && !runFinalized) {
+          const finished = finishRun(abort.signal.aborted ? 'cancelled' : 'error');
+          try { sendRun(finished); } catch { /* A closed renderer still keeps its durable snapshot. */ }
+        }
+      } finally {
+        if (activeGenerations.get(request.conversationId) === generation) {
+          activeGenerations.delete(request.conversationId);
+          if (abort.signal.aborted) {
+            try { event.sender.send('chat:stream', { type: 'cancelled', conversationId: request.conversationId, generationId: generation.id }); } catch { /* Application shutdown can close the renderer first. */ }
+          }
+        }
+        approvalBroker.endRun(generation.id);
+        generation.finish();
+        void visionDevice.flush();
       }
-      generation.finish();
-      void visionDevice.flush();
     }
   });
 }

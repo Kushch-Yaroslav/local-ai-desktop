@@ -6,10 +6,13 @@ export const runTurnId = (runId: string): string => `run-${runId}`;
  * crash, or a completion with no final text) is shown from its persisted
  * history: timeline, actions, partial output and terminal state. */
 export function runHistoryTurn(run: AnalysisRun): ChatMessage | null {
-  if (run.status === 'running' || run.assistantMessageId) return null;
-  const hasHistory = Boolean(run.timeline?.length || run.actions.length || run.partialOutput?.trim() || run.richArtifacts?.length);
+  if (run.status === 'running' || (run.assistantMessageId && !run.archived)) return null;
+  const hasHistory = Boolean(run.timeline?.length || run.actions.length || run.partialOutput?.trim() || run.richArtifacts?.length || run.taskPlan);
   if (!hasHistory && run.status !== 'cancelled' && run.status !== 'error') return null;
   return {
+    ...(run.logicalTaskId ? { logicalTaskId: run.logicalTaskId } : {}),
+    ...(run.taskPlan ? { taskPlan: run.taskPlan } : {}),
+    ...(run.archived ? { archivedAttempt: true } : {}),
     id: runTurnId(run.id), conversationId: run.conversationId, role: 'assistant', content: run.partialOutput ?? '', createdAt: run.createdAt,
     ...(run.timeline?.length ? { thinkingTimeline: run.timeline } : {}),
     ...(run.richArtifacts?.length ? { richArtifacts: run.richArtifacts } : {}),

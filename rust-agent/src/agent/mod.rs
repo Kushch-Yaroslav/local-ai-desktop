@@ -13,3 +13,6 @@ pub mod task_memory;
 pub mod transcript;
 pub mod verification;
 pub mod work_budget;
+pub mod loop_detector;
+pub mod control;
+pub mod permissions;

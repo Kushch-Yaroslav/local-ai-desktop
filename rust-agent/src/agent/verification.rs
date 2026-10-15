@@ -23,6 +23,7 @@ const MAX_CHANGED: usize = 48;
 const MAX_SUBJECT_CHARS: usize = 100;
 const MAX_DETAIL_CHARS: usize = 160;
 const SHOWN_RECORDS: usize = 5;
+const INTEGRITY_UNAVAILABLE: &str = "INTEGRITY_EVIDENCE_UNAVAILABLE: No trusted task-scoped pre-operation baseline or complete file-operation journal exists for this claim. Tests, readback, model-provided hashes and a baseline captured now cannot prove non-modification. Leave this item implemented but unverified and explain the limitation; external changes were not tracked.";
 
 /// How strongly a record shows the work does what was asked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -51,6 +52,10 @@ impl Class {
 /// in general: a script that exits 0 is runtime evidence, not browser evidence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Need {
+    /// Non-modification requires a trusted pre-operation baseline/journal,
+    /// never an executable behaviour check or model-authored digest.
+    #[serde(rename = "integrity")]
+    Integrity,
     /// The file is on disk as written ("it was created").
     #[serde(rename = "readback")]
     Readback,
@@ -75,6 +80,7 @@ pub enum Need {
 impl Need {
     pub fn parse(value: &str) -> Option<Need> {
         match value.trim().to_ascii_lowercase().as_str() {
+            "integrity" | "unchanged" | "non_modification" => Some(Need::Integrity),
             "readback" | "read" | "file" => Some(Need::Readback),
             "static" | "static_check" | "lint" | "typecheck" => Some(Need::Static),
             "build" | "compile" => Some(Need::Build),
@@ -87,6 +93,7 @@ impl Need {
 
     pub fn label(self) -> &'static str {
         match self {
+            Need::Integrity => "file integrity (non-modification)",
             Need::Readback => "readback",
             Need::Static => "static check",
             Need::Build => "build",
@@ -98,6 +105,7 @@ impl Need {
 
     pub fn class(self) -> Class {
         match self {
+            Need::Integrity => Class::Readback,
             Need::Readback => Class::Readback,
             Need::Static | Need::Build => Class::Static,
             Need::Test | Need::Runtime | Need::Browser => Class::Functional,
@@ -106,6 +114,7 @@ impl Need {
 
     pub fn accepts(self, kind: Kind) -> bool {
         match self {
+            Need::Integrity => false,
             Need::Readback => true,
             Need::Static => kind.class() >= Class::Static,
             Need::Build => kind == Kind::Build,
@@ -177,6 +186,9 @@ pub struct Evidence {
     /// This is provenance, not proof that the behaviour is unaffected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline_failure: Option<String>,
+    /// Canonical runtime-observed check directory/file, not model selections.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub checked_paths: Vec<String>,
 }
 
 impl Evidence {
@@ -365,6 +377,7 @@ impl Verification {
             baseline,
             outcome_hash,
             baseline_failure,
+            checked_paths: Vec::new(),
         });
         while self.records.len() > MAX_RECORDS {
             let drop = (0..self.records.len())
@@ -444,6 +457,14 @@ impl Verification {
 
     #[must_use]
     pub fn relevant(&self, record: &Evidence, item: &Deliverable) -> bool {
+        // Model-selected IDs are associations, not proof of the claim's kind.
+        if item.required_check() == Some(Need::Integrity) { return false; }
+        // Unknown scope cannot establish a pass. Retain old task-owned failed
+        // relationships conservatively until the same check passes again.
+        if (record.pass || !record.checked_paths.is_empty()) && !item.paths.iter().all(|target| record.checked_paths.iter().any(|checked|
+            Path::new(checked).starts_with(target) || Path::new(target).starts_with(checked))) {
+            return false;
+        }
         // Full-test requirements cannot be narrowed by selecting one pass.
         // Legacy items retain their previous project-wide scope. A named build
         // requirement structurally covers build checks, not unrelated tests.
@@ -455,7 +476,7 @@ impl Verification {
             || item.proof.iter().any(|id| self.get(id).is_some_and(|proof| proof.key() == record.key()))
             // Readback remains per-file and runtime-produced; no terminal
             // selection is necessary for a file-existence claim.
-            || self.effective_need(item.check) == Need::Readback && record.kind == Kind::Readback
+            || self.effective_need(item.required_check()) == Need::Readback && record.kind == Kind::Readback
     }
 
     #[must_use]
@@ -494,7 +515,13 @@ impl Verification {
         deep: bool,
         browser_available: bool,
     ) -> Result<Vec<String>, String> {
-        let need = self.effective_need(item.check);
+        let need = self.effective_need(item.required_check());
+        if need == Need::Integrity {
+            return Err(INTEGRITY_UNAVAILABLE.into());
+        }
+        if cited.iter().filter_map(|id| self.get(id)).any(|record| !self.relevant(record, item)) {
+            return Err(format!("Evidence scope does not cover deliverable '{}'. Selected IDs do not prove unrelated file/project claims. Run a relevant scoped check; missing scope in old evidence cannot be inferred retroactively.", item.id));
+        }
         if let Some(failure) = self.failure_for(item) {
             return Err(format!("{} is a relevant failed check for {} ({}): {}. Run this check successfully before verifying the item.", failure.id, item.id, failure.subject, failure.detail));
         }
@@ -580,7 +607,7 @@ impl Verification {
 
     /// Whether `need` can be shown in this environment at all.
     pub fn reachable(&self, need: Need, browser_available: bool) -> bool {
-        need != Need::Browser || browser_available || self.best_passing(need).is_some()
+        need != Need::Integrity && (need != Need::Browser || browser_available || self.best_passing(need).is_some())
     }
 
     /// Unverified deliverables whose needed capability does not exist here.
@@ -594,7 +621,7 @@ impl Verification {
         deliverables
             .unverified()
             .into_iter()
-            .filter(|item| !self.reachable(self.effective_need(item.check), browser_available))
+            .filter(|item| !self.reachable(self.effective_need(item.required_check()), browser_available))
             .collect()
     }
 
@@ -623,6 +650,7 @@ impl Verification {
         deep: bool,
         browser_available: bool,
     ) -> Result<Vec<String>, String> {
+        if need == Need::Integrity { return Err(INTEGRITY_UNAVAILABLE.into()); }
         if !self.reachable(need, browser_available) {
             return Err("This needs a real browser run and none is available here (no headless browser, playwright, puppeteer or cypress was found). A jsdom or node script does not stand in for it. Leave the item implemented and say it was not checked in a browser; do not look for a substitute.".to_owned());
         }
@@ -687,6 +715,7 @@ impl Verification {
 
     fn how_to_get(need: Need, browser_available: bool) -> &'static str {
         match need {
+            Need::Integrity => "No trusted pre-operation integrity baseline/journal is available. Leave the claim unverified; do not create a retroactive baseline.",
             Need::Browser if browser_available => "Run the page in a real browser: a headless browser (for example google-chrome --headless --dump-dom <file>), or a playwright/puppeteer/cypress script when one is installed. A jsdom or node script is not a browser.",
             Need::Browser => "A real browser run is not available here.",
             Need::Runtime => "Run the code: the project's tests, or a short script that exercises the behaviour. Reading the file back does not show it works.",
@@ -781,8 +810,12 @@ impl Verification {
         if !unverified.is_empty() {
             lines.push(format!("Implemented, not verified: {unverified}."));
         }
-        let unreachable =
-            Deliverables::summarize(&self.unreachable(deliverables, browser_available));
+        let unavailable = self.unreachable(deliverables, browser_available);
+        let integrity = Deliverables::summarize(&unavailable.iter().copied().filter(|item| item.required_check() == Some(Need::Integrity)).collect::<Vec<_>>());
+        if !integrity.is_empty() {
+            lines.push(format!("Integrity cannot be verified here (no trusted pre-operation baseline/journal): {integrity}. Leave unverified, explain the limitation, and do not retry tests or invent a baseline now. External changes were not tracked."));
+        }
+        let unreachable = Deliverables::summarize(&unavailable.iter().copied().filter(|item| item.required_check() != Some(Need::Integrity)).collect::<Vec<_>>());
         if !unreachable.is_empty() {
             lines.push(format!("Cannot be verified here (needs a real browser run, none available): {unreachable}. Report it as implemented, not checked in a browser."));
         } else if self.page_changed
@@ -995,6 +1028,29 @@ pub fn classify_command(command: &str, changed: &[&str]) -> Option<Kind> {
     }
 }
 
+/// Direct Python scripts remain runtime evidence unless a scoped unittest
+/// driver and the observed runner summary establish that tests actually ran.
+/// A test-looking filename or a model-selected deliverable ID is insufficient.
+pub fn observed_unittest(root: &Path, command: &str, execution: &serde_json::Value) -> bool {
+    let Some(words) = simple_tokens(command) else { return false; };
+    if words.len() < 2 || !matches!(Path::new(&words[0]).file_name().and_then(|n|n.to_str()), Some("python" | "python3" | "py")) || words[1].starts_with('-') { return false; }
+    let path = root.join(&words[1]);
+    if path.extension().and_then(|n|n.to_str()) != Some("py") || !std::fs::metadata(&path).is_ok_and(|m|m.len() <= 1024*1024) { return false; }
+    let Ok(source) = std::fs::read_to_string(path) else { return false; };
+    let lines: Vec<_> = source.lines().map(str::trim).filter(|line|!line.starts_with('#')).collect();
+    if !lines.contains(&"import unittest") || !lines.iter().any(|line|line.starts_with("class ") && line.contains("unittest.TestCase"))
+        || !lines.iter().any(|line|line.starts_with("unittest.main(")) { return false; }
+    let output = format!("{}\n{}", execution["stdout"].as_str().unwrap_or(""),execution["stderr"].as_str().unwrap_or(""));
+    let mut ran = false;
+    let mut summary = false;
+    for line in output.lines().map(str::trim) {
+        let words: Vec<_> = line.split_whitespace().collect();
+        ran |= words.len() >= 5 && words[0] == "Ran" && words[1].parse::<u64>().is_ok_and(|n|n>0) && matches!(words[2],"test"|"tests") && words[3] == "in";
+        summary |= line == "OK" || line.starts_with("OK (") || line.starts_with("FAILED (");
+    }
+    ran && summary
+}
+
 /// Splits a command into words, honouring quotes. `None` for anything with
 /// shell control syntax outside quotes.
 fn simple_tokens(command: &str) -> Option<Vec<String>> {
@@ -1057,13 +1113,244 @@ pub enum Effect {
 }
 
 pub fn terminal_effect(command: &str, changed: &[&str]) -> Effect {
-    if let Some(kind) = classify_command(command, changed) {
-        return Effect::Check(kind);
+    if let Some(check) = normalized_check(command) {
+        if let Some(kind) = classify_command(&check, changed) { return Effect::Check(kind); }
+        if is_read_only(&check) { return Effect::ReadOnly; }
     }
     if is_read_only(command) {
         Effect::ReadOnly
     } else {
         Effect::Mutating
+    }
+}
+
+/// Only one literal shell builtin and one output target. This is deliberately
+/// not an arbitrary-script analyser: expansions, wrappers, append redirects,
+/// pipelines and additional commands must retain conservative invalidation.
+pub fn literal_write_target(command: &str) -> Option<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut quoted = false;
+    let mut present = false;
+    for ch in command.chars() {
+        if ch == '\'' { quoted = !quoted; present = true; continue; }
+        if quoted { word.push(ch); continue; }
+        match ch {
+            '>' => {
+                if present { words.push(std::mem::take(&mut word)); present = false; }
+                words.push(">".to_owned());
+            }
+            '"' | '$' | '`' | '\\' | ';' | '|' | '&' | '<' | '(' | ')' | '*' | '?' | '[' | ']' | '{' | '}' | '~' | '\n' | '\r' => return None,
+            c if c.is_whitespace() => {
+                if present { words.push(std::mem::take(&mut word)); present = false; }
+            }
+            c => { word.push(c); present = true; }
+        }
+    }
+    if quoted { return None; }
+    if present { words.push(word); }
+    if words.first().map(String::as_str) == Some("builtin") { words.remove(0); }
+    let valid = match words.first().map(String::as_str) {
+        Some("printf") => words.len() == 5 && words[1] == "%s" && words[3] == ">",
+        Some("echo") => words.len() == 4 && !words[1].starts_with('-') && !words[1].contains('\\') && words[2] == ">",
+        _ => false,
+    };
+    valid.then(|| words.last().unwrap().clone()).filter(|path| !path.is_empty())
+}
+
+#[cfg(test)]
+mod literal_write_tests {
+    use super::*;
+    #[test]
+    fn literal_write_recognition_never_accepts_arbitrary_shell() {
+        for command in ["printf '%s' 'same' > report.md", "builtin echo 'same' >report.md", "printf '%s' 'literal $() >\n' > 'report.md'"] {
+            assert_eq!(literal_write_target(command).as_deref(), Some("report.md"), "{command}");
+        }
+        for command in ["printf '%s' \"$VALUE\" > report.md", "echo same >> report.md", "echo same > report.md; touch other.py", "echo $(cat report.md) > report.md", "bash -c 'echo same > report.md'", "cat input > report.md", "echo -e 'same' > report.md", "echo same > *.md", "printf '%s' same > report.md &", "python3 rewrite.py", "echo same 2> report.md"] {
+            assert!(literal_write_target(command).is_none(), "{command}");
+        }
+    }
+}
+
+/// Narrow diagnostic wrapper support, not arbitrary shell evidence. pipefail
+/// belongs to the trusted runner. Only cd + one check and non-writing output
+/// filters qualify; exit codes, revision freshness and scope remain enforced.
+pub fn normalized_check(command: &str) -> Option<String> {
+    if simple_tokens(command).is_some() { return Some(command.to_owned()); }
+    let mut check = command.trim();
+    if let Some((prefix, rest)) = check.split_once("&&") {
+        let words = simple_tokens(prefix.trim())?;
+        if words.len() != 2 || words[0] != "cd" || words[1].starts_with('-') { return None; }
+        check = rest.trim();
+    }
+    let mut clean = String::new();
+    let mut quote = None;
+    let mut chars = check.char_indices().peekable();
+    while let Some((index, ch)) = chars.next() {
+        if quote.is_none() && check[index..].starts_with("2>&1") && (index == 0 || check[..index].ends_with(char::is_whitespace)) {
+            for _ in 0..3 { chars.next(); }
+            continue;
+        }
+        if ch == '\'' || ch == '"' { if quote == Some(ch) { quote = None; } else if quote.is_none() { quote = Some(ch); } }
+        clean.push(ch);
+    }
+    let stages = split_pipeline(&clean)?;
+    for filter in stages.iter().skip(1) {
+        let words = simple_tokens(filter)?;
+        if !matches!(words.first().map(String::as_str), Some("tail" | "head")) || !words.iter().skip(1).all(|arg| arg == "-n" || arg == "-c" || arg.chars().all(|c| c.is_ascii_digit() || c == '-')) { return None; }
+    }
+    let first = stages.first()?.trim();
+    simple_tokens(first)?;
+    Some(first.to_owned())
+}
+
+pub fn check_location(command: &str, root: &Path) -> Result<(std::path::PathBuf, std::path::PathBuf), &'static str> {
+    let check = normalized_check(command).ok_or("unsupported_shell_shape")?;
+    let launch = root.canonicalize().map_err(|_| "check_directory_unavailable")?;
+    let mut cwd = launch.clone();
+    if simple_tokens(command).is_none() {
+        if let Some((prefix, _)) = command.split_once("&&") {
+            let words = simple_tokens(prefix.trim()).ok_or("unsupported_shell_shape")?;
+            if words.len() != 2 || words[0] != "cd" { return Err("unsupported_shell_shape"); }
+            cwd = launch.join(&words[1]).canonicalize().map_err(|_| "check_directory_unavailable")?;
+        }
+    }
+    let tokens = simple_tokens(&check).ok_or("unsupported_shell_shape")?;
+    // An explicit script/test/manifest target determines the inspected project
+    // even when the shell was launched in another directory. Inline code is
+    // not parsed or guessed into a filesystem target.
+    let mut program = 0;
+    while tokens.get(program).is_some_and(|word| word.contains('=') && !word.starts_with('-') || matches!(word.as_str(), "env" | "time" | "npx" | "bunx" | "-y" | "--yes")) { program += 1; }
+    if tokens.get(program).is_some_and(|word| word == "timeout") { program += 2; }
+    let program_name = tokens.get(program).and_then(|word| Path::new(word).file_name()).and_then(|word| word.to_str()).unwrap_or("");
+    let module = tokens.iter().position(|word| word == "-m").map(|index| index + 1);
+    let subcommand = matches!(program_name, "cargo" | "npm" | "pnpm" | "yarn" | "bun" | "make" | "gmake" | "just" | "mvn" | "gradle" | "dotnet").then_some(program + 1);
+    let target = tokens.iter().enumerate().skip(program + 1)
+        .filter(|(index, word)| !word.starts_with('-') && Some(*index) != module && Some(*index) != subcommand
+            && !(word.as_str() == "discover" && module.is_some_and(|module| tokens.get(module).is_some_and(|name| name == "unittest") && *index == module + 1)))
+        .find_map(|(_, word)| cwd.join(word).canonicalize().ok());
+    let check_root = target.map(|path| if path.is_dir() { path } else { path.parent().unwrap_or(&path).to_owned() }).unwrap_or_else(|| cwd.clone());
+    Ok((cwd, check_root))
+}
+
+/// Resolve only the already-supported single-check shell shape. A sibling
+/// workspace is evidence scope only when this task actually tracked files there;
+/// another task's allowed workspace alone is never sufficient.
+pub fn scoped_check_root(command: &str, root: &Path, allowed: &[std::path::PathBuf], tracked: &[&str]) -> Result<std::path::PathBuf, &'static str> {
+    let launch = root.canonicalize().map_err(|_| "check_directory_unavailable")?;
+    let (cwd, check_root) = check_location(command, root)?;
+    let in_scope = |path: &Path| path.starts_with(&launch) || allowed.iter().filter(|root| root.as_os_str() != "/").any(|root| root.canonicalize().is_ok_and(|root| path.starts_with(root)));
+    if !in_scope(&cwd) { return Err("check_directory_outside_workspace"); }
+    if !in_scope(&check_root) { return Err("check_target_outside_workspace"); }
+    let sources: Vec<_> = tracked.iter().filter_map(|path| {
+        let file = launch.join(path);
+        file.canonicalize().ok().or_else(|| file.parent()?.canonicalize().ok().map(|parent| parent.join(file.file_name().unwrap_or_default())))
+    }).collect();
+    if !tracked.is_empty() && sources.is_empty() { return Err("task_sources_unavailable"); }
+    let external_sources = sources.iter().any(|path| !path.starts_with(&launch));
+    let related = sources.iter().any(|path| {
+        path.parent().is_some_and(|parent| check_root.starts_with(parent))
+            || allowed.iter().filter(|root| root.as_os_str() != "/").any(|root| root.canonicalize().is_ok_and(|root| !launch.starts_with(&root) && path.starts_with(&root) && check_root.starts_with(&root)))
+    });
+    if (external_sources || !check_root.starts_with(&launch)) && !related { return Err("check_outside_task_sources"); }
+    Ok(check_root)
+}
+
+#[cfg(test)]
+mod task_check_scope_tests {
+    #[test]
+    fn direct_unittest_needs_driver_and_observed_nonempty_summary() {
+        let root=std::env::temp_dir().join(format!("observed-unittest-{}",std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let source="import unittest\nclass Tests(unittest.TestCase):\n    def test_one(self): self.assertEqual(1,1)\nif __name__ == '__main__':\n    unittest.main()\n";
+        std::fs::write(root.join("test_calculator.py"),source).unwrap();
+        let output=serde_json::json!({"stderr":"Ran 18 tests in 0.001s\n\nOK\n"});
+        assert!(super::observed_unittest(&root,"python3 test_calculator.py -v",&output));
+        assert!(!super::observed_unittest(&root,"python3 test_calculator.py -v",&serde_json::json!({"stdout":"OK"})));
+        assert!(!super::observed_unittest(&root,"python3 test_calculator.py -v",&serde_json::json!({"stderr":"Ran 0 tests in 0.001s\nOK"})));
+        std::fs::write(root.join("test_calculator.py"),"print('Ran 18 tests in 0.001s\\nOK')\n").unwrap();
+        assert!(!super::observed_unittest(&root,"python3 test_calculator.py -v",&output),"test-looking filenames/output alone are insufficient");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    use super::*;
+    #[test]
+    fn selected_tests_cannot_prove_integrity_or_another_project() {
+        let mut items = Deliverables::default();
+        items.add_checked(Some("a"), "", "Calculator behaviour", Some(Need::Runtime)).unwrap();
+        items.add_checked(Some("b"), "", "Do not modify task-b-test", Some(Need::Test)).unwrap();
+        items.add_checked(Some("c"), "", "Other project's behaviour", Some(Need::Runtime)).unwrap();
+        items.items[0].paths = vec!["/fixtures/a".into()];
+        items.items[2].paths = vec!["/fixtures/b".into()];
+        let mut ledger = Verification::default();
+        ledger.bind("python3 -m unittest", &["a".into(), "b".into(), "c".into()]).unwrap();
+        let id = ledger.record(Kind::Test, "python3 -m unittest", true, "passed", 1);
+        ledger.records.last_mut().unwrap().checked_paths = vec!["/fixtures/a".into()];
+        for item in &items.items { ledger.attach(&item.id, &[id.clone()]).unwrap(); }
+        assert!(ledger.proof_for_item(&items.items[0], &[id.clone()], false, false).is_ok());
+        for deep in [false, true] {
+            assert!(ledger.proof_for_item(&items.items[1], &[id.clone()], deep, true).unwrap_err().contains("INTEGRITY_EVIDENCE_UNAVAILABLE"));
+            assert!(ledger.proof_for_item(&items.items[2], &[id.clone()], deep, true).unwrap_err().contains("Evidence scope does not cover"));
+        }
+        assert_eq!(items.items[1].check, Some(Need::Integrity), "a model-declared test cannot weaken non-modification");
+        let mut legacy = items.items[1].clone(); legacy.check = None;
+        for kind in [Kind::Readback, Kind::Static, Kind::Build, Kind::Run, Kind::Browser] {
+            let id = ledger.record(kind, "/fixtures/b", true, "current content / model hash", 2);
+            ledger.attach(&legacy.id, &[id.clone()]).unwrap();
+            assert!(ledger.proof_for_item(&legacy, &[id], false, true).unwrap_err().contains("pre-operation baseline"));
+        }
+        assert!(ledger.proof_for_item(&legacy, &[], false, true).is_err());
+        assert!(!ledger.reachable(Need::Integrity, true), "do not demand endless executable retries for missing integrity capability");
+        let fresh_other_task = Verification::default();
+        assert!(fresh_other_task.proof_for_item(&items.items[0], &["ev-001".into()], false, true).is_err());
+        ledger.records[0].checked_paths.clear();
+        assert!(ledger.proof_for_item(&items.items[0], &["ev-001".into()], false, true).is_err(), "old evidence cannot acquire a retroactive scope");
+        ledger.record(Kind::Test, "python3 -m unittest", false, "old failure without scope", 3);
+        assert!(ledger.failure_for(&items.items[0]).is_some(), "missing scope cannot erase an old task-owned failed relationship");
+    }
+    #[test]
+    fn sibling_workspace_checks_require_current_task_sources() {
+        let base = std::env::temp_dir().join(format!("task-check-scope-{}", std::process::id()));
+        let a = base.join("task a"); let b = base.join("task b"); let foreign = base.join("unrelated");
+        for dir in [&a, &b, &foreign] { std::fs::create_dir_all(dir.join("tests")).unwrap(); }
+        let source = a.join("calculator.py"); std::fs::write(&source, "# observed task source").unwrap();
+        for dir in [&a, &b, &foreign] { std::fs::write(dir.join("test_calculator.py"), "# fixture").unwrap(); }
+        let tracked = [source.to_str().unwrap()]; let allowed = [a.clone(), b.clone()];
+        for suffix in ["python3 calculator.py", "python3 test_calculator.py", "python3 -m unittest -v", "make test", "python3 -m pytest 2>&1 | tail -20"] {
+            let command = format!("cd '{}' && {suffix}", a.display());
+            assert_eq!(scoped_check_root(&command, &b, &allowed, &tracked).unwrap(), a.canonicalize().unwrap(), "{command}");
+        }
+        assert!(scoped_check_root(&format!("python3 '{}/test_calculator.py'", a.display()), &b, &allowed, &tracked).is_ok());
+        assert!(scoped_check_root(&format!("env /usr/bin/python3 '{}/test_calculator.py'", a.display()), &b, &allowed, &tracked).is_ok());
+        assert!(scoped_check_root(&format!("cd\t'{}' && python3 -m unittest", a.display()), &b, &allowed, &tracked).is_ok());
+        assert_eq!(scoped_check_root("python3 '../task b/test_calculator.py'", &a, &allowed, &tracked), Err("check_outside_task_sources"));
+        let broad = [a.clone(), b.clone(), base.clone()];
+        assert_eq!(scoped_check_root(&format!("cd '{}' && python3 'task b/test_calculator.py'", base.display()), &b, &broad, &tracked), Err("check_outside_task_sources"));
+        assert_eq!(scoped_check_root("python3 test_calculator.py", &b, &allowed, &tracked), Err("check_outside_task_sources"));
+        assert_eq!(scoped_check_root(&format!("python3 '{}/test_calculator.py'", b.display()), &b, &allowed, &tracked), Err("check_outside_task_sources"));
+        assert_eq!(scoped_check_root(&format!("cd '{}' && python3 test_calculator.py", foreign.display()), &b, &allowed, &tracked), Err("check_directory_outside_workspace"));
+        assert_eq!(scoped_check_root(&format!("python3 '{}/test_calculator.py'", foreign.display()), &b, &allowed, &tracked), Err("check_target_outside_workspace"));
+        std::os::unix::fs::symlink(&foreign, a.join("escaped")).unwrap();
+        assert_eq!(scoped_check_root(&format!("cd '{}/escaped' && python3 test_calculator.py", a.display()), &b, &allowed, &tracked), Err("check_directory_outside_workspace"));
+        assert!(scoped_check_root(&format!("cd '{}' && python3 test_calculator.py || true", a.display()), &b, &allowed, &tracked).is_err());
+        assert!(scoped_check_root(&format!("cd '{}' && python3 test_calculator.py && echo success", a.display()), &b, &allowed, &tracked).is_err());
+        assert!(scoped_check_root("cd tests && python3 -m unittest", &a, &allowed, &tracked).is_ok(), "normal subdirectory workflow stays supported");
+        assert!(scoped_check_root(&format!("cd '{}' && python3 test_calculator.py", a.display()), &b, &allowed, &[]).is_err(), "allowed port/project alone is not task evidence");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_wrapper_tests {
+    use super::*;
+    #[test]
+    fn build_wrappers_preserve_check_kind_but_unknown_shell_never_becomes_proof() {
+        for command in ["npm run build", "cd 'client folder' && npm run build 2>&1 | tail -20", "npm test | head -n 4"] {
+            let normalized = normalized_check(command).unwrap();
+            assert!(classify_command(&normalized, &[]).is_some());
+        }
+        for command in ["npm run build; echo success", "npm run build || true", "npm run build | tee output.txt", "cd client && npm run build && rm app.ts", "npm run build > proof.txt", "npm run build | tail arbitrary-file"] { assert!(normalized_check(command).is_none(), "{command}"); }
+        assert_eq!(classify_command(&normalized_check("npm run build | tail -20").unwrap(), &[]), Some(Kind::Build));
+        assert_ne!(classify_command("python model.py", &[]), Some(Kind::Build));
     }
 }
 

@@ -10,6 +10,13 @@ use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default)]
 pub struct AgentState {
+    pub loop_detector: super::loop_detector::LoopDetector,
+    pub loop_notice: Option<super::loop_detector::LoopNotice>,
+    pub suspended: bool,
+    pub loop_repair_attempts: usize,
+    pub loop_cleanup_blocked: bool,
+    pub loop_recovery: Option<(super::loop_detector::LoopNotice, usize, bool)>,
+    pub actions: usize,
     pub work_budget: super::work_budget::WorkBudget,
     /// Durable semantic findings for the current task. This is not a plan.
     pub task_memory: TaskMemory,
@@ -117,6 +124,7 @@ impl AgentState {
     }
 
     pub fn record_tool_call(&mut self, tool: &str) {
+        self.actions = self.actions.saturating_add(1);
         if !matches!(tool, "task_memory" | "deliverables" | "plan") {
             self.calls_since_memory = self.calls_since_memory.saturating_add(1);
         }

@@ -20,6 +20,12 @@ pub enum Request {
         web_tools: Vec<Value>,
         #[serde(default)]
         artifact_tools: Vec<Value>,
+        /// Trusted client advertises an available approval transport. CLI
+        /// clients without one fail immediately with an actionable result.
+        #[serde(default)]
+        approval_ui: bool,
+        #[serde(default)]
+        permissions: crate::agent::permissions::Permissions,
         #[serde(default)]
         attachment_tools: Vec<Value>,
         project_root: Option<String>,
@@ -61,6 +67,7 @@ pub enum Request {
         #[serde(default)]
         intent: Option<String>,
     },
+    Control { run_id:String, id:String, #[serde(default)] permissions:Option<crate::agent::permissions::Permissions>, #[serde(default)] action:Option<crate::agent::control::LoopAction>, #[serde(default)] signature:Option<String> },
     Shutdown,
 }
 

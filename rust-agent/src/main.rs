@@ -21,9 +21,33 @@ struct Control {
     pause_requested: Arc<AtomicBool>,
     finished: Arc<AtomicBool>,
     steering_closed: Arc<AtomicBool>,
+    execution: Arc<Mutex<local_ai_agent_runtime::agent::control::ExecutionControl>>,
 }
 
 fn main() {
+    let arguments: Vec<String> = std::env::args().collect();
+    if arguments.get(1).map(String::as_str) == Some("--version") {
+        println!("local-ai-agent-runtime {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+    if arguments.get(1).map(String::as_str) == Some("--sandbox-shell") {
+        let result = local_ai_agent_runtime::process::isolation::exec_shell(arguments.get(2).map(String::as_str).unwrap_or(""), arguments.get(3).and_then(|value|value.parse::<i32>().ok()).unwrap_or(-1));
+        eprintln!("PROTECTED_RUNTIME_PROCESS: sandbox startup failed: {}", result.unwrap_err());
+        std::process::exit(126);
+    }
+    if arguments.get(1).map(String::as_str) == Some("--terminal-exec") {
+        let cwd = arguments.get(2).map(String::as_str).unwrap_or(".");
+        let command = arguments.get(3).map(String::as_str).unwrap_or("");
+        let timeout = arguments.get(4).and_then(|s| s.parse().ok()).unwrap_or(120_000);
+        let mut result = local_ai_agent_runtime::process::runner::run_streaming_authorized(command,cwd,timeout,true,|| false,|_,_,_,_| {},|_,_| {});
+        for (field, limit) in [("command",1200),("stdout",80_000),("stderr",20_000)] {
+            if let Some(text)=result[field].as_str() {
+                if text.chars().count()>limit { result[field]=serde_json::json!(format!("{}\n[diagnostic output truncated]",text.chars().take(limit).collect::<String>())); }
+            }
+        }
+        println!("{result}");
+        return;
+    }
     // Keep stdin live for the duration of a run. Jan's loop consumes steering at
     // turn boundaries and cancellation is observed by both upstream and tools.
     let (requests, incoming) = mpsc::channel();
@@ -61,6 +85,8 @@ fn main() {
                 user_image_refs,
                 web_tools,
                 artifact_tools,
+                approval_ui,
+                permissions,
                 attachment_tools,
                 project_root,
                 secondary_project_root,
@@ -87,7 +113,8 @@ fn main() {
                     continue;
                 }
                 let control = Control {
-                    external: Arc::new(Default::default()),
+                    execution: Arc::new(Mutex::new(local_ai_agent_runtime::agent::control::ExecutionControl{permissions,interactive:approval_ui,..Default::default()})),
+                    external: Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_permissions(approval_ui)),
                     cancelled: Arc::new(AtomicBool::new(false)),
                     steering: Arc::new(Mutex::new(Vec::new())),
                     pause_requested: Arc::new(AtomicBool::new(false)),
@@ -97,7 +124,7 @@ fn main() {
                 controls.insert(run_id.clone(), control.clone());
                 std::thread::spawn(move || {
                     loop_runtime::run(Config {
-                        run_id,
+                        run_id: run_id.clone(),
                         endpoint,
                         model,
                         system,
@@ -130,6 +157,7 @@ fn main() {
                         steering: control.steering,
                         pause_requested: control.pause_requested,
                         steering_closed: control.steering_closed,
+                        control: control.execution,
                     });
                     control.finished.store(true, Ordering::Relaxed);
                 });
@@ -183,6 +211,17 @@ fn main() {
                         },
                     );
                 }
+            }
+            Request::Control {run_id,id,permissions,action,signature} => {
+                use local_ai_agent_runtime::{protocol::emit,agent::events::Event};
+                if let Some(control)=controls.get(&run_id).filter(|c|!c.finished.load(Ordering::Relaxed)&&!c.cancelled.load(Ordering::Relaxed)) {
+                    let mut c=control.execution.lock().expect("execution control");
+                    if action.is_some() && !c.commands.is_empty() {emit(&run_id,Event::ControlRejected{id,message:"Loop recovery is already pending".into()});continue;}
+                    if action.is_some() && (signature.is_none() || c.active_signature.is_none() || signature.as_ref()!=c.active_signature.as_ref()){emit(&run_id,Event::ControlRejected{id,message:"Loop warning is no longer active".into()});continue;}
+                    if let Some(permissions)=permissions {if c.permissions!=permissions{c.permissions_epoch=c.permissions_epoch.saturating_add(1);}c.permissions=permissions;}
+                    if let (Some(action),Some(signature))=(action,signature){c.commands.push_back(local_ai_agent_runtime::agent::control::LoopCommand{id:Some(id),action,signature});}
+                    else { emit(&run_id,Event::ControlAccepted{id}); }
+                } else {emit(&run_id,Event::ControlRejected{id,message:"Agent execution ended".into()});}
             }
             Request::Shutdown => {
                 for control in controls.values() {

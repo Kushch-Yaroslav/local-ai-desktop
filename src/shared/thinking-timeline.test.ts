@@ -3,6 +3,16 @@ import { appendPausedMarker, appendReasoningFragments, applySteeringEvent, pendi
 import type { ChatMessage, ThinkingTimelineEvent } from './types';
 
 export function runThinkingTimelineRegression(): void {
+  const lifecycle = { stage: 'recovery_attempted' as const, notice: { signature: 'loop', level: 3, evidence: 'same result', guidance: 'correct the strategy' }, attempt: 1 };
+  const orderedRecovery: ThinkingTimelineEvent[] = [
+    { id: 'before-repair', kind: 'reasoning', content: 'Before repair.', position: 1 },
+    { id: 'recover', kind: 'loop', lifecycle, position: 2 },
+    { id: 'after-repair', kind: 'reasoning', content: 'After repair.', position: 3 },
+  ];
+  const recoveryItems = thinkingTimeline(undefined, [], true, orderedRecovery);
+  assert.deepEqual(recoveryItems.map(item => item.kind), ['reasoning', 'loop', 'reasoning']);
+  assert.equal(recoveryItems[0]?.kind === 'reasoning' && recoveryItems[0].live, false);
+  assert.deepEqual(thinkingTimeline(undefined, [], false, JSON.parse(JSON.stringify(orderedRecovery))).map(item => item.kind), ['reasoning', 'loop', 'reasoning'], 'saved history retains recovery chronology');
   const items = thinkingTimeline('First reasoning phase.\nStill the same phase.\n\nSecond reasoning phase.', [{ id: 'plan', label: 'Task Plan updated', kind: 'planning', state: 'completed' }], true);
   assert.deepEqual(items.map((item) => item.kind), ['activity', 'reasoning', 'reasoning'], 'timeline did not keep Agent activity followed by paragraph-level reasoning');
   assert.equal(items[1]?.kind === 'reasoning' && items[1].content, 'First reasoning phase.\nStill the same phase.', 'a single reasoning phase was split too eagerly');
@@ -22,6 +32,16 @@ export function runThinkingTimelineRegression(): void {
   assert.deepEqual(chronological.map((item) => item.kind === 'reasoning' ? item.content : item.kind === 'activity' ? item.activity.id : item.kind === 'steering' ? item.message.content : item.kind), ['First phase.', 'terminal', 'Second phase.', 'Current phase.', 'plan', 'approval'], 'recorded reasoning and Agent events were not interleaved by position');
   assert.equal(chronological[3]?.kind === 'reasoning' && chronological[3].live, false, 'reasoning before a later activity must be finalized');
   assert.deepEqual(pendingTimelineActivities(chronological).map((item) => item.activity.id), ['approval'], 'pending approval selection did not use the chronological timeline');
+  const groupedEvents: ThinkingTimelineEvent[] = [
+    { id: 'read-thought', kind: 'reasoning', content: 'Before tool.\n\nSecond paragraph.', position: 1 },
+    { id: 'tool', kind: 'activity', activityId: 'read', position: 2 },
+    { id: 'live-thought', kind: 'reasoning', content: 'After tool.\n\nStreaming.', position: 3 },
+  ];
+  const grouped = thinkingTimeline(undefined, [{ id: 'read', label: 'Read file' }], true, groupedEvents, [], true);
+  assert.deepEqual(grouped.map(item => item.kind), ['reasoning', 'activity', 'reasoning']);
+  assert.equal(grouped[0].kind === 'reasoning' && grouped[0].content, groupedEvents[0].kind === 'reasoning' && groupedEvents[0].content, 'grouping must retain all paragraphs');
+  assert.equal(grouped[2].kind === 'reasoning' && grouped[2].live, true);
+
 
   const first: ChatMessage = { id: 'steering-1', conversationId: 'chat', role: 'user', content: 'Поправка, напиши ещё плюсы и минусы.', createdAt: '' };
   const second: ChatMessage = { ...first, id: 'steering-2' };

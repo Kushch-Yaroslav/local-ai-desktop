@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 const MAX_ITEMS: usize = 24;
 const MAX_TEXT_CHARS: usize = 240;
-const MAX_TASK_CHARS: usize = 80;
+pub(crate) const MAX_TASK_CHARS: usize = 80;
 const MAX_NOTE_CHARS: usize = 400;
 const VISIBLE_DONE: usize = 6;
 
@@ -82,6 +82,29 @@ pub struct Deliverable {
     /// require evidence associated with this item; full-test claims stay broad.
     #[serde(default)]
     pub verification_scope: VerificationScope,
+    /// Claim targets constrain proof; they never grant filesystem access.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+}
+
+impl Deliverable {
+    /// Conservative compatibility guard for existing free-text contracts.
+    /// This is not a general natural-language proof checker. New callers can
+    /// explicitly request integrity; known non-modification wording cannot
+    /// be weakened by declaring runtime/test/readback instead.
+    pub fn required_check(&self) -> Option<Need> {
+        if non_modification_claim(&self.text) { Some(Need::Integrity) } else { self.check }
+    }
+}
+
+fn non_modification_claim(text: &str) -> bool {
+    let text = text.to_lowercase().replace(['’', '‘'], "'");
+    ["do not modify", "don't modify", "do not change", "don't change", "do not edit", "don't edit", "do not touch", "don't touch", "leave unchanged",
+        "remain unchanged", "remains unchanged", "keep unchanged", "without modifying",
+        "not modified", "not changed", "non-modification", "не измен", "не менять",
+        "не трог", "без измен", "не модиф", "не змін", "не чіп", "без змін"]
+        .iter().any(|phrase| text.contains(phrase)) || text.contains("unchanged")
+            && ["keep", "leave", "preserve", "remain"].iter().any(|word| text.contains(word))
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,6 +195,7 @@ impl Deliverables {
             return Err("text is required: one short line saying what must exist or work".into());
         }
         let task = clean(task, MAX_TASK_CHARS, "task")?;
+        let check = if non_modification_claim(&text) { Some(Need::Integrity) } else { check };
         let key = normalized(&text);
         if let Some(existing) = self
             .items
@@ -195,7 +219,7 @@ impl Deliverables {
                 item.status = DeliverableStatus::Pending;
                 item.reason.clear();
                 // A named requirement is never weakened by rewording the item.
-                item.check = item.check.or(check);
+                item.check = if check == Some(Need::Integrity) { check } else { item.check.or(check) };
                 self.revision = self.revision.saturating_add(1);
                 return Ok(id.to_owned());
             }
@@ -224,6 +248,7 @@ impl Deliverables {
             check,
             proof: Vec::new(),
             failing: String::new(),
+            paths: Vec::new(),
             verification_scope: if check == Some(Need::Test) {
                 VerificationScope::Project
             } else {

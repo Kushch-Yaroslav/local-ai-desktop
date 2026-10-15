@@ -92,9 +92,11 @@ impl Manifest {
 
 pub fn bootstrap(root: &Path) -> Result<(), String> {
     let root = canonical_root(root)?;
-    let framework = root.join(DIRECTORY);
+    if crate::process::isolation::protects_path(&root) { return Err(crate::process::isolation::refusal("Runtime directories cannot host agent knowledge writes.").to_string()); }
+    let framework = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, DIRECTORY)?;
+    if fs::symlink_metadata(root.join(DIRECTORY)).is_ok_and(|info| info.file_type().is_symlink()) { return Err("knowledge directory must not be a symlink".into()); }
     fs::create_dir_all(&framework).map_err(|error| error.to_string())?;
-    let manifest_path = framework.join(MANIFEST);
+    let manifest_path = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, &format!("{DIRECTORY}/{MANIFEST}"))?;
     if !manifest_path.exists() {
         write_manifest(&framework, &Manifest::fresh(&root))?;
     } else {
@@ -168,7 +170,8 @@ pub fn read(root: &Path, args: &Value) -> Result<Value, String> {
 pub fn update(root: &Path, args: &Value) -> Result<Value, String> {
     let root = canonical_root(root)?;
     bootstrap(&root)?;
-    let framework = root.join(DIRECTORY);
+    let framework = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, DIRECTORY)?;
+    if fs::symlink_metadata(root.join(DIRECTORY)).is_ok_and(|info| info.file_type().is_symlink()) { return Err("knowledge directory must not be a symlink".into()); }
     let mut manifest = load_manifest(&root, true)?;
     let updates = args
         .get("updates")
@@ -238,7 +241,7 @@ pub fn update(root: &Path, args: &Value) -> Result<Value, String> {
         .take(32)
     {
         validate_source_path(source)?;
-        let source_path = root.join(source);
+        let source_path = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, source)?;
         let cache = source_cache_path(source);
         let status = if source_path.is_file() {
             let bytes = fs::read(&source_path).map_err(|error| error.to_string())?;
@@ -381,7 +384,7 @@ pub fn observe_tool(
                 return Ok(json!({"observation":"skipped_empty"}));
             }
             let cache = source_cache_path(path);
-            let existing = fs::read_to_string(framework(&root).join(&cache)).unwrap_or_default();
+            let existing = cache_path(&root, &cache).ok().and_then(|path| fs::read_to_string(path).ok()).unwrap_or_default();
             let coverage = match (
                 args.get("start_line").and_then(Value::as_u64),
                 args.get("end_line").and_then(Value::as_u64),
@@ -390,7 +393,7 @@ pub fn observe_tool(
                 (Some(start), None) => format!("lines {start}+"),
                 _ => "full file or provider-visible full projection".into(),
             };
-            let fingerprint = fs::read(root.join(path))
+            let fingerprint = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root: &root, grants: &[] }, path).and_then(|path| fs::read(path).map_err(|error| error.to_string()))
                 .map(|bytes| digest(&bytes))
                 .unwrap_or_else(|_| digest(content.as_bytes()));
             let source_doc =
@@ -496,7 +499,7 @@ fn framework(root: &Path) -> PathBuf {
 
 fn cache_path(root: &Path, relative: &str) -> Result<PathBuf, String> {
     validate_cache_document(relative)?;
-    let target = framework(root).join(relative);
+    let target = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root, grants: &[] }, &format!("{DIRECTORY}/{relative}"))?;
     let parent = target
         .parent()
         .ok_or_else(|| "invalid cache path".to_owned())?;
@@ -644,7 +647,7 @@ fn atomic_write(path: &Path, content: &str) -> Result<(), String> {
 }
 
 fn source_status(root: &Path, source: &str, entry: &SourceEntry) -> &'static str {
-    let path = root.join(source);
+    let Ok(path) = crate::tools::filesystem::scoped(&crate::tools::filesystem::Scope { root, grants: &[] }, source) else { return "unknown"; };
     if !path.is_file() {
         return "missing";
     }

@@ -1,6 +1,7 @@
 import type { ChatMessage, ThinkingTimelineEvent, ToolActivity } from './types';
 
 export type ThinkingTimelineItem =
+  | Extract<ThinkingTimelineEvent, { kind: 'loop' }>
   | { id: string; kind: 'reasoning'; content: string; live: boolean; position?: number; startedAt?: string; completedAt?: string }
   | { id: string; kind: 'activity'; activity: ToolActivity; position?: number }
   | { id: string; kind: 'steering'; message: ChatMessage; status: 'accepted' | 'applied'; position: number }
@@ -76,6 +77,13 @@ function splitReasoning(event: ReasoningEvent, live: boolean): ThinkingTimelineI
  * event is re-split per update; otherwise each frame would re-split the whole history of the run.
  */
 const completedReasoning = new WeakMap<ReasoningEvent, ThinkingTimelineItem[]>();
+const groupedReasoning = new WeakMap<ReasoningEvent, ThinkingTimelineItem[]>();
+function groupedItems(event: ReasoningEvent, live: boolean): ThinkingTimelineItem[] {
+  if (!live && groupedReasoning.has(event)) return groupedReasoning.get(event)!;
+  const items: ThinkingTimelineItem[] = [{ ...event, live }];
+  if (!live) groupedReasoning.set(event, items);
+  return items;
+}
 function reasoningItems(event: ReasoningEvent, live: boolean): ThinkingTimelineItem[] {
   if (live) return splitReasoning(event, true);
   const cached = completedReasoning.get(event);
@@ -90,7 +98,7 @@ function reasoningItems(event: ReasoningEvent, live: boolean): ThinkingTimelineI
  * persisted aggregate Thinking and action rows, so their established readable
  * fallback remains instead of inventing chronology that was never recorded.
  */
-export function thinkingTimeline(reasoning: string | undefined, activities: ToolActivity[] = [], streaming = false, events?: ThinkingTimelineEvent[], messages: ChatMessage[] = []): ThinkingTimelineItem[] {
+export function thinkingTimeline(reasoning: string | undefined, activities: ToolActivity[] = [], streaming = false, events?: ThinkingTimelineEvent[], messages: ChatMessage[] = [], groupTurns = false): ThinkingTimelineItem[] {
   if (events?.length) {
     const activityById = new Map(activities.map((activity) => [activity.id, activity]));
     const messageById = new Map(messages.filter((message) => message.role === 'user').map((message) => [message.id, message]));
@@ -103,7 +111,7 @@ export function thinkingTimeline(reasoning: string | undefined, activities: Tool
     const renderedActivities = new Set<string>();
     const renderedSteeringMessages = new Set<string>();
     return ordered.flatMap((event) => {
-      if (event.kind === 'reasoning') return reasoningItems(event, streaming && last?.id === event.id);
+      if (event.kind === 'reasoning') return (groupTurns ? groupedItems : reasoningItems)(event, streaming && last?.id === event.id);
       if (event.kind === 'steering') {
         const message = messageById.get(event.messageId);
         if (!message || renderedSteeringMessages.has(event.messageId)) return [];
@@ -111,6 +119,7 @@ export function thinkingTimeline(reasoning: string | undefined, activities: Tool
         return [{ id: event.id, kind: 'steering' as const, message, status: event.status, position: event.position }];
       }
       if (event.kind === 'paused') return [{ id: event.id, kind: 'paused' as const, position: event.position }];
+      if (event.kind === 'loop') return [event];
       if (!activityById.has(event.activityId) || renderedActivities.has(event.activityId)) return [];
       renderedActivities.add(event.activityId);
       return [{ id: event.id, kind: 'activity' as const, activity: activityById.get(event.activityId)!, position: event.position }];

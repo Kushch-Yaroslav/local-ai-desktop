@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import { ApprovalBroker } from './approval-broker';
+import type { ActionApproval } from '../../shared/types';
+import type { ConfirmationRequest } from '../tools/project-tools';
+
+async function main() {
+  const events: Array<{ type: string; approval?: ActionApproval }> = [];
+  const sender = { id: 1, isDestroyed: () => false, send: (_channel: string, event: unknown) => events.push(event as typeof events[number]) };
+  const broker = new ApprovalBroker(50);
+  const signal = new AbortController();
+  const request: ConfirmationRequest = { title: 'Terminal', detail: 'git switch -c fix', category: 'system_command', actionId: 'tool-1', root: '/project' };
+  const confirm = broker.forRun(sender, 'conversation', 'run');
+  const pending = confirm(request, signal.signal);
+  const approvalId = events.at(-1)!.approval!.approvalId;
+  assert.equal(events.at(-1)!.type, 'approval-request');
+  assert.equal(events.at(-1)!.approval!.detail, request.detail);
+  assert(!broker.reply(99, { conversationId: 'conversation', generationId: 'run', approvalId, decision: 'session' }));
+  assert(!broker.reply(1, { conversationId: 'other', generationId: 'run', approvalId, decision: 'session' }));
+  assert(broker.reply(1, { conversationId: 'conversation', generationId: 'run', approvalId, decision: 'session' }));
+  assert.deepEqual(await pending, { approved: true, reason: 'session' });
+  const count = events.length;
+  assert.deepEqual(await confirm(request, signal.signal), { approved: true, reason: 'session' });
+  assert.equal(events.length, count);
+  // Same category is insufficient: both target and exact operation are scoped.
+  for (const changed of [{ ...request, root: '/other' }, { ...request, detail: 'git commit -am x' }, { ...request, category: 'file_delete' as const }]) {
+    const task = confirm(changed, signal.signal); const id = events.at(-1)!.approval!.approvalId;
+    broker.reply(1, { conversationId: 'conversation', generationId: 'run', approvalId: id, decision: 'reject' });
+    assert.deepEqual(await task, { approved: false, reason: 'user_rejected' });
+  }
+  assert.equal(broker.list('run').length, 1);
+  broker.revoke('run', broker.list('run')[0].id);
+  assert.equal(broker.list('run').length, 0);
+  broker.revoke('run');
+  const revoked = confirm(request, signal.signal);
+  broker.endRun('run'); assert.deepEqual(await revoked, { approved: false, reason: 'cancelled' });
+  const restarted = broker.forRun(sender, 'conversation', 'next');
+  const concurrent = [restarted(request, signal.signal), restarted({ ...request, detail: 'rm file' }, signal.signal)];
+  const ids = events.filter(event => event.type === 'approval-request').slice(-2).map(event => event.approval!.approvalId);
+  assert.notEqual(ids[0], ids[1]);
+  for (const id of ids) assert(broker.reply(1, { conversationId: 'conversation', generationId: 'next', approvalId: id, decision: 'once' }));
+  assert((await Promise.all(concurrent)).every(result => result.approved));
+  const cancelled = restarted(request, signal.signal); signal.abort(); assert.equal((await cancelled).reason, 'cancelled');
+  assert.equal((await restarted(request, new AbortController().signal)).reason, 'timeout');
+  assert.equal((await broker.forRun({ ...sender, isDestroyed: () => true }, 'c', 'r')(request, new AbortController().signal)).reason, 'ui_unavailable');
+  assert.equal((await broker.forRun({ ...sender, send: () => { throw new Error('closed'); } }, 'c', 'r')(request, new AbortController().signal)).reason, 'ui_unavailable');
+  const pauseSignal = new AbortController().signal;
+  const pausingConfirm = broker.forRun(sender, 'conversation', 'pausing');
+  const awaiting = pausingConfirm(request, pauseSignal);
+  const staleId = events.at(-1)!.approval!.approvalId;
+  broker.pauseRun('pausing');
+  assert.deepEqual(await awaiting, { approved: false, reason: 'cancelled' });
+  assert.equal(broker.reply(1, { conversationId: 'conversation', generationId: 'pausing', approvalId: staleId, decision: 'once' }), false);
+  assert.equal((await pausingConfirm(request, pauseSignal)).reason, 'cancelled');
+  broker.endRun('pausing');
+  const fresh = new ApprovalBroker(5);
+  assert.equal((await fresh.forRun(sender, 'conversation', 'restarted')(request, pauseSignal)).reason, 'timeout', 'restart must not restore approvals or grants');
+  console.log('Approval broker: UI transport, scope, sender/run binding, expiry, revocation, denial, cancellation, concurrency, timeout and missing UI passed.');
+}
+void main();

@@ -1,7 +1,7 @@
 use crate::process::group::{spawn_owned, Signal};
 use std::{
     io::{BufRead, BufReader},
-    process::{Command, Stdio},
+    process::Stdio,
     sync::mpsc,
     time::Duration,
 };
@@ -102,9 +102,31 @@ pub fn run_streaming(
     cwd: &str,
     timeout_ms: u64,
     cancelled: impl Fn() -> bool,
+    started_event: impl FnMut(u32, u32, u32, u128),
+    output: impl FnMut(&str, &str),
+) -> serde_json::Value {
+    if super::isolation::process_management(command) {
+        return super::isolation::refusal("Shell process/lifecycle management is ambiguous. Use run_terminal task_action=start/status/stop with an owned task_id instead.");
+    }
+    run_streaming_authorized(command, cwd, timeout_ms, true, cancelled, started_event, output)
+}
+
+pub fn run_streaming_authorized(
+    command: &str,
+    cwd: &str,
+    timeout_ms: u64,
+    authorized: bool,
+    cancelled: impl Fn() -> bool,
     mut started_event: impl FnMut(u32, u32, u32, u128),
     mut output: impl FnMut(&str, &str),
 ) -> serde_json::Value {
+    if command.trim().is_empty() {
+        return serde_json::json!({"code":"INVALID_TOOL_ARGUMENTS","status":"error","retrySameArguments":false,
+            "error":"A foreground command must be non-empty. An empty command cannot poll a previous foreground process. Stop ends that process. Use task_action=status with a registered handle from this generation, or start a fresh explicit command."});
+    }
+    if super::isolation::process_management(command) {
+        return super::isolation::refusal("Use structured owned-task start/status/stop; arbitrary process management cannot target application infrastructure.");
+    }
     let marker = format!(
         "__LOCAL_AI_PIPE_STATUS_{}_{}__",
         std::process::id(),
@@ -116,21 +138,23 @@ pub fn run_streaming(
     let wrapped_command = format!(
         "{command}\n__local_ai_runner_exit=$? __local_ai_runner_pipeline=(\"${{PIPESTATUS[@]}}\"); printf '\\n{marker}%s|%s\\n' \"$__local_ai_runner_exit\" \"${{__local_ai_runner_pipeline[*]}}\"; exit \"$__local_ai_runner_exit\""
     );
-    let mut shell = Command::new("bash");
+    let mut shell = match super::isolation::sandbox_with_permissions(&wrapped_command, cwd, authorized) {
+        Ok(shell) => shell,
+        Err(error) => return super::isolation::setup_refusal(&error.to_string()),
+    };
     // Preserve the actual failure status for common diagnostic pipelines
     // such as `npm test | tail`; otherwise the model sees a false success.
+    // Agent foreground tools are noninteractive. Never expose the runtime RPC
+    // stdin to shell commands or descendants (they could consume controls).
     shell
-        .arg("-o")
-        .arg("pipefail")
-        .arg("-lc")
-        .arg(&wrapped_command)
+        .stdin(Stdio::null())
         .current_dir(cwd)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let (mut child, group) = match spawn_owned(shell) {
         Ok(owned) => owned,
         Err(error) => {
-            return serde_json::json!({"command":command,"cwd":cwd,"error":error.to_string(),"timed_out":false,"cancelled":false,"status":"error","started_at":now_ms(),"finished_at":now_ms()})
+            return super::isolation::setup_refusal(&format!("Isolated terminal startup failed: {error}"))
         }
     };
     let pid = child.id();
@@ -215,6 +239,11 @@ pub fn run_streaming(
                 if pipeline_captured {
                     result["pipeline_statuses"] = serde_json::json!(pipeline.statuses);
                 }
+                if !pipeline_captured {
+                    if let Some(diagnostic)=result["stderr"].as_str().and_then(super::isolation::startup_failure) {
+                        result.as_object_mut().unwrap().extend(diagnostic.as_object().unwrap().clone());
+                    }
+                }
                 return result;
             }
             Ok(None) => {}
@@ -247,7 +276,20 @@ fn now_ms() -> u128 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn empty_foreground_commands_cannot_poll_or_produce_successful_execution() {
+        for authorized in [false,true] {
+            let value=super::run_streaming_authorized(" \n", "/nonexistent-empty-command-fixture", 1000,authorized,||false,
+                |_,_,_,_|panic!("empty command spawned a process"),|_,_|panic!("empty command produced output"));
+            assert_eq!(value["code"],"INVALID_TOOL_ARGUMENTS");
+            assert_eq!(value["status"],"error");
+            assert_eq!(value["retrySameArguments"],false);
+            assert!(value.get("pid").is_none() && value.get("exit_code").is_none());
+        }
+    }
+
     use super::*;
+    use std::process::Command;
 
     #[test]
     fn emits_durable_process_identity_before_streamed_output() {
@@ -405,16 +447,38 @@ mod tests {
         use std::sync::Arc;
         let cancel = Arc::new(AtomicBool::new(false));
         let descendant = Arc::new(AtomicI32::new(0));
-        let (flag, seen) = (cancel.clone(), descendant.clone());
+        let leader = Arc::new(AtomicI32::new(0));
+        let (flag, seen, started, root) = (cancel.clone(), descendant.clone(), leader.clone(), leader.clone());
         let value = run_streaming(
             "sleep 20.33 & echo $!; wait",
             ".",
             60_000,
             move || flag.load(Ordering::Relaxed),
-            |_, _, _, _| {},
+            move |pid, _, _, _| { started.store(pid as i32, Ordering::Relaxed); },
             move |_, line| {
                 if let Ok(pid) = line.trim().parse::<i32>() {
-                    seen.store(pid, Ordering::Relaxed);
+                    // $! is a namespace PID, never an identity in the host /proc.
+                    // Resolve it only among descendants of this freshly owned leader.
+                    let processes = std::fs::read_dir("/proc").unwrap().flatten().filter_map(|entry| {
+                        let host_pid = entry.file_name().to_str()?.parse::<i32>().ok()?;
+                        let stat = std::fs::read_to_string(entry.path().join("stat")).ok()?;
+                        let parent = stat.rsplit_once(") ")?.1.split_whitespace().nth(1)?.parse::<i32>().ok()?;
+                        Some((host_pid, parent))
+                    }).collect::<Vec<_>>();
+                    let mut owned = vec![root.load(Ordering::Relaxed)];
+                    loop {
+                        let before = owned.len();
+                        for &(child, parent) in &processes {
+                            if owned.contains(&parent) && !owned.contains(&child) { owned.push(child); }
+                        }
+                        if owned.len() == before { break; }
+                    }
+                    let host_pid = owned.into_iter().find(|candidate| {
+                        std::fs::read_to_string(format!("/proc/{candidate}/status")).ok()
+                            .and_then(|status| status.lines().find(|line| line.starts_with("NSpid:"))
+                                .and_then(|line| line.split_whitespace().last()?.parse::<i32>().ok())) == Some(pid)
+                    }).expect("namespace child must resolve inside the owned ancestry");
+                    seen.store(host_pid, Ordering::Relaxed);
                     cancel.store(true, Ordering::Relaxed);
                 }
             },

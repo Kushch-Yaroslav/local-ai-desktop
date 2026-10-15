@@ -66,7 +66,7 @@ async function run(): Promise<void> {
     const update = events.find(event=>event.type==='task-memory');
     assert(update?.type === 'task-memory', 'canonical task-memory must reach the renderer as well as persistence');
     assert.equal(update.memory.plan?.steps.length, 2);
-    assert.equal(db.getAgentPlan(first.id)?.taskMemory?.plan?.steps.length, 2);
+    assert.equal(db.getAgentPlan(first.id, db.listAnalysisRuns(first.id).at(-1)?.logicalTaskId)?.taskMemory?.plan?.steps.length, 2);
     assert.equal(db.listAnalysisRuns(first.id).at(-1)?.status, 'error', 'live plan remains persisted after a later model failure');
     console.log('production IPC + real Rust HTTP500 → persisted failed run → new-chat recovery passed');
   } finally { globalThis.fetch=originalFetch; loader._load=originalLoad; db.close(); provider.close(); rmSync(root,{recursive:true,force:true}); }

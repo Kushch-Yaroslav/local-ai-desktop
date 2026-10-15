@@ -17,6 +17,14 @@ pub struct TailCandidateAttempt {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Event {
+    LoopNotice { notice: super::loop_detector::LoopNotice },
+    LoopGuidance { notice: super::loop_detector::LoopNotice },
+    LoopState { notice: Option<super::loop_detector::LoopNotice>, paused: bool },
+    LoopLifecycle { stage: String, notice: super::loop_detector::LoopNotice, attempt: usize },
+    ControlAccepted { id: String },
+    ControlRejected { id: String, message: String },
+    AgentCounters { turns: usize, actions: usize },
+    LoopDiagnostics { observations: usize, guidance: usize, warnings: usize, pauses: usize },
     WorkBudget { budget: super::work_budget::BudgetView },
     AgentStarted {
         run_id: String,
@@ -171,6 +179,8 @@ pub enum Event {
         summary_prompt_tokens: usize,
         runtime_tail_tokens: usize,
         memory_catalog_tokens: usize,
+        trigger_threshold_tokens: usize,
+        safety_reserve_tokens: usize,
         compaction_target_tokens: usize,
         preferred_output_tokens: usize,
         available_output_before: usize,

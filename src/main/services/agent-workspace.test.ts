@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RustAgentRuntime } from './rust-agent-runtime';
 import type { ChatMessage } from '../../shared/types';
-import { enabledAgentTools, explicitWorkspaceRoots, extractAbsolutePaths, isGrantablePath, maxWorkspaceRoots } from './agent-workspace';
+import { enabledAgentTools, explicitWorkspaceRoots, restoreHistoricalTaskScope, extractAbsolutePaths, isGrantablePath, maxWorkspaceRoots } from './agent-workspace';
 
 export async function runAgentWorkspaceRegression(): Promise<void> {
   // Tool exposure by mode and scope. Chat never gets Agent capabilities; Agent gets execution tools only with a scope.
@@ -35,12 +35,18 @@ export async function runAgentWorkspaceRegression(): Promise<void> {
 
   const base = await mkdtemp(join(tmpdir(), 'agent-workspace-'));
   try {
+    const scoped = { projects: [{id:'owned',root:base}], roots: [] };
+    assert.deepEqual(await restoreHistoricalTaskScope(scoped,tmpdir()),scoped);
+    await assert.rejects(restoreHistoricalTaskScope({projects:[{id:'bad',root:join(base,'missing')}],roots:[]},tmpdir()), /unavailable/);
+    await assert.rejects(restoreHistoricalTaskScope({projects:[{id:'bad',root:'/'}],roots:[]},tmpdir()), /permitted/);
+
     const projects = join(base, 'Projects');
     const secret = join(base, 'secret');
     await mkdir(projects, { recursive: true });
     await mkdir(secret);
     await writeFile(join(projects, 'file.txt'), 'x');
     await symlink(secret, join(projects, 'link'));
+    await assert.rejects(restoreHistoricalTaskScope({projects:[{id:'retargeted',root:join(projects,'link')}],roots:[]},tmpdir()), /different path/);
     const roots = (texts: string[]) => explicitWorkspaceRoots(texts, '/nonexistent-home');
 
     assert.deepEqual(await roots([`в папке ${projects} создай папку Шашки`]), [projects], 'an existing named directory was not granted');
@@ -57,19 +63,22 @@ export async function runAgentWorkspaceRegression(): Promise<void> {
 
     // The Electron→runtime boundary forwards named directories, with and without a project.
     const fake = join(base, 'fake-runtime.js');
-    await writeFile(fake, `#!/usr/bin/env node
+    await writeFile(fake, `#!${process.execPath}
 process.stdin.once('data', (chunk) => {
   const request = JSON.parse(String(chunk).split('\\n')[0]);
+  setTimeout(() => {
   console.log(JSON.stringify({ run_id: request.run_id, type: 'content_delta', content: JSON.stringify({ project_root: request.project_root ?? null, workspace_roots: request.workspace_roots ?? null, system: request.system }) }));
   console.log(JSON.stringify({ run_id: request.run_id, type: 'final', complete: true, continuation_count: 0, chars: 1, finish_reason: 'stop' }));
+  }, 25);
 });
 `);
     await chmod(fake, 0o755);
     const runtime = new RustAgentRuntime('http://127.0.0.1:1/v1/chat/completions', fake);
     const history: ChatMessage[] = [{ id: 'u', conversationId: 'c', role: 'user', content: 'create a folder', createdAt: '' }];
     const sent = async (projects: Parameters<RustAgentRuntime['stream']>[2], workspace: string[]) => {
-      let text = '';
-      for await (const event of runtime.stream('m', history, projects, new AbortController().signal, 8192, 'fast', 'off', 'run', undefined, undefined, true, undefined, workspace)) if (event.type === 'token') text += event.content;
+      let text = ''; const received: unknown[] = [];
+      for await (const event of runtime.stream('m', history, projects, new AbortController().signal, 8192, 'fast', 'off', 'run', undefined, undefined, true, undefined, workspace)) { received.push(event); if (event.type === 'token') text += event.content; }
+      assert(text, JSON.stringify(received));
       return JSON.parse(text) as { project_root: string | null; workspace_roots: string[] | null; system: string };
     };
     assert.deepEqual(await sent([], [projects]), { project_root: null, workspace_roots: [projects], system: (await sent([], [projects])).system });

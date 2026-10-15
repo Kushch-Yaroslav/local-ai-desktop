@@ -3,6 +3,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const MAX_READ_RESULT_BYTES: usize = 64 * 1024;
+const MAX_TEXT_FILE_BYTES: u64 = 8 * 1024 * 1024;
+fn read_text(target: &Path) -> Result<String, String> {
+    use std::io::Read;
+    let file = fs::File::open(target).map_err(|error| error.to_string())?;
+    if file.metadata().map_err(|error| error.to_string())?.len() > MAX_TEXT_FILE_BYTES {
+        return Err("Text file exceeds the 8 MiB editing limit. Use the download tool for binary resources or an explicitly approved terminal operation for large-file inspection/migration.".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_TEXT_FILE_BYTES + 1).read_to_end(&mut bytes).map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > MAX_TEXT_FILE_BYTES { return Err("File grew beyond the text tool size limit; no file changed".into()); }
+    String::from_utf8(bytes).map_err(|_| "File is not UTF-8 text; use an approved terminal operation or download tool for binary resources".into())
+}
 
 /// Largest read result this call may return: the tool maximum, optionally
 /// lowered by the runtime through the internal `_result_limit_bytes` argument
@@ -87,6 +99,11 @@ fn resolve_with_missing_tail(candidate: &Path) -> Result<PathBuf, String> {
                 return Ok(base);
             }
             Err(error) => {
+                // Never mistake an inaccessible ancestor or dangling symlink
+                // for a safe, nonexistent directory.
+                if error.kind() != std::io::ErrorKind::NotFound || fs::symlink_metadata(&current).is_ok() {
+                    return Err(format!("invalid path: {error}"));
+                }
                 let Some(name) = current.file_name().map(|name| name.to_owned()) else {
                     return Err(format!("invalid path: {error}"));
                 };
@@ -99,9 +116,11 @@ fn resolve_with_missing_tail(candidate: &Path) -> Result<PathBuf, String> {
     }
 }
 
-fn scoped(scope: &Scope, path: &str) -> Result<PathBuf, String> {
+pub fn scoped(scope: &Scope, path: &str) -> Result<PathBuf, String> {
     let root = fs::canonicalize(scope.root).unwrap_or_else(|_| scope.root.to_path_buf());
+    let lexical = root.join(path);
     let normalized = resolve_with_missing_tail(&root.join(path))?;
+    protect_metadata(&lexical, &normalized)?;
     let allowed = std::iter::once(root.clone()).chain(
         scope
             .grants
@@ -115,6 +134,54 @@ fn scoped(scope: &Scope, path: &str) -> Result<PathBuf, String> {
         return Err("path escapes project scope".to_owned());
     }
     Ok(normalized)
+}
+
+/// Check both the requested path and resolved target, including worktree Git
+/// directories whose names are not `.git`. Generic tools never edit metadata.
+fn protect_metadata(requested: &Path, target: &Path) -> Result<(), String> {
+    let denied = || "PERMISSION_DENIED: repository metadata and recovery files are protected; use an approved Git/terminal operation. Switching file tools cannot authorize this operation.".to_owned();
+    for path in [requested, target] {
+        if path.components().any(|part| part.as_os_str() == ".git" || part.as_os_str() == ".local-ai-backups") {
+            return Err(denied());
+        }
+        for parent in path.ancestors() {
+            let marker = parent.join(".git");
+            let metadata = if marker.is_dir() { fs::canonicalize(&marker).ok() }
+                else { fs::read_to_string(&marker).ok().and_then(|text| text.trim().strip_prefix("gitdir: ").map(str::to_owned))
+                    .and_then(|gitdir| fs::canonicalize(parent.join(gitdir)).ok()) };
+            if let Some(metadata) = metadata {
+                if target.starts_with(&metadata) { return Err(denied()); }
+                // Linked worktrees keep shared refs/objects in commondir.
+                if let Some(common) = fs::read_to_string(metadata.join("commondir")).ok()
+                    .and_then(|text| fs::canonicalize(metadata.join(text.trim())).ok()) {
+                    if target.starts_with(common) { return Err(denied()); }
+                }
+            }
+            // A selected bare repository has no `.git` marker. Confirm its
+            // identity using Git itself, rather than treating HEAD-like names
+            // in normal source directories as repository metadata.
+            if parent.join("HEAD").is_file() && parent.join("objects").is_dir() && parent.join("refs").is_dir() {
+                let bare = std::process::Command::new("/usr/bin/git").arg("-C").arg(parent)
+                    .args(["rev-parse", "--is-bare-repository"]).env("GIT_CONFIG_NOSYSTEM", "1").output()
+                    .is_ok_and(|output| output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true");
+                if bare && target.starts_with(parent) { return Err(denied()); }
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn mutation_paths(name: &str, args: &Value) -> Result<Vec<String>, String> {
+    if name == "apply_patch" {
+        return parse_patch(args.get("patch").and_then(Value::as_str).ok_or("patch is required")?)?
+            .into_iter().map(|op| Ok(match op { PatchOp::Add { rel, .. } | PatchOp::Update { rel, .. } | PatchOp::Delete { rel } => rel })).collect();
+    }
+    Ok(args.get("path").and_then(Value::as_str).into_iter().map(str::to_owned).collect())
+}
+
+pub fn patch_deletes(args: &Value) -> bool {
+    args.get("patch").and_then(Value::as_str).and_then(|patch| parse_patch(patch).ok())
+        .is_some_and(|ops| ops.iter().any(|op| matches!(op, PatchOp::Delete { .. })))
 }
 
 /// Acceptance output is runtime-internal diagnostic data, not project source.
@@ -138,6 +205,7 @@ fn is_runtime_temporary(root: &Path, target: &Path) -> bool {
 /// Treating it as application source would make broad repository traversal
 /// recursively audit the cache itself.
 fn is_knowledge_cache(root: &Path, target: &Path) -> bool {
+    if target.components().any(|part| part.as_os_str() == ".local-ai-backups") { return true; }
     target
         .strip_prefix(root)
         .ok()
@@ -149,8 +217,13 @@ fn is_knowledge_cache(root: &Path, target: &Path) -> bool {
 /// between a read and a later write.
 pub fn file_revision(scope: &Scope, path: &str) -> Option<(PathBuf, String)> {
     use sha2::{Digest, Sha256};
+    use std::io::Read;
     let target = scoped(scope, path).ok()?;
-    let bytes = fs::read(&target).ok()?;
+    let file = fs::File::open(&target).ok()?;
+    if file.metadata().ok()?.len() > MAX_TEXT_FILE_BYTES { return None; }
+    let mut bytes = Vec::new();
+    file.take(MAX_TEXT_FILE_BYTES + 1).read_to_end(&mut bytes).ok()?;
+    if bytes.len() as u64 > MAX_TEXT_FILE_BYTES { return None; }
     Some((target, format!("{:x}", Sha256::digest(bytes))))
 }
 
@@ -162,6 +235,11 @@ pub fn replace_text_in(
     args: &Value,
     expected_revision: &str,
 ) -> Result<(Value, Option<String>), String> {
+    for path in mutation_paths("replace_text", args)? {
+        if crate::process::isolation::protects_path(&scoped(scope, &path)?) {
+            return Err(crate::process::isolation::refusal("Runtime files cannot be modified through project tools.").to_string());
+        }
+    }
     use sha2::{Digest, Sha256};
     use std::io::Write;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -175,7 +253,7 @@ pub fn replace_text_in(
         return Err("old_text must be nonempty and new_text must differ".into());
     }
     let target = scoped(scope, path)?;
-    let original = fs::read(&target).map_err(|error| error.to_string())?;
+    let original = read_text(&target)?.into_bytes();
     if format!("{:x}", Sha256::digest(&original)) != expected_revision {
         return Err("File changed since your last read. Read the latest version before replacing text.".into());
     }
@@ -187,6 +265,7 @@ pub fn replace_text_in(
     }
     let updated = format!("{}{}{}", &content[..start], new, &content[start + old.len()..]);
     let permissions = fs::metadata(&target).map_err(|error| error.to_string())?.permissions();
+    let backup = super::recovery::snapshot(&target)?;
     let temporary = target.parent().ok_or("file has no parent")?.join(format!(
         ".local-ai-replace-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)
     ));
@@ -204,7 +283,7 @@ pub fn replace_text_in(
     })();
     let _ = fs::remove_file(&temporary);
     result?;
-    Ok((json!({"path":path,"bytes":updated.len(),"replacements":1}),
+    Ok((json!({"path":path,"bytes":updated.len(),"replacements":1,"backup":backup}),
         Some(format!("--- {path}\n+++ {path}\n-{old}\n+{new}"))))
 }
 
@@ -222,6 +301,13 @@ pub fn execute_in(
         .as_object()
         .ok_or_else(|| "arguments must be an object".to_owned())?;
     let path = object.get("path").and_then(Value::as_str).unwrap_or(".");
+    if matches!(name, "write_file" | "create_file" | "delete_file" | "replace_text" | "apply_patch") {
+        for path in mutation_paths(name, args)? {
+            if crate::process::isolation::protects_path(&scoped(scope, &path)?) {
+                return Err(crate::process::isolation::refusal("Runtime files cannot be modified through project tools.").to_string());
+            }
+        }
+    }
     match name {
         "list_directory" => {
             let target = scoped(scope, path)?;
@@ -252,7 +338,7 @@ pub fn execute_in(
                     "internal runtime/cache files are excluded from project discovery".to_owned(),
                 );
             }
-            let content = fs::read_to_string(target).map_err(|e| e.to_string())?;
+            let content = read_text(&target)?;
             let limit = read_limit(object);
             let lines = content.lines().collect::<Vec<_>>();
             let start_line = object
@@ -323,16 +409,25 @@ pub fn execute_in(
                 .and_then(Value::as_str)
                 .ok_or_else(|| "content is required".to_owned())?;
             let target = scoped(scope, path)?;
-            let before = fs::read_to_string(&target).unwrap_or_default();
+            let before = if target.exists() { read_text(&target)? } else { String::new() };
             if name == "create_file" && target.exists() {
                 return Err("file already exists; use write_file".to_owned());
+            }
+            if name == "write_file" && target.exists() && before == content {
+                if scoped(scope, path)? != target || read_text(&target)? != content {
+                    return Err("File changed while checking an unchanged write; read it again.".into());
+                }
+                // No inode/mtime change or recovery preimage for an actual no-op.
+                return Ok((json!({"path":path,"bytes":content.len(),"unchanged":true,"written":false}),None));
             }
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?
             }
-            fs::write(&target, content).map_err(|e| e.to_string())?;
+            if scoped(scope, path)? != target { return Err("path changed before write".into()); }
+            let backup = super::recovery::snapshot(&target)?;
+            super::recovery::atomic_write(&target, content.as_bytes(), name == "create_file")?;
             Ok((
-                json!({"path":path,"bytes":content.len()}),
+                json!({"path":path,"bytes":content.len(),"backup":backup}),
                 Some(format!("--- {path}\n+++ {path}\n-{}\n+{}", before, content)),
             ))
         }
@@ -346,8 +441,10 @@ pub fn execute_in(
             if !target.is_file() {
                 return Err("only regular files can be deleted".to_owned());
             }
+            let backup = super::recovery::snapshot(&target)?;
+            if scoped(scope, content)? != target { return Err("path changed before deletion".into()); }
             fs::remove_file(&target).map_err(|e| e.to_string())?;
-            Ok((json!({"path":content,"deleted":true}), None))
+            Ok((json!({"path":content,"deleted":true,"backup":backup}), None))
         }
         _ => Err(format!("unsupported filesystem tool: {name}")),
     }
@@ -569,7 +666,7 @@ fn apply_patch(
             Some(index) => staged[index].2.clone(),
             None => target
                 .is_file()
-                .then(|| fs::read_to_string(&target))
+                .then(|| read_text(&target))
                 .transpose()
                 .map_err(|e| format!("cannot read {rel}: {e}"))?,
         };
@@ -618,31 +715,65 @@ fn apply_patch(
             changed.push(rel);
         }
     }
+    // A valid patch can replace a line with the same line, or undo its own
+    // earlier section. Compare final bytes, not the presence of change lines.
+    // Revalidate every preimage before discarding no-op targets.
+    for ((rel, target, _), (_, before)) in staged.iter().zip(&original) {
+        if scoped(scope, rel)? != *target { return Err("patch target changed before write".into()); }
+        let current = match fs::read(target) {
+            Ok(bytes) => Some(bytes),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.to_string()),
+        };
+        if &current != before { return Err("File changed while staging the patch; no file was written. Read the latest version.".into()); }
+    }
+    let mut index = 0;
+    staged.retain(|(_, _, next)| {
+        let keep = next.as_ref().map(|text| text.as_bytes()) != original[index].1.as_deref();
+        index += 1;
+        keep
+    });
+    original.retain(|(target, _)| staged.iter().any(|(_, path, _)| path == target));
+    changed = staged.iter().map(|(rel, _, _)| rel.clone()).collect();
+    if staged.is_empty() {
+        return Ok((json!({"applied":false,"unchanged":true,"files":[],"backups":[]}),None));
+    }
+    let mut backups = Vec::new();
+    for (rel, target, _) in &staged {
+        if scoped(scope, rel)? != *target { return Err("patch target changed before write".into()); }
+        if let Some(parent) = target.parent() { fs::create_dir_all(parent).map_err(|error| error.to_string())?; }
+        backups.push(super::recovery::snapshot(target)?);
+    }
     let mut failure = None;
-    for (_, target, content) in &staged {
+    let mut applied = 0;
+    for (rel, target, content) in &staged {
+        if scoped(scope, rel).ok().as_ref() != Some(target) { failure = Some("patch target changed before write".into()); break; }
         let outcome = match content {
-            Some(content) => target
-                .parent()
-                .map_or(Ok(()), fs::create_dir_all)
-                .and_then(|()| fs::write(target, content)),
-            None => fs::remove_file(target),
+            Some(content) => super::recovery::atomic_write(target, content.as_bytes(), false),
+            None => fs::remove_file(target).map_err(|error| error.to_string()),
         };
         if let Err(error) = outcome {
             failure = Some(format!("cannot write {}: {error}", target.display()));
             break;
         }
+        applied += 1;
     }
     if let Some(message) = failure {
-        for (target, bytes) in original {
-            let _ = match bytes {
-                Some(bytes) => fs::write(&target, bytes),
-                None => fs::remove_file(&target).or(Ok(())),
+        let mut rollback_errors = Vec::new();
+        for (target, bytes) in original.into_iter().take(applied).rev() {
+            if scoped(scope, &target.to_string_lossy()).ok().as_ref() != Some(&target) {
+                rollback_errors.push(format!("rollback target changed: {}", target.display())); continue;
+            }
+            let result = match bytes {
+                Some(bytes) => super::recovery::atomic_write(&target, &bytes, false),
+                None => fs::remove_file(&target).map_err(|error| error.to_string()),
             };
+            if let Err(error) = result { rollback_errors.push(error); }
         }
-        return Err(format!("{message}; no file was changed"));
+        return Err(format!("{message}; rollback errors: {rollback_errors:?}; recovery preimages: {backups:?}"));
     }
     Ok((
-        json!({"applied":true,"files":changed}),
+        json!({"applied":true,"files":changed,"backups":backups}),
         Some(changed.join(", ")),
     ))
 }
@@ -717,6 +848,39 @@ fn interpret_hunk(hunk: &[String]) -> (Vec<String>, Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn identical_writes_preserve_the_file_and_real_changes_still_write() {
+        use std::os::unix::fs::MetadataExt;
+        let root=std::env::temp_dir().join(format!("lad-unchanged-write-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        fs::create_dir(&root).unwrap();let path=root.join("report.md");fs::write(&path,"observed output").unwrap();
+        let before=fs::metadata(&path).unwrap();
+        let (result,diff)=execute(&root,"write_file",&json!({"path":"report.md","content":"observed output"})).unwrap();
+        assert_eq!(result["unchanged"],true);assert_eq!(result["written"],false);assert!(diff.is_none());
+        let after=fs::metadata(&path).unwrap();assert_eq!(after.ino(),before.ino());assert_eq!(after.modified().unwrap(),before.modified().unwrap());
+        assert!(execute(&root,"create_file",&json!({"path":"report.md","content":"observed output"})).is_err());
+        let (changed,diff)=execute(&root,"write_file",&json!({"path":"report.md","content":"new observed output"})).unwrap();
+        assert_ne!(changed["unchanged"],true);assert!(diff.is_some());assert_eq!(fs::read_to_string(&path).unwrap(),"new observed output");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn identical_patch_targets_preserve_files_and_mixed_changes_still_write() {
+        use std::os::unix::fs::MetadataExt;
+        let root=patch_fixture(&[("a.txt","same\n"),("b.txt","before\n")]);
+        let before=fs::metadata(root.join("a.txt")).unwrap();
+        let patch="*** Begin Patch\n*** Update File: a.txt\n-same\n+same\n*** End Patch";
+        let (result,diff)=execute(&root,"apply_patch",&json!({"patch":patch})).unwrap();
+        assert_eq!(result["unchanged"],true);assert_eq!(result["files"],json!([]));assert!(diff.is_none());
+        let after=fs::metadata(root.join("a.txt")).unwrap();assert_eq!(before.ino(),after.ino());assert_eq!(before.modified().unwrap(),after.modified().unwrap());
+        let mixed="*** Begin Patch\n*** Update File: a.txt\n-same\n+same\n*** Update File: b.txt\n-before\n+after\n*** End Patch";
+        let (result,_)=execute(&root,"apply_patch",&json!({"patch":mixed})).unwrap();
+        assert_eq!(result["files"],json!(["b.txt"]));assert_ne!(result["unchanged"],true);
+        assert_eq!(fs::metadata(root.join("a.txt")).unwrap().ino(),before.ino());assert_eq!(fs::read_to_string(root.join("b.txt")).unwrap(),"after\n");
+        let cancelling="*** Begin Patch\n*** Update File: a.txt\n-same\n+temporary\n*** Update File: a.txt\n-temporary\n+same\n*** End Patch";
+        assert_eq!(execute(&root,"apply_patch",&json!({"patch":cancelling})).unwrap().0["unchanged"],true);
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn runtime_result_limit_truncates_with_a_continuation_offset() {

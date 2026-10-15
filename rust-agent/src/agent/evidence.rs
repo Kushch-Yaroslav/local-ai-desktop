@@ -282,7 +282,9 @@ impl EvidenceStore {
             .append(true)
             .open(journal_path)
             .map_err(|e| e.to_string())?;
-        if !resume {
+        // This attempt's exact input prefix becomes the interruption anchor,
+        // including when continuing an already completed logical-task lineage.
+        {
             let active = Active {
                 run_dir: dir.file_name().unwrap().to_string_lossy().into_owned(),
                 expected_history_hash: hash,
@@ -444,7 +446,9 @@ impl EvidenceStore {
                 Entry::Finalizing => "finalizing",
                 Entry::CloseoutRequested => "closeout_requested",
                 Entry::RunComplete => "run_complete",
+                Entry::RuntimeNotice { .. } => "runtime_notice",
                 Entry::WorkBudget(_) => "work_budget",
+                Entry::ContextExclusion { .. } => "context_exclusion",
                 Entry::LanguagePreference(_) => "language_preference",
                 Entry::Evidence(_) => "established_evidence",
                 Entry::EvidenceRejection { .. } => "evidence_rejection",
@@ -533,8 +537,8 @@ fn can_resume_interrupted(base: &Path, active: &Active, history: &[Value]) -> bo
     let Ok(bytes) = fs::read(base.join(&active.run_dir).join("events.jsonl")) else {
         return false;
     };
-    let mut prefix = Vec::new();
-    let mut first_user = None;
+    let mut latest_user = None;
+    let mut completed = false;
     for line in bytes
         .split(|byte| *byte == b'\n')
         .filter(|line| !line.is_empty())
@@ -543,16 +547,16 @@ fn can_resume_interrupted(base: &Path, active: &Active, history: &[Value]) -> bo
             return false;
         };
         match item.entry {
-            Entry::RunComplete => return false,
-            Entry::Message(value) if first_user.is_none() => prefix.push(value),
-            Entry::RunUser(value) if first_user.is_none() => first_user = Some(value),
+            Entry::RunComplete => completed = true,
+            Entry::RunUser(value) => { latest_user = Some(value); completed = false; },
             _ => {}
         }
     }
-    let Some(user) = first_user else { return false };
-    history.len() > prefix.len()
-        && history_hash(&history[..prefix.len()]) == history_hash(&prefix)
-        && history.get(prefix.len()).is_some_and(|current| history_hash(&[current.clone()]) == history_hash(&[user]))
+    if completed { return false; }
+    let Some(user) = latest_user else { return false };
+    history.iter().enumerate().any(|(index, current)|
+        history_hash(&history[..index]) == active.expected_history_hash
+            && history_hash(&[current.clone()]) == history_hash(&[user.clone()]))
 }
 
 fn read_stored_observation(
@@ -622,6 +626,33 @@ fn safe_name(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn completed_then_multiple_interruptions_keep_exact_task_lineage() {
+        let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let base = std::env::temp_dir().join(format!("evidence-resume-{}-{stamp}", std::process::id()));
+        let first_user = json!({"role":"user","content":"first task"});
+        let second_user = json!({"role":"user","content":"continue task"});
+        let third_user = json!({"role":"user","content":"resume after Stop"});
+        let (mut first, _) = EvidenceStore::open(&base,"first",&[],None).unwrap();
+        first.append(&Entry::RunUser(first_user.clone()),None).unwrap();
+        first.append(&Entry::RunComplete,None).unwrap();
+        first.finish(&base,&[],"first task",&[],&[],"first answer").unwrap(); drop(first);
+        let mut history = vec![first_user,json!({"role":"assistant","content":"first answer"})];
+        let (mut second, entries) = EvidenceStore::open(&base,"second",&history,None).unwrap();
+        assert_eq!(entries.len(),2); let lineage = second.dir.clone();
+        second.append(&Entry::RunUser(second_user.clone()),None).unwrap(); drop(second);
+        history.push(second_user);
+        let (mut resumed, entries) = EvidenceStore::open(&base,"third",&history,None).unwrap();
+        assert_eq!(resumed.dir,lineage); assert_eq!(entries.len(),3);
+        resumed.append(&Entry::RunUser(third_user.clone()),None).unwrap(); drop(resumed);
+        history.push(third_user);
+        let (resumed, entries) = EvidenceStore::open(&base,"fourth",&history,None).unwrap();
+        assert_eq!(resumed.dir,lineage); assert_eq!(entries.len(),4); drop(resumed);
+        history[0]["content"] = json!("edited / unrelated task");
+        let (changed, entries) = EvidenceStore::open(&base,"changed",&history,None).unwrap();
+        assert_ne!(changed.dir,lineage); assert!(entries.is_empty(),"edited history cannot adopt existing evidence");
+        drop(changed); fs::remove_dir_all(base).unwrap();
+    }
 
     #[test]
     fn history_hash_preserves_legacy_sorted_object_identity() {

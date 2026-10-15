@@ -72,6 +72,20 @@ export async function explicitWorkspaceRoots(userTexts: readonly string[], home:
   return roots;
 }
 
+/** Restore only canonical, still-existing directories recorded by application task ownership. */
+export async function restoreHistoricalTaskScope(scope: { projects: Array<{id:string;root:string}>; roots:string[] }, home: string) {
+  if (scope.projects.length > 2 || scope.roots.length > maxWorkspaceRoots) throw new Error('Saved task scope is invalid; select its project explicitly.');
+  for (const directory of [...scope.projects.map(project => project.root), ...scope.roots]) {
+    const normalized = resolve(directory);
+    if (!posix.isAbsolute(directory) || !isGrantablePath(normalized, home)) throw new Error('Saved task scope is not a permitted development directory; select a concrete project.');
+    let canonical: string;
+    try { canonical = await realpath(normalized); if (!(await stat(canonical)).isDirectory()) throw new Error('not a directory'); }
+    catch { throw new Error('Saved task directory is unavailable; select its existing project explicitly. No parent directory was granted.'); }
+    if (canonical !== normalized) throw new Error('Saved task directory resolves through a different path; select its project explicitly to confirm scope.');
+  }
+  return scope;
+}
+
 const executionTools = ['apply_patch', 'create_file', 'delete_file', 'list_directory', 'read_file', 'replace_text', 'run_terminal', 'write_file'];
 const knowledgeTools = ['project_knowledge_index', 'project_knowledge_read', 'project_knowledge_update'];
 const alwaysAvailableAgentTools = ['observation_index', 'observation_read', 'task_memory'];

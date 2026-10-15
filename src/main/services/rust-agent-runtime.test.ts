@@ -253,9 +253,57 @@ require('node:readline').createInterface({input:process.stdin}).on('line', line 
     assert.deepEqual(early, ['cancelled']);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
+/** Protocol fixture: accounting survives the Electron bridge without substituting
+ * the post-compaction target for the trigger. No real inference is involved. */
+export async function runAccountingBridgeRegression(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-accounting-'));
+  try {
+    const script = join(dir, 'worker.js');
+    const events = [
+      { type: 'context_optimized', before: 88956, after: 23337 },
+      { type: 'compaction_diagnostics', trigger_reason: 'proactive_threshold', context_window: 110592, projected_input_before: 88956, projected_input_after: 23337, trigger_threshold_tokens: 88473, compaction_target_tokens: 60825, preferred_output_tokens: 8192, safety_reserve_tokens: 1024 },
+      { type: 'loop_diagnostics', observations: 222, guidance: 0, warnings: 0, pauses: 0 },
+      { type: 'final', content: 'Done' },
+    ];
+    writeFileSync(script, `#!/usr/bin/env node\nrequire('node:readline').createInterface({input:process.stdin}).on('line',()=>{for(const event of ${JSON.stringify(events)})process.stdout.write(JSON.stringify(event)+'\\n');});\n`);
+    chmodSync(script, 0o755);
+    const seen: import('../../shared/types').StreamEvent[] = [];
+    for await (const event of new RustAgentRuntime('', script).stream('fixture', [message('user', 'task')], [], new AbortController().signal, 110592, 'deep', 'off', 'accounting')) seen.push(event);
+    const cards = seen.filter(e => e.type === 'tool');
+    assert.equal(cards[0].activity.id, cards[1].activity.id, 'diagnostics must enrich the same compaction card');
+    assert.equal(cards[1].activity.metadata?.trigger_threshold_tokens, 88473);
+    assert.notEqual(cards[1].activity.metadata?.trigger_threshold_tokens, cards[1].activity.metadata?.compaction_target_tokens);
+    assert(seen.some(e => e.type === 'agent-telemetry' && e.telemetry.loopObservations === 222));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+async function runPermissionTransportRegression(): Promise<void> {
+  const dir=mkdtempSync(join(tmpdir(),'permission-bridge-'));
+  try {
+    const script=join(dir,'runtime.js'),received=join(dir,'reply.json');
+    writeFileSync(script, `#!/usr/bin/env node
+const fs=require('node:fs');const out=e=>process.stdout.write(JSON.stringify(e)+'\\n');
+require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+ const r=JSON.parse(line);
+ if(r.type==='run')out({type:'host_tool_call',id:'permission',name:'request_permission',arguments:{operation:'run_terminal',arguments:{command:'printf never-executed'}}});
+ if(r.type==='host_tool_result'){fs.writeFileSync(${JSON.stringify(received)},JSON.stringify(r.result));out({type:'final',content:'No operation authorized.'});}
+});`);
+    chmodSync(script,0o755);
+    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
+    try {
+      for await (const _ of new RustAgentRuntime('',script).stream('fixture',[message('user','permission failure')],[],abort.signal,4096,'fast','off','permission-regression',undefined,'fixture',false,undefined,[],undefined,async()=>{throw new Error('renderer disconnected');})) { /* drain actual bridge */ }
+      assert(!abort.signal.aborted);
+      const result=JSON.parse(readFileSync(received,'utf8'));
+      assert.equal(result.code,'PERMISSION_DENIED');assert.equal(result.retrySameArguments,false);
+      assert.equal(result.reason,'ui_unavailable');assert.equal(result.approved,false);
+    } finally { clearTimeout(timer); }
+  } finally {rmSync(dir,{recursive:true,force:true});}
+}
+
 if (require.main === module) {
   runRustAgentRuntimeRegression();
   void (async () => {
+    await runPermissionTransportRegression();
+    await runAccountingBridgeRegression();
     await runSteeringBridgeRegression();
     await runFatalBridgeRegression();
     await runWorkerExitRegression();

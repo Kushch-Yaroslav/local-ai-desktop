@@ -5,13 +5,13 @@
 //! knowledge.
 
 use local_ai_agent_runtime::agent::loop_runtime::{
-    run, Config, MAX_INVESTIGATION_TURNS, MAX_SYNTHESIS_TURNS,
+    run, Config,
 };
 use local_ai_agent_runtime::agent::policy::RunPolicy;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -412,6 +412,25 @@ fn a_structured_pause_checkpoints_and_ends_without_resuming_guidance() {
     );
 }
 
+#[test]
+fn pause_received_during_generation_blocks_new_mutations_before_the_checkpoint() {
+    let workspace = Workspace::new(&[("a.txt", "original")]);
+    let pause = Arc::new(AtomicBool::new(false));
+    let flag = pause.clone();
+    let provider = Provider::start(move |_, n| {
+        if n == 0 {
+            flag.store(true, Ordering::Relaxed);
+            Reply::Tools(vec![("write_file", json!({"path":"a.txt","content":"must not execute"}))])
+        } else { Reply::Text("Paused before modifying files.".into()) }
+    });
+    let mut config = workspace.config(&provider.endpoint, "edit a.txt");
+    config.pause_requested = pause;
+    run(config);
+    assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "original");
+    assert!(completed(&workspace.journal()));
+    assert!(tool_result_text(&provider.requests()[1]).contains("run is paused"));
+}
+
 /// The checkpoint is bounded: a model that keeps writing checkpoints loses its tools, and a model that never
 /// answers still ends with a visible paused summary.
 #[test]
@@ -698,7 +717,17 @@ impl Workspace {
             system: "system".into(),
             ui_language: None,
             user: user.into(),
-            user_images: Vec::new(), user_image_refs: Vec::new(), web_tools: Vec::new(), artifact_tools: Vec::new(), attachment_tools: Vec::new(), host_tools: None,
+            user_images: Vec::new(), user_image_refs: Vec::new(), web_tools: Vec::new(), artifact_tools: Vec::new(), attachment_tools: Vec::new(), host_tools: Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_dispatch(|name, args| {
+                if name != "request_permission" { return None; }
+                // Scripted fixture user authorizes project execution/deletion;
+                // Git mutations remain denied in refusal regressions.
+                let command = args.pointer("/arguments/command").and_then(Value::as_str).unwrap_or("");
+                let target=args.pointer("/arguments/path").and_then(Value::as_str).map(PathBuf::from);
+                let root=args.get("root").and_then(Value::as_str).map(PathBuf::from);
+                let outside=target.as_ref().is_some_and(|p|p.is_absolute() && !root.as_ref().is_some_and(|root|p.starts_with(root)));
+                let approved = !outside && !command.contains("git ") && command != "echo a && echo b";
+                Some(json!({"approved":approved,"reason":if approved { "once" } else { "user_rejected" }}))
+            }))),
             root: Some(self.root.to_string_lossy().into_owned()),
             secondary_root: None,
             workspace_roots: Vec::new(),
@@ -716,6 +745,7 @@ impl Workspace {
             steering: Arc::new(Mutex::new(Vec::new())),
             steering_closed: Arc::new(AtomicBool::new(false)),
             pause_requested: Arc::new(AtomicBool::new(false)),
+            control: Arc::new(Mutex::new(Default::default())),
         }
     }
 
@@ -999,178 +1029,19 @@ fn no_reminder_without_a_concrete_unopened_request() {
     assert_eq!(provider.requests().len(), 2);
 }
 
-/// Failure shape: exhausting the turn budget used to end the run with an error
-/// and no answer. Tools are now withdrawn and the run still produces one.
+/// Repeated identical actions pause a CLI run without exhausting productive work.
 #[test]
-fn exhausting_the_turn_budget_withdraws_tools_and_still_answers() {
-    let workspace = Workspace::new(SHOP);
-    let provider = Provider::start(|request, _| {
-        if request.get("tools").is_some() {
-            Reply::Tools(vec![("list_directory", json!({"path":"."}))])
-        } else {
-            Reply::Text("Answer from what was inspected; the rest was not examined.".into())
-        }
+fn repeated_observations_checkpoint_but_do_not_reintroduce_a_work_allowance() {
+    let workspace=Workspace::new(SHOP);
+    let provider=Provider::start(|request,_| {
+        if request.get("tools").is_some(){Reply::Tools(vec![("list_directory",json!({"path":"."}))])}
+        else {Reply::Text("Paused after repeated identical observations; task unfinished.".into())}
     });
-    run(workspace.config(&provider.endpoint, READ_ONLY));
-    let journal = workspace.journal();
-    assert!(completed(&journal), "run must end with an accepted answer");
-    let requests = provider.requests();
-    assert_eq!(requests.len(), MAX_INVESTIGATION_TURNS + 1);
-    assert!(MAX_SYNTHESIS_TURNS >= 1);
-    let last = requests.last().unwrap();
-    assert!(last.get("tools").is_none() && last.get("tool_choice").is_none());
-    assert!(user_turn_context(last).contains("MODE: FINALIZING"));
-    assert!(tool_names(&requests[MAX_INVESTIGATION_TURNS - 1]).contains(&"read_file".to_owned()));
-}
-
-/// Incident structure: optional plan left at 1/5, all six outcomes implemented,
-/// selected suite FAIL, then the hard work-turn limit. The run may end, but its
-/// persisted visible answer must expose the actual state even if prose lies.
-#[test]
-fn budget_exit_discloses_unverified_results_and_preserves_unreconciled_plan() {
-    let mut files = APP.to_vec();
-    files.push(("test.js", "console.error('FAIL: project suite assertion'); process.exit(1);\n"));
-    let workspace = Workspace::new(&files);
-    let provider = Provider::start(|request, n| {
-        if request.get("tools").is_none() {
-            assert!(user_turn_context(request).contains("MODE: FINALIZING"));
-            return Reply::Text("Everything works and is fully verified.".into());
-        }
-        match n {
-            0 => {
-                let mut calls = vec![plan(json!({"action":"set","steps":["inspect","implement","test","browser","regression"]}))];
-                for id in 1..=6 {
-                    calls.push(deliverable("add", json!({"id":format!("d{id}"),"text":format!("Outcome {id}"),"check":if id <= 3 { "browser" } else { "test" }})));
-                }
-                Reply::Tools(calls)
-            }
-            1 => {
-                let mut calls = vec![edit_app(BAD), plan(json!({"action":"update","id":"s1","status":"completed"}))];
-                for id in 1..=6 {
-                    calls.push(deliverable("implemented", json!({"id":format!("d{id}"),"evidence":"source changed"})));
-                }
-                Reply::Tools(calls)
-            }
-            2 => Reply::Tools(vec![("run_terminal",json!({"command":"node test.js","deliverable_ids":["d4","d5","d6"]}))]),
-            _ => Reply::Tools(vec![("list_directory",json!({"path":"."}))]),
-        }
-    });
-    let user = "Implement the six outcomes and verify them.";
-    run(workspace.config(&provider.endpoint, user));
-    let requests = provider.requests();
-    assert_eq!(requests.len(), MAX_INVESTIGATION_TURNS + 1, "terminal disclosure must not add a provider call");
-    assert_eq!(withheld_drafts(&workspace.journal()), 0, "budget exit remains bounded");
-    let last = requests.last().unwrap();
-    let plan = latest_runtime_section(last, "plan");
-    assert!(plan.contains("[x] s1") && plan.contains("[>] s2") && plan.contains("[ ] s5"));
-    let results = latest_runtime_section(last, "deliverables");
-    assert_eq!(results.matches("[implemented]").count(), 6);
-    assert!(!results.contains("[verified]"));
-    let shown = "Everything works and is fully verified.\n\n**Agent V2 status:** Deliverables verified: 0/6. Implemented, not verified: d1, d2, d3, d4, d5, d6. Last recorded plan: 1/5 steps complete; remaining steps are incomplete. Work-turn budget exhausted; the run ended with the state above. Budget decision: no new checked progress in the last 16 work turns.";
-    let active: Value = serde_json::from_slice(&std::fs::read(workspace.base.join("evidence/active.json")).unwrap()).unwrap();
-    let expected = local_ai_agent_runtime::agent::evidence::history_hash(&[
-        json!({"role":"user","content":user}), json!({"role":"assistant","content":shown}),
-    ]);
-    assert_eq!(active["expected_history_hash"], expected, "the UI answer and Continue history must include the runtime disclosure");
-    assert!(completed(&workspace.journal()));
-
-    // Continue must resume the same journal when the persisted assistant text
-    // includes the disclosure, while starting a new work phase.
-    let resumed_provider = Provider::start(|request, _| {
-        let plan = latest_runtime_section(request, "plan");
-        assert!(plan.contains("[x] s1") && plan.contains("[>] s2") && plan.contains("[ ] s5"));
-        assert_eq!(latest_runtime_section(request, "deliverables").matches("[implemented]").count(), 6);
-        Reply::Text("Still implemented, not verified; no additional check ran.".into())
-    });
-    let mut resumed = workspace.config(&resumed_provider.endpoint, "Continue");
-    resumed.history = vec![json!({"role":"user","content":user}), json!({"role":"assistant","content":shown})];
-    // Electron supplies the persisted Task Memory projection on Continue.
-    resumed.task_memory = Some(json!({"entries":[], "plan":{"steps":[
-        {"id":"s1","text":"inspect","status":"completed"},
-        {"id":"s2","text":"implement","status":"in_progress"},
-        {"id":"s3","text":"test","status":"pending"},
-        {"id":"s4","text":"browser","status":"pending"},
-        {"id":"s5","text":"regression","status":"pending"}
-    ]}, "deliverables":{"items":(1..=6).map(|id| json!({
-        "id":format!("d{id}"),"text":format!("Outcome {id}"),"status":"implemented",
-        "check":if id<=3 { "browser" } else { "test" }
-    })).collect::<Vec<_>>()}}));
-    run(resumed);
-    assert!(tool_names(&resumed_provider.requests()[0]).is_empty(),
-        "Continue must preserve a denied work allowance instead of silently resetting it");
-    assert!(resumed_provider.requests().len() <= 3, "Continue reviews remain bounded");
-    let resumed_active: Value = serde_json::from_slice(&std::fs::read(workspace.base.join("evidence/active.json")).unwrap()).unwrap();
-    assert_eq!(resumed_active["run_dir"], active["run_dir"], "the disclosure must not fork the durable history on Continue");
-}
-
-/// A provider that keeps calling tools during synthesis gets an explicit
-/// instruction instead of silently looping, and the run stays bounded.
-#[test]
-fn tool_calls_during_synthesis_are_answered_with_an_instruction_to_write_the_answer() {
-    let workspace = Workspace::new(SHOP);
-    let provider = Provider::start(|request, _| {
-        let finalizing = request.get("tools").is_none();
-        let already_told = request["messages"].as_array().unwrap().iter().any(|m| {
-            m["role"] == "tool"
-                && m["content"].as_str().is_some_and(|c| {
-                    c.split("[CONTINUED USER TURN — NOT TOOL OUTPUT]")
-                        .next()
-                        .unwrap_or("")
-                        .split("[AGENT RUNTIME STATE — NOT A USER MESSAGE]")
-                        .next()
-                        .unwrap_or("")
-                        .contains("Write the final answer now")
-                })
-        });
-        if finalizing && already_told {
-            Reply::Text("Final answer.".into())
-        } else {
-            Reply::Tools(vec![("list_directory", json!({"path":"."}))])
-        }
-    });
-    run(workspace.config(&provider.endpoint, READ_ONLY));
-    assert!(completed(&workspace.journal()));
-    assert_eq!(provider.requests().len(), MAX_INVESTIGATION_TURNS + 2);
-}
-
-/// Failure shape: protocol misfires during synthesis (markup instead of an
-/// answer, repeated tool calls) consumed a three-turn allowance and ended the
-/// run in `turn_limit` without an answer. Misfires get an instruction that
-/// matches the mode, and the allowance covers many of them.
-#[test]
-fn repeated_synthesis_misfires_still_end_in_an_answer() {
-    let workspace = Workspace::new(SHOP);
-    let provider = Provider::start(|request, _| {
-        if request.get("tools").is_some() {
-            return Reply::Tools(vec![("list_directory", json!({"path":"."}))]);
-        }
-        let misfires = request["messages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|m| {
-                m["role"] == "tool"
-                    && m["content"].as_str().is_some_and(|c| {
-                        c.split("[CONTINUED USER TURN — NOT TOOL OUTPUT]")
-                            .next()
-                            .unwrap_or("")
-                            .split("[AGENT RUNTIME STATE — NOT A USER MESSAGE]")
-                            .next()
-                            .unwrap_or("")
-                            .contains("Write the final answer now")
-                    })
-            })
-            .count();
-        match misfires {
-            0..=4 => Reply::Tools(vec![("list_directory", json!({"path":"."}))]),
-            _ => Reply::Text("Answer after several misfires.".into()),
-        }
-    });
-    run(workspace.config(&provider.endpoint, READ_ONLY));
-    assert!(completed(&workspace.journal()));
-    assert_eq!(provider.requests().len(), MAX_INVESTIGATION_TURNS + 6);
-    let reminded = user_turn_context(provider.requests().last().unwrap());
-    assert!(!reminded.contains("Emit a complete structured tool call"));
+    run(workspace.config(&provider.endpoint,READ_ONLY));
+    assert!(provider.requests().len()<30);
+    let journal=workspace.journal();
+    assert!(journal.iter().any(|e|e.get("RuntimeNotice").is_some()));
+    assert_eq!(saved_work_budget(&workspace).limit,0);
 }
 
 /// Failure shape: a turn that produced neither content nor a structured call
@@ -1305,7 +1176,18 @@ fn a_burst_of_large_reads_cannot_exceed_a_small_window() {
         .unwrap()["content"]
         .as_str()
         .unwrap();
-    assert!(first_result.contains("\"truncated\":true"));
+    // Provider projection may use the bounded historical receipt. Its
+    // continuation metadata must survive; exact results remain in immutable observations.
+    assert!(first_result.contains("\"truncated\":true") || first_result.contains("truncated=true"));
+    let evidence = workspace.base.join("evidence");
+    let active: Value = serde_json::from_slice(&std::fs::read(evidence.join("active.json")).unwrap()).unwrap();
+    let observations = evidence.join(active["run_dir"].as_str().unwrap()).join("observations");
+    for index in 1..=8 {
+        let body=std::fs::read_to_string(observations.join(format!("obs-{index:08}.txt"))).unwrap();
+        let exact: Value=serde_json::from_str(body.lines().next().unwrap()).unwrap();
+        assert_eq!(exact["truncated"],true,"read {index} must remain bounded in durable storage");
+        assert!(exact["next_offset_chars"].as_u64().unwrap()>0,"read {index} needs a continuation");
+    }
     assert!(first_result.contains("next_offset_chars"));
 }
 
@@ -1476,7 +1358,7 @@ fn explicit_directory_without_a_project_exposes_execution_tools_and_really_execu
         .to_string()
         .contains(&granted.to_string_lossy().into_owned()));
     assert!(
-        tool_result_text(&requests[2]).contains("escapes"),
+        tool_result_text(&requests[2]).contains("PERMISSION_DENIED"),
         "the refusal was not reported"
     );
     assert!(
@@ -1566,6 +1448,11 @@ fn project_scope_keeps_all_tools_and_named_directories_extend_file_scope() {
     });
     let mut config = workspace.config(&provider.endpoint, "write a file");
     config.workspace_roots = vec![extra.to_string_lossy().into_owned()];
+    let allowed=extra.clone();
+    config.host_tools=Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_dispatch(move|name,args| {
+        if name!="request_permission" {return None;}
+        Some(json!({"approved":args.pointer("/arguments/path").and_then(Value::as_str).is_some_and(|path|Path::new(path).starts_with(&allowed)),"reason":"once"}))
+    })));
     run(config);
     assert_eq!(std::fs::read_to_string(written).unwrap(), "hello");
     let names = tool_names(&provider.requests()[0]);
@@ -1634,8 +1521,8 @@ fn failures_and_refusals_are_reported_honestly_and_the_run_still_completes() {
             .contains("no such file")
             || tool_result_text(&requests[2]).contains("error")
     );
-    assert!(tool_result_text(&requests[3]).contains("escapes"));
-    assert!(tool_result_text(&requests[4]).contains("approval required"));
+    assert!(tool_result_text(&requests[3]).contains("PERMISSION_DENIED"));
+    assert!(tool_result_text(&requests[4]).contains("PERMISSION_DENIED"));
     assert!(
         tool_result_text(&requests[5])
             .to_lowercase()
@@ -1940,9 +1827,9 @@ fn saved_deliverables_return_on_continue_and_a_fresh_run_starts_empty() {
         .contains("<deliverables>"));
 }
 
-/// A read-only request produces nothing to deliver, so the tool is not offered; other runs offer it.
+/// Read-only requests retain contract metadata, while project mutations remain unavailable.
 #[test]
-fn the_deliverables_tool_is_offered_except_for_read_only_requests() {
+fn read_only_requests_keep_deliverable_metadata_without_project_mutations() {
     let workspace = Workspace::new(&[("a.txt", "a")]);
     let provider = Provider::start(|_, _| Reply::Text("ok".into()));
     run(workspace.config(&provider.endpoint, "do the work"));
@@ -1950,7 +1837,11 @@ fn the_deliverables_tool_is_offered_except_for_read_only_requests() {
     let read_only_provider = Provider::start(|_, _| Reply::Text("ok".into()));
     let read_only_workspace = Workspace::new(&[("a.txt", "a")]);
     run(read_only_workspace.config(&read_only_provider.endpoint, READ_ONLY));
-    assert!(!tool_names(&read_only_provider.requests()[0]).contains(&"deliverables".to_owned()));
+    let offered = tool_names(&read_only_provider.requests()[0]);
+    assert!(offered.contains(&"deliverables".to_owned()));
+    for mutation in ["write_file", "create_file", "replace_text", "apply_patch", "delete_file"] {
+        assert!(!offered.contains(&mutation.to_owned()), "read-only request exposed {mutation}");
+    }
 }
 
 /// Files the run created stay visible, and a pending review points at them so scratch files are not forgotten.
@@ -2057,12 +1948,8 @@ fn write_file_over_a_file_changed_since_the_read_is_refused_until_read_again() {
             .contains("File changed since your last read. Read the latest version before writing."),
         "{refusal}"
     );
-    assert!(
-        refusal.contains(
-            r#"{"error":"File changed since your last read. Read the latest version before writing."}"#
-        ),
-        "the error must be exactly the concise instruction: {refusal}"
-    );
+    assert!(refusal.contains("STALE_FILE_REVISION"), "the concise instruction retains specific error metadata: {refusal}");
+    assert!(refusal.contains("\"retrySameArguments\":false"), "stale edits require new arguments: {refusal}");
     assert_eq!(
         std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(),
         "mine"
@@ -2743,6 +2630,35 @@ fn an_endless_fail_and_retry_cycle_is_bounded_by_the_budget() {
     assert!(!tail.contains("[verified]"), "{tail}");
 }
 
+#[test]
+fn identical_deterministic_terminal_failure_is_not_executed_or_approved_twice() {
+    for deterministic in [true, false] {
+        let diagnostic = if deterministic { "HTTP Error 404: Not Found" } else { "temporary server unavailable" };
+        let script = format!("require('fs').appendFileSync('attempts.txt', 'attempt\\n'); console.error({}); process.exit(1);", serde_json::to_string(diagnostic).unwrap());
+        let workspace = Workspace::new(&[("remote.js", &script)]);
+        let provider = Provider::start(move |request, turn| {
+            if turn < 2 { return Reply::Tools(vec![("run_terminal", json!({"command":"node remote.js"}))]); }
+            if turn == 2 {
+                let result = last_tool_result(request);
+                assert!(result.contains(if deterministic { "DUPLICATE_FAILED_OPERATION" } else { "COMMAND_FAILED" }), "{result}");
+            }
+            Reply::Text("The resource request failed; no replacement was installed.".into())
+        });
+        let approvals = Arc::new(AtomicUsize::new(0));
+        let count = approvals.clone();
+        let mut config = workspace.config(&provider.endpoint, "Use the project command to check remote resource availability");
+        config.host_tools = Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_dispatch(move |name, _args| {
+            if name != "request_permission" { return None; }
+            count.fetch_add(1, Ordering::Relaxed);
+            Some(json!({"approved":true,"reason":"once"}))
+        })));
+        run(config);
+        let expected = if deterministic { 1 } else { 2 };
+        assert_eq!(std::fs::read_to_string(workspace.root.join("attempts.txt")).unwrap().lines().count(), expected);
+        assert_eq!(approvals.load(Ordering::Relaxed), expected, "duplicate detection must precede approval");
+    }
+}
+
 /// The ledger and statuses are runtime state: a resumed run sees the recorded
 /// deliverable and proof, with old checks marked stale; a fresh run starts empty.
 #[test]
@@ -2954,6 +2870,8 @@ fn verify_then_a_mutating_terminal_command_makes_the_verification_stale() {
         "mv app.js moved.js",
         "rm app.js",
         "mkdir -p out",
+        "printf '%s' 'changed' > app.js",
+        "printf '%s' 'module.exports = (a, b) => a + b;\n// edited\n' > app.js && true",
     ] {
         let workspace = Workspace::new(APP);
         let requests = verified_then(&workspace, term(command));
@@ -2971,6 +2889,132 @@ fn verify_then_a_mutating_terminal_command_makes_the_verification_stale() {
             "{command}: re-verification is one bounded review"
         );
     }
+}
+
+#[test]
+fn verified_terminal_literal_noop_keeps_evidence_but_real_edits_do_not() {
+    let workspace = Workspace::new(APP);
+    let requests = verified_then(&workspace, term(&format!("printf '%s' '{GOOD}' > app.js")));
+    let after = latest_runtime_section(&requests[4], "deliverables");
+    assert!(after.contains("[verified] d-001"), "{after}");
+    assert_eq!(withheld_drafts(&workspace.journal()), 0);
+}
+
+/// Reproduce Continue A after B: the shell launches in B, but one permitted
+/// cd-prefixed unittest in A must be evidence for A. B's green script is not.
+#[test]
+fn continued_task_checks_use_tracked_source_scope_instead_of_launch_cwd() {
+    // Host /tmp is intentionally hidden except for the launch workspace. Keep
+    // these sibling fixtures in our ignored validation directory; do not alter
+    // the sandbox to expose host /tmp.
+    let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(".ai-research/validation");
+    std::fs::create_dir_all(&parent).unwrap();
+    let base = parent.join(format!("task-cwd-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+    std::fs::create_dir(&base).unwrap();
+    let root = base.join("task-a"); std::fs::create_dir(&root).unwrap();
+    let workspace = Workspace { root: root.canonicalize().unwrap(), base };
+    for (path, content) in [
+        ("calculator.py", "def add(a, b): return a + b\n"),
+        ("test_calculator.py", "import unittest\nfrom calculator import add\nclass CalculatorTests(unittest.TestCase):\n def test_add(self): self.assertEqual(add(2, 3), 5)\n def test_negative(self): self.assertEqual(add(-2, 3), 1)\n"),
+    ] { std::fs::write(workspace.root.join(path), content).unwrap(); }
+    let sibling = workspace.base.join("task-b"); std::fs::create_dir_all(&sibling).unwrap();
+    let unrelated = sibling.join("test_unrelated.py"); std::fs::write(&unrelated, "print('unrelated green test')\n").unwrap();
+    let source = workspace.root.join("calculator.py");
+    let command = format!("cd '{}' && python3 -m unittest -q", workspace.root.display());
+    let foreign_command = format!("python3 '{}'", unrelated.display());
+    let project_a = workspace.root.clone(); let launch = sibling.clone();
+    let provider = Provider::start(move |request, turn| match turn {
+        0 => Reply::Tools(vec![("deliverables", json!({"action":"add","id":"d1","text":"calculator tests pass","check":"test"}))]),
+        1 => Reply::Tools(vec![("run_terminal", json!({"command":command,"deliverable_ids":["d1"]}))]),
+        2 => {
+            assert!(last_tool_result(request).contains("Ran 2 tests"));
+            assert!(latest_runtime_section(request, "verification_state").contains("ev-001"));
+            Reply::Tools(vec![("run_terminal", json!({"command":foreign_command,"deliverable_ids":["d1"]}))])
+        },
+        3 => {
+            // The canonical tool result is followed by an observation trailer.
+            let raw = last_tool_result(request);
+            let result = serde_json::Deserializer::from_str(&raw).into_iter::<Value>().next().unwrap().unwrap();
+            assert_eq!(result["verification_diagnostic"]["reason"], "check_outside_task_sources");
+            assert_eq!(result["verification_diagnostic"]["launch_cwd"], launch.to_string_lossy().as_ref());
+            assert_eq!(result["verification_diagnostic"]["check_directory"], launch.to_string_lossy().as_ref());
+            assert!(result["verification_diagnostic"]["task_sources"].to_string().contains("calculator.py"));
+            Reply::Tools(vec![("deliverables", json!({"action":"implemented","id":"d1","evidence":project_a.join("calculator.py").to_string_lossy()}))])
+        },
+        4 => Reply::Tools(vec![("deliverables", json!({"action":"verify","id":"d1","evidence":"ev-001"}))]),
+        _ => {
+            assert!(latest_runtime_section(request, "deliverables").contains("[verified] d1"));
+            Reply::Text("Calculator unittest passed; the sibling check supplied no task proof.".into())
+        },
+    });
+    let mut config = workspace.config(&provider.endpoint, "Continue calculator task A. Task B is unrelated.");
+    config.root = Some(sibling.to_string_lossy().into_owned());
+    config.workspace_roots = vec![workspace.root.to_string_lossy().into_owned()];
+    config.task_memory = Some(json!({"entries":[],"verification":{"epoch":1,"records":[],"code_changed":true,"changed":{source.to_string_lossy().into_owned():1}}}));
+    run(config);
+    assert_eq!(provider.requests().len(), 6);
+    assert!(completed(&workspace.journal()));
+}
+
+#[test]
+fn task_scoped_tests_do_not_prove_sibling_integrity_claims() {
+    let parent = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(".ai-research/validation");
+    std::fs::create_dir_all(&parent).unwrap();
+    let base = parent.join(format!("integrity-scope-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+    let root = base.join("task-a"); std::fs::create_dir_all(&root).unwrap();
+    let workspace = Workspace { root: root.canonicalize().unwrap(), base };
+    let sibling = workspace.base.join("task-b"); std::fs::create_dir(&sibling).unwrap();
+    let sentinel = sibling.join("untouched.txt"); std::fs::write(&sentinel, "fixture sentinel\n").unwrap();
+    std::fs::write(workspace.root.join("calculator.py"), "def power(a, b): return a ** b\n").unwrap();
+    std::fs::write(workspace.root.join("test_calculator.py"), "import unittest\nfrom calculator import power\nclass PowerTests(unittest.TestCase):\n def test_power(self): self.assertEqual(power(2, 3), 8)\n").unwrap();
+    let source = workspace.root.join("calculator.py");
+    let command = format!("cd '{}' && python3 -m unittest -q", workspace.root.display());
+    let a = workspace.root.to_string_lossy().into_owned();
+    let provider = Provider::start(move |request, turn| match turn {
+        0 => Reply::Tools(vec![
+            ("deliverables", json!({"action":"add","id":"a","text":"Calculator tests pass","check":"test","paths":[a]})),
+            // Exercise the exact recorded wording without model-declared type/paths.
+            ("deliverables", json!({"action":"add","id":"b","text":"Не изменять task-b"})),
+            ("deliverables", json!({"action":"add","id":"c","text":"task-b behaviour","check":"runtime","paths":[]})),
+        ]),
+        1 => Reply::Tools(vec![("run_terminal", json!({"command":command,"deliverable_ids":["a","b","c"]}))]),
+        2 => {
+            let raw = last_tool_result(request);
+            let result = serde_json::Deserializer::from_str(&raw).into_iter::<Value>().next().unwrap().unwrap();
+            assert!(result["stderr"].as_str().unwrap().contains("Ran 1 test"));
+            assert_eq!(result["verification_attribution"]["associated_deliverable_ids"], json!(["a"]));
+            assert_eq!(result["verification_attribution"]["unverified_deliverable_ids"], json!(["b", "c"]));
+            Reply::Tools(["a", "b", "c"].iter().map(|id| ("deliverables", json!({"action":"implemented","id":id}))).collect())
+        },
+        3 => Reply::Tools(vec![("deliverables", json!({"action":"verify","id":"a","evidence":"ev-001"}))]),
+        4 => { assert!(latest_runtime_section(request,"deliverables").contains("[verified] a"));
+            Reply::Tools(vec![("deliverables", json!({"action":"verify","id":"b","evidence":"ev-001"}))]) },
+        5 => {
+            let result = last_tool_result(request);
+            assert!(result.contains("INTEGRITY_EVIDENCE_UNAVAILABLE"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            assert!(result.contains("pre-operation baseline"));
+            assert!(latest_runtime_section(request,"verification_state").contains("Integrity cannot be verified"));
+            Reply::Tools(vec![("deliverables", json!({"action":"verify","id":"c","evidence":"ev-001"}))])
+        },
+        _ => {
+            let result = last_tool_result(request);
+            assert!(result.contains("Evidence scope does not cover"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            let items = latest_runtime_section(request,"deliverables");
+            assert!(items.contains("[verified] a"));
+            assert!(items.contains("[implemented] b")); assert!(items.contains("[implemented] c"));
+            Reply::Text("Calculator tests passed. Task B integrity and behaviour are unverified; no pre-operation baseline was captured.".into())
+        },
+    });
+    let mut config = workspace.config(&provider.endpoint, "Continue A; do not modify B.");
+    config.root = Some(sibling.to_string_lossy().into_owned());
+    config.workspace_roots = vec![workspace.root.to_string_lossy().into_owned()];
+    config.task_memory = Some(json!({"entries":[],"verification":{"epoch":1,"records":[],"code_changed":true,"changed":{source.to_string_lossy().into_owned():1}}}));
+    run(config);
+    assert_eq!(provider.requests().len(), 7, "missing integrity capability must not cause a verification loop");
+    assert!(completed(&workspace.journal()));
+    assert_eq!(std::fs::read_to_string(&sentinel).unwrap(), "fixture sentinel\n");
 }
 
 #[test]
@@ -3191,7 +3235,7 @@ fn every_started_tool_call_emits_its_own_result_event() {
         .spawn()
         .unwrap();
     let request = json!({
-        "type":"run","run_id":"lifecycle","endpoint":provider.endpoint,"model":"scripted",
+        "type":"run","run_id":"lifecycle","endpoint":provider.endpoint,"model":"scripted","approval_ui":true,
         "system":"system","user":"run the checks","project_root":workspace.root,
         "context_limit":65536,"reasoning_mode":"fast","web_mode":"off","policy":"auto",
         "evidence_dir":workspace.base.join("evidence"),
@@ -3203,6 +3247,11 @@ fn every_started_tool_call_emits_its_own_result_event() {
         let event: Value = serde_json::from_str(&line.unwrap()).unwrap();
         let event = event.get("event").cloned().unwrap_or(event);
         let kind = event["type"].as_str().unwrap_or("").to_owned();
+        if kind == "host_tool_call" && event["name"] == "request_permission" {
+            let command = event.pointer("/arguments/arguments/command").and_then(Value::as_str).unwrap_or("");
+            let approved = command == "exit 3";
+            writeln!(stdin, "{}", json!({"type":"host_tool_result","run_id":"lifecycle","id":event["id"],"result":{"approved":approved,"reason":if approved { "once" } else { "user_rejected" }}})).unwrap();
+        }
         events.push(event);
         if matches!(kind.as_str(), "final" | "agent_error" | "agent_stopped") {
             break;
@@ -3237,7 +3286,7 @@ fn every_started_tool_call_emits_its_own_result_event() {
     assert!(result(&started[0])["message"]
         .as_str()
         .unwrap()
-        .contains("approval required"));
+        .contains("PERMISSION_DENIED"));
     let failed = result(&started[1]);
     let payload: Value = serde_json::from_str(
         failed["message"]
@@ -3257,166 +3306,103 @@ fn saved_work_budget(workspace: &Workspace) -> local_ai_agent_runtime::agent::wo
         .map(|value| serde_json::from_value(value.clone()).unwrap())).unwrap()
 }
 
-/// Long implementation followed by unfinished verification: the same request
-/// at turn 129 still has tools, in both strategies and without mandatory plan.
 #[test]
-fn adaptive_productive_fixture_extends_with_incomplete_verification_in_fast_and_deep() {
-    for mode in ["fast", "deep"] {
-        for registered in [true, false] {
-            let workspace = Workspace::new(APP);
-            let provider = Provider::start(move |request, n| {
-                if n == 0 && registered {
-                    return Reply::Tools((1..=6).map(|id| deliverable("add", json!({"id":format!("runtime{id}"),"text":format!("Requested runtime outcome {id}"),"check":"runtime"}))).collect());
-                }
-                if [30, 60, 90].contains(&n) {
-                    return Reply::Tools(vec![edit_app(&format!("module.exports = (a, b) => a + b; // implementation stage {n}\n"))]);
-                }
-                if n == 125 {
-                    let mut calls = vec![edit_app(BAD)];
-                    if registered { calls.extend((1..=6).map(|id| deliverable("implemented", json!({"id":format!("runtime{id}"),"evidence":"app.js updated"})))); }
-                    return Reply::Tools(calls);
-                }
-                if n == 126 {
-                    return Reply::Tools(vec![("run_terminal", json!({"command":"node check.js", "deliverable_ids":if registered { (1..=6).map(|id| format!("runtime{id}")).collect::<Vec<_>>() } else { vec![] }}))]);
-                }
-                if n == 128 {
-                    assert!(tool_names(request).contains(&"write_file".to_owned()), "productive verification was stopped at 128");
-                }
-                if n >= 129 { return Reply::Text("Implemented, not verified: the runtime check still fails.".into()); }
-                Reply::Tools(vec![("list_directory", json!({"path":"."}))])
-            });
-            let mut config = workspace.config(&provider.endpoint, "Implement and verify the requested program");
-            config.reasoning_mode = mode.into();
-            config.context_limit = 262_144;
-            run(config);
-            let budget = saved_work_budget(&workspace);
-            assert_eq!((budget.limit, budget.extensions), (160, 1));
-            assert_eq!(budget.reason, "bounded_verification_started");
-            assert!(!budget.closed, "unverified work must keep its allowance on Continue");
-            assert!(provider.requests().len() <= 133, "completion reviews stay bounded");
-            assert!(completed(&workspace.journal()));
-            assert!(!latest_runtime_section(provider.requests().last().unwrap(), "deliverables").contains("[verified]"));
-            if registered { assert_eq!(latest_runtime_section(provider.requests().last().unwrap(), "deliverables").matches("[implemented]").count(), 6); }
-        }
-    }
-}
-
-#[test]
-fn adaptive_metadata_progress_and_failed_patch_loops_are_denied() {
-    for failed_patch in [false, true] {
-        let workspace = Workspace::new(APP);
-        let provider = Provider::start(move |request, n| {
-            if request.get("tools").is_none() { return Reply::Text("Partial result; unable to establish progress.".into()); }
-            if n == 0 { return Reply::Tools(vec![
-                ("read_file", json!({"path":"app.js"})),
-                plan(json!({"action":"set","steps":["implement"]})),
-                deliverable("add", json!({"id":"runtime","text":"program works","check":"runtime"})),
-                ("task_memory", json!({"action":"record","id":"noise","finding":"initial idea","status":"inferred"})),
-            ]); }
-            if failed_patch { return Reply::ReasonedTools("Progress: fixing the patch now.".into(), vec![("apply_patch", json!({"patch":"*** Begin Patch\n*** Update File: app.js\n@@\n-line that does not exist\n+replacement\n*** End Patch"}))]); }
-            Reply::ReasonedTools("Progress: implementation is going well.".into(), vec![
-                plan(json!({"action":"update","id":"s1","status":"in_progress","note":format!("attempt {n}")})),
-                deliverable("implemented", json!({"id":"runtime","evidence":"claimed implementation"})),
-                ("task_memory", json!({"action":"update","id":"noise","finding":format!("claimed progress {n}")})),
-            ])
-        });
-        let mut config = workspace.config(&provider.endpoint, "Implement the program");
-        config.context_limit = 262_144;
-        run(config);
-        let budget = saved_work_budget(&workspace);
-        assert_eq!((budget.used, budget.limit, budget.extensions), (128, 128, 0));
-        assert_eq!(budget.decision, "denied");
-        assert_eq!(provider.requests().len(), 129);
-        assert!(completed(&workspace.journal()));
-    }
-}
-
-#[test]
-fn adaptive_absolute_maximum_stops_even_continuous_checked_progress() {
-    let workspace = Workspace::new(APP);
-    let provider = Provider::start(|request, n| {
-        if request.get("tools").is_none() { return Reply::Text("Partial result at the safety limit.".into()); }
-        if n >= 125 && (n + 3) % 32 == 0 {
-            return Reply::Tools(vec![edit_app(&format!("module.exports = (a, b) => a + b; // revision {n}\n")),
-                ("run_terminal", json!({"command":"node check.js"}))]);
-        }
-        Reply::Tools(vec![("list_directory", json!({"path":"."}))])
+fn more_than_256_productive_actions_keep_tools_and_a_legacy_denied_budget_does_not_restore() {
+    use local_ai_agent_runtime::agent::{transcript::Transcript,work_budget::WorkBudget};
+    let files:Vec<(String,String)>=(0..310).map(|n|(format!("file-{n}.txt"),format!("unique observation {n}"))).collect();
+    let refs:Vec<(&str,&str)>=files.iter().map(|(a,b)|(a.as_str(),b.as_str())).collect();
+    let workspace=Workspace::new(&refs);
+    let mut transcript=Transcript::durable(&workspace.base.join("evidence"),"legacy",&[],workspace.root.to_str()).unwrap();
+    let old:WorkBudget=serde_json::from_value(json!({"used":256,"limit":256,"decision":"denied","closed":false})).unwrap();
+    transcript.push_run_user(json!({"role":"user","content":"Continue the unfinished inspection"}));
+    transcript.mark_finalizing();
+    transcript.checkpoint_work_budget(old);drop(transcript);
+    let observations=Arc::new(std::sync::atomic::AtomicUsize::new(0));let count=observations.clone();
+    let provider=Provider::start(move|request,_| {
+        let n=count.load(Ordering::Relaxed);
+        if request.get("tools").is_none() && n<310 {return Reply::Text("Earlier distinct file observations are preserved; continue the current inspection.".into());}
+        if n<310 {assert!(tool_names(request).contains(&"read_file".into()));count.fetch_add(1,Ordering::Relaxed);Reply::Tools(vec![("read_file",json!({"path":format!("file-{n}.txt")}))])}
+        else {Reply::Text("Inspected 310 distinct files.".into())}
     });
-    run(workspace.config(&provider.endpoint, "Implement the program"));
-    let budget = saved_work_budget(&workspace);
-    assert_eq!((budget.used, budget.limit, budget.extensions), (256, 256, 4));
-    assert_eq!(budget.reason, "absolute_maximum");
-    assert_eq!(provider.requests().len(), 257);
+    let mut config=workspace.config(&provider.endpoint,"Continue the unfinished inspection");config.context_limit=262_144;
+    run(config);
+    assert_eq!(observations.load(Ordering::Relaxed),310);
+    assert!(provider.requests().len()>=311);
     assert!(completed(&workspace.journal()));
+    assert_eq!(saved_work_budget(&workspace).used,311);
+    assert_eq!(saved_work_budget(&workspace).limit,0);
+    let next=Provider::start(|request,_|{assert!(tool_names(request).contains(&"read_file".into()));Reply::Text("New execution.".into())});
+    run(workspace.config(&next.endpoint,"Continue"));
+    assert_eq!(saved_work_budget(&workspace).used,1);
 }
 
 #[test]
-fn adaptive_stop_restart_and_compaction_preserve_extended_allowance() {
-    let workspace = Workspace::new(APP);
-    let cancelled = Arc::new(AtomicBool::new(false)); let flag = cancelled.clone();
-    let provider = Provider::start(move |request, n| {
-        if n == 125 { return Reply::Tools(vec![edit_app("module.exports = (a, b) => a + b; // changed\n"), ("run_terminal", json!({"command":"node check.js"}))]); }
-        if n == 128 { assert!(request.get("tools").is_some()); flag.store(true, Ordering::Relaxed); }
-        Reply::Tools(vec![("list_directory", json!({"path":"."}))])
+fn confirmed_metadata_loop_cleans_only_model_context_and_preserves_evidence() {
+    let workspace = Workspace::new(&[("a.txt","productive observation"),("b.txt","fresh progress")]);
+    let provider = Provider::start(|request,n| {
+        match n {
+            0 => Reply::Tools(vec![("read_file",json!({"path":"a.txt"}))]),
+            1 => Reply::Tools(vec![("task_memory",json!({"action":"record","finding":"Earlier useful observation", "status":"confirmed", "evidence":"obs-00000001"}))]),
+            2..=12 => Reply::Tools(vec![("deliverables",json!({"action":"view"}))]),
+            13 => {
+                let messages=request["messages"].as_array().unwrap();
+                let views=messages.iter().filter_map(|m|m["tool_calls"].as_array()).flatten().filter(|c|c["function"]["name"]=="deliverables").count();
+                assert_eq!(views,1, "only first useful view belongs in next model context");
+                assert!(messages.iter().any(|m|m["role"]=="user" && m["content"].as_str().is_some_and(|text|text.contains("Inspect"))));
+                assert!(request.to_string().contains("Earlier useful observation"), "Task Memory survives cleanup");
+                assert!(messages.iter().any(|m|m["name"]=="read_file"), "productive read pair survives");
+                Reply::Tools(vec![("read_file",json!({"path":"b.txt"}))])
+            },
+            _ => Reply::Text("Inspected both fixture files.".into()),
+        }
     });
-    let mut config = workspace.config(&provider.endpoint, "Implement the program"); config.cancelled = cancelled; config.context_limit = 262_144;
+    let config=workspace.config(&provider.endpoint,"Inspect the files; preserve useful observations.");
     run(config);
-    assert!(!completed(&workspace.journal()));
-    let budget = saved_work_budget(&workspace);
-    assert_eq!((budget.used, budget.limit, budget.extensions), (129, 160, 1));
-    // Compaction changes projection only: the private runtime checkpoint remains.
-    let mut transcript = local_ai_agent_runtime::agent::transcript::Transcript::durable(
-        &workspace.base.join("evidence"), "restart", &[], workspace.root.to_str()).unwrap();
-    transcript.compact("Earlier implementation retained; continue the current task.".into(), transcript.entries().len());
-    drop(transcript);
-    let resumed = Provider::start(|request, _| {
-        assert!(request.to_string().contains("Earlier implementation retained"));
-        Reply::Text("Partial result: further validation is needed.".into())
-    });
-    run(workspace.config(&resumed.endpoint, "Implement the program"));
-    let restored = saved_work_budget(&workspace);
-    assert_eq!((restored.used, restored.limit, restored.extensions), (130, 160, 1));
-    assert!(!restored.closed, "unregistered unfinished code must not reset its allowance after restart");
+    let journal=workspace.journal();
+    assert!(completed(&journal));
+    assert_eq!(journal.iter().filter(|line|line.get("ContextExclusion").is_some()).count(),1);
+    assert!(journal.iter().any(|line|line["ContextExclusion"]["actions"]==10));
+    assert_eq!(journal.iter().filter_map(|line|line["Message"]["tool_calls"].as_array()).flatten().filter(|call|call["function"]["name"]=="deliverables").count(),11, "persisted history retains all calls");
 }
 
 #[test]
-fn adaptive_pause_continue_and_new_completed_task_have_correct_budget_identity() {
-    use local_ai_agent_runtime::agent::{work_budget::WorkBudget, verification::{Verification, Kind}, deliverables::Deliverables, transcript::Transcript};
-    let workspace = Workspace::new(APP);
-    let mut budget = WorkBudget::default(); let mut ledger = Verification::default();
-    budget.used = 127; budget.observe_file("app.js", "old"); budget.changed_file("app.js", "changed"); ledger.note_change(Some("app.js"));
-    let id = ledger.record_outcome(Kind::Run, "node check.js", true, "ok", 127, "ok");
-    budget.checked(ledger.get(&id).unwrap(), &ledger, &Deliverables::default());
-    budget.used = 128; assert!(budget.allow_next()); budget.used = 140;
-    let mut transcript = Transcript::durable(&workspace.base.join("evidence"), "seed", &[], workspace.root.to_str()).unwrap();
-    transcript.checkpoint_work_budget(budget); drop(transcript);
-    let provider = Provider::start(|_, _| Reply::Text("Paused.".into()));
-    let mut config = workspace.config(&provider.endpoint, "task");
-    config.pause_requested = Arc::new(AtomicBool::new(true));
-    run(config);
-    let paused = saved_work_budget(&workspace);
-    assert_eq!((paused.used, paused.limit, paused.extensions, paused.closed), (140, 160, 1, false));
-    let resumed = Provider::start(|request, n| {
-        assert!(tool_names(request).contains(&"read_file".into()));
-        if n == 0 { return Reply::Tools(vec![("run_terminal", json!({"command":"node check.js"}))]); }
-        Reply::Text("Finished.".into())
-    });
-    let mut config = workspace.config(&resumed.endpoint, "Continue");
-    config.history = vec![json!({"role":"user","content":"task"}), json!({"role":"assistant","content":"Paused.\n\n**Agent V2 status:** Changed behaviour is not verified."})];
-    run(config);
-    let continued = saved_work_budget(&workspace);
-    assert_eq!((continued.used, continued.limit, continued.extensions, continued.closed), (142, 160, 1, true));
-    let next = Provider::start(|_, _| Reply::Text("New task done.".into()));
-    let mut config = workspace.config(&next.endpoint, "new task");
-    config.history = vec![json!({"role":"user","content":"task"}), json!({"role":"assistant","content":"Paused.\n\n**Agent V2 status:** Changed behaviour is not verified."}),
-        json!({"role":"user","content":"Continue"}), json!({"role":"assistant","content":"Finished."})];
-    run(config);
-    let fresh = saved_work_budget(&workspace);
-    assert_eq!((fresh.used, fresh.limit, fresh.extensions), (1, 128, 0));
-    // Truncating/regenerating the branch has a different journal identity.
-    let regenerated = Provider::start(|_, _| Reply::Text("Regenerated.".into()));
-    run(workspace.config(&regenerated.endpoint, "task"));
-    assert_eq!(saved_work_budget(&workspace).used, 1);
+fn live_loop_pause_resume_correction_and_cancel_preserve_state() {
+    use local_ai_agent_runtime::agent::control::{LoopCommand,LoopAction};
+    for correction in [false,true] {
+        let workspace=Workspace::new(SHOP);
+        let control=Arc::new(Mutex::new(local_ai_agent_runtime::agent::control::ExecutionControl{interactive:true,..Default::default()}));
+        let queue=control.clone();
+        // The detector's stable signature can be reconstructed from identical observations.
+        // Actual result-dependent signature is read from the durable journal once paused.
+        let base=workspace.base.clone();
+        let sender=std::thread::spawn(move|| {
+            for _ in 0..400 {
+                let active=std::fs::read(base.join("evidence/active.json")).ok().and_then(|b|serde_json::from_slice::<Value>(&b).ok());
+                if let Some(dir)=active.and_then(|v|v["run_dir"].as_str().map(str::to_owned)) {
+                    let journal=std::fs::read_to_string(base.join("evidence").join(dir).join("events.jsonl")).unwrap_or_default();
+                    if let Some(n)=journal.lines().filter_map(|l|serde_json::from_str::<Value>(l).ok()).find_map(|v|v["entry"].get("RuntimeNotice").filter(|v|v["notice"]["level"]==3).cloned()) {
+                        queue.lock().unwrap().commands.push_back(LoopCommand{id:None,action:if correction{LoopAction::CorrectResume}else{LoopAction::ContinueAnyway},signature:n["notice"]["signature"].as_str().unwrap().into()});
+                        if correction {
+                            // This read-loop has no proven metadata suffix: repair must pause safely.
+                            queue.lock().unwrap().commands.push_back(LoopCommand{id:None,action:LoopAction::ContinueAnyway,signature:n["notice"]["signature"].as_str().unwrap().into()});
+                        }
+                        return;
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+            panic!("Strong loop never reached a live pause");
+        });
+        let provider=Provider::start(move|request,n| {
+            if n<12 {Reply::Tools(vec![("list_directory",json!({"path":"."}))])} else {
+                if correction {assert!(request["messages"][0]["content"].as_str().unwrap().contains("Agent runtime notice"));}
+                Reply::Text("Resumed the preserved task.".into())
+            }
+        });
+        let mut config=workspace.config(&provider.endpoint,READ_ONLY);config.control=control;
+        run(config);sender.join().unwrap();assert!(completed(&workspace.journal()));
+        // Keep cancellation regression independent of speculative task completion.
+    }
 }
 
 #[test]
@@ -3450,7 +3436,7 @@ fn web_schema_exposure_is_host_opt_in() {
         });
         let mut config = fixture.config(&provider.endpoint, "Read a public page");
         config.web_tools = vec![json!({"type":"function","function":{"name":"web_open","parameters":{"type":"object","properties":{"url":{"type":"string"}}}}}), json!({"type":"function","function":{"name":"unrestricted_fetch"}})];
-        if enabled { config.host_tools = Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::default())); }
+        config.host_tools = if enabled { Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::default())) } else { None };
         run(config);
         assert!(!provider.requests().is_empty());
     }
@@ -3527,4 +3513,189 @@ fn fresh_and_regenerated_requests_deliver_russian_preference_and_current_thinkin
         }
     }
     assert!(fixture.base.join("archived-attempt").exists());
+}
+
+/// A repeated, identical report write must not destroy functional proof;
+/// the file executor performs no write, inode replacement or epoch mutation.
+#[test]
+fn an_unchanged_report_does_not_invalidate_observed_runtime_evidence() {
+    let workspace=Workspace::new(&[("check.py","print('checked')\n"),("report.md","observed output")]);
+    let provider=Provider::start(|request,turn|match turn {
+        0=>Reply::Tools(vec![
+            ("deliverables",json!({"action":"add","id":"d1","text":"script behaviour","check":"runtime"})),
+            ("deliverables",json!({"action":"implemented","id":"d1","evidence":"check.py"})),
+        ]),
+        1=>Reply::Tools(vec![("run_terminal",json!({"command":"python3 check.py","deliverable_ids":["d1"]}))]),
+        2=>Reply::Tools(vec![("write_file",json!({"path":"report.md","content":"observed output"}))]),
+        3=>{
+            assert!(last_tool_result(request).contains("\"unchanged\":true"));
+            Reply::Tools(vec![("deliverables",json!({"action":"verify","id":"d1","evidence":"ev-001"}))])
+        },
+        _=>{
+            assert!(latest_runtime_section(request,"deliverables").contains("[verified] d1"));
+            Reply::Text("Observed runtime behaviour remains verified after the unchanged report.".into())
+        }
+    });
+    run(workspace.config(&provider.endpoint,"Check the script, then write the same report text and verify the observed behaviour."));
+    assert!(completed(&workspace.journal()));
+    assert_eq!(provider.requests().len(),5);
+}
+
+/// A terminal rewrite of identical bytes preserves evidence; unlike the file
+/// tool, the shell can still update filesystem timestamps.
+#[test]
+fn an_identical_terminal_write_preserves_observed_runtime_evidence() {
+    let workspace=Workspace::new(&[("check.py","print('checked')\n"),("report.md","observed output")]);
+    let provider=Provider::start(|request,turn|match turn {
+        0=>Reply::Tools(vec![
+            ("deliverables",json!({"action":"add","id":"d1","text":"script behaviour","check":"runtime"})),
+            ("deliverables",json!({"action":"implemented","id":"d1","evidence":"check.py"})),
+        ]),
+        1=>Reply::Tools(vec![("run_terminal",json!({"command":"python3 check.py","deliverable_ids":["d1"]}))]),
+        2=>Reply::Tools(vec![("run_terminal",json!({"command":"printf '%s' 'observed output' > report.md"}))]),
+        3=>{
+            assert!(last_tool_result(request).contains("\"unchanged\":true"));
+            Reply::Tools(vec![("deliverables",json!({"action":"verify","id":"d1","evidence":"ev-001"}))])
+        },
+        _=>{
+            assert!(latest_runtime_section(request,"deliverables").contains("[verified] d1"));
+            Reply::Text("Observed runtime behaviour remains verified after the unchanged report.".into())
+        }
+    });
+    run(workspace.config(&provider.endpoint,"Check the script, then write the same report text and verify the observed behaviour."));
+    assert!(completed(&workspace.journal()));
+    assert_eq!(provider.requests().len(),5);
+}
+
+/// A repeated, identical report write must not destroy functional proof;
+/// the file executor performs no write, inode replacement or epoch mutation.
+#[test]
+fn an_identical_patch_preserves_observed_runtime_evidence() {
+    let workspace=Workspace::new(&[("check.py","print('checked')\n"),("report.md","observed output\n")]);
+    let provider=Provider::start(|request,turn|match turn {
+        0=>Reply::Tools(vec![
+            ("deliverables",json!({"action":"add","id":"d1","text":"script behaviour","check":"runtime"})),
+            ("deliverables",json!({"action":"implemented","id":"d1","evidence":"check.py"})),
+        ]),
+        1=>Reply::Tools(vec![("run_terminal",json!({"command":"python3 check.py","deliverable_ids":["d1"]}))]),
+        2=>Reply::Tools(vec![("apply_patch",json!({"patch":"*** Begin Patch\n*** Update File: report.md\n-observed output\n+observed output\n*** End Patch"}))]),
+        3=>{
+            assert!(last_tool_result(request).contains("\"unchanged\":true"));
+            Reply::Tools(vec![("deliverables",json!({"action":"verify","id":"d1","evidence":"ev-001"}))])
+        },
+        _=>{
+            assert!(latest_runtime_section(request,"deliverables").contains("[verified] d1"));
+            Reply::Text("Observed runtime behaviour remains verified after the unchanged report.".into())
+        }
+    });
+    run(workspace.config(&provider.endpoint,"Check the script, then write the same report text and verify the observed behaviour."));
+    assert!(completed(&workspace.journal()));
+    assert_eq!(provider.requests().len(),5);
+}
+
+#[test]
+fn invalid_edits_and_missing_checks_have_actionable_retry_guidance() {
+    let workspace = Workspace::new(&[("app.py", "value = 1\n")]);
+    let provider = Provider::start(|request, turn| match turn {
+        0 => Reply::Tools(vec![("read_file", json!({"path":"app.py"}))]),
+        1 => Reply::Tools(vec![("apply_patch", json!({"patch":"*** Begin Patch\n*** Update File: app.py\n@@\n-value = 99\n+value = 2\n*** End Patch"}))]),
+        2 => {
+            let result = last_tool_result(request);
+            assert!(result.contains("patch does not match current content"));
+            assert!(result.contains("INVALID_EDIT_ARGUMENTS"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            assert!(result.contains("Read the current file/range"));
+            Reply::Tools(vec![("replace_text", json!({"path":"app.py","old_text":"value = 99","new_text":"value = 2"}))])
+        },
+        3 => {
+            let result = last_tool_result(request);
+            assert!(result.contains("old_text does not exactly match"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            assert!(result.contains("correct the exact old_text"));
+            Reply::Tools(vec![
+                ("deliverables", json!({"action":"add","id":"a","text":"Python behaviour","check":"runtime"})),
+                ("deliverables", json!({"action":"implemented","id":"a"})),
+            ])
+        },
+        4 => Reply::Tools(vec![("deliverables", json!({"action":"verify","id":"a"}))]),
+        _ => {
+            let result = last_tool_result(request);
+            assert!(result.contains("No fresh passing runtime evidence"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            assert!(result.contains("fresh passing evidence ID"));
+            Reply::Text("No file was changed. Behaviour was not verified.".into())
+        },
+    });
+    run(workspace.config(&provider.endpoint, "Exercise invalid edit diagnostics without changing files."));
+    assert_eq!(std::fs::read_to_string(workspace.root.join("app.py")).unwrap(), "value = 1\n");
+    assert_eq!(provider.requests().len(), 6); assert!(completed(&workspace.journal()));
+}
+
+#[test]
+fn a_pending_verification_rejection_recovers_after_implementation_with_the_same_arguments() {
+    let workspace=Workspace::new(&[("check.py","print('checked')\n")]);
+    let provider=Provider::start(|request,turn|match turn {
+        0=>Reply::Tools(vec![("deliverables",json!({"action":"add","id":"d1","text":"Script behaviour","check":"runtime"}))]),
+        1=>Reply::Tools(vec![("run_terminal",json!({"command":"python3 check.py","deliverable_ids":["d1"]}))]),
+        2=>Reply::Tools(vec![("deliverables",json!({"action":"verify","id":"d1","evidence":"ev-001"}))]),
+        3=>{
+            let result=last_tool_result(request);
+            assert!(result.contains("is pending"));
+            assert!(result.contains("\"retrySameArguments\":false"));
+            assert!(result.contains("action=implemented"));
+            Reply::Tools(vec![("deliverables",json!({"action":"implemented","id":"d1"}))])
+        },
+        4=>Reply::Tools(vec![("deliverables",json!({"action":"verify","id":"d1","evidence":"ev-001"}))]),
+        _=>{
+            assert!(latest_runtime_section(request,"deliverables").contains("[verified] d1"));
+            Reply::Text("Verified after correcting the prerequisite.".into())
+        }
+    });
+    run(workspace.config(&provider.endpoint,"Check the script behaviour."));
+    assert!(completed(&workspace.journal()));
+    assert_eq!(provider.requests().len(),6);
+}
+
+#[test]
+fn repeated_successful_terminal_results_reach_provider_then_pause_without_unsafe_cleanup() {
+    let workspace=Workspace::new(&[("fixture.txt","unchanged")]);
+    let provider=Provider::start(|request,n| {
+        if n>0 { assert!(last_tool_result(request).contains("unchanged-observation"), "terminal feedback missing"); }
+        Reply::Tools(vec![("run_terminal",json!({"command":"printf unchanged-observation"}))])
+    });
+    let mut config=workspace.config(&provider.endpoint,"Inspect the fixture, then change strategy if observations repeat");
+    config.control.lock().unwrap().interactive=true;
+    let control=config.control.clone();let cancelled=config.cancelled.clone();
+    let worker=std::thread::spawn(move||run(config));
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(15);
+    while control.lock().unwrap().active_signature.is_none() && std::time::Instant::now()<deadline {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let paused=control.lock().unwrap().active_signature.is_some();
+    cancelled.store(true,Ordering::Relaxed);worker.join().unwrap();
+    assert!(paused,"terminal repetition never paused");
+    assert!(provider.requests().len()<=12,"soft repair must escalate on recurrence");
+    let journal=workspace.journal();
+    assert!(journal.iter().any(|v|v.to_string().contains("Agent runtime notice")));
+    assert!(!journal.iter().any(|v|v.get("ContextExclusion").is_some()),"arbitrary commands cannot be removed as metadata");
+}
+
+#[test]
+fn permission_transport_refusals_never_spawn_or_become_transient_command_errors() {
+    for reason in ["timeout","ui_unavailable"] {
+        let workspace=Workspace::new(&[("fixture.txt","untouched")]);
+        let provider=Provider::start(move|request,n| {
+            if n==0 { return Reply::Tools(vec![("run_terminal",json!({"command":"printf changed > fixture.txt"}))]); }
+            let result:Value=serde_json::from_str(&last_tool_result(request)).unwrap();
+            assert_eq!(result["code"],"PERMISSION_DENIED");assert_eq!(result["reason"],reason);
+            assert_eq!(result["retrySameArguments"],false);
+            Reply::Text("No operation was authorized.".into())
+        });
+        let mut config=workspace.config(&provider.endpoint,"Write the fixture only after approval");
+        config.host_tools=Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_dispatch(move|name,_| {
+            assert_eq!(name,"request_permission");Some(json!({"approved":false,"reason":reason}))
+        })));
+        run(config);
+        assert_eq!(std::fs::read_to_string(workspace.root.join("fixture.txt")).unwrap(),"untouched");
+    }
 }

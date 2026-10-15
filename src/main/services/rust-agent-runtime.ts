@@ -1,3 +1,7 @@
+import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
+import { randomUUID } from 'node:crypto';
+import { FileDownloader, downloadFileTool } from '../tools/download-file';
+import type { ConfirmAction } from '../tools/project-tools';
 import { getLanguage } from '../../shared/locale';
 import { modelLanguageDirective } from '../../shared/model-language';
 import { createInterface } from 'node:readline';
@@ -5,18 +9,29 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { agentRuntimePath, paths } from './paths';
 import { agentEvidenceDir } from './agent-evidence';
+import { log } from './logger';
+import { protectedRuntime } from './protected-runtime';
 import type { AgentPlan, AgentPlanStepStatus, ChatMessage, ModelTodo, ReasoningMode, StreamEvent, SteeringIntent, TerminalExecution, ToolActivity, WebMode, WorkBudget } from '../../shared/types';
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
 import { attachmentDataTool } from './attachment-service';
 import { WebBrowserService, webToolDefinitions, activityForWebTool, type WebBrowserSession } from '../web/web-tools';
 import { maxOutputTokens } from '../models/model-registry';
 
+// Optional diagnostics must never interrupt a pending security decision.
+function logApprovalTransport(data: Record<string, unknown>): void {
+  try { log('agent.approval.transport', data); } catch { /* permission result still fails closed */ }
+}
+
 /** Project identity is a transport value, not an orchestration subsystem. */
 export type AgentProject = { id: string; slot: 1 | 2; root: string; label: string };
 
 type RuntimeEvent = {
+  observations?: number; guidance?: number; warnings?: number; pauses?: number;
+  trigger_reason?: string; context_window?: number; projected_input_before?: number; projected_input_after?: number; compaction_target_tokens?: number; trigger_threshold_tokens?: number; safety_reserve_tokens?: number; preferred_output_tokens?: number; available_output_before?: number; available_output_after?: number;
+  notice?: LoopNotice | null; paused?: boolean;
+  stage?: LoopLifecycleStage; attempt?: number;
   budget?: WorkBudget;
-  type: string; content?: string; id?: string; name?: string; message?: string; detail?: string; status?: string;
+  type: string; code?: string; content?: string; id?: string; name?: string; message?: string; detail?: string; status?: string;
   diff?: string | null; is_error?: boolean; plan?: unknown; memory?: unknown; used?: number; limit?: number;
   before?: number; after?: number; stream?: string; state?: string; index?: number;
   prompt_tokens?: number | null; completion_tokens?: number | null; total_tokens?: number | null; cached_tokens?: number | null; cache_write_tokens?: number | null;
@@ -34,6 +49,7 @@ type RuntimeRequest = {
   supports_reasoning: boolean; reasoning_options?: Record<string, Record<string, unknown>>;
   web_mode: WebMode; policy: 'auto' | 'safe'; history: unknown[]; artifact_tools: unknown[]; attachment_tools: unknown[]; task_memory?: AgentPlan['taskMemory']; provider_max_output?: number;
   evidence_dir?: string; workspace_roots?: string[];
+  approval_ui: boolean; permissions: AgentPermissions;
 };
 
 export function statusActivity(runId: string, ordinal: number, content: string): ToolActivity {
@@ -129,6 +145,9 @@ export function taskPlan(value: unknown): AgentPlan {
 /** Electron bridge for the Rust runtime. It passes each content delta through
  * immediately; `final` is metadata, not a delayed text transport. */
 export class RustAgentRuntime {
+  private readonly controls = new Map<string, (payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string }) => Promise<void>>();
+  hasRun(runId: string): boolean { return this.controls.has(runId); }
+  control(runId: string, payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string }): Promise<void> { return this.controls.get(runId)?.(payload) ?? Promise.reject(new Error('Agent execution is unavailable')); }
   private readonly steering = new Map<string, (content: string, intent?: SteeringIntent) => Promise<void>>();
   constructor(private readonly endpoint: string, private readonly binary = agentRuntimePath(), private readonly web = new WebBrowserService(), private readonly readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>) {}
 
@@ -138,10 +157,13 @@ export class RustAgentRuntime {
     return send(content, intent);
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
-    const child = spawn(this.binary, [], { stdio: 'pipe' });
+    protectedRuntime.endpoint(this.endpoint);
+    const child = spawn(this.binary, [], { stdio: 'pipe', env: protectedRuntime.environment() });
+    child.once('spawn', () => protectedRuntime.register(child.pid, 'rust-agent'));
+    child.once('exit', () => protectedRuntime.retire(child.pid));
     const lines = createInterface({ input: child.stdout });
     let processError: Error | null = null;
     const failedProcess = (error: Error) => { processError = error; lines.close(); };
@@ -156,6 +178,33 @@ export class RustAgentRuntime {
         child.stdin.write(`${JSON.stringify({ type: 'steer', run_id: runId, content, ...(intent ? { intent } : {}) })}\n`);
       });
     });
+    const controlPending = new Map<string, { resolve(): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }>();
+    this.controls.set(runId, payload => new Promise<void>((resolve, reject) => {
+      if (signal.aborted || !child.stdin.writable) { reject(new Error('Agent execution ended')); return; }
+      const id = randomUUID();
+      const timer = setTimeout(() => { controlPending.delete(id); reject(new Error('Runtime control processing timed out; Stop remains available')); }, payload.action ? 30_000 : 5_000);
+      controlPending.set(id, { resolve, reject, timer });
+      child.stdin.write(`${JSON.stringify({ type: 'control', run_id: runId, id, ...payload })}\n`);
+    }));
+    // Permission dialogs can await for minutes. Consume steering/control acknowledgments
+    // independently of the async generator's awaited host operation.
+    const acknowledgeControl = (line: string) => {
+      try {
+        const event = JSON.parse(line) as RuntimeEvent;
+        if (event.type === 'steering_accepted' || event.type === 'steering_rejected') {
+          const next = pending.shift();
+          if (event.type === 'steering_accepted') next?.resolve();
+          else next?.reject(new Error(event.message ?? 'Agent уже завершён.'));
+          return;
+        }
+        if (event.type !== 'control_accepted' && event.type !== 'control_rejected') return;
+        const acknowledgment = controlPending.get(event.id ?? '');
+        if (!acknowledgment) return;
+        clearTimeout(acknowledgment.timer); controlPending.delete(event.id!);
+        if (event.type === 'control_accepted') acknowledgment.resolve(); else acknowledgment.reject(new Error(event.message));
+      } catch { /* not a protocol event */ }
+    };
+    lines.on('line', acknowledgeControl);
     let session: Promise<WebBrowserSession> | undefined;
     const closeWeb = () => { void session?.then((browser) => browser.close(), () => undefined); };
     signal.addEventListener('abort', closeWeb, { once: true });
@@ -174,12 +223,13 @@ export class RustAgentRuntime {
     const galleryFailures = new Map<string, Record<string, unknown>>();
     const request: RuntimeRequest = {
       type: 'run', run_id: runId, endpoint: this.endpoint, model,
+      approval_ui: Boolean(confirm), permissions,
       ui_language: getLanguage(),
       system: `${modelLanguageDirective()}\nYou are Local AI Desktop Agent. Work autonomously inside the scope described below. Use tools only with complete valid JSON arguments.\n${projects.map((project) => `Project ${project.slot}: ${project.label}; identity=${project.id}; root=${project.root}`).join('\n')}`,
-      user: current.user, user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? webToolDefinitions : [], artifact_tools: [visualArtifactTool], attachment_tools: attachmentTool ? [attachmentTool] : [], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
+      user: current.user, user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? webToolDefinitions : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: attachmentTool ? [attachmentTool] : [], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
       context_limit: contextLimit, reasoning_mode: reasoningMode, supports_reasoning: supportsReasoning, reasoning_options: reasoningOptions, web_mode: webMode, policy: 'auto',
       history: current.prior.filter((message) => !message.agentError && !message.agentCancelled).map((message) => ({ role: message.role, content: message.content, ...(imageReferences(message).length ? { image_refs: imageReferences(message) } : {}), ...(message.images?.length ? { images: message.images } : {}) })),
-      ...(conversationId ? { evidence_dir: agentEvidenceDir(paths.userData, conversationId) } : {}),
+      ...(conversationId ? { evidence_dir: agentEvidenceDir(paths.userData, conversationId, logicalTaskId) } : {}),
       ...(persistedTaskMemory ? { task_memory: persistedTaskMemory } : {}),
       provider_max_output: maxOutputTokens,
     };
@@ -196,11 +246,36 @@ export class RustAgentRuntime {
       for await (const line of lines) {
         let event: RuntimeEvent;
         try { event = JSON.parse(line) as RuntimeEvent; } catch { continue; }
+        if (event.type === 'control_accepted' || event.type === 'control_rejected') {
+          const pending = controlPending.get(event.id ?? '');
+          if (pending) { clearTimeout(pending.timer); controlPending.delete(event.id!); if (event.type === 'control_accepted') pending.resolve(); else pending.reject(new Error(event.message)); }
+          continue;
+        }
+        if (event.type === 'loop_state') { yield { type: 'loop-state', notice: event.notice ?? null, paused: Boolean(event.paused) }; continue; }
+        if (event.type === 'loop_lifecycle' && event.notice && event.stage) { yield { type: 'loop-event', lifecycle: { stage: event.stage, notice: event.notice, attempt: event.attempt ?? 0 } }; continue; }
+        if (event.type === 'loop_diagnostics') { yield { type: 'agent-telemetry', telemetry: { loopObservations: event.observations, loopGuidance: event.guidance, loopWarnings: event.warnings, loopPauses: event.pauses } }; continue; }
         if (event.type === 'host_tool_call') {
           let result: unknown;
+          const hostStarted = Date.now();
+          if (event.name === 'request_permission') logApprovalTransport({ runId, hostCallId: event.id, actionId: event.arguments?.action_id, stage: 'requested' });
           try {
             if (signal.aborted) throw new Error('Web request cancelled');
-            if (event.name === 'create_visual_artifact') {
+            if (event.name === 'request_permission') {
+              const operation = String(event.arguments?.operation ?? 'operation');
+              const args = event.arguments?.arguments as Record<string, unknown> | undefined;
+              const root = typeof event.arguments?.root === 'string' ? event.arguments.root : undefined;
+              const detail = operation === 'run_terminal' ? String(args?.command ?? '') : `${operation}: ${JSON.stringify(args ?? {})}`;
+              const decision = confirm ? await confirm({ title: 'Разрешение на операцию', detail, root, category: operation === 'run_terminal' ? 'system_command' : operation === 'download_file' ? 'file_download' : 'file_delete', actionId: String(event.arguments?.action_id ?? event.id) }, signal) : { approved: false, reason: 'ui_unavailable' };
+              result = { ...decision, ...(!decision.approved ? { code: 'PERMISSION_DENIED', retrySameArguments: false, error: decision.reason === 'ui_unavailable' ? 'Approval UI unavailable. Open the application window and retry the operation.' : decision.reason === 'timeout' ? 'Approval request timed out without a decision. Retry with the application window open.' : 'Operation denied or cancelled; do not bypass using another tool.' } : {}) };
+            } else if (event.name === 'download_file') {
+              const slot = event.arguments?.project ?? 1;
+              const project = projects.find(project => project.slot === slot);
+              const root = typeof event.arguments?._root === 'string' ? event.arguments._root : project?.root;
+              if (!root) throw new Error('Download requires an authorized workspace');
+              result = await new FileDownloader().execute(root, event.arguments ?? {}, signal, confirm, String(event.arguments?._action_id ?? event.id), (bytes, total) => {
+                progress?.({ id: String(event.arguments?._action_id ?? event.id), label: 'Загрузка файла', toolName: 'download_file', kind: 'mutation', state: 'running', detail: String(event.arguments?.path), progress: { bytes, total } });
+              });
+            } else if (event.name === 'create_visual_artifact') {
               const galleryKey = (event.arguments?.artifact as { type?: string })?.type === 'image_gallery' ? richArtifactFingerprint(event.arguments?.artifact as RichArtifact) : undefined;
               if (galleryKey && galleryFailures.has(galleryKey)) throw new ArtifactToolError({ ...galleryFailures.get(galleryKey), code: 'ARTIFACT_DUPLICATE', retrySameArguments: false, error: 'This gallery request already failed. Correct the reported fields or image ID instead of repeating unchanged arguments.' });
               const browser = session ? await session : undefined;
@@ -235,15 +310,21 @@ export class RustAgentRuntime {
               if (signal.aborted) { await browser.close(); throw new Error('Web request cancelled'); }
               result = JSON.parse(await browser.execute({ name: event.name!, arguments: event.arguments ?? {} }));
             }
-          } catch (error) { result = error instanceof ArtifactToolError ? error.result : { error: error instanceof Error ? error.message : String(error) }; }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            result = event.name === 'request_permission'
+              ? { approved: false, reason: signal.aborted ? 'cancelled' : 'ui_unavailable', code: 'PERMISSION_DENIED', retrySameArguments: false, error: `Approval transport failed: ${message}. No command was authorized; request a new explicit decision.` }
+              : error instanceof ArtifactToolError ? error.result : { error: message };
+          }
           if (event.name === 'create_visual_artifact' && (event.arguments?.artifact as { type?: string })?.type === 'image_gallery' && result && typeof result === 'object' && 'error' in result) galleryFailures.set(richArtifactFingerprint(event.arguments?.artifact as RichArtifact), result as Record<string, unknown>);
+          if (event.name === 'request_permission') logApprovalTransport({ runId, hostCallId: event.id, stage: 'resolved', elapsedMs: Date.now()-hostStarted, approved: (result as {approved?:boolean})?.approved === true, reason: (result as {reason?:string})?.reason, responseWritable: !signal.aborted && child.stdin.writable });
           if (!signal.aborted && child.stdin.writable) child.stdin.write(`${JSON.stringify({ type: 'host_tool_result', run_id: runId, id: event.id, result })}\n`);
           continue;
         }
         if (event.type === 'steering_accepted' || event.type === 'steering_rejected') {
-          const next = pending.shift();
-          if (event.type === 'steering_accepted') next?.resolve();
-          else next?.reject(new Error(event.message ?? 'Agent уже завершён.'));
+          // Already acknowledged by the line listener, even while a host
+          // permission dialog is awaiting the user's decision.
+          continue;
         }
         else if (event.type === 'steering_applied') {
           yield { type: 'steering', userMessage: { id: '', conversationId: conversationId ?? '', role: 'user', content: event.content ?? '', createdAt: new Date().toISOString() }, status: 'applied' };
@@ -258,7 +339,7 @@ export class RustAgentRuntime {
         }
         else if (event.type === 'tool_call_started') {
           const command = event.name === 'run_terminal' && typeof event.arguments?.command === 'string' ? event.arguments.command : undefined;
-          yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), label: activityLabel(event.name), ...(event.name === 'create_visual_artifact' ? { metadata: { artifactType: String((event.arguments?.artifact as { type?: string })?.type ?? '') } } : {}), detail: command ?? event.name, kind: activityKind(event.name), state: 'running', ...(command ? { terminal: { command, status: 'running' } } : {}) } };
+          yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), toolName: event.name, arguments: event.arguments, startedAt: new Date().toISOString(), label: activityLabel(event.name), ...(event.name === 'create_visual_artifact' ? { metadata: { artifactType: String((event.arguments?.artifact as { type?: string })?.type ?? '') } } : {}), detail: command ?? event.name, kind: activityKind(event.name), state: 'running', ...(command ? { terminal: { command, status: 'running' } } : {}) } };
         } else if (event.type === 'tool_process_started') {
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), label: activityLabel('run_terminal'), detail: event.command ?? 'Terminal', kind: 'terminal', state: 'running', terminal: { command: event.command, cwd: event.cwd, pid: event.pid, pgid: event.pgid, sessionId: event.session_id, startedAt: timestamp(event.started_at), status: 'running' } } };
         } else if (event.type === 'tool_output_delta') {
@@ -271,7 +352,7 @@ export class RustAgentRuntime {
           const parsed = event.name === 'run_terminal' ? terminalResult(event.content ?? event.message) ?? (failed ? { exitCode: null } : undefined) : undefined;
           const terminal = parsed && { ...parsed, status: parsed.status ?? (failed ? 'error' as const : 'completed' as const), finishedAt: parsed.finishedAt ?? new Date().toISOString() };
           const detail = terminal?.command ?? (event.name === 'run_terminal' ? undefined : event.name);
-          yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), label: activityLabel(event.name), ...(detail ? { detail } : {}), kind: activityKind(event.name), state: failed ? 'error' : 'completed', output: event.content ?? event.message, rawOutput: event.content ?? event.message, ...(terminal ? { terminal } : {}), ...(event.diff ? { metadata: { diff: event.diff } } : {}) } };
+          yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), finishedAt: new Date().toISOString(), label: activityLabel(event.name), ...(detail ? { detail } : {}), kind: activityKind(event.name), state: failed ? 'error' : 'completed', output: event.content ?? event.message, rawOutput: event.content ?? event.message, ...(terminal ? { terminal } : {}), ...(event.diff ? { metadata: { diff: event.diff } } : {}) } };
         } else if (event.type === 'task_memory_update' && event.memory && typeof event.memory === 'object') {
           yield { type: 'task-memory', memory: event.memory as NonNullable<AgentPlan['taskMemory']> };
         } else if (event.type === 'context_optimized') {
@@ -279,6 +360,9 @@ export class RustAgentRuntime {
           yield { type: 'tool', activity: { id: `context-${runId}-${compactions}`, label: 'Context optimized', detail: `${event.before ?? 0} → ${event.after ?? 0} tokens`, kind: 'context', state: 'completed' } };
           yield { type: 'context-usage', used: event.after ?? 0, maximum: contextLimit };
           yield { type: 'agent-telemetry', telemetry: { compactions } };
+        } else if (event.type === 'compaction_diagnostics') {
+          const metadata = Object.fromEntries(Object.entries(event).filter(([key, value]) => !['type', 'run_id'].includes(key) && ['number', 'string', 'boolean'].includes(typeof value))) as Record<string, string | number | boolean>;
+          yield { type: 'tool', activity: { id: `context-${runId}-${compactions}`, label: 'Контекст сжат', kind: 'context', state: 'completed', metadata } };
         } else if (event.type === 'knowledge_cache') {
           yield { type: 'agent-telemetry', telemetry: { knowledgeCacheFiles: event.total_files, knowledgeCacheBytes: event.approximate_bytes, knowledgeCacheHits: event.cache_hits, knowledgeCacheStale: event.stale_source_entries, knowledgeCacheInjectedBytes: event.bytes_injected } };
         } else if (event.type === 'context_stats') {
@@ -302,6 +386,7 @@ export class RustAgentRuntime {
           break;
         } else if (event.type === 'agent_error') {
           terminalFailure = true;
+          log('rust-agent.failed', { conversationId, runId, code: event.code, message: event.message, workerPid: child.pid });
           // The worker has ended; its protocol supervisor still awaits stdin.
           // End this run's stream now so IPC can release inference ownership.
           if (child.stdin.writable) child.stdin.end();
@@ -323,6 +408,9 @@ export class RustAgentRuntime {
       signal.removeEventListener('abort', closeWeb);
       closeWeb();
       this.steering.delete(runId);
+      this.controls.delete(runId);
+      lines.removeListener('line', acknowledgeControl);
+      for (const pending of controlPending.values()) { clearTimeout(pending.timer); pending.reject(new Error('Agent execution ended')); }
       for (const next of pending) next.reject(new Error('Agent завершён до принятия уточнения.'));
       signal.removeEventListener('abort', stop);
       if (child.stdin.writable) child.stdin.end();
@@ -333,6 +421,7 @@ export class RustAgentRuntime {
 
 function activityLabel(name?: string): string {
   if (name?.startsWith('web_')) return activityForWebTool({ name, arguments: {} }).label;
+  if (name === 'download_file') return 'Download file';
   if (name === 'create_visual_artifact') return 'Подготовка визуального ответа';
   return ({ list_directory: 'Просмотр структуры проекта', read_file: 'Чтение файла', write_file: 'Изменение файла', replace_text: 'Изменение файла', create_file: 'Создание файла', apply_patch: 'Изменение проекта', delete_file: 'Удаление файла', run_terminal: 'Запуск terminal', task_memory: 'Task Memory', deliverables: 'Требуемый результат', plan: 'План выполнения', project_knowledge_index: 'Индекс знаний проекта', project_knowledge_read: 'Чтение знаний проекта', project_knowledge_update: 'Обновление знаний проекта' } as Record<string, string>)[name ?? ''] ?? 'Действие агента';
 }

@@ -1,3 +1,4 @@
+import type { AgentPermissions, AutonomyMode, LoopAction, LoopNotice, LoopLifecycle, SessionGrant } from './autonomy';
 import type { ContextDiscoveryResult, RuntimeContextEstimate } from './context-estimator';
 
 export type ChatMode = 'chat' | 'agent';
@@ -7,7 +8,7 @@ export type LlamaKvCacheType = 'f16' | 'q8_0';
 /** A backend-native reasoning control. It never changes the output token budget. */
 export type ReasoningMode = 'auto' | 'fast' | 'deep';
 export type FinishReason = 'stop' | 'length' | 'cancelled' | 'error';
-export type RiskCategory = 'git_commit' | 'git_push' | 'destructive_git' | 'package_install' | 'package_remove' | 'file_delete' | 'chmod_chown' | 'shell_redirection' | 'shell_chaining' | 'system_command';
+export type RiskCategory = 'git_commit' | 'git_push' | 'destructive_git' | 'package_install' | 'package_remove' | 'file_delete' | 'file_download' | 'chmod_chown' | 'shell_redirection' | 'shell_chaining' | 'system_command';
 export type ApprovalDecision = 'reject' | 'once' | 'session';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'session-approved';
 export type AttachmentKind = 'image' | 'text' | 'document' | 'spreadsheet' | 'pdf';
@@ -47,6 +48,9 @@ export interface ActionApproval {
   approvalId: string;
   category: RiskCategory;
   status: ApprovalStatus;
+  title?: string;
+  detail?: string;
+  root?: string;
 }
 
 export interface GenerationDiagnostics {
@@ -88,6 +92,10 @@ export interface WorkBudget {
   used: number; limit: number; maximum: number; extensions: number; decision: string; reason: string; basis?: string;
 }
 export interface AgentTelemetry {
+  loopObservations?: number;
+  loopGuidance?: number;
+  loopWarnings?: number;
+  loopPauses?: number;
   turn: number;
   contextUsed?: number;
   contextLimit?: number;
@@ -111,6 +119,7 @@ export interface AgentTelemetry {
 }
 
 export interface ModelInfo {
+  supportedKvCacheTypes?: LlamaKvCacheType[];
   /** Validated normal startup configuration, independent of measured/manual Max options. */
   normalContext?: { initialContextWindow: number; kvCacheType: LlamaKvCacheType };
   /** A configured, supported mechanism, not a claim that an offline runtime is active. */
@@ -173,6 +182,9 @@ export interface ProjectReference {
 export type ProjectSuggestion = ProjectReference;
 
 export interface ChatMessage {
+  logicalTaskId?: string;
+  /** Previous generation retained for immutable task history, excluded from provider context. */
+  archivedAttempt?: boolean;
   id: string;
   conversationId: string;
   role: 'user' | 'assistant' | 'system';
@@ -239,17 +251,20 @@ export interface RuntimeModelConfiguration {
   /** Null inherits the global GPU layer count; a number overrides it for this model. */
   builtin: boolean;
 }
+export type RuntimeActivation = { conversationId: string; modelId: string; contextWindow: number; kvCacheType: LlamaKvCacheType; kvOffload: boolean; phase: 'validating' | 'failed'; warning?: string; error?: string };
 export interface AppSettings {
   setup?: { config: RuntimeConfiguration; server: string | null; ready: boolean; autoOpen: boolean; models: Array<{ id: string; name: string; modelPath: string; mmprojPath?: string; installed: boolean; status: 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector'; issue?: string; builtin: boolean }>; issues: string[]; configPath: string; dataDirectory: string };
   llamaServerPath: string | null;
   llamaRuntimeModelId?: string;
   /** Live state of the launcher-managed llama-server; the authority on what is running. */
-  llamaRuntime?: { status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped'; modelId: string | null; contextWindow: number | null; kvCacheType?: LlamaKvCacheType; kvOffload?: boolean; speculativeMode?: 'mtp' | 'eagle3' | 'none'; projectorDevice?: 'cpu' | 'gpu'; pendingProjectorDevice?: 'cpu' | 'gpu'; deviceError?: string; error?: string; rolledBack?: boolean };
+  llamaRuntime?: { status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped'; modelId: string | null; contextWindow: number | null; kvCacheType?: LlamaKvCacheType; kvOffload?: boolean; speculativeMode?: 'mtp' | 'eagle3' | 'none'; projectorDevice?: 'cpu' | 'gpu'; pendingProjectorDevice?: 'cpu' | 'gpu'; deviceError?: string; activation?: RuntimeActivation; error?: string; rolledBack?: boolean };
   modelsPath: string;
 }
 
 export interface ChatRequest {
   conversationId: string;
+  /** Explicit first-party continuation selector; main validates conversation ownership. */
+  continueLogicalTaskId?: string;
   model: string;
   /** Renderer mode snapshot for this logical generation, including Regenerate. */
   mode?: ChatMode;
@@ -262,6 +277,11 @@ export interface ChatRequest {
 
 export interface ToolActivity {
   id: string;
+  toolName?: string;
+  arguments?: Record<string, unknown>;
+  startedAt?: string;
+  finishedAt?: string;
+  progress?: { bytes: number; total?: number };
   label: string;
   detail?: string;
   /** User-visible execution category. Missing means a record saved by an older app version. */
@@ -307,6 +327,7 @@ export interface TerminalExecution {
 export type SteeringIntent = 'pause';
 
 export type ThinkingTimelineEvent =
+  | { id: string; kind: 'loop'; position: number; lifecycle: LoopLifecycle }
   | { id: string; kind: 'reasoning'; content: string; position: number; startedAt?: string; completedAt?: string }
   | { id: string; kind: 'activity'; activityId: string; position: number }
   | { id: string; kind: 'steering'; messageId: string; position: number; status: 'accepted' | 'applied' }
@@ -331,26 +352,43 @@ export interface ModelTodoPhase { name: string; items: ModelTodoItem[]; }
 export interface ModelTodo { phases: ModelTodoPhase[]; revision?: number; }
 /** `done` is the legacy spelling of `implemented`; only `verified` means a runtime-recorded check passed. */
 export type DeliverableStatus = 'pending' | 'implemented' | 'verified' | 'done' | 'blocked' | 'dropped';
-export interface DeliverableItem { id: string; text: string; status: DeliverableStatus; task?: string; evidence?: string; reason?: string; check?: 'readback' | 'static' | 'build' | 'test' | 'runtime' | 'browser'; proof?: string[]; failing?: string; verification_scope?: 'project' | 'acceptance'; }
+export interface DeliverableItem { id: string; text: string; status: DeliverableStatus; task?: string; evidence?: string; reason?: string; check?: 'integrity' | 'readback' | 'static' | 'build' | 'test' | 'runtime' | 'browser'; proof?: string[]; failing?: string; verification_scope?: 'project' | 'acceptance'; paths?: string[]; }
 export interface PlanStepItem { id: string; text: string; status: 'pending' | 'in_progress' | 'completed' | 'blocked'; note?: string; }
-export interface VerificationRecord { id: string; kind: string; class: 'readback' | 'static' | 'functional'; subject: string; pass: boolean; epoch: number; turn: number; detail?: string; check_key?: string; deliverable_ids?: string[]; baseline?: boolean; outcome_hash?: string; baseline_failure?: string; }
+export interface VerificationRecord { id: string; kind: string; class: 'readback' | 'static' | 'functional'; subject: string; pass: boolean; epoch: number; turn: number; detail?: string; check_key?: string; deliverable_ids?: string[]; baseline?: boolean; outcome_hash?: string; baseline_failure?: string; checked_paths?: string[]; }
+export interface VerificationState {
+  epoch?: number;
+  next?: number;
+  records: VerificationRecord[];
+  changed?: Record<string, number>;
+  code_changed?: boolean;
+  page_changed?: boolean;
+  revisions?: Record<string, string>;
+  bindings?: Record<string, string[]>;
+}
 export interface TaskMemoryEntry { id: string; finding: string; evidence?: string; implication?: string; next?: string; todoId?: string | null; invalidated?: boolean; }
 /** Persistent agent planning state: stable milestones plus only the active
  * milestone's adaptive Work Plan in the primary UI. */
 export interface AgentPlan {
+  logicalTaskId?: string;
   /** Runtime-owned projection; authority remains in the canonical journal. */
   workBudget?: WorkBudget;
   milestones?: AgentMilestone[];
   activeMilestoneId?: string | null;
   revision?: number;
   modelTodo?: ModelTodo;
-  taskMemory?: { entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: { epoch?: number; records: VerificationRecord[]; changed?: Record<string, number>; code_changed?: boolean; bindings?: Record<string, string[]> } };
+  taskMemory?: { entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: VerificationState };
   /** Legacy persisted snapshots are normalized at the Electron boundary. */
   steps?: AgentPlanStep[];
 }
 
 export interface AnalysisRun {
   id: string;
+  logicalTaskId?: string;
+  generationId?: string;
+  triggeringMessageId?: string;
+  /** Frozen at finalization; never a reference to the task's live checkpoint. */
+  taskPlan?: AgentPlan;
+  archived?: boolean;
   conversationId: string;
   assistantMessageId: string | null;
   reasoningMode: ReasoningMode;
@@ -371,14 +409,24 @@ export interface AnalysisRun {
   error?: string;
 }
 
+/** Display metadata only: selecting a task grants no workspace permission. */
+export interface AgentTaskSummary {
+  logicalTaskId: string;
+  title: string;
+  projects: Array<{ path: string; id?: string }>;
+  updatedAt: string;
+}
+
 export interface AnalysisProgress {
   stage: 'reconnaissance' | 'project-map' | 'prioritization' | 'investigation' | 'coverage' | 'synthesis';
   status: 'active' | 'complete';
 }
 
 export type StreamEvent =
+  | { type: 'loop-event'; lifecycle: LoopLifecycle; timelinePosition?: number }
   | { type: 'model-state'; state: 'waiting' | 'streaming' }
   | { type: 'work-budget'; budget: WorkBudget }
+  | { type: 'loop-state'; notice: LoopNotice | null; paused: boolean }
   | { type: 'token'; content: string }
   | { type: 'thinking'; content: string; timelinePosition?: number }
   | { type: 'rich-artifact'; artifact: import('./rich-artifacts').RichArtifact }
@@ -407,7 +455,8 @@ export interface LocalAiApi {
     delete(id: string): Promise<void>;
   };
   messages: { list(conversationId: string): Promise<ChatMessage[]>; edit(id: string, content: string, fallback?: Pick<ChatMessage, 'conversationId' | 'content'>): Promise<ChatMessage[]>; regenerate(id: string): Promise<ChatMessage[]> };
-  agentPlans: { get(conversationId: string): Promise<AgentPlan | null> };
+  agentPlans: { get(conversationId: string): Promise<AgentPlan | null>; legacy(conversationId: string): Promise<AgentPlan | null> };
+  agentTasks: { list(conversationId: string, includeTaskId?: string): Promise<AgentTaskSummary[]> };
   projects: { search(conversationId: string, query: string): Promise<ProjectSuggestion[]> };
   attachments: {
     import(input: AttachmentInput): Promise<Attachment>;
@@ -428,6 +477,11 @@ export interface LocalAiApi {
     send(request: ChatRequest): Promise<void>;
     steer(conversationId: string, generationId: string, content: string, intent?: SteeringIntent): Promise<ChatMessage>;
     stop(conversationId: string, generationId?: string): Promise<void>;
+    revokeApprovals(conversationId: string, generationId: string, grantId?: string): Promise<boolean>;
+    grants(conversationId: string, generationId: string): Promise<SessionGrant[]>;
+    permissions(conversationId: string): Promise<AgentPermissions>;
+    setPermissions(conversationId: string, mode: AutonomyMode, trust: boolean): Promise<AgentPermissions>;
+    loopControl(conversationId: string, generationId: string, signature: string, action: LoopAction): Promise<void>;
     approve(request: { conversationId: string; generationId: string; approvalId: string; decision: ApprovalDecision }): Promise<boolean>;
     onDiagramValidation(listener: (request: { id: string; source: string }) => void): () => void;
     diagramValidationResult(id: string, error?: string): void;
