@@ -1,0 +1,9 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+profile "local-ai-desktop" "/opt/local-ai-desktop/local-ai-desktop" flags=(unconfined) {
+  userns,
+
+  # Site-specific additions and overrides. See local/README for details.
+  include if exists <local/local-ai-desktop>
+}

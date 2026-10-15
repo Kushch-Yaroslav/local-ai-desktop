@@ -13,24 +13,24 @@ const u32 = (n) => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
 const u64 = (n) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
 const ggufText = (s) => Buffer.concat([u64(Buffer.byteLength(s)), Buffer.from(s)]);
 const ggufFixture = () => Buffer.concat([Buffer.from('GGUF'), u32(3), u64(0), u64(2), ggufText('general.architecture'), u32(8), ggufText('fixture'), ggufText('fixture.context_length'), u32(4), u32(32_768)]);
-const name = (await readdir(release)).find((name) => name.endsWith('_amd64.deb'));
-assert(name, 'Build npm run package:linux first');
+const version = JSON.parse(await readFile(resolve('package.json'), 'utf8')).version;
+const artifact = process.argv[2] ? resolve(process.argv[2]) : join(release, `local-ai-desktop_${version}_amd64.deb`);
 const fixture = await mkdtemp(join(tmpdir(), 'linux package smoke space '));
 let application, provider;
 try {
   const payload = join(fixture, 'payload');
-  execFileSync('dpkg-deb', ['-x', join(release, name), payload]);
+  execFileSync('dpkg-deb', ['-x', artifact, payload]);
   const control = join(fixture, 'control'); await mkdir(control);
-  execFileSync('dpkg-deb', ['-e', join(release, name), control]);
+  execFileSync('dpkg-deb', ['-e', artifact, control]);
   const postInstall = await readFile(join(control, 'postinst'), 'utf8');
-  assert(postInstall.includes("chmod 4755 '/opt/local-ai-desktop/chrome-sandbox'"));
-  assert(postInstall.includes("chmod 0755 '/opt/local-ai-desktop/chrome-sandbox'"));
+  assert(postInstall.includes('chmod 0755 "$app/chrome-sandbox"'));
+  assert(!postInstall.includes('chmod 4755'), 'RC provisioning must not introduce setuid helpers');
   assert(!postInstall.includes('/opt/Local AI Desktop/'));
   assert(!postInstall.includes('--no-sandbox'), 'the package installation must retain Chromium sandboxing');
-  const packageIndex = execFileSync('dpkg-deb', ['-c', join(release, name)], { encoding: 'utf8', maxBuffer: 12 * 1024 * 1024 });
+  const packageIndex = execFileSync('dpkg-deb', ['-c', artifact], { encoding: 'utf8', maxBuffer: 12 * 1024 * 1024 });
   const sandboxEntry = packageIndex.split('\n').find((line) => line.endsWith('./opt/local-ai-desktop/chrome-sandbox'));
   assert(sandboxEntry, 'the Electron chrome-sandbox helper must ship in the package');
-  assert.match(sandboxEntry, /^-rwxr-xr-x 0\/0 /, 'the package must install a root-owned executable helper before the SUID post-install choice');
+  assert.match(sandboxEntry, /^-rwxr-xr-x 0\/0 /, 'the package must install a root-owned executable helper without SUID');
   const desktopDirectory = join(payload, 'usr/share/applications');
   const desktopFile = join(desktopDirectory, (await readdir(desktopDirectory))[0]);
   const desktopEntry = await readFile(desktopFile, 'utf8');
@@ -62,7 +62,9 @@ try {
     ...(helper ? { CHROME_DEVEL_SANDBOX: helper } : {}) };
   delete env.ELECTRON_RUN_AS_NODE; delete env.LOCAL_AI_LAUNCHER_MANAGED; delete env.LOCAL_AI_DEV_SERVER_URL;
   const launch = async (overrides = {}) => {
-    application = await electron.launch({ executablePath: executable, cwd: fixture, env: { ...env, ...overrides }, timeout: 30_000 });
+    application = await electron.launch({ executablePath: executable, chromiumSandbox: true, cwd: fixture, env: { ...env, ...overrides }, timeout: 30_000 });
+    assert.equal(await application.evaluate(() => process.argv.includes('--no-sandbox')), false, 'Chromium sandbox remains enabled');
+    assert.equal(await application.evaluate(({app}) => app.getVersion()), version);
     const page = await application.firstWindow();
     await page.waitForSelector('.composer textarea');
     return page;
@@ -386,6 +388,7 @@ createServer((request, response) => {
   assert.equal(selectedChat.modelId, customId);
   const launched = await page.evaluate(() => window.localAi.runtime.state());
   assert.equal(launched.status, 'ready'); assert.equal(launched.modelId, customId);
+  const ownedServerStat = (await readFile(`/proc/${launched.serverPid}/stat`, 'utf8')).split(') ').at(-1).split(' ');
   assert.equal(await application.evaluate(() => process.pid), processBefore, 'settings apply without Electron restart');
   const serverArgs = (await readFile(`/proc/${launched.serverPid}/cmdline`, 'utf8')).split('\0');
   assert(serverArgs.includes(expectedExecutable)); assert(!serverArgs.includes(ancestor), 'runtime must receive the executable, never its ancestor folder'); assert(serverArgs.includes(modelFile));
@@ -400,6 +403,17 @@ createServer((request, response) => {
   const code = await readFile(join(identity.resources, 'app/dist/main/services/paths.js'), 'utf8');
   assert(code.includes('agent/local-ai-agent-runtime'));
   await application.close(); application = undefined;
+  const shutdownDeadline = Date.now() + 10_000;
+  while (true) {
+    let stat;
+    try { stat = (await readFile(`/proc/${launched.serverPid}/stat`, 'utf8')).split(') ').at(-1).split(' '); }
+    catch (error) { if (error.code === 'ENOENT') break; throw error; }
+    // A different start time is PID reuse; never signal either identity here.
+    if (stat[19] !== ownedServerStat[19] || stat[0] === 'Z') break;
+    assert(Date.now() < shutdownDeadline, 'shutdown must stop its own fixture server');
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  console.log('PASS: packaged shutdown releases its positively identified fixture server');
   page = await launch();
   const restored = await page.evaluate(() => window.localAi.settings.get());
   assert.equal(restored.setup.server, expectedExecutable); assert.equal(restored.setup.config.modelsPath, weights); assert.equal(restored.setup.config.gpuLayers, 0);

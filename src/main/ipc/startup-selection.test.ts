@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Conversation } from '../../shared/types';
@@ -22,6 +22,9 @@ async function run(): Promise<void> {
   const { llamaRuntimeProfile } = await import('../models/llama-runtime-policy');
   const { ensureAppDirectories } = await import('../services/paths');
   ensureAppDirectories();
+  // Do not let models installed next to a source checkout change this fixture.
+  // No weights/projector exist in this private model directory.
+  writeFileSync(join(root, 'app-data/runtime-settings.json'), JSON.stringify({ modelsPath: join(root, 'models'), llamaServerPath: null, gpuLayers: 999, models: {} }));
   const db = new Database();
   const previous = db.createConversation('gemma4:31b-it-q4_k_m');
   db.updateConversation(previous.id, { contextWindow: 81_920, llamaKvCacheType: 'q8_0' });
@@ -58,7 +61,7 @@ async function run(): Promise<void> {
     assert.equal(selected.llamaKvCacheType, 'f16');
     assert.match(launches[0].environment, /SPECULATIVE_MODE='mtp'/);
     assert.match(launches[0].environment, /DRAFT_MODEL=''/);
-    assert.match(launches[0].environment, /MMPROJ='[^']*qwen3.8-27b-mmproj.gguf'/);
+    assert.match(launches[0].environment, /MMPROJ=''/, 'a missing projector must not be passed to the backend merely because the catalog names it');
     for (const [id, mode, draft] of [['qwen3.8:27b-q4_K_M', 'mtp', '']]) {
       const result = await invoke<Conversation>('conversations:update', previous.id, { modelId: id });
       assert.equal(result.modelId, id); assert.equal(runtime.modelId, id);

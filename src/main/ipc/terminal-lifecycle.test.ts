@@ -17,7 +17,7 @@ const waitUntil = async (predicate: () => boolean, label: string): Promise<void>
  * so the real event mapping, IPC lifecycle and SQLite merge are exercised. A
  * `stall` line waits for Stop; the worker then reports `agent_stopped`. */
 const WORKER = `#!/usr/bin/env node
-const lines = JSON.parse(require('node:fs').readFileSync(process.env.TERMINAL_LIFECYCLE_SCENARIO, 'utf8'));
+const lines = JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, 'scenario.json'), 'utf8'));
 let started = false;
 require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
   const request = JSON.parse(line);
@@ -84,6 +84,12 @@ async function run(): Promise<void> {
   writeFileSync(worker, WORKER);
   chmodSync(worker, 0o755);
   process.env.LOCAL_AI_AGENT_RUNTIME = worker;
+  const childProcess = require('node:child_process') as typeof import('node:child_process');
+  const originalSpawn = childProcess.spawn;
+  const workers: import('node:child_process').ChildProcess[] = [];
+  childProcess.spawn = ((...args: Parameters<typeof originalSpawn>) => {
+    const child = originalSpawn(...args); if (args[0] === worker) workers.push(child); return child;
+  }) as typeof originalSpawn;
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
   const loader = Module as unknown as { _load: (name: string, ...args: unknown[]) => unknown };
   const originalLoad = loader._load;
@@ -111,9 +117,8 @@ async function run(): Promise<void> {
     for (const [index, scenario] of CASES.entries()) {
       const chat = await invoke<Conversation>('conversations:create');
       await invoke('conversations:update', chat.id, { modelId: model, mode: 'agent', webMode: 'off', workingDirectory: join(root, 'project') });
-      const scenarioFile = join(root, `scenario-${index}.json`);
+      const scenarioFile = join(root, 'scenario.json');
       writeFileSync(scenarioFile, JSON.stringify(scenario.events));
-      process.env.TERMINAL_LIFECYCLE_SCENARIO = scenarioFile;
       const generationId = `gen-${index}`;
       const request: ChatRequest = { conversationId: chat.id, generationId, model, persistUserMessage: true, messages: [{ id: `${generationId}-user`, conversationId: chat.id, role: 'user', content: scenario.name, createdAt: new Date().toISOString() } as ChatMessage] };
       const sending = invoke('chat:send', request);
@@ -161,6 +166,18 @@ async function run(): Promise<void> {
       restarted.close();
     }
     console.log('terminal success, failure, Stop and Agent failure each render one finished card per stable call ID, before and after restart');
-  } finally { globalThis.fetch = originalFetch; loader._load = originalLoad; db.close(); rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    // The production stream closes asynchronously; let its child exit handler
+    // retire the fixture identity before removing the registry directory.
+    for (const child of workers) {
+      if (child.exitCode !== null || child.signalCode !== null) continue;
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Fixture worker did not exit')), 3_000);
+        child.once('exit', () => { clearTimeout(timer); resolve(); });
+      });
+    }
+    childProcess.spawn = originalSpawn;
+    globalThis.fetch = originalFetch; loader._load = originalLoad; db.close(); rmSync(root, { recursive: true, force: true });
+  }
 }
 void run().catch((error: unknown) => { console.error(error); process.exitCode = 1; });

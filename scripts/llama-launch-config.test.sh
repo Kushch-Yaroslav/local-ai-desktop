@@ -111,3 +111,14 @@ build_server_args 32768 999
 [[ " ${server_args[*]} " == *" --no-mmproj-offload "* ]]
 unset PROJECTOR_PREFERENCE LOCAL_AI_MMPROJ_DEVICE
 echo 'PASS projector auto/GPU/CPU fallback'
+# Dynamic discovered sizes are launcher inputs, never normalized to presets.
+select_variant qwen3.8:27b-q4_K_M
+for profile in '73728:f16' '110592:q8_0'; do
+  context="${profile%%:*}"; precision="${profile#*:}"
+  context_args=(--cache-type-k "$precision" --cache-type-v "$precision" --cache-type-k-draft "$precision" --cache-type-v-draft "$precision" --kv-offload)
+  build_server_args "$context" 999
+  [[ " ${server_args[*]} " == *" --ctx-size $context "* ]]
+  [[ " ${server_args[*]} " == *" --cache-type-k $precision "* && " ${server_args[*]} " == *" --cache-type-v $precision "* ]]
+  [[ " ${server_args[*]} " == *" --cache-type-k-draft $precision "* && " ${server_args[*]} " == *" --cache-type-v-draft $precision "* ]]
+done
+echo 'PASS dynamic 72K FP16 / 108K Q8 launcher arguments (no server started)'

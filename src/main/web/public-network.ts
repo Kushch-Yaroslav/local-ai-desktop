@@ -77,3 +77,21 @@ export async function fetchPublicResource(raw: string, method: string, headers: 
     request.on('error', reject); request.end();
   });
 }
+
+/** Stream a GET response with the same public-only DNS pinning as web reads.
+ * The caller owns redirect validation and must consume or destroy the body. */
+export async function openPublicResource(raw: string, signal: AbortSignal, timeoutMs: number): Promise<import('node:http').IncomingMessage> {
+  const { url, address, family } = await publicDestination(raw, lookup, signal);
+  if (signal.aborted) throw new Error('Download cancelled');
+  return new Promise((resolve, reject) => {
+    const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
+      method: 'GET', signal, family,
+      headers: { 'user-agent': publicWebUserAgent, 'accept-encoding': 'identity' },
+      lookup: (_host, _options, done) => done(null, address, family),
+    }, resolve);
+    const deadline = setTimeout(() => request.destroy(new Error('Download timed out')), timeoutMs);
+    deadline.unref(); request.once('close', () => clearTimeout(deadline));
+    request.setTimeout(Math.min(timeoutMs, 60_000), () => request.destroy(new Error('Download connection timed out')));
+    request.on('error', reject); request.end();
+  });
+}

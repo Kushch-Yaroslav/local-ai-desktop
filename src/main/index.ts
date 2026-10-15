@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { ensureAppDirectories, paths } from './services/paths';
 import { log } from './services/logger';
 import { startRuntimeSupervisor, stopRuntimeSupervisor } from './services/runtime-supervisor';
+import { protectedRuntime } from './services/protected-runtime';
 
 let mainWindow: BrowserWindow | null = null;
 let shutdownStarted = false;
@@ -84,6 +85,7 @@ app.whenReady().then(async () => {
     selectLanguage(language);
   });
   await startRuntimeSupervisor();
+  protectedRuntime.start();
   const { registerIpc } = await import('./ipc/register-ipc');
   registerIpc();
   const ipc = await import('./ipc/register-ipc');

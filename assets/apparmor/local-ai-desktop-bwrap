@@ -1,0 +1,87 @@
+# Candidate Local AI Desktop-only AppArmor policy; not installed automatically.
+# The helper is a root-owned, non-setuid copy of the distro bwrap binary.
+# Setup and payload are stacked because bwrap sets no_new_privs before exec.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile local_ai_desktop_bwrap /usr/lib/local-ai-desktop/bwrap flags=(attach_disconnected,mediate_deleted) {
+  # Namespace setup/capability dropping used by bwrap 0.9.0.
+  capability sys_admin,
+  capability sys_chroot,
+  capability net_admin,
+  capability setuid,
+  capability setgid,
+  capability sys_ptrace,
+  capability setpcap,
+  userns,
+
+  # no_new_privs keeps this profile stacked on payloads. These dynamic-path
+  # allowances must cover ordinary payload reads/mappings/owner writes too;
+  # otherwise project builds fail even when the child profile permits them.
+  /{**,} mr,
+  owner /{**,} wkl,
+  /usr/lib/local-ai-desktop/bwrap mr,
+  /{usr/lib,usr/lib64,lib,lib64}/** mr,
+  / rw,
+  /{tmp,newroot,oldroot}/{,**} rw,
+  /proc/*/{uid_map,gid_map,setgroups} rw,
+  /dev/{,**} rw,
+  mount -> /,
+  mount -> /tmp/,
+  # bwrap 0.9.0 pre-pivot staging self-bind; exact paths and audited flags only.
+  mount options=(rw, rbind) /tmp/newroot/ -> /tmp/newroot/,
+  mount -> /newroot/{,**},
+  mount -> /oldroot/{,**},
+  umount /oldroot/{,**},
+  # After the second pivot, the saved staging root is audited as /. Setup only.
+  umount /,
+  pivot_root /tmp/,
+  pivot_root /newroot/,
+  # Retained for payload workflows, not required by mount setup itself.
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  ptrace (read) peer=local_ai_desktop_bwrap*,
+  # Host main/Rust supervisors need passive /proc identity inspection.
+  ptrace (readby),
+  signal (send) peer=local_ai_desktop_bwrap*,
+  signal (receive),
+  unix (create, getattr, getopt, setopt, shutdown),
+  unix (send, receive) peer=(label=local_ai_desktop_bwrap*),
+
+  # No ix/ux fallback at the privilege boundary; stack the mandatory payload.
+  px /** -> local_ai_desktop_bwrap//&local_ai_desktop_bwrap_child,
+}
+
+profile local_ai_desktop_bwrap_child flags=(attach_disconnected,mediate_deleted) {
+  # Static policy cannot name every selected project/venv/library. The private
+  # mount layout supplies the independent write boundary; DAC still applies.
+  /{**,} mr,
+  owner /{**,} wkl,
+  /dev/{null,zero,full,random,urandom,tty,pts/**} rw,
+  # Always inherit this profile on subsequent exec; never reacquire setup rights.
+  /{**,} ix,
+  # The setup helper is launched only by the trusted host runtime. Do not let
+  # payload commands invoke it directly, even though general exec uses ix.
+  audit deny /usr/lib/local-ai-desktop/bwrap x,
+  network inet stream,
+  network inet dgram,
+  network inet6 stream,
+  network inet6 dgram,
+  unix (create, getattr, getopt, setopt, shutdown),
+  unix (send, receive) peer=(label=local_ai_desktop_bwrap*),
+  ptrace (read) peer=local_ai_desktop_bwrap*,
+  # Host main/Rust supervisors need passive /proc identity inspection.
+  ptrace (readby),
+  signal (send) peer=local_ai_desktop_bwrap*,
+  signal (receive),
+  audit deny capability,
+  audit deny change_profile,
+  audit deny userns,
+  audit deny mount,
+  audit deny umount,
+  audit deny pivot_root,
+  audit deny ptrace (trace),
+  audit deny dbus,
+}

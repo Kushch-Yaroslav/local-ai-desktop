@@ -65,14 +65,22 @@ json_escape() {
   printf '%s' "$s"
 }
 # write_state <status> [request_id] [error] [rolled_back]
+process_start_time() {
+  local raw fields
+  [[ -r "/proc/${1:-0}/stat" ]] || return 0
+  read -r raw < "/proc/$1/stat" || return 0
+  raw="${raw##*) }"
+  read -ra fields <<< "$raw"
+  printf '%s' "${fields[19]:-}"
+}
 # The state is written to a temporary file and renamed so a reader never sees a
 # partial document.
 write_state() {
   local status="$1" request_id="${2:-}" error="${3:-}" rolled_back="${4:-false}"
   local tmp="$STATE_FILE.$$.tmp"
-  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"updatedAt":"%s"}\n' \
+  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"updatedAt":"%s","serverStartTime":"%s","launcherStartTime":"%s"}\n' \
     "$status" "$(json_escape "$request_id")" "$(json_escape "$ACTIVE_MODEL")" "${ACTIVE_CONTEXT:-0}" "$ACTIVE_KV_TYPE" "$([[ "$ACTIVE_KV_OFFLOAD" == "1" ]] && echo true || echo false)" "$ACTIVE_SPECULATIVE_MODE" "$ACTIVE_PROJECTOR_DEVICE" "${SERVER_PID:-0}" "$$" \
-    "$(json_escape "$error")" "$rolled_back" "$(timestamp)" > "$tmp"
+    "$(json_escape "$error")" "$rolled_back" "$(timestamp)" "$(process_start_time "${SERVER_PID:-0}")" "$(process_start_time "$$")" > "$tmp"
   mv -f "$tmp" "$STATE_FILE"
 }
 
@@ -99,6 +107,20 @@ stop_llama_server() {
     kill -KILL "$pid" 2>/dev/null || true
   fi
   wait "$pid" 2>/dev/null || true
+}
+
+# Record unexpected server death while retaining the launcher for explicit
+# reload. Never allocate a model automatically after a crash or user stop.
+check_server_lifecycle() {
+  [[ -n "$SERVER_PID" ]] || return 0
+  kill -0 "$SERVER_PID" 2>/dev/null && return 0
+  local dead_pid="$SERVER_PID" server_status=0
+  wait "$dead_pid" 2>/dev/null || server_status=$?
+  log "llama-server.exit pid=$dead_pid status=$server_status unexpected=true"
+  tail -n 40 "$SERVER_LOG" >> "$LOG_FILE" || true
+  SERVER_PID=""; ACTIVE_MODEL=""; ACTIVE_CONTEXT=0; ACTIVE_SPECULATIVE_MODE="none"
+  rm -f "$SERVER_PID_FILE"
+  write_state offline "" "llama-server exited (pid=$dead_pid, status=$server_status). Reload the model to continue."
 }
 
 # A new model must not be loaded while the previous process's VRAM is still
@@ -204,6 +226,9 @@ launch_server() {
   SERVER_PID=$!
   printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
   log "llama-server.pid=$SERVER_PID"
+  # Publish the new identity before health probing, so the host registry can
+  # track starting servers too. Only the caller's ready state confirms success.
+  write_state starting "${REQUEST_ID:-}"
 
   local waited=0 healthy=0
   while (( waited < HEALTH_TIMEOUT_SECONDS )); do
@@ -374,6 +399,7 @@ if [[ "${LOCAL_AI_LAUNCHER_HEADLESS:-}" == "1" ]]; then
   log "headless=true state=idle electron=skipped"
   while true; do
     if [[ -n "${LOCAL_AI_PARENT_PID:-}" ]] && ! kill -0 "$LOCAL_AI_PARENT_PID" 2>/dev/null; then CLEANUP_REASON="Electron owner exited"; exit 0; fi
+    check_server_lifecycle
     sleep 1 &
     sleeper=$!
     wait "$sleeper" || true
@@ -386,14 +412,15 @@ log "electron.start command=$ELECTRON_BIN cwd=$(pwd) runtime=llama.cpp"
 "$ELECTRON_BIN" "$APP_DIR" >> "$LOG_FILE" 2>&1 &
 ELECTRON_PID=$!
 log "electron.pid=$ELECTRON_PID"
-# A runtime switch interrupts `wait`; only Electron's own exit ends the launcher.
+# Poll both children: waiting only for Electron hides a dead llama-server.
 electron_status=0
 while kill -0 "$ELECTRON_PID" 2>/dev/null; do
-  set +e
-  wait "$ELECTRON_PID"
-  electron_status=$?
-  set -e
+  check_server_lifecycle
+  sleep 1 &
+  sleeper=$!
+  wait "$sleeper" || true
 done
+wait "$ELECTRON_PID" || electron_status=$?
 CLEANUP_REASON="electron exited status=$electron_status"
 log "electron.exit status=$electron_status"
 if (( electron_status != 0 )); then
