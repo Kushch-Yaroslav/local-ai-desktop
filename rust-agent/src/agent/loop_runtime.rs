@@ -148,6 +148,7 @@ const TOOL_RESULT_TRUNCATION_MARKER: &str =
 const AGENT_GUIDANCE: &str = r#"
 # Local AI Desktop Agent
 - Work directly from the conversation and tool results. A tool-free response completes the run; there is no separate step to request before answering.
+- For local HTML/browser checks use web_project when available (open a project-relative HTML path or approved loopback URL, then read/click/screenshot). It uses the host Playwright runtime; do not install Puppeteer or launch Chrome through run_terminal. A screenshot file alone is not visual understanding.
 - For code changes, read before writing, make targeted changes, then check them: after you change files, run the cheapest check that shows the change works (the project's own tests, or a short script that runs the changed code; for a page, a real browser run, such as a headless browser or a Playwright or Puppeteer script; jsdom or a hand-written DOM stand-in does not count as a browser check). A check must go through the same entry path the user will use (for a page: the real HTML with its script order and load timing, not only the script run against a stand-in); if it only covers part of that path or uses a stand-in, say so. A claim is only as strong as the check behind it: a command that exits 0 shows what it ran, not more. If the check the claim needs cannot be run here (for example, no browser), leave it implemented and say so plainly instead of substituting a weaker check. For a small literal edit, prefer replace_text after reading the file; it avoids patch context markers without weakening freshness checks. Verification is part of the work, not an extra step to announce. Reading a file back shows only that it exists, not that it works. When a check fails, fix the cause and run it again; do not invent checks or skip a failure.
 - For an informational answer, use create_visual_artifact only when a chart, table, metric group, Mermaid diagram, real-image gallery, or concise report materially helps. Use actual values and sources present in user inputs or tool observations; explicitly requested fictional/demo data is allowed when labeled fictional. When the user requests an interactive chart or artifact diagram, call the artifact tool: Markdown tables and ASCII sketches are not equivalent. Do not repeat an accepted diagram in Markdown or add a generic fallback diagram. For comparisons and reports, reuse one coherent dataset across metrics, chart, and table; encode unavailable numeric data as null, never as a guessed value or formatted string. For real images, use web_image_search and reference its discovery_id values; never invent URLs or attribution. A selected project does not turn an ordinary question into a coding task. The artifact tool accepts data only, never HTML, CSS, JavaScript, or SVG.
 - For substantial tasks, reason about an approach before acting, adapt as you learn, use tools for concrete evidence, avoid broad rereads, and continue until the user's task is complete.
@@ -1857,6 +1858,28 @@ fn record_terminal_evidence(
     true
 }
 
+/// Host browser snapshots prove only page execution/observed diagnostics. Never
+/// infer visual understanding from a screenshot or map an arbitrary HTTP service
+/// to the selected project's files.
+fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &Value, result: &Value) {
+    if !matches!(args.get("action").and_then(Value::as_str), Some("open" | "read" | "click" | "back"))
+        || result.get("error").is_some() { return; }
+    let Some(source) = result.get("source_path").and_then(Value::as_str) else { return; };
+    let Ok(base) = std::fs::canonicalize(root) else { return; };
+    let Ok(path) = std::fs::canonicalize(source) else { return; };
+    if !path.starts_with(&base) { return; }
+    let Some(errors) = result.get("javascript_errors").and_then(Value::as_array) else { return; };
+    let Some(blocked) = result.get("blocked_requests").and_then(Value::as_array) else { return; };
+    let pass = errors.is_empty() && blocked.is_empty();
+    let subject = format!("web_project {} {}", args["action"].as_str().unwrap_or(""), result["url"].as_str().unwrap_or(""));
+    state.task_memory.verification.record_outcome(verification::Kind::Browser, &subject, pass,
+        "Real browser DOM/runtime snapshot; observed errors only, no visual or exhaustive behavioural assertion", state.turn, &result.to_string());
+    if let Some(record) = state.task_memory.verification.records.last_mut() {
+        record.checked_paths = vec![path.to_string_lossy().into_owned()];
+    }
+    sync_verification_failure(state);
+}
+
 /// Execution success and accepted verification evidence are different facts.
 /// Explain rejected shell shapes immediately instead of making the model guess
 /// why a later deliverables.verify sees no fresh evidence.
@@ -1893,6 +1916,27 @@ fn managed_task_effect(action: &str) -> verification::Effect {
 #[cfg(test)]
 mod wrapped_evidence_tests {
     use super::*;
+    #[test]
+    fn project_browser_evidence_is_scoped_and_never_derived_from_screenshot_or_http() {
+        let root = std::env::temp_dir().join(format!("project-browser-evidence-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("index.html"); std::fs::write(&path, "<h1>Test</h1>").unwrap();
+        let mut state = AgentState::default();
+        let result = json!({"source_path":path,"url":"https://project-preview.invalid/index.html","javascript_errors":[],"blocked_requests":[]});
+        record_project_browser_evidence(&mut state, &root, &json!({"action":"open"}), &result);
+        assert_eq!(state.task_memory.verification.records.len(),1);
+        assert!(state.task_memory.verification.records[0].pass);
+        assert_eq!(state.task_memory.verification.records[0].kind,verification::Kind::Browser);
+        assert_eq!(state.task_memory.verification.records[0].checked_paths,vec![path.to_string_lossy().into_owned()]);
+        record_project_browser_evidence(&mut state, &root, &json!({"action":"screenshot"}), &result);
+        record_project_browser_evidence(&mut state, &root, &json!({"action":"open"}), &json!({"url":"http://localhost:1234","javascript_errors":[],"blocked_requests":[]}));
+        record_project_browser_evidence(&mut state, &root, &json!({"action":"open"}), &json!({"error":"cancelled","source_path":path}));
+        assert_eq!(state.task_memory.verification.records.len(),1);
+        let mut failed=result.clone(); failed["javascript_errors"]=json!(["ReferenceError"]);
+        record_project_browser_evidence(&mut state, &root, &json!({"action":"read"}), &failed);
+        assert!(!state.task_memory.verification.records.last().unwrap().pass);
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn relative_browser_script_uses_effective_cwd_not_script_parent_twice() {
         let root = std::env::temp_dir().join(format!("relative-browser-check-{}", std::process::id()));
@@ -3787,6 +3831,9 @@ fn run_scoped_tool_authorized(
     if crate::tools::web::is_web_tool(&tool.name) {
         if !config.web_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Web tool is unavailable".into()); }
         let result = config.host_tools.as_ref().ok_or("Web host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
+        if tool.name == "web_project" {
+            if let Some(root) = config.work_root() { record_project_browser_evidence(state, Path::new(root), &tool.arguments, &result); }
+        }
         return if result.get("error").is_some() || result.get("blocked_reason").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
     if tool.name == "create_visual_artifact" || tool.name == "download_file" {
@@ -4741,12 +4788,10 @@ pub fn run(config: Config) {
     state.can_verify = schemas
         .iter()
         .any(|schema| tool_name(schema) == "run_terminal");
-    state.browser_available = state.can_verify
-        && config.browser_capability.unwrap_or_else(|| {
-            config
-                .work_root()
-                .is_some_and(|root| verification::browser_available(Path::new(root)))
-        });
+    state.browser_available = config.browser_capability.unwrap_or_else(|| {
+        schemas.iter().any(|schema| tool_name(schema) == "web_project")
+            || state.can_verify && config.work_root().is_some_and(|root| verification::browser_available(Path::new(root)))
+    });
     if state.can_verify && state.strategy.is_deep() {
         state.project_test_command = config
             .work_root()

@@ -716,7 +716,7 @@ impl Verification {
     fn how_to_get(need: Need, browser_available: bool) -> &'static str {
         match need {
             Need::Integrity => "No trusted pre-operation integrity baseline/journal is available. Leave the claim unverified; do not create a retroactive baseline.",
-            Need::Browser if browser_available => "Run the page in a real browser: a headless browser (for example google-chrome --headless --dump-dom <file>), or a playwright/puppeteer/cypress script when one is installed. A jsdom or node script is not a browser.",
+            Need::Browser if browser_available => "Use web_project when available: open the project HTML or approved loopback URL, inspect DOM and errors, and click navigation. Otherwise use an installed browser driver only if the execution environment supports it. Do not install another browser runtime or bypass sandbox restrictions. A jsdom or node script is not a browser.",
             Need::Browser => "A real browser run is not available here.",
             Need::Runtime => "Run the code: the project's tests, or a short script that exercises the behaviour. Reading the file back does not show it works.",
             Need::Test => "Run the project's tests.",

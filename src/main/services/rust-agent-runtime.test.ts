@@ -299,9 +299,38 @@ require('node:readline').createInterface({input:process.stdin}).on('line',line=>
   } finally {rmSync(dir,{recursive:true,force:true});}
 }
 
+async function runProjectBrowserBridgeRegression(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), 'project-browser-bridge-'));
+  try {
+    const script = join(dir, 'worker.js'), received = join(dir, 'reply.json');
+    writeFileSync(script, `#!/usr/bin/env node
+const fs=require('node:fs'); let run; const out=e=>process.stdout.write(JSON.stringify(e)+'\\n');
+require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+ const r=JSON.parse(line);
+ if(r.type==='run'){run=r;out({type:'host_tool_call',id:'preview',name:'web_project',arguments:{action:'open',path:'index.html'}});}
+ if(r.type==='host_tool_result'){fs.writeFileSync(${JSON.stringify(received)},JSON.stringify({run,result:r.result}));out({type:'final',content:'done'});}
+});`);
+    chmodSync(script, 0o755);
+    for (const mode of ['auto', 'off'] as const) {
+      const projects = [{ id: 'fixture', slot: 1 as const, root: dir, label: 'Fixture' }];
+      const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 5000);
+      try {
+        // No approval transport: must fail closed before launching a browser.
+        for await (const event of new RustAgentRuntime('', script).stream('fixture', [message('user','verify project')], projects, abort.signal,4096,'fast',mode,`preview-${mode}`)) { assert.notEqual(event.type, 'error'); }
+        assert(!abort.signal.aborted);
+        const reply = JSON.parse(readFileSync(received,'utf8'));
+        assert.equal(reply.run.web_tools.some((tool: { function: { name: string } }) => tool.function.name === 'web_project'), mode === 'auto');
+        if (mode === 'auto') assert.equal(reply.result.code, 'PERMISSION_DENIED');
+        else assert.match(reply.result.error,/unavailable/);
+      } finally { clearTimeout(timer); }
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 if (require.main === module) {
   runRustAgentRuntimeRegression();
   void (async () => {
+    await runProjectBrowserBridgeRegression();
     await runPermissionTransportRegression();
     await runAccountingBridgeRegression();
     await runSteeringBridgeRegression();

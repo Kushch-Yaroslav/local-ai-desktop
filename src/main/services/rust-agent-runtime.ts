@@ -1,3 +1,5 @@
+import { ProjectBrowserSession, projectBrowserTool } from '../web/project-browser';
+import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
 import { randomUUID } from 'node:crypto';
 import { FileDownloader, downloadFileTool } from '../tools/download-file';
@@ -206,7 +208,9 @@ export class RustAgentRuntime {
     };
     lines.on('line', acknowledgeControl);
     let session: Promise<WebBrowserSession> | undefined;
-    const closeWeb = () => { void session?.then((browser) => browser.close(), () => undefined); };
+    let projectBrowser: ProjectBrowserSession | undefined;
+    let previewProject: string | undefined;
+    const closeWeb = () => { void projectBrowser?.close(); void session?.then((browser) => browser.close(), () => undefined); };
     signal.addEventListener('abort', closeWeb, { once: true });
     let stopped = false;
     const stop = () => {
@@ -226,7 +230,7 @@ export class RustAgentRuntime {
       approval_ui: Boolean(confirm), permissions,
       ui_language: getLanguage(),
       system: `${modelLanguageDirective()}\nYou are Local AI Desktop Agent. Work autonomously inside the scope described below. Use tools only with complete valid JSON arguments.\n${projects.map((project) => `Project ${project.slot}: ${project.label}; identity=${project.id}; root=${project.root}`).join('\n')}`,
-      user: current.user, user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? webToolDefinitions : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: attachmentTool ? [attachmentTool] : [], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
+      user: current.user, user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? [...webToolDefinitions, ...(projects.length ? [projectBrowserTool] : [])] : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: attachmentTool ? [attachmentTool] : [], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
       context_limit: contextLimit, reasoning_mode: reasoningMode, supports_reasoning: supportsReasoning, reasoning_options: reasoningOptions, web_mode: webMode, policy: 'auto',
       history: current.prior.filter((message) => !message.agentError && !message.agentCancelled).map((message) => ({ role: message.role, content: message.content, ...(imageReferences(message).length ? { image_refs: imageReferences(message) } : {}), ...(message.images?.length ? { images: message.images } : {}) })),
       ...(conversationId ? { evidence_dir: agentEvidenceDir(paths.userData, conversationId, logicalTaskId) } : {}),
@@ -267,6 +271,14 @@ export class RustAgentRuntime {
               const detail = operation === 'run_terminal' ? String(args?.command ?? '') : `${operation}: ${JSON.stringify(args ?? {})}`;
               const decision = confirm ? await confirm({ title: 'Разрешение на операцию', detail, root, category: operation === 'run_terminal' ? 'system_command' : operation === 'download_file' ? 'file_download' : 'file_delete', actionId: String(event.arguments?.action_id ?? event.id) }, signal) : { approved: false, reason: 'ui_unavailable' };
               result = { ...decision, ...(!decision.approved ? { code: 'PERMISSION_DENIED', retrySameArguments: false, error: decision.reason === 'ui_unavailable' ? 'Approval UI unavailable. Open the application window and retry the operation.' : decision.reason === 'timeout' ? 'Approval request timed out without a decision. Retry with the application window open.' : 'Operation denied or cancelled; do not bypass using another tool.' } : {}) };
+            } else if (event.name === 'web_project') {
+              if (webMode !== 'auto') throw new Error('Web tool is unavailable');
+              const project = projects.find(project => project.slot === (event.arguments?.project ?? 1));
+              if (!project) throw new Error('Select an authorized project first');
+              if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
+              previewProject = project.id;
+              projectBrowser ??= new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId));
+              result = await projectBrowser.execute(event.arguments ?? {}, signal, confirm, String(event.id));
             } else if (event.name === 'download_file') {
               const slot = event.arguments?.project ?? 1;
               const project = projects.find(project => project.slot === slot);

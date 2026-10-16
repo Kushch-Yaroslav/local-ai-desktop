@@ -4,7 +4,7 @@ use std::sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Mutex, Condvar};
 use std::time::{Duration, Instant};
 
 pub fn is_web_tool(name: &str) -> bool {
-    matches!(name, "web_search" | "web_image_search" | "web_open" | "web_read" | "web_follow_link" | "web_back")
+    matches!(name, "web_project" | "web_search" | "web_image_search" | "web_open" | "web_read" | "web_follow_link" | "web_back")
 }
 pub fn is_host_tool(name: &str) -> bool { is_web_tool(name) || matches!(name, "download_file" | "create_visual_artifact" | "read_attachment_data") }
 
@@ -57,7 +57,7 @@ impl HostTools {
             if cancelled.load(Ordering::Relaxed) { *pending = None; return Err("Web request cancelled".into()); }
             if let Some((_, Some(value))) = pending.take() { return Ok(value); }
             *pending = Some((id.clone(), None));
-            let timeout = if name == "request_permission" { 330 } else if name == "download_file" { 3700 } else { 30 };
+            let timeout = if name == "request_permission" || name == "web_project" { 330 } else if name == "download_file" { 3700 } else { 30 };
             if started.elapsed() > Duration::from_secs(timeout) { *pending = None; return Err(if name == "request_permission" { "Approval response transport timed out without an authorization decision" } else { "Host tool response timed out" }.into()); }
             pending = self.changed.wait_timeout(pending, Duration::from_millis(100)).unwrap().0;
         }

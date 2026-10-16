@@ -22,7 +22,7 @@ type PageSnapshot = { title: string; url: string; content: string; links: Array<
 export const webToolDefinitions: ProjectToolDefinition[] = [
   { type: 'function', function: { name: 'web_search', description: 'Ищет актуальную информацию в интернете. Возвращает title, URL и snippet; затем открой подходящий результат через web_open.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Поисковый запрос.' }, max_results: { type: 'integer', minimum: 1, maximum: 8 } }, required: ['query'] } } },
   { type: 'function', function: { name: 'web_image_search', description: 'Ищет реальные публичные изображения. Возвращает discovery_id, image URL и страницу источника. Для галереи передавай только discovery_id из результата; не выдумывай ссылки.', parameters: { type: 'object', properties: { query: { type: 'string' }, max_results: { type: 'integer', minimum: 1, maximum: 8 } }, required: ['query'] } } },
-  { type: 'function', function: { name: 'web_open', description: 'Открывает URL в изолированном read-only headless browser и возвращает очищенный читаемый текст страницы и ссылки.', parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } } },
+  { type: 'function', function: { name: 'web_open', description: 'Открывает публичный URL в read-only browser. Localhost/file:// здесь недоступны. Для проверки HTML/localhost в Agent с выбранным проектом используй web_project, без установки Puppeteer.', parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } } },
   { type: 'function', function: { name: 'web_read', description: 'Повторно читает текущую открытую страницу, включая компактный список ссылок с ID.', parameters: { type: 'object', properties: {} } } },
   { type: 'function', function: { name: 'web_follow_link', description: 'Переходит по ссылке из текущей страницы. Передай link_id из web_read или явный href.', parameters: { type: 'object', properties: { link_id: { type: 'integer', minimum: 1 }, href: { type: 'string' } } } } },
   { type: 'function', function: { name: 'web_back', description: 'Возвращается к предыдущей странице текущей изолированной web-сессии.', parameters: { type: 'object', properties: {} } } },
@@ -84,6 +84,12 @@ function destinationUrl(raw: string): string {
 async function chromeExecutable(): Promise<string> {
   for (const candidate of browserCandidates) { try { await access(candidate); return candidate; } catch { /* Try the next supported binary. */ } }
   throw new Error('Google Chrome/Chromium не найден. Установите браузер или включите web позже.');
+}
+
+/** Shared host-side browser launch; never enters the terminal sandbox. */
+export async function launchWebBrowser(): Promise<Browser> {
+  return chromium.launch({ executablePath: await chromeExecutable(), headless: true, timeout: 10_000,
+    args: ['--force-webrtc-ip-handling-policy=disable_non_proxied_udp', '--disable-extensions', '--disable-sync', '--no-first-run', '--no-default-browser-check'] });
 }
 
 async function snapshot(page: Page): Promise<PageSnapshot> {
@@ -294,8 +300,7 @@ export class WebBrowserService {
   async openSession(): Promise<WebBrowserSession> {
     const config = effectiveRuntimeConfiguration();
     const provider = this.searchProvider ?? createSearchProvider(config);
-    const executablePath = await chromeExecutable();
-    const browser = await chromium.launch({ executablePath, headless: true, args: ['--force-webrtc-ip-handling-policy=disable_non_proxied_udp', '--disable-extensions', '--disable-sync', '--no-first-run', '--no-default-browser-check'] });
+    const browser = await launchWebBrowser();
     try {
     const abort = new AbortController();
     const context = await browser.newContext({ acceptDownloads: false, serviceWorkers: 'block', viewport: { width: 1280, height: 900 }, userAgent: 'Local AI Desktop read-only web research' });

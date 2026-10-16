@@ -15,10 +15,11 @@ export async function runAgentWorkspaceRegression(): Promise<void> {
     assert.deepEqual(enabledAgentTools('chat', scope, 'off'), [], 'Chat must not receive Agent tools');
     assert.deepEqual(enabledAgentTools('chat', scope, 'auto'), ['web']);
   }
+  assert(!enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 1 }, 'auto').includes('web_project'), 'project preview requires a selected project');
   assert.deepEqual(enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 0 }, 'off'), always, 'an unscoped Agent must not receive execution tools');
   assert.deepEqual(enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 1 }, 'off'), [...execution, ...always].sort(), 'a named directory must unlock execution tools, not project knowledge');
   assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), [...execution, ...knowledge, ...always].sort());
-  assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 3 }, 'auto'), [...enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), 'web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back'].sort(), 'web mode adds only the native web tools');
+  assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 3 }, 'auto'), [...enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), 'web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'web_project'].sort(), 'web mode exposes research and scoped project browser tools');
   // Switching Chat -> Agent -> Chat is stateless: the same inputs always give the same tools.
   const scope = { hasProject: true, workspaceRootCount: 0 };
   const sequence = [enabledAgentTools('chat', scope, 'off'), enabledAgentTools('agent', scope, 'off'), enabledAgentTools('chat', scope, 'off'), enabledAgentTools('agent', scope, 'off')];
