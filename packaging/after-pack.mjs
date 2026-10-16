@@ -1,7 +1,8 @@
-const { copyFile, chmod, access, rm, mkdir, readdir, readFile, writeFile, lstat } = require('node:fs/promises');
-const path = require('node:path');
-const { join } = require('node:path');
-module.exports = async ({ appOutDir, packager }) => {
+import { copyFile, chmod, access, rm, mkdir, readdir, readFile, writeFile, lstat } from 'node:fs/promises';
+import path from 'node:path';
+import { join } from 'node:path';
+
+export default async ({ appOutDir, packager }) => {
   // A dev launch may retire npm's adjacent helper. Both clean npm ci and an
   // already-used checkout must package the same vendor helper without SUID bits.
   const source = join(packager.projectDir, 'node_modules/electron/dist');

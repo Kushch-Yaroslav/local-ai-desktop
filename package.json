@@ -186,7 +186,7 @@
       ]
     },
     "electronDist": "node_modules/electron/dist",
-    "afterPack": "packaging/after-pack.cjs"
+    "afterPack": "packaging/after-pack.mjs"
   },
   "homepage": "https://github.com/Kushch-Yaroslav/local-ai-desktop",
   "desktopName": "local-ai-desktop.desktop",
