@@ -28,3 +28,6 @@ local-cache/
 
 # Rust build artifacts
 rust-agent/target/
+
+# Live Browser acceptance screenshots and model test traces
+/artifacts/live-browser/

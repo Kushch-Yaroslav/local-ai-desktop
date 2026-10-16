@@ -1,3 +1,4 @@
+import { liveBrowsers } from '../web/live-browser';
 import { AutonomySessions } from '../services/autonomy-session';
 import type { AutonomyMode, LoopAction } from '../../shared/autonomy';
 import { ApprovalBroker } from '../services/approval-broker';
@@ -771,6 +772,8 @@ export function registerIpc(): void {
     if (generation?.id !== runId || generation.mode !== 'agent' || !['correct', 'continue', 'pause', 'correct_resume', 'continue_anyway'].includes(action) || typeof signature !== 'string') throw new Error('Управление циклом недоступно');
     await rustAgent.control(runId, { action, signature });
   });
+  ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => liveBrowsers.watch(event.sender, conversationId, visible));
+  ipcMain.handle('live-browser:ack', (event, sessionId: unknown, sequence: unknown) => liveBrowsers.acknowledge(event.sender, sessionId, sequence));
   ipcMain.handle('chat:send', async (event, request: ChatRequest) => {
     const requestStarted = performance.now();
     log('rich.request.lifecycle', { generationId: request.generationId, stage: 'submitted', monotonicMs: requestStarted });
@@ -893,7 +896,7 @@ export function registerIpc(): void {
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId)
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id))
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));

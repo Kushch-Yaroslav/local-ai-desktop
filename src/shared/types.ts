@@ -448,6 +448,7 @@ export type StreamEvent =
   | { type: 'error'; message: string; details?: string };
 
 export interface LocalAiApi {
+  liveBrowser?: import('./live-browser').LiveBrowserApi;
   conversations: {
     list(): Promise<Conversation[]>;
     create(modelId?: string): Promise<Conversation>;

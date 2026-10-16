@@ -7,16 +7,19 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import type { ConfirmAction, ProjectToolDefinition } from '../tools/project-tools';
 import { projectPath } from '../tools/project-path';
 import { launchWebBrowser } from './web-tools';
+import type { ProjectBrowserObserver } from './live-browser';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back, or capture a screenshot file. Returns JS/console/network errors. Screenshots are files, not model vision. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload after edits, fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Screenshots are files, not model vision. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: {
-    action: { type: 'string', enum: ['open', 'read', 'click', 'back', 'screenshot'] },
+    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
-    selector: { type: 'string', description: 'CSS selector for click.' },
+    selector: { type: 'string', description: 'CSS selector for click or fill.' },
     wait_ms: { type: 'integer', minimum: 0, maximum: 2000, description: 'Optional bounded settling delay before reading or capturing; default 100 ms.' },
+    value: { type: 'string', maxLength: 4000, description: 'Text for fill; never a file upload.' },
+    delta_y: { type: 'integer', minimum: -2000, maximum: 2000, description: 'Vertical wheel distance for scroll.' },
     project: { type: 'integer', enum: [1, 2] },
   }, required: ['action'], additionalProperties: false },
 } };
@@ -85,7 +88,7 @@ export class ProjectBrowserSession {
   private readonly errors: string[] = [];
   private readonly blocked: string[] = [];
   private captures = 0;
-  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser) {}
+  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private readonly observer?: ProjectBrowserObserver) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     const cancel = () => { void this.close(); };
@@ -104,17 +107,38 @@ export class ProjectBrowserSession {
             detail: `До конца этого запуска разрешить read-only браузеру ${args.url ? url.origin : `статические web-файлы проекта ${this.root}`}? Скрипты страницы выполняются; другие адреса и запись через HTTP заблокированы.` }, signal);
           if (!decision?.approved || signal.aborted) return { error: 'Project browser permission denied or unavailable', code: 'PERMISSION_DENIED', retrySameArguments: false };
           this.origin = url.origin;
+          this.observer?.state('loading', url.href);
           await this.start();
         }
         this.errors.length = 0; this.blocked.length = 0;
+        this.observer?.state('loading', url.href);
         const response = await this.page!.goto(url.href, { waitUntil: 'load' });
         if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
+        this.observer?.action({ kind: 'navigate', at: Date.now() });
       } else {
         if (!this.page) throw new Error('Use web_project action=open first');
-        if (args.action === 'click') {
+        if (args.action === 'click' || args.action === 'fill') {
           if (typeof args.selector !== 'string' || !args.selector.trim() || args.selector.length > 500) throw new Error('A bounded CSS selector is required');
-          await this.page.locator(args.selector).first().click();
-        } else if (args.action === 'back') await this.page.goBack({ waitUntil: 'load' });
+          const target = this.page.locator(args.selector).first();
+          await target.scrollIntoViewIfNeeded();
+          const box = await target.boundingBox();
+          if (args.action === 'click') await target.click();
+          else {
+            if (typeof args.value !== 'string' || args.value.length > 4000) throw new Error('fill requires value of at most 4000 characters');
+            await target.fill(args.value);
+          }
+          this.observer?.action({ kind: String(args.action), ...(box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : {}), at: Date.now() });
+        } else if (args.action === 'scroll') {
+          if (!Number.isInteger(args.delta_y) || Math.abs(Number(args.delta_y)) > 2000) throw new Error('delta_y must be -2000..2000');
+          await this.page.mouse.wheel(0, Number(args.delta_y));
+          this.observer?.action({ kind: 'scroll', at: Date.now() });
+        } else if (['back', 'forward', 'reload'].includes(String(args.action))) {
+          this.observer?.state('loading');
+          if (args.action === 'back') await this.page.goBack({ waitUntil: 'load' });
+          else if (args.action === 'forward') await this.page.goForward({ waitUntil: 'load' });
+          else { this.errors.length = 0; this.blocked.length = 0; await this.page.reload({ waitUntil: 'load' }); }
+          this.observer?.action({ kind: String(args.action), at: Date.now() });
+        }
         else if (args.action === 'screenshot') {
           if (this.captures >= 8) throw new Error('Screenshot limit reached (8 per run)');
           this.captures += 1;
@@ -129,10 +153,12 @@ export class ProjectBrowserSession {
       }
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled');
       await this.page!.waitForTimeout(Number(waitMs));
+      this.observer?.state('live', this.page!.url());
       return await this.read();
     } catch (error) {
       // Failed startup cannot leave a half-initialized reusable session.
       const code = signal.aborted || this.closed ? 'BROWSER_CLOSED_OR_CANCELLED' : !this.page && this.origin ? 'BROWSER_UNAVAILABLE' : 'PROJECT_BROWSER_FAILED';
+      if (this.origin) this.observer?.state('error', undefined, String(error).slice(0, 300));
       if (!this.page && this.origin) await this.close();
       return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: false };
     } finally { signal.removeEventListener('abort', cancel); }
@@ -165,11 +191,14 @@ export class ProjectBrowserSession {
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     this.page = await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
+    this.page.on('close', () => { if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
+    this.observer?.ready(this.page);
+    this.browser.on('disconnected', () => { if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
     this.context.on('page', page => { if (page !== this.page) void page.close(); });
     this.page.on('framenavigated', frame => {
       if (frame === this.page?.mainFrame() && frame.url() !== 'about:blank') {
-        try { if (new URL(frame.url()).origin === this.origin) return; } catch { /* Unsupported navigation. */ }
+        try { if (new URL(frame.url()).origin === this.origin) { this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
         this.note(this.blocked, `Navigation outside approved origin: ${frame.url()}`);
         void this.page?.close();
       }
@@ -185,7 +214,7 @@ export class ProjectBrowserSession {
     return { ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: 'DOM and runtime diagnostics only; screenshots require separate visual analysis' };
   }
   async close() {
-    this.closed = true; this.abort.abort();
+    this.closed = true; this.abort.abort(); this.observer?.closed();
     await this.context?.close().catch(() => undefined);
     await this.browser?.close().catch(() => undefined);
   }

@@ -1,3 +1,4 @@
+import { LiveBrowserWorkspace } from './components/LiveBrowser';
 import { galleryFailureWarning } from '../shared/rich-artifacts';
 import { useLocale } from './use-locale';
 import { t, tr, localizeMessage, setLanguage } from '../shared/locale';
@@ -130,7 +131,7 @@ export function App() {
   const legacyAgentPlan = useAppStore(state => state.legacyAgentPlan);
   const rendered = useMemo(() => withRunHistory(messages, analysisRuns), [messages, analysisRuns]);
   const embeddedSteeringIds = steeringMessageIds(rendered);
-  return <div className="app-shell"><Sidebar /><main className="main"><Toolbar /><section ref={conversationRef} onScroll={updateFollowState} className="conversation">
+  return <div className="app-shell"><Sidebar /><main className="main"><Toolbar /><LiveBrowserWorkspace conversationId={activeId}><section ref={conversationRef} onScroll={updateFollowState} className="conversation">
     {error && <p className="attachment-error" role="alert">{localizeMessage(error)}</p>}
     {generationConversationId && generationConversationId !== activeId && <p role="status">{t("Генерация продолжается в другом чате. Откройте отмеченный чат, чтобы увидеть ход работы или остановить её.")}</p>}
     {active?.mode === 'agent' && <div className="agent-notice"><Bot size={17} /> {active.workingDirectory ? t("Файловые инструменты ограничены выбранным проектом и папками, которые вы назвали в сообщениях; терминал стартует в корне проекта.") : t("Проект не выбран: файловые инструменты и терминал доступны только для папок, абсолютный путь к которым вы укажете в сообщении (терминал стартует в последней названной). Без пути — только рассуждение и планирование.")}</div>}
@@ -149,5 +150,5 @@ export function App() {
     {!isGenerating && active?.mode === 'agent' && messages.at(-1)?.role === 'user' && analysisRuns.at(-1)?.status === 'interrupted' && <p className="agent-notice" role="status">{t("Предыдущий запуск был прерван. Его прогресс сохранён: выберите «Продолжить эту задачу» в истории или «Сгенерировать ответ заново». Обычная отправка начинает новую задачу.")}</p>}
     {lastFinishReason === 'length' && !isGenerating && <p className="truncation-notice" role="status">{t("Ответ сохранён, но достигнут предел продолжения. Текст выше не потерян.")}</p>}
     <div ref={endRef} />
-  </section><ApprovalPanel /><Composer /></main></div>;
+  </section><ApprovalPanel /><Composer /></LiveBrowserWorkspace></main></div>;
 }

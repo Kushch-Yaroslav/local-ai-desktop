@@ -47,7 +47,9 @@
     "test:loop-context": "npm run typecheck && vite build && tsc -p tsconfig.electron.json && node dist/shared/thinking-timeline.test.js && node dist/shared/localization-coverage.test.js && node dist/main/ipc/context-profiles.test.js && node dist/main/services/llama-runtime-controller.test.js && node dist/main/ipc/stop-history.test.js && node scripts/agent-status-renderer.test.mjs && node scripts/context-profiles-electron.test.mjs && node scripts/task-ux-verification.test.mjs --loop-context",
     "prepare:rc": "node scripts/prepare-release-candidate.mjs",
     "test:package-lifecycle": "node scripts/package-lifecycle.test.mjs",
-    "test:release-package": "node scripts/release-package.test.mjs"
+    "test:release-package": "node scripts/release-package.test.mjs",
+    "test:live-browser": "npm run build && node scripts/live-browser.test.mjs && node scripts/live-browser-electron.test.mjs",
+    "test:live-browser:qwen": "npm run build && node scripts/live-browser-qwen.test.mjs"
   },
   "dependencies": {
     "@electron/remote": "^2.1.3",

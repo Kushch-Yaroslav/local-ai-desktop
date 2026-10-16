@@ -1,3 +1,4 @@
+import type { ProjectBrowserObserver } from '../web/live-browser';
 import { ProjectBrowserSession, projectBrowserTool } from '../web/project-browser';
 import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
@@ -159,7 +160,7 @@ export class RustAgentRuntime {
     return send(content, intent);
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     protectedRuntime.endpoint(this.endpoint);
@@ -210,7 +211,7 @@ export class RustAgentRuntime {
     let session: Promise<WebBrowserSession> | undefined;
     let projectBrowser: ProjectBrowserSession | undefined;
     let previewProject: string | undefined;
-    const closeWeb = () => { void projectBrowser?.close(); void session?.then((browser) => browser.close(), () => undefined); };
+    const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(), session?.then(browser => browser.close(), () => undefined)]); };
     signal.addEventListener('abort', closeWeb, { once: true });
     let stopped = false;
     const stop = () => {
@@ -277,7 +278,7 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
-              projectBrowser ??= new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId));
+              projectBrowser ??= new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver);
               result = await projectBrowser.execute(event.arguments ?? {}, signal, confirm, String(event.id));
             } else if (event.name === 'download_file') {
               const slot = event.arguments?.project ?? 1;
@@ -418,7 +419,7 @@ export class RustAgentRuntime {
       else if (!signal.aborted && !terminalFailure && !terminalStopped) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
     } finally {
       signal.removeEventListener('abort', closeWeb);
-      closeWeb();
+      await closeWeb();
       this.steering.delete(runId);
       this.controls.delete(runId);
       lines.removeListener('line', acknowledgeControl);
