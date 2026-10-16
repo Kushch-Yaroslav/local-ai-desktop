@@ -63,5 +63,5 @@ try {
   const walk=async directory=>{for(const entry of await readdir(directory,{withFileTypes:true})){const path=join(directory,entry.name);if(entry.isDirectory())await walk(path);else if(entry.name.endsWith('.md'))await check(path);}};
   await walk(join(app,'docs'));for(const name of ['README.md','README.ru.md','CHANGELOG.md'])await check(join(app,name));
   const desktop=await readFile(join(root,'usr/share/applications/local-ai-desktop.desktop'),'utf8');assert.match(desktop,/Exec=\/opt\/local-ai-desktop\/local-ai-desktop %U/);
-  console.log(JSON.stringify({result:'PASS',version:json.version,architecture:'amd64',bundledRust:'0.2.0 static',conffiles:2,screenshots:5,localDocumentationLinks:localLinks,sha256:createHash('sha256').update(await readFile(artifact)).digest('hex')},null,2));
+  console.log(JSON.stringify({result:'PASS',version:json.version,architecture:'amd64',bundledRust:'0.2.0 static',conffiles:2,screenshots:screenshots.filter(name=>name.endsWith('.png')).length,localDocumentationLinks:localLinks,sha256:createHash('sha256').update(await readFile(artifact)).digest('hex')},null,2));
 } finally {await rm(root,{recursive:true,force:true});}

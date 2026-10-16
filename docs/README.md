@@ -24,4 +24,4 @@ These documents cover security boundaries, privileged setup and implementation e
 
 ## Release status
 
-v0.2.1 is prepared as an Experimental Alpha pre-release. See [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) for its package and assets. The earlier [v0.2.0 release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) remains available.
+v0.2.1 is an Experimental Alpha pre-release. See [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) for its package and assets. The earlier [v0.2.0 release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) remains available.
