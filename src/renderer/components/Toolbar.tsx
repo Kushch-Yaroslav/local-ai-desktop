@@ -10,7 +10,7 @@ import { Hardware } from './Hardware';
 import { MaximumContextPopover } from './MaximumContextPopover';
 import { ProjectBadge } from './ProjectBadge';
 import type { ContextDiscoveryResult, RuntimeContextEstimate } from '../../shared/context-estimator';
-import { buildContextChoices, cacheModeLabel, contextChoiceId, describeContextChoice, type ContextChoice } from '../../shared/context-options';
+import { buildContextChoices, cacheModeLabel, describeContextChoice, type ContextChoice } from '../../shared/context-options';
 import { reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkingLabel } from '../../shared/localization';
 import { resolveReasoningSelection, type ReasoningEffort } from '../../shared/reasoning-controls';
 

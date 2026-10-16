@@ -5,13 +5,13 @@ import { mkdtemp, mkdir, readFile, readdir, lstat, rm } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-const artifact=resolve(process.argv[2] ?? 'release/local-ai-desktop_0.2.0_amd64.deb');
+const artifact=resolve(process.argv[2] ?? 'release/local-ai-desktop_0.2.1_amd64.deb');
 const root=await mkdtemp(join(tmpdir(),'lad-rc-inspect-'));
 const run=(program,args)=>execFileSync(program,args,{encoding:'utf8',maxBuffer:32*1024*1024,timeout:30000});
 try {
-  assert.equal(artifact.split('/').at(-1),'local-ai-desktop_0.2.0_amd64.deb');
+  assert.equal(artifact.split('/').at(-1),'local-ai-desktop_0.2.1_amd64.deb');
   assert.equal(run('dpkg-deb',['-f',artifact,'Package']).trim(),'local-ai-desktop');
-  assert.equal(run('dpkg-deb',['-f',artifact,'Version']).trim(),'0.2.0');
+  assert.equal(run('dpkg-deb',['-f',artifact,'Version']).trim(),'0.2.1');
   assert.equal(run('dpkg-deb',['-f',artifact,'Architecture']).trim(),'amd64');
   const dependencies=run('dpkg-deb',['-f',artifact,'Depends']);
   for(const pattern of [/apparmor \(>= 4\.0\.0\)/,/bubblewrap \(>= 0\.9\.0\)/,/adduser/,/libcap2-bin/])assert.match(dependencies,pattern);
@@ -19,10 +19,10 @@ try {
   assert(!/runtime-settings\.json|local-ai-desktop\.db|\.gguf$|resources\/app\/runtime\//m.test(contents),'no user configuration, database, weights or runtime data');
   await mkdir(join(root,'control'));run('dpkg-deb',['-e',artifact,join(root,'control')]);run('dpkg-deb',['-x',artifact,root]);
   const app=join(root,'opt/local-ai-desktop/resources/app');
-  const json=JSON.parse(await readFile(join(app,'package.json'),'utf8'));assert.equal(json.version,'0.2.0');
-  const info=JSON.parse(await readFile(join(app,'BUILD_INFO.json'),'utf8'));assert.equal(info.version,'0.2.0');
+  const json=JSON.parse(await readFile(join(app,'package.json'),'utf8'));assert.equal(json.version,'0.2.1');
+  const info=JSON.parse(await readFile(join(app,'BUILD_INFO.json'),'utf8'));assert.equal(info.version,'0.2.1');
   const manifest=JSON.parse(await readFile(resolve(dirname(artifact),'../../source-manifest.json'),'utf8'));
-  const {files,excluded,deleted,...identity}=manifest;
+  const files=manifest.files;const identity={...manifest};delete identity.files;delete identity.excluded;delete identity.deleted;
   assert.deepEqual(info,identity,'packaged BUILD_INFO must match the complete frozen build identity');
   assert.equal(createHash('sha256').update(JSON.stringify(files)).digest('hex'),info.sourceManifestSha256,'source identity derives from the full manifest');
   for(const file of files) {
@@ -50,8 +50,8 @@ try {
     assert(!text.includes('chmod 4755') && !text.includes('--remove "$policy"'),'no new SUID or unloading of live payload profiles');
   }
   assert.match(await readFile(join(root,'control/triggers'),'utf8'),/interest(?:-noawait)? \/usr\/bin\/bwrap/);
-  for(const name of ['LICENSE','THIRD_PARTY_NOTICES.md','licenses/Jan-LICENSE.txt','CHANGELOG.md','docs/README.md','docs/releases/v0.2.0.md','docs/releases/v0.2.0.ru.md','docs/releases/v0.2.0-checklist.md','docs/bwrap-installation-acceptance.md','docs/noop-loader-validation-2026-10-13.md'])await readFile(join(app,name));
-  const screenshots=await readdir(join(app,'docs/img/releases/v0.2.0'));assert.equal(screenshots.filter(name=>name.endsWith('.png')).length,5);
+  for(const name of ['LICENSE','THIRD_PARTY_NOTICES.md','licenses/Jan-LICENSE.txt','CHANGELOG.md','docs/README.md','docs/releases/v0.2.1.md','docs/releases/v0.2.1.ru.md','docs/releases/v0.2.0.md','docs/releases/v0.2.0.ru.md','docs/archive/releases/v0.2.0-checklist.md','docs/bwrap-installation-acceptance.md','docs/archive/noop-loader-validation-2026-10-13.md'])await readFile(join(app,name));
+  const screenshots=await readdir(join(app,'docs/img/releases/v0.2.0'));assert.deepEqual(screenshots.filter(name=>name.endsWith('.png')).sort(),['ask.png','big-thinking2.png','context-info.png','context.png','continue.png','select-autonomy.png']);
   let localLinks=0;
   const check=async file=>{
     const body=(await readFile(file,'utf8')).replace(/```[\s\S]*?```/g,'');

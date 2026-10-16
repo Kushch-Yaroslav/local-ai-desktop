@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
+import childProcess from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -63,7 +64,7 @@ async function run() {
   await new Promise<void>(resolve => provider.listen(0, '127.0.0.1', resolve));
   const address = provider.address(); assert(address && typeof address !== 'string');
   process.env.LOCAL_AI_AGENT_ENDPOINT = `http://127.0.0.1:${address.port}/v1/chat/completions`;
-  const cp = require('node:child_process') as typeof import('node:child_process'); const spawn = cp.spawn;
+  const cp = childProcess; const spawn = cp.spawn;
   const children: ChildProcess[] = [];
   cp.spawn = ((...args: Parameters<typeof spawn>) => { const child = spawn(...args); children.push(child); return child; }) as typeof spawn;
   const handlers = new Map<string, (...args: unknown[]) => unknown>();

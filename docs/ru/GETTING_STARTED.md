@@ -10,10 +10,10 @@
 
 ## Установка опубликованного пакета
 
-Скачайте `local-ai-desktop_0.2.0_amd64.deb` со [страницы выпуска v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0). В каталоге с загруженным файлом выполните:
+Скачайте `local-ai-desktop_0.2.1_amd64.deb` со [страницы выпуска v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1). В каталоге с загруженным файлом выполните:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
 ```
 
 Эта команда с правами администратора устанавливает пакет и системные зависимости, настраивает управляемый helper Agent и профили AppArmor. Ознакомьтесь с пакетом и подтвердите системные изменения менеджеру пакетов. Само приложение Local AI Desktop нельзя запускать от `root`.

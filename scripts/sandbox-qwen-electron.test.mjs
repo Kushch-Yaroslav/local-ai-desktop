@@ -27,7 +27,7 @@ function databaseSnapshot(){
  const db=new DatabaseSync(normalPaths.database,{readOnly:true});
  try{return Object.fromEntries(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(({name})=>[name,db.prepare('SELECT * FROM "'+name.replaceAll('"','""')+'"').all().map(row=>JSON.stringify(row)).sort()]));}finally{db.close();}
 }
-async function refuses(port){return await bounded('HTTP listener shutdown',()=>new Promise((done,reject)=>{const socket=connect({host:'127.0.0.1',port});socket.once('connect',()=>{socket.destroy();done(false);});socket.once('error',error=>{socket.destroy();error.code==='ECONNREFUSED'?done(true):reject(error);});socket.setTimeout(2000,()=>{socket.destroy();reject(Error('HTTP probe timeout'));});}),2500);}
+async function refuses(port){return await bounded('HTTP listener shutdown',()=>new Promise((done,reject)=>{const socket=connect({host:'127.0.0.1',port});socket.once('connect',()=>{socket.destroy();done(false);});socket.once('error',error=>{socket.destroy();if(error.code==='ECONNREFUSED')done(true);else reject(error);});socket.setTimeout(2000,()=>{socket.destroy();reject(Error('HTTP probe timeout'));});}),2500);}
 await mkdir(workspace);await mkdir(join(runtime,'app-data'),{recursive:true});
 const owned=new OwnedProcesses(process.pid,ledger);
 let app,page,child,conversation,generation,monitor,fatal,completed=false;
@@ -263,5 +263,5 @@ finally {
   });}
   await writeFile(join(report,'summary.json'),JSON.stringify({completed,normalConfiguration,settingsPath,nativeCleanupSurvivors,error:fatal?String(fatal):null,scenarios,toolApprovalPrompts:events.filter(event=>event.type==='approval-request').length,dialogEvidence,cleanupErrors:errors,ownedProcesses:[...owned.records.values()],ownedSurvivors:owned.live(),root},null,2));
   await rm(root,{recursive:true,force:true});
-  if(errors.length)throw new Error('Qwen cleanup errors: '+errors.join('; '));
+  if(errors.length){console.error('Qwen cleanup errors: '+errors.join('; '));process.exitCode=1;}
 }

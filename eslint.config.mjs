@@ -14,6 +14,11 @@ export default [
     rules: { ...reactHooks.configs.recommended.rules },
   },
   { files: ['src/main/**/*.ts', 'src/preload/**/*.ts'], languageOptions: { globals: globals.node } },
+  {
+    files: ['packaging/**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: globals.node },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   // Diagnostic scripts run in Node and inject code into a browser page.
   { files: ['scripts/**/*.mjs'], languageOptions: { globals: { ...globals.node, ...globals.browser } } },
   {

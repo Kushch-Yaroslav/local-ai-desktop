@@ -2,6 +2,15 @@
 
 User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides. This file summarizes changes; it does not replace the guides.
 
+## v0.2.1 — 2026-10-16 — Experimental Alpha (pre-release)
+
+### Fixed
+
+- Agent can check selected local web projects and explicitly approved local web addresses with the browser tool, including page navigation, DOM inspection, JavaScript and console errors, and screenshots.
+- Public web tools remain limited to public web access; they do not gain arbitrary access to local addresses.
+
+[Release notes (EN)](docs/releases/v0.2.1.md) · [Примечания (RU)](docs/releases/v0.2.1.ru.md) · [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) · [amd64 DEB](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.1/local-ai-desktop_0.2.1_amd64.deb) · [SHA256SUMS](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.2.1/SHA256SUMS)
+
 ## v0.2.0 — 2026-10-15 — Experimental Alpha (pre-release)
 
 ### Added

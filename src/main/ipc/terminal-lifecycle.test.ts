@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
+import childProcess from 'node:child_process';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -84,7 +85,6 @@ async function run(): Promise<void> {
   writeFileSync(worker, WORKER);
   chmodSync(worker, 0o755);
   process.env.LOCAL_AI_AGENT_RUNTIME = worker;
-  const childProcess = require('node:child_process') as typeof import('node:child_process');
   const originalSpawn = childProcess.spawn;
   const workers: import('node:child_process').ChildProcess[] = [];
   childProcess.spawn = ((...args: Parameters<typeof originalSpawn>) => {

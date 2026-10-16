@@ -153,5 +153,5 @@ unsigned int la_version(unsigned int version){marker("audit");return LAV_CURRENT
   for(const pipe of child?.stdio ?? [])pipe?.destroy?.();
   if(provider){for(const socket of sockets)socket.destroy();provider.closeAllConnections();await release(()=>bounded('close provider',()=>new Promise(done=>provider.close(done)),2000));}
   await release(()=>rm(root,{recursive:true,force:true}));
-  if(errors.length)throw new AggregateError(errors,'Loader fixture cleanup failed');
+  if(errors.length){console.error(new AggregateError(errors,'Loader fixture cleanup failed'));process.exitCode=1;}
 }

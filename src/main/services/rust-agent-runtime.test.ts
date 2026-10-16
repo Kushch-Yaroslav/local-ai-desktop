@@ -290,7 +290,9 @@ require('node:readline').createInterface({input:process.stdin}).on('line',line=>
     chmodSync(script,0o755);
     const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),5000);
     try {
-      for await (const _ of new RustAgentRuntime('',script).stream('fixture',[message('user','permission failure')],[],abort.signal,4096,'fast','off','permission-regression',undefined,'fixture',false,undefined,[],undefined,async()=>{throw new Error('renderer disconnected');})) { /* drain actual bridge */ }
+      let receivedEvent = false;
+      for await (const event of new RustAgentRuntime('',script).stream('fixture',[message('user','permission failure')],[],abort.signal,4096,'fast','off','permission-regression',undefined,'fixture',false,undefined,[],undefined,async()=>{throw new Error('renderer disconnected');})) { receivedEvent ||= Boolean(event); }
+      assert(receivedEvent, 'the bridge emits events while handling the tool result');
       assert(!abort.signal.aborted);
       const result=JSON.parse(readFileSync(received,'utf8'));
       assert.equal(result.code,'PERMISSION_DENIED');assert.equal(result.retrySameArguments,false);

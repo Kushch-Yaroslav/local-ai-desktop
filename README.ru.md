@@ -6,7 +6,7 @@ Local AI Desktop — экспериментальное настольное п�
 
 Приложение объединяет локальный AI-чат и работу с кодом, сохраняя беседы и задачи. Вы выбираете модель и проект и управляете разрешениями и изменениями.
 
-[Скачать v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство](docs/ru/USER_GUIDE.md) · [Список документации](docs/README.md)
+[Скачать v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство](docs/ru/USER_GUIDE.md) · [Список документации](docs/README.md)
 
 ## Что можно делать
 
@@ -35,10 +35,10 @@ Rich Responses может объединять карточки и график�
 
 ## Скачать и установить
 
-Скачайте amd64 `.deb` со страницы [Experimental Alpha v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) и установите из каталога загрузки:
+Скачайте amd64 `.deb` со страницы [Experimental Alpha v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) и установите из каталога загрузки:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
 ```
 
 Администратор должен разрешить каждой desktop-учётной записи использовать терминал Agent. Обязательные шаги настройки и проверки описаны в разделе [Начало работы](docs/ru/GETTING_STARTED.md). Не запускайте приложение от `root`.

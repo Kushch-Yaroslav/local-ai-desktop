@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the guides for your language. The release notes describe what changed in v0.2.0; the user guides explain current controls and workflows.
+Start with the guides for your language. The release notes describe what changed in v0.2.1 and earlier releases; the user guides explain current controls and workflows.
 
 ## User documentation
 
@@ -9,6 +9,7 @@ Start with the guides for your language. The release notes describe what changed
 - [English features](en/FEATURES.md) · [Russian: возможности](ru/FEATURES.md)
 - [English model guide](en/MODELS.md) · [Russian: модели](ru/MODELS.md)
 - [English roadmap](en/ROADMAP.md) · [Russian: планы развития](ru/ROADMAP.md)
+- [v0.2.1 release notes (EN)](releases/v0.2.1.md) · [примечания v0.2.1 (RU)](releases/v0.2.1.ru.md)
 - [v0.2.0 release notes (EN)](releases/v0.2.0.md) · [примечания v0.2.0 (RU)](releases/v0.2.0.ru.md)
 - [Changelog](../CHANGELOG.md)
 
@@ -23,4 +24,4 @@ These documents cover security boundaries, privileged setup and implementation e
 
 ## Release status
 
-v0.2.0 is published as an Experimental Alpha pre-release. Its existing assets remain on [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0). Documentation on `main` may be clarified after publication; this does not change the tagged release or its package.
+v0.2.1 is prepared as an Experimental Alpha pre-release. See [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) for its package and assets. The earlier [v0.2.0 release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) remains available.

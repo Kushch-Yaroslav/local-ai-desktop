@@ -67,7 +67,6 @@ owned=new OwnedProcesses(process.pid,ledgerFile);
 monitor=setInterval(()=>{try{owned.refresh();}catch(error){fatal ??= error;}},100);
 const observed=[];
 const runtimeExecutable=resolve(process.env.LOCAL_AI_AGENT_RUNTIME ?? 'rust-agent/target/debug/local-ai-agent-runtime');
-const shellQuote=value=>"'"+value.replaceAll("'","'\"'\"'")+"'";
 const commands=['pwd','ls -la','echo sandbox-echo-ok','cat hello.txt','python3 write.py','python3 stdin.py'];
 const tool = argumentsObject => {pendingSince=Date.now();pendingStage=argumentsObject.task_action ?? argumentsObject.command;log('SEND tool '+pendingStage);return ({tool_calls:[{index:0,id:`call-${++sequence}`,type:'function',function:{name:'run_terminal',arguments:JSON.stringify({...argumentsObject,timeout_ms:argumentsObject.timeout_ms ?? 3000})}}]});};
 await mkdir(workspace); await mkdir(runtime);

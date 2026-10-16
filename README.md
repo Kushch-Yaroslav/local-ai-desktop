@@ -6,7 +6,7 @@ Local AI Desktop is an experimental Linux app for chatting with local language m
 
 It brings local AI chat and coding work into one desktop app, with saved conversations and tasks. You choose the model and project, and you stay in control of permissions and changes.
 
-[Download v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation index](docs/README.md)
+[Download v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation index](docs/README.md)
 
 ## What you can do
 
@@ -35,10 +35,10 @@ The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environ
 
 ## Download and install
 
-Download the amd64 `.deb` from the [v0.2.0 Experimental Alpha release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0), then install it from the directory where you saved it:
+Download the amd64 `.deb` from the [v0.2.1 Experimental Alpha release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1), then install it from the directory where you saved it:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
 ```
 
 An administrator must authorize each desktop account for Agent terminal use. See [Getting started](docs/en/GETTING_STARTED.md) for the required setup and verification. Never launch the desktop app with `sudo`.

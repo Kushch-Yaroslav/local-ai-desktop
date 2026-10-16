@@ -10,10 +10,10 @@ Agent terminal commands require Bubblewrap, Linux user namespaces and AppArmor e
 
 ## Install the published package
 
-Download `local-ai-desktop_0.2.0_amd64.deb` from the [v0.2.0 release page](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0). From the directory containing the downloaded file, run:
+Download `local-ai-desktop_0.2.1_amd64.deb` from the [v0.2.1 release page](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1). From the directory containing the downloaded file, run:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
 ```
 
 This privileged command installs the package and its system dependencies and configures the managed Agent helper and AppArmor profiles. Review the package source and allow the package manager to make these system changes. Never run Local AI Desktop itself as root.

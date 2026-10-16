@@ -9,7 +9,7 @@ const snapshotOnly=process.argv.includes('--snapshot-only');
 const candidate=process.argv.find(arg=>arg.startsWith('--candidate='))?.slice('--candidate='.length);
 if(candidate && !/^RC[1-9][0-9]*$/.test(candidate))throw Error('Candidate must be RC followed by a positive integer');
 const metadata=JSON.parse(await readFile(join(root,'package.json'),'utf8'));
-if(!snapshotOnly && metadata.version!=='0.2.0')throw Error('RC build requires reviewed 0.2.0 metadata');
+if(!snapshotOnly && metadata.version!=='0.2.1')throw Error('RC build requires reviewed 0.2.1 metadata');
 const directory=join(root,'release',`${candidate?.toLowerCase() ?? 'rc'}-v${metadata.version}-${new Date().toISOString().replace(/[:.]/g,'-')}`);
 const source=join(directory,'source');await mkdir(source,{recursive:true});
 const git=(...args)=>execFileSync('git',args,{cwd:root});
