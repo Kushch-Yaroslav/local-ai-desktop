@@ -48,8 +48,9 @@
     "prepare:rc": "node scripts/prepare-release-candidate.mjs",
     "test:package-lifecycle": "node scripts/package-lifecycle.test.mjs",
     "test:release-package": "node scripts/release-package.test.mjs",
-    "test:live-browser": "npm run build && node scripts/live-browser.test.mjs && node scripts/live-browser-electron.test.mjs",
-    "test:live-browser:qwen": "npm run build && node scripts/live-browser-qwen.test.mjs"
+    "test:live-browser": "npm run build && node scripts/live-browser.test.mjs && node scripts/live-browser-autoreload.test.mjs && node scripts/live-browser-electron.test.mjs && node scripts/live-browser-autoreload-electron.test.mjs",
+    "test:live-browser:qwen": "npm run build && node scripts/live-browser-qwen.test.mjs",
+    "test:live-browser:auto-qwen": "npm run build && cross-env LOCAL_AI_TEST_AUTO_RELOAD=1 node scripts/live-browser-qwen.test.mjs"
   },
   "dependencies": {
     "@electron/remote": "^2.1.3",

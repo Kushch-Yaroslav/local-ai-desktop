@@ -23,6 +23,19 @@ app.whenReady().then(async () => {
     async action(args,id=fixture.chat.id){return sessions.get(id).execute(args,new AbortController().signal,approve);},
     async edit(){await writeFile(join(project,'style.css'),'body{background:#345; color:white}');await writeFile(join(project,'edited.html'),'<title>Updated ORBIT</title><style>body{background:#473652;color:white;font:40px system-ui;padding:50px}</style><h1>Revision two</h1>');return sessions.get(fixture.chat.id).execute({action:'open',path:'edited.html'},new AbortController().signal,approve);},
     async close(){await Promise.all([...sessions.values()].map(s=>s.close()));},
+    async autoSetup(){
+      await mkdir(join(project,'assets'),{recursive:true});
+      await writeFile(join(project,'assets/style.css'),'body{margin:0;background:rgb(20,30,40);color:white;font:28px system-ui}h1{padding:30px}');
+      await writeFile(join(project,'assets/app.js'),`document.querySelector('#js').textContent='JS v1';let n=0,c=document.querySelector('canvas').getContext('2d');function draw(){c.fillStyle='hsl('+(n++%360)+' 60% 50%)';c.fillRect(0,0,300,150);requestAnimationFrame(draw)}draw()`);
+      await writeFile(join(project,'index.html'),'<title>Automatic updates</title><link rel="stylesheet" href="assets/style.css"><h1>HTML v1</h1><p id="js"></p><canvas></canvas><script src="assets/app.js"></script>');
+      await this.open();let loads=0;const page=sessions.get(fixture.chat.id).page;page.on('load',()=>loads++);this.autoLoads=()=>loads;
+    },
+    async autoEdit(kind){
+      if(kind==='html'||kind==='hidden')await writeFile(join(project,'index.html'),'<title>Automatic updates</title><link rel="stylesheet" href="assets/style.css"><h1>'+(kind==='hidden'?'HTML hidden':'HTML v2')+'</h1><p id="js"></p><canvas></canvas><script src="assets/app.js"></script>');
+      else if(kind==='css')await writeFile(join(project,'assets/style.css'),'body{margin:0;background:rgb(90,40,120);color:white;font:28px system-ui}h1{padding:30px}');
+      else if(kind==='js')await writeFile(join(project,'assets/app.js'),`document.querySelector('#js').textContent='JS v2';let n=0,c=document.querySelector('canvas').getContext('2d');function draw(){c.fillStyle='hsl('+(n++%360)+' 60% 50%)';c.fillRect(0,0,300,150);requestAnimationFrame(draw)}draw()`);
+    },
+    async autoSnapshot(){const page=sessions.get(fixture.chat.id).page;return {loads:this.autoLoads(),...(await page.evaluate(()=>({heading:globalThis.document.querySelector('h1').textContent,js:globalThis.document.querySelector('#js').textContent,color:globalThis.getComputedStyle(globalThis.document.body).backgroundColor})))};},
     async prepareQwen(){await this.close();return {conversationId:fixture.chat.id,model};}
   };
   await window.loadFile(resolve('dist/renderer/index.html'));

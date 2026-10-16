@@ -211,7 +211,7 @@ export class RustAgentRuntime {
     let session: Promise<WebBrowserSession> | undefined;
     let projectBrowser: ProjectBrowserSession | undefined;
     let previewProject: string | undefined;
-    const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(), session?.then(browser => browser.close(), () => undefined)]); };
+    const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(!signal.aborted), session?.then(browser => browser.close(), () => undefined)]); };
     signal.addEventListener('abort', closeWeb, { once: true });
     let stopped = false;
     const stop = () => {
@@ -418,8 +418,8 @@ export class RustAgentRuntime {
       if (!signal.aborted && terminalFinal) yield { type: 'done', finishReason: terminalFinishReason };
       else if (!signal.aborted && !terminalFailure && !terminalStopped) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
     } finally {
-      signal.removeEventListener('abort', closeWeb);
       await closeWeb();
+      signal.removeEventListener('abort', closeWeb);
       this.steering.delete(runId);
       this.controls.delete(runId);
       lines.removeListener('line', acknowledgeControl);

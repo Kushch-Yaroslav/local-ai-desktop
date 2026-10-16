@@ -4,16 +4,17 @@ import type { CDPSession, Page } from 'playwright-core';
 import type { BrowserAction, BrowserFrame, BrowserStatus, LiveBrowserEvent, LiveBrowserState } from '../../shared/live-browser';
 
 export interface ProjectBrowserObserver {
-  ready(page: Page): void;
+  ready(page: Page, visibility?: (visible: boolean) => void): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
   action(action: BrowserAction): void;
   closed(): void;
+  captureFinal?(): Promise<void>;
 }
 interface Entry {
   owner: WebContents; state: LiveBrowserState; page?: Page; cdp?: CDPSession;
   frame?: BrowserFrame; sequence: number; pending?: number;
   removeFrameListener?: () => void; credit?: () => void; deadline?: ReturnType<typeof setTimeout>; lastSent: number; streaming: boolean; attaching?: boolean;
-  reconcile: Promise<void>; ended: boolean;
+  reconcile: Promise<void>; ended: boolean; visibility?: (visible: boolean) => void;
 }
 /** One bounded feed for the SAME Playwright Page. No browser creation here. */
 export class LiveBrowserHub {
@@ -48,9 +49,18 @@ export class LiveBrowserHub {
       return entry;
     };
     return {
-      ready: page => { const item = ensure(); item.page = page; page.once('close', () => { void this.end(item); }); void this.attach(item); },
+      ready: (page, visibility) => { const item = ensure(); item.page = page; item.visibility = visibility; visibility?.(this.visible(item)); page.once('close', () => { void this.end(item); }); void this.attach(item); },
       state: (status, url, error) => { const item = ensure(); if (item.ended) return; item.state = { ...item.state, status, ...(url === undefined ? {} : { url }), error }; this.send(item, { type: 'state', state: item.state }); },
       action: action => { const item = ensure(); if (item.ended) return; item.state = { ...item.state, action }; this.send(item, { type: 'state', state: item.state }); },
+      captureFinal: async () => {
+        const item = entry;
+        if (!item?.page || item.ended || item.owner.isDestroyed()) return;
+        // One final hidden snapshot, only when edits would otherwise leave an obsolete last frame.
+        const data = (await item.page.screenshot({ type: 'jpeg', quality: 65, timeout: 2000 })).toString('base64');
+        if (item.ended || data.length > 2 * 1024 * 1024) return;
+        const viewport = item.page.viewportSize() ?? { width: 1280, height: 900 };
+        item.frame = { conversationId, generationId, sessionId: item.state.sessionId, sequence: ++item.sequence, data, ...viewport };
+      },
       closed: () => { if (entry) void this.end(entry); },
     };
   }
@@ -94,6 +104,7 @@ export class LiveBrowserHub {
     this.viewers.set(owner.id, { conversationId, visible });
     for (const entry of this.entries.values()) if (entry.owner === owner) {
       if (visible && !entry.cdp && !entry.ended) void this.attach(entry);
+      entry.visibility?.(this.visible(entry));
       this.reconcile(entry);
       if (entry.state.conversationId === conversationId) {
         this.send(entry, { type: 'state', state: entry.state });
@@ -117,7 +128,7 @@ export class LiveBrowserHub {
   }
   private async end(entry: Entry) {
     if (entry.ended) return;
-    entry.ended = true; entry.credit?.(); clearTimeout(entry.deadline);
+    entry.ended = true; entry.visibility?.(false); entry.visibility = undefined; entry.credit?.(); clearTimeout(entry.deadline);
     entry.state = { ...entry.state, status: entry.state.status === 'error' ? 'error' : 'ended' };
     this.send(entry, { type: 'state', state: entry.state });
     await entry.reconcile;

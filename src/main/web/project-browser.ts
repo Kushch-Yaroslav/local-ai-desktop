@@ -1,3 +1,4 @@
+import { ProjectFileWatcher } from './project-file-watcher';
 import { constants } from 'node:fs';
 import { lstat, open, realpath, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, relative, resolve, sep, join } from 'node:path';
@@ -11,7 +12,7 @@ import type { ProjectBrowserObserver } from './live-browser';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload after edits, fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Screenshots are files, not model vision. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Screenshots are files, not model vision. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: {
     action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
@@ -88,15 +89,66 @@ export class ProjectBrowserSession {
   private readonly errors: string[] = [];
   private readonly blocked: string[] = [];
   private captures = 0;
+  private operations: Promise<void> = Promise.resolve();
+  private watcher?: ProjectFileWatcher;
+  private previewVisible = false;
+  private dirty = false;
+  private reloadTimer?: ReturnType<typeof setTimeout>;
+  private serverManaged = false;
+  private autoReloadQueued = false;
+  private exclusive<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.operations.then(operation);
+    this.operations = result.then(() => undefined, () => undefined);
+    return result;
+  }
+  private stopWatching() { this.watcher?.close(); this.watcher = undefined; clearTimeout(this.reloadTimer); this.dirty = false; }
+  private async ensureWatching() {
+    if (!this.observer || this.watcher || this.serverManaged || this.closed || !this.page || this.page.isClosed()) return;
+    this.watcher = new ProjectFileWatcher(this.root, () => { this.dirty = true; this.scheduleRefresh(); }, error => this.observer?.state('error', undefined, `Auto-reload unavailable: ${String(error).slice(0, 200)}`));
+    await this.watcher.start();
+  }
+  private scheduleRefresh() {
+    clearTimeout(this.reloadTimer);
+    if (!this.dirty || !this.previewVisible || this.closed || this.serverManaged || this.autoReloadQueued) return;
+    // File watcher already debounces 400 ms. Share the tool operation lock, not a second scheduler.
+    this.reloadTimer = setTimeout(() => {
+      this.autoReloadQueued = true;
+      void this.exclusive(() => this.refresh()).catch(error => { if (!this.closed) this.observer?.state('error', undefined, `Auto-reload failed: ${String(error).slice(0, 200)}`); })
+        .finally(() => { this.autoReloadQueued = false; this.scheduleRefresh(); });
+    }, this.watcher?.settled ? 0 : 100);
+    this.reloadTimer.unref();
+  }
+  private async refresh(finalHidden = false) {
+    if (!this.dirty || (!this.previewVisible && !finalHidden) || this.closed || this.serverManaged || !this.page || this.page.isClosed() || !this.watcher?.settled) return;
+    this.dirty = false;
+    this.errors.length = 0; this.blocked.length = 0;
+    this.observer?.state('loading');
+    const response = await this.page.reload({ waitUntil: 'load' });
+    if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
+    // Let the shared screencast paint the refreshed page before a run can close it.
+    await this.page.waitForTimeout(150);
+    if (!this.closed) { this.observer?.action({ kind: 'auto-reload', at: Date.now() }); this.observer?.state('live', this.page.url()); }
+  }
+  private detectServerReload(path: string, body: Buffer, html: boolean) {
+    if (this.origin === staticOrigin || this.serverManaged) return;
+    if (/^\/(?:@vite\/client|@react-refresh|_next\/|__webpack_hmr)/.test(path) || (html && /(?:\/@vite\/client|\/_next\/|__NEXT_DATA__|webpack-dev-server|webpack-hot-middleware|parcelRequire.*hmr)/i.test(body.toString('utf8')))) {
+      this.serverManaged = true; this.stopWatching();
+    }
+  }
   constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private readonly observer?: ProjectBrowserObserver) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     const cancel = () => { void this.close(); };
     signal.addEventListener('abort', cancel, { once: true });
+    try { return await this.exclusive(() => this.executePage(args, signal, confirm, actionId)); }
+    finally { signal.removeEventListener('abort', cancel); }
+  }
+  private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
+      if (['read', 'screenshot'].includes(String(args.action)) && this.watcher) { await this.watcher.flush(); await this.refresh(); }
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), staticOrigin);
@@ -161,7 +213,7 @@ export class ProjectBrowserSession {
       if (this.origin) this.observer?.state('error', undefined, String(error).slice(0, 300));
       if (!this.page && this.origin) await this.close();
       return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: false };
-    } finally { signal.removeEventListener('abort', cancel); }
+    } finally { await this.ensureWatching(); }
   }
   private async start() {
     this.browser = await this.launch();
@@ -181,6 +233,7 @@ export class ProjectBrowserSession {
           await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff' } });
         } else {
           const response = await fetchLoopback(url, this.abort.signal); totalBytes += response.body.length;
+          this.detectServerReload(url.pathname, response.body, Boolean(response.headers['content-type']?.includes('text/html')));
           await route.fulfill(response);
         }
       } catch (error) {
@@ -191,9 +244,9 @@ export class ProjectBrowserSession {
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     this.page = await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
-    this.page.on('close', () => { if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
-    this.observer?.ready(this.page);
-    this.browser.on('disconnected', () => { if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
+    this.page.on('close', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
+    this.observer?.ready(this.page, visible => { this.previewVisible = visible; this.scheduleRefresh(); });
+    this.browser.on('disconnected', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
     this.context.on('page', page => { if (page !== this.page) void page.close(); });
     this.page.on('framenavigated', frame => {
@@ -206,6 +259,7 @@ export class ProjectBrowserSession {
     this.page.on('pageerror', error => this.note(this.errors, error.message));
     this.page.on('console', message => { if (message.type() === 'error') this.note(this.errors, message.text()); });
     this.page.on('dialog', dialog => { void dialog.dismiss(); });
+    await this.ensureWatching();
   }
   private async read() {
     const page = this.page!;
@@ -213,8 +267,16 @@ export class ProjectBrowserSession {
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
     return { ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: 'DOM and runtime diagnostics only; screenshots require separate visual analysis' };
   }
-  async close() {
-    this.closed = true; this.abort.abort(); this.observer?.closed();
+  async close(refresh = false) {
+    if (refresh && !this.closed) {
+      await this.watcher?.flush();
+      await this.exclusive(async () => {
+        const hiddenEdits = this.dirty && !this.previewVisible;
+        await this.refresh(true);
+        if (hiddenEdits && !this.closed) await this.observer?.captureFinal?.();
+      }).catch(error => { if (!this.closed) this.observer?.state('error', undefined, `Auto-reload failed: ${String(error).slice(0, 200)}`); });
+    }
+    this.closed = true; this.stopWatching(); this.abort.abort(); this.observer?.closed();
     await this.context?.close().catch(() => undefined);
     await this.browser?.close().catch(() => undefined);
   }
