@@ -134,6 +134,19 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     await writeFile(files.launcherPidFile, '');
     assert.equal((await controller.switchTo(qwen, 65_536)).ok, false, 'without a launcher there is nothing to switch');
   }
+  for (const [requested, applied, speculative, ok] of [
+    ['on', 'on', 'mtp', true], ['off', 'off', 'none', true],
+    ['auto', 'auto', 'none', true], ['on', 'on', 'none', false],
+    ['off', 'off', 'mtp', false], ['on', 'auto', 'mtp', false],
+  ] as const) {
+    const { files, make } = await fixture();
+    const controller = make(async request => {
+      assert.equal(request.MTP_MODE, requested, 'mode must reach the owned launcher');
+      await writeFile(files.stateFile, state({ requestId: request.REQUEST_ID, modelId: qwen, contextWindow: 32768, mtpMode: applied, speculativeMode: speculative }));
+    });
+    const result = await controller.switchTo(qwen, 32768, 'f16', true, undefined, requested);
+    assert.equal(result.ok, ok, `${requested} cannot be acknowledged by ${applied}/${speculative}`);
+  }
   {
     // Concurrent switches are serialized: the second request is written only after the first finished.
     const { files, make } = await fixture();

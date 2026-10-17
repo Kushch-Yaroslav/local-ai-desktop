@@ -1,0 +1,42 @@
+// Real Electron renderer/preload/main/SQLite; controlled launcher and SSE fixtures.
+import assert from 'node:assert/strict';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createServer } from 'node:http';
+import { _electron as electron } from 'playwright-core';
+const root=await mkdtemp(join(tmpdir(),'lad-mtp-ui-'));let app;const requests=[];
+const server=createServer(async(req,res)=>{for await(const chunk of req){void chunk;}requests.push(true);res.writeHead(200,{'Content-Type':'text/event-stream'});res.write('data: {"choices":[{"index":0,"delta":{"reasoning_content":"Still working"},"finish_reason":null}]}\n\n');});
+const binary=join(root,'llama-server'),gguf=join(root,'model.gguf');
+await writeFile(binary, '#!/bin/sh\nprintf \'%s\\n\' \'--model --ctx-size --port --spec-type none,draft-mtp\'\n', {mode:0o700});
+const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;},u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;},str=s=>Buffer.concat([u64(Buffer.byteLength(s)),Buffer.from(s)]);
+const metadata=[['general.architecture','qwen35'],['qwen35.block_count',2],['qwen35.embedding_length',4],['qwen35.nextn_predict_layers',1]];
+const tensors=[['blk.0.attn_norm.weight',[4],0],['blk.1.nextn.eh_proj.weight',[8,4],32],['blk.1.nextn.enorm.weight',[4],160],['blk.1.nextn.hnorm.weight',[4],192]];
+const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(tensors.length),u64(metadata.length),...metadata.flatMap(([key,value])=>[str(key),u32(typeof value==='string'?8:4),typeof value==='string'?str(value):u32(value)]),...tensors.flatMap(([key,shape,offset])=>[str(key),u32(shape.length),...shape.map(u64),u32(0),u64(offset)])]);
+await writeFile(gguf,Buffer.concat([header,Buffer.alloc((32-header.length%32)%32),Buffer.alloc(224)]));
+try{
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_MODEL:'qwen3.8:27b-q4_K_M',LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
+ const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();
+ const model='qwen3.8:27b-q4_K_M';
+ await page.evaluate(async({model,binary,gguf})=>{const settings=await window.localAi.settings.get();const config=settings.setup.config;config.llamaServerPath=binary;config.llamaServerInput=binary;config.models=config.models.map(m=>m.id===model?{...m,modelPath:gguf}:m);await window.localAi.settings.save(config);},{model,binary,gguf});
+ await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+ await page.getByRole('button',{name:/Load selected configuration/}).click();await page.waitForFunction(()=>document.querySelector('.context-active')?.textContent.includes('64K'));
+ const mtp=page.getByRole('combobox',{name:'Multi-Token Prediction (MTP)'});await mtp.selectOption('off');
+ await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();assert.match(await page.getByRole('dialog',{name:'Apply MTP'}).innerText(),/KV cache/);
+ await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await mtp.inputValue(),'auto');
+ assert.equal((await page.evaluate(model=>window.localAi.mtp.status(model),model)).requested,'auto');
+ await mtp.selectOption('off');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Disabled');
+ assert.equal((await page.evaluate(model=>window.localAi.settings.get().then(s=>s.setup.config.models.find(m=>m.id===model).mtpMode),model)),'off');
+ await mtp.selectOption('on');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Active');
+ await page.locator('.composer textarea').fill('Read-only inspection.');await page.locator('.send-button:not(.stop)').click();await page.waitForFunction(()=>document.querySelector('.send-button.stop'));
+ assert(await mtp.isDisabled());
+ const denial=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',true);return '';}catch(e){return String(e);}},model);assert.match(denial,/не прерывает генерацию|Дождитесь/);
+ assert(await page.locator('.send-button.stop').count(),'MTP change must not stop the active agent');
+ await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));
+ const unconfirmed=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',false);return '';}catch(e){return String(e);}},model);assert.match(unconfirmed,/confirmation/);
+ await mtp.selectOption('off');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Disabled');
+ await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();await page.waitForFunction(()=>document.querySelector('[aria-label="Multi-Token Prediction (MTP)"]')?.value==='off');
+ console.log('PASS Electron MTP UI/IPC: confirmation/cancel, persisted Auto/On/Off, actual vs requested state, disabled during generation, server-side rejection without implicit Stop, reload and restored preference. Launcher/hardware are fixtures; real MTP is tested separately.');
+}finally{await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

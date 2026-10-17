@@ -30,7 +30,7 @@ try {
   await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='thinking'));
   assert(!(await effort.isDisabled()));assert(!(await strategy.isDisabled()));
   const mode=controls.locator('select').filter({has:page.locator('option[value="agent"]')});
-  const web=controls.locator('select').filter({has:page.locator('option[value="auto"]')});
+  const web=controls.locator('select').filter({has:page.locator('option[value="auto"]')}).filter({hasNot:page.locator('option[value="on"]')});
   assert(await mode.isDisabled());assert(await web.isDisabled());assert(await page.locator('.context-selector-trigger').isDisabled());
   await effort.selectOption('medium');await strategy.selectOption('fast');
   await page.waitForFunction(()=>document.querySelector('.runtime-notice')?.textContent.includes('Ожидает применения'));

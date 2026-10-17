@@ -11,11 +11,12 @@ import { createRequire } from 'node:module';
 import { EventEmitter } from 'node:events';
 const binary = process.env.LOCAL_AI_TEST_LLAMA_SERVER, model = process.env.LOCAL_AI_TEST_QWEN_GGUF;
 assert(binary && model && existsSync(binary) && existsSync(model), 'Set LOCAL_AI_TEST_LLAMA_SERVER and LOCAL_AI_TEST_QWEN_GGUF');
+const mtp = process.env.LOCAL_AI_TEST_MTP === '1';
 const root = await mkdtemp(join(tmpdir(), 'lad-runtime-qwen-')), project = join(root, 'project');
 await mkdir(project); await writeFile(join(project, 'a.txt'), 'A: runtime checkpoint retained\n'); await writeFile(join(project, 'b.txt'), 'B: next unfinished read\n');
 const listener = createServer(); await new Promise(r => listener.listen(0, '127.0.0.1', r)); const port = listener.address().port; await new Promise(r => listener.close(r));
 const fd = openSync(join(root, 'llama-server.log'), 'w');
-const server = spawn(binary, ['-m', model, '--host', '127.0.0.1', '--port', String(port), '--ctx-size', '32768', '--parallel', '1', '--n-gpu-layers', '99', '--jinja', '--no-webui'], { stdio: ['ignore', fd, fd] });
+const server = spawn(binary, ['-m', model, '--host', '127.0.0.1', '--port', String(port), '--ctx-size', '32768', '--parallel', '1', '--n-gpu-layers', '99', '--jinja', '--no-webui', '--spec-type', mtp ? 'draft-mtp' : 'none', ...(mtp ? ['--spec-draft-n-max', '2', '--metrics'] : [])], { stdio: ['ignore', fd, fd] });
 const delay = ms => new Promise(r => setTimeout(r, ms));
 let agent;
 const events = [], measurements = [];
@@ -87,7 +88,13 @@ try {
     const browserCalls = new Set(seen.filter(e => e.type === 'tool' && e.activity.toolName === 'web_project').map(e => e.activity.id));
     assert(seen.some(e => e.type === 'tool' && browserCalls.has(e.activity.id) && e.activity.state === 'completed'));
   } finally { if (browserState) await hub.close(owner, browserState.sessionId).catch(() => undefined); }
-  console.log(JSON.stringify({ result: 'PASS', model, context: 32768, mtp: false, vision: false, realQwenBrowserRuns: 2, browserApprovals: approvals, browserFrames: frames, measurements, applied: events.filter(e => e.type === 'reasoning_applied').map(e=>e.configuration), root }, null, 2));
+  let mtpDiagnostics;
+  if (mtp) {
+    const { parseMtpMetrics } = require('../dist/main/services/mtp-diagnostics.js');
+    mtpDiagnostics = parseMtpMetrics(await (await fetch(`http://127.0.0.1:${port}/metrics`)).text());
+    assert(mtpDiagnostics?.drafted > 0 && mtpDiagnostics?.accepted > 0, 'real MTP must draft and accept tokens');
+  }
+  console.log(JSON.stringify({ result: 'PASS', model, context: 32768, mtp, mtpDiagnostics, vision: false, realQwenBrowserRuns: 2, browserApprovals: approvals, browserFrames: frames, measurements, applied: events.filter(e => e.type === 'reasoning_applied').map(e=>e.configuration), root }, null, 2));
 } finally {
   agent?.stdin.end(JSON.stringify({ type: 'shutdown' }) + '\n'); agent?.kill('SIGTERM');
   if (server.exitCode === null) { server.kill('SIGTERM'); await Promise.race([new Promise(r => server.once('exit', r)), delay(5000)]); if (server.exitCode === null) server.kill('SIGKILL'); }

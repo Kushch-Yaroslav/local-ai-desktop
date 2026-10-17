@@ -31,3 +31,6 @@ rust-agent/target/
 
 # Live Browser acceptance screenshots and model test traces
 /artifacts/live-browser/
+
+# Reproducible real-model MTP benchmark output
+/artifacts/p1-mtp/

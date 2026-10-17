@@ -90,12 +90,12 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     allocationEvidence: { contextTokens: state.contextWindow ?? 32768, sequenceSlots: 1, speculativeSlots: 1, speculativeMode: 'mtp', kvTypeK: state.kvCacheType ?? 'f16', kvTypeV: state.kvCacheType ?? 'f16', speculativeKvTypeK: state.kvCacheType ?? 'f16', speculativeKvTypeV: state.kvCacheType ?? 'f16', unknownReasons: [], allocations: { kv: { device: GiB }, speculativeKv: { device: 0 }, weights: { device: 19 * GiB }, compute: { device: 0 }, speculativeWeights: { device: 0 }, speculativeCompute: { device: 0 }, output: { device: 0 }, ssm: { device: 0 } } },
   }) as RuntimeContextEstimate;
   LlamaRuntimeController.prototype.state = async () => state;
-  LlamaRuntimeController.prototype.switchTo = async (id, contextWindow, kvCacheType = 'f16', kvOffload = true) => {
+  LlamaRuntimeController.prototype.switchTo = async (id, contextWindow, kvCacheType = 'f16', kvOffload = true, _projectorDevice, mtpMode) => {
     launches.push({ contextWindow, kvCacheType });
     if (loadDelayMs) await new Promise(resolve=>setTimeout(resolve,loadDelayMs));
     if (mismatch) return { ok: false, state, error: 'fixture configuration mismatch' };
     if (startupFailure && contextWindow !== 16384) { state = { ...state, rolledBack: true, error: 'fixture CUDA out of memory' }; return { ok: false, state, error: state.error! }; }
-    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: 'mtp' };
+    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'off' ? 'none' : 'mtp', ...(mtpMode ? { mtpMode } : {}) };
     return { ok: true, state };
   };
   const db = new Database(); const existing = db.listConversations()[0]; const chat = existing ?? db.createConversation(modelId);
