@@ -333,83 +333,27 @@ fn steering_at_completion_is_applied_before_final_and_replays() {
     assert_eq!(restored.observations().len(), 1);
 }
 
-/// Graceful pause: the user control (structured, not parsed from text) arrives
-/// while a run has unfinished deliverables and an unvalidated mutation. The run
-/// keeps only its checkpoint tools, none of the completion guidance can resume
-/// work, the checkpoint is written, and the run ends paused with the unfinished
-/// deliverable still pending.
+/// Explicit Pause persists the runtime snapshot without asking the model to repair old plans.
 #[test]
 fn a_structured_pause_checkpoints_and_ends_without_resuming_guidance() {
     let workspace = Workspace::new(&[("a.txt", "a")]);
-    let queue = Arc::new(Mutex::new(Vec::new()));
     let pause = Arc::new(AtomicBool::new(false));
-    let (incoming, flag) = (queue.clone(), pause.clone());
-    let provider = Provider::start(move |request, n| match n {
+    let flag = pause.clone();
+    let provider = Provider::start(move |_, n| match n {
         0 => add_both(),
-        1 => Reply::Tools(vec![(
-            "write_file",
-            json!({"path":"a.txt","content":"changed"}),
-        )]),
-        2 => {
-            incoming.lock().unwrap().push("Пауза".into());
-            flag.store(true, Ordering::Relaxed);
-            Reply::Tools(vec![("read_file", json!({"path":"a.txt"}))])
-        }
-        3 => {
-            let names = tool_names(request);
-            assert_eq!(names.len(), 3, "{names:?}");
-            assert!(names.contains(&"task_memory".to_owned()));
-            assert!(names.contains(&"plan".to_owned()));
-            assert!(names.contains(&"deliverables".to_owned()));
-            let text = request.to_string();
-            assert!(text.contains("<run_paused>"));
-            assert!(!text.contains("<run_budget>") && !text.contains("deliverables_hint"));
-            Reply::Tools(vec![("read_file", json!({"path":"a.txt"}))])
-        }
-        4 => {
-            let blocked = request["messages"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .rev()
-                .find(|m| m["role"] == "tool")
-                .unwrap();
-            assert!(blocked["content"]
-                .as_str()
-                .unwrap()
-                .contains("run is paused"));
-            Reply::Tools(vec![
-                (
-                    "task_memory",
-                    json!({"action":"record","id":"state","finding":"bot mode is not started; a.txt was changed","status":"inferred","next":"add the bot mode, then validate"}),
-                ),
-                deliverable("done", json!({"id":"d-001","evidence":"saw it work"})),
-            ])
-        }
-        _ => Reply::Text("Paused: the theme switch is not done yet.".into()),
+        1 => Reply::Tools(vec![("write_file", json!({"path":"a.txt","content":"changed"}))]),
+        2 => { flag.store(true, Ordering::Relaxed); Reply::Tools(vec![("write_file", json!({"path":"a.txt","content":"must not execute"}))]) },
+        _ => panic!("Pause must not request a model-generated checkpoint"),
     });
     let mut config = workspace.config(&provider.endpoint, TWO_PART_REQUEST);
-    config.steering = queue;
     config.pause_requested = pause;
     run(config);
+    assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "changed");
     let journal = workspace.journal();
-    assert!(completed(&journal));
-    assert_eq!(
-        withheld_drafts(&journal),
-        0,
-        "no completion guidance may hold the pause summary back"
-    );
-    let requests = provider.requests();
-    assert_eq!(requests.len(), 6);
-    let last = requests[5].to_string();
-    assert!(
-        last.contains("state [inferred]") || last.contains("bot mode is not started"),
-        "{last}"
-    );
-    assert!(
-        last.contains("d-002 theme switch changes the theme"),
-        "pending deliverable survives the pause"
-    );
+    let checkpoint = journal.iter().find_map(|e| e.get("PauseCheckpoint")).expect("durable runtime checkpoint");
+    assert!(checkpoint.to_string().contains("theme switch"));
+    assert!(!completed(&journal), "Paused work must not be marked complete in the journal");
+    assert_eq!(provider.requests().len(), 3);
 }
 
 #[test]
@@ -417,46 +361,33 @@ fn pause_received_during_generation_blocks_new_mutations_before_the_checkpoint()
     let workspace = Workspace::new(&[("a.txt", "original")]);
     let pause = Arc::new(AtomicBool::new(false));
     let flag = pause.clone();
-    let provider = Provider::start(move |_, n| {
-        if n == 0 {
-            flag.store(true, Ordering::Relaxed);
-            Reply::Tools(vec![("write_file", json!({"path":"a.txt","content":"must not execute"}))])
-        } else { Reply::Text("Paused before modifying files.".into()) }
+    let provider = Provider::start(move |_, _| {
+        flag.store(true, Ordering::Relaxed);
+        Reply::Tools(vec![("write_file", json!({"path":"a.txt","content":"must not execute"}))])
     });
     let mut config = workspace.config(&provider.endpoint, "edit a.txt");
     config.pause_requested = pause;
+    let started = std::time::Instant::now();
     run(config);
+    eprintln!("Pause during generation: {:?}", started.elapsed());
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
     assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "original");
-    assert!(completed(&workspace.journal()));
-    assert!(tool_result_text(&provider.requests()[1]).contains("run is paused"));
+    assert!(workspace.journal().iter().any(|e| e.get("PauseCheckpoint").is_some()));
+    assert_eq!(provider.requests().len(), 1);
 }
 
-/// The checkpoint is bounded: a model that keeps writing checkpoints loses its tools, and a model that never
-/// answers still ends with a visible paused summary.
 #[test]
 fn a_pause_is_bounded_even_if_the_model_keeps_calling_tools_or_stays_silent() {
     let workspace = Workspace::new(&[("a.txt", "a")]);
-    let queue = Arc::new(Mutex::new(vec!["Пауза".to_owned()]));
-    let pause = Arc::new(AtomicBool::new(true));
-    let provider = Provider::start(|request, n| {
-        if n < 3 {
-            assert!(!tool_names(request).is_empty());
-            Reply::Tools(vec![("task_memory", json!({"action":"view"}))])
-        } else {
-            assert!(
-                tool_names(request).is_empty(),
-                "tools are withdrawn after the checkpoint turns"
-            );
-            Reply::Reasoning("thinking without an answer".into())
-        }
-    });
+    let provider = Provider::start(|_, _| panic!("No model request allowed after accepting Pause"));
     let mut config = workspace.config(&provider.endpoint, "Do a long task");
-    config.steering = queue;
-    config.pause_requested = pause;
+    config.pause_requested = Arc::new(AtomicBool::new(true));
+    let started = std::time::Instant::now();
     run(config);
-    let journal = workspace.journal();
-    assert!(completed(&journal));
-    assert_eq!(provider.requests().len(), 5);
+    eprintln!("Pause before next step: {:?}", started.elapsed());
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    assert!(workspace.journal().iter().any(|e| e.get("PauseCheckpoint").is_some()));
+    assert!(provider.requests().is_empty());
 }
 
 /// Natural-language classification belongs to the model: the pause tool is offered only right after a steering
@@ -3698,4 +3629,93 @@ fn permission_transport_refusals_never_spawn_or_become_transient_command_errors(
         run(config);
         assert_eq!(std::fs::read_to_string(workspace.root.join("fixture.txt")).unwrap(),"untouched");
     }
+}
+
+#[test]
+fn dependent_edits_in_one_batch_use_current_content_and_failed_edits_require_new_evidence() {
+    let workspace = Workspace::new(&[("a.txt", "alpha")]);
+    let provider = Provider::start(|request, n| match n {
+        0 => Reply::Tools(vec![("read_file", json!({"path":"a.txt"}))]),
+        1 => Reply::Tools(vec![
+            ("replace_text", json!({"path":"a.txt","old_text":"alpha","new_text":"beta"})),
+            ("replace_text", json!({"path":"a.txt","old_text":"beta","new_text":"gamma"})),
+        ]),
+        2 => {
+            let results = tool_result_text(request);
+            assert!(!results.contains("INVALID_EDIT_ARGUMENTS"), "dependent edits were not serialized: {results}");
+            Reply::Tools(vec![
+                ("replace_text", json!({"path":"a.txt","old_text":"alpha","new_text":"wrong"})),
+                ("replace_text", json!({"path":"a.txt","old_text":"alpha","new_text":"wrong"})),
+            ])
+        },
+        3 => {
+            let results = tool_result_text(request);
+            assert!(results.contains("INVALID_EDIT_ARGUMENTS"));
+            assert!(results.contains("DUPLICATE_FAILED_OPERATION"));
+            Reply::Tools(vec![("read_file", json!({"path":"a.txt"}))])
+        },
+        4 => Reply::Tools(vec![("replace_text", json!({"path":"a.txt","old_text":"gamma","new_text":"delta"}))]),
+        _ => Reply::Text("Edited against the updated contents.".into()),
+    });
+    run(workspace.config(&provider.endpoint, "Edit a.txt sequentially"));
+    assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "delta");
+    assert!(completed(&workspace.journal()));
+}
+
+#[test]
+fn runtime_pause_snapshot_survives_compaction_and_repeated_resume_without_replaying_edits() {
+    use local_ai_agent_runtime::agent::transcript::Transcript;
+    let workspace = Workspace::new(&[("a.txt", "original")]);
+    let pause = Arc::new(AtomicBool::new(false)); let flag = pause.clone();
+    let provider = Provider::start(move |_, n| if n == 0 { Reply::Tools(vec![
+        ("plan", json!({"action":"set","steps":["Change a.txt","Read the final content"]})),
+        ("write_file", json!({"path":"a.txt","content":"changed once"})),
+    ]) } else { flag.store(true, Ordering::Relaxed); Reply::Text("This interrupted generation is not a checkpoint.".into()) });
+    let mut config = workspace.config(&provider.endpoint, "Change a.txt, then inspect"); config.pause_requested = pause;
+    run(config);
+    assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "changed once");
+    let mut transcript = Transcript::durable(&workspace.base.join("evidence"), "compact-paused", &[], workspace.root.to_str()).unwrap();
+    let covers = transcript.entries().len();
+    transcript.compact("Established: a.txt was successfully written to 'changed once'. Do not repeat the write. Next: read the final content.".into(), covers);
+    drop(transcript);
+    let never = Provider::start(|_, _| panic!("Already requested Pause must not invoke the provider"));
+    let mut paused = workspace.config(&never.endpoint, "Continue"); paused.pause_requested = Arc::new(AtomicBool::new(true));
+    let started = std::time::Instant::now(); run(paused);
+    eprintln!("Pause after compaction: {:?}", started.elapsed());
+    assert!(started.elapsed() < std::time::Duration::from_secs(1));
+    let resumed = Provider::start(|request, n| {
+        assert!(request.to_string().contains("Read the final content"), "runtime plan lost across compaction/resume");
+        if n == 0 { Reply::Tools(vec![("read_file", json!({"path":"a.txt"}))]) }
+        else { assert!(tool_result_text(request).contains("changed once")); Reply::Text("Read the saved result without repeating its mutation.".into()) }
+    });
+    run(workspace.config(&resumed.endpoint, "Continue"));
+    assert_eq!(std::fs::read_to_string(workspace.root.join("a.txt")).unwrap(), "changed once");
+    assert_eq!(resumed.requests().len(), 2);
+}
+
+#[test]
+fn pause_during_compaction_does_not_commit_an_interrupted_summary() {
+    use local_ai_agent_runtime::agent::transcript::Transcript;
+    let workspace = Workspace::new(&[("a.txt", "original")]);
+    let mut transcript = Transcript::durable(&workspace.base.join("evidence"), "before-compaction", &[], workspace.root.to_str()).unwrap();
+    for n in 0..24 {
+        transcript.push_message(json!({"role":"user","content":format!("Earlier inspection {n}")}));
+        transcript.assistant_message(format!("Established observation {n}: {}", "unique substantive historical details. ".repeat(160)));
+    }
+    drop(transcript);
+    let pause = Arc::new(AtomicBool::new(false)); let flag = pause.clone();
+    let provider = Provider::start(move |request, _| {
+        assert!(request.get("tools").is_none(), "expected compaction provider call");
+        flag.store(true, Ordering::Relaxed);
+        Reply::Reasoning("Interrupted summary must not replace durable evidence.".into())
+    });
+    let mut config = workspace.config(&provider.endpoint, "Continue inspecting a.txt");
+    config.context_limit = 32768; config.pause_requested = pause;
+    let started = std::time::Instant::now(); run(config);
+    eprintln!("Pause during compaction: {:?}", started.elapsed());
+    assert!(started.elapsed() < std::time::Duration::from_secs(2));
+    let journal = workspace.journal();
+    assert!(journal.iter().any(|entry| entry.get("PauseCheckpoint").is_some()));
+    assert!(!journal.iter().any(|entry| entry.get("Compaction").is_some()));
+    assert_eq!(provider.requests().len(), 1);
 }

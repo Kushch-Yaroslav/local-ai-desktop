@@ -48,6 +48,12 @@ export function runContextOptionsRegression() {
   const restored = buildContextChoices(qwen, llamaContextPresets(qwen), 262144, [option(qwen, 73728, 'f16'), option(qwen, 110592, 'q8_0')]);
   assert(restored.some(o => o.label === '72K (FP16)' && contextChoiceId(o) === '73728:f16:gpu'));
   assert(restored.some(o => o.label === '108K (Q8)' && contextChoiceId(o) === '110592:q8_0:gpu'));
+  const unknown = buildContextChoices(qwen, [], 262144, [{ ...measured, conditions: 'unknown', restored: true }]);
+  assert(unknown.every(choice => !choice.warning), 'missing telemetry alone must not fabricate a yellow warning');
+  assert.match(unknown.find(choice => choice.contextWindow === 65536 && choice.kvCacheType === 'f16')!.explanation!, /предыдущему измерению/);
+  const previous = buildContextChoices(qwen, [], 262144, [{ ...measured, restored: true }]);
+  assert.equal(previous.find(choice => choice.contextWindow === 65536 && choice.kvCacheType === 'f16')?.status, 'fit');
+  assert.match(previous.find(choice => choice.contextWindow === 65536 && choice.kvCacheType === 'f16')!.explanation!, /текущие условия сопоставимы/);
   const current = { llamaKvCacheType: 'q8_0' as const, llamaKvOffload: false };
   assert.deepEqual(resolveLlamaKvSelection(current, { contextWindow: 65536 }, false), current);
   assert.deepEqual(resolveLlamaKvSelection(current, {}, true), { llamaKvCacheType: 'f16', llamaKvOffload: true }, 'model change must discard the previous cache override');

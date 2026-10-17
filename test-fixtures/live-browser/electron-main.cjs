@@ -5,7 +5,7 @@ app.disableHardwareAcceleration();
 const sessions = new Map();
 app.whenReady().then(async () => {
   const root = process.env.LOCAL_AI_RUNTIME_ROOT;
-  const model = 'qwen3.6:35b-a3b-ud-q4_k_m';
+  const model = process.env.LOCAL_AI_TEST_MODEL ?? 'qwen3.6:35b-a3b-ud-q4_k_m';
   const hardware = require(resolve('dist/main/services/hardware.js'));const readHardware=hardware.getHardwareStats;
   const fixture = await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root, true, model);
   hardware.getHardwareStats=readHardware;ipcMain.removeHandler('hardware:get');ipcMain.handle('hardware:get',readHardware);
@@ -22,6 +22,11 @@ app.whenReady().then(async () => {
     async open(id=fixture.chat.id){ const old=sessions.get(id);await old?.close();const session=new ProjectBrowserSession(project,join(root,'captures'),undefined,liveBrowsers.observer(window.webContents,id,'fixture-'+Date.now()));sessions.set(id,session);return session.execute({action:'open'},new AbortController().signal,approve); },
     async action(args,id=fixture.chat.id){return sessions.get(id).execute(args,new AbortController().signal,approve);},
     async edit(){await writeFile(join(project,'style.css'),'body{background:#345; color:white}');await writeFile(join(project,'edited.html'),'<title>Updated ORBIT</title><style>body{background:#473652;color:white;font:40px system-ui;padding:50px}</style><h1>Revision two</h1>');return sessions.get(fixture.chat.id).execute({action:'open',path:'edited.html'},new AbortController().signal,approve);},
+    async finish(){await sessions.get(fixture.chat.id).finishRun();},
+    async begin(){const session=sessions.get(fixture.chat.id);session.beginRun(liveBrowsers.observer(window.webContents,fixture.chat.id,'interactive-next-run'));return session.execute({action:'read'},new AbortController().signal,approve);},
+    async interactiveSetup(){const page=sessions.get(fixture.chat.id).page;await page.evaluate(()=>{globalThis.previewKeys=[];const canvas=document.querySelector('canvas');canvas.tabIndex=0;canvas.addEventListener('keydown',event=>globalThis.previewKeys.push(event.key));});},
+    async interactiveTargets(){return sessions.get(fixture.chat.id).page.evaluate(()=>Object.fromEntries(['canvas','#message','#explore'].map(selector=>{const rect=document.querySelector(selector).getBoundingClientRect();return [selector,{x:rect.x+rect.width/2,y:rect.y+rect.height/2}];})));},
+    async interactiveSnapshot(){return sessions.get(fixture.chat.id).page.evaluate(()=>({keys:globalThis.previewKeys,input:document.querySelector('#message')?.value,url:location.href,scroll:scrollY,identity:globalThis.pageIdentity}));},
     async close(){await Promise.all([...sessions.values()].map(s=>s.close()));},
     async autoSetup(){
       await mkdir(join(project,'assets'),{recursive:true});

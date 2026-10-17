@@ -1,0 +1,55 @@
+// Real Electron UI/preload/IPC/Rust, scripted inference and hardware telemetry.
+import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createServer } from 'node:http';
+import { _electron as electron } from 'playwright-core';
+const root = await mkdtemp(join(tmpdir(), 'lad-controls-ui-'));
+let app, finish; const requests = [];
+const frame = (delta, reason = null) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: reason }] })}\n\n`;
+const server = createServer(async (req, res) => {
+  const chunks=[];for await(const c of req)chunks.push(c);requests.push(JSON.parse(Buffer.concat(chunks)));
+  const n = requests.length;
+  res.writeHead(200, { 'Content-Type':'text/event-stream' });res.write(frame({reasoning_content:'Model is working.'}));
+  finish = () => res.end(frame({tool_calls:[{index:0,id:`view-${n}`,type:'function',function:{name:'plan',arguments:'{"action":"view"}'}}]})+frame({},'tool_calls')+'data: [DONE]\n\n');
+});
+try {
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_MODEL:'qwen3.8:27b-q4_K_M',LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
+  const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();
+  await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+  await page.getByRole('button',{name:/Load selected configuration/}).click();
+  await page.waitForFunction(()=>document.querySelector('.context-active')?.textContent.includes('64K'));
+  await page.evaluate(()=>{window.controlEvents=[];window.localAi.chat.onStream(e=>window.controlEvents.push(e));});
+  const controls=page.locator('.toolbar-controls');
+  const effort=controls.locator('select').filter({has:page.locator('option[value="max"]')});
+  const strategy=controls.locator('select').filter({has:page.locator('option[value="deep"]')});
+  await effort.selectOption('max');await strategy.selectOption('deep');
+  await page.locator('.composer textarea').fill('Inspect the plan using plan view; do not modify files.');await page.locator('.send-button:not(.stop)').click();
+  await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='thinking'));
+  assert(!(await effort.isDisabled()));assert(!(await strategy.isDisabled()));
+  const mode=controls.locator('select').filter({has:page.locator('option[value="agent"]')});
+  const web=controls.locator('select').filter({has:page.locator('option[value="auto"]')});
+  assert(await mode.isDisabled());assert(await web.isDisabled());assert(await page.locator('.context-selector-trigger').isDisabled());
+  await effort.selectOption('medium');await strategy.selectOption('fast');
+  await page.waitForFunction(()=>document.querySelector('.runtime-notice')?.textContent.includes('Ожидает применения'));
+  await page.waitForFunction(async()=>{const c=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return c.reasoningEffort==='medium'&&c.reasoningMode==='fast';});
+  assert.equal(requests.length,1);assert(!(await page.evaluate(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'))));
+  finish();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'));
+  assert.equal(requests[1].reasoning_effort,'medium');
+  assert.equal(await effort.inputValue(),'medium');assert.equal(await strategy.inputValue(),'fast');
+  await effort.selectOption('max');await strategy.selectOption('deep');
+  await page.waitForFunction(async()=>{const c=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return c.reasoningEffort==='max'&&c.reasoningMode==='deep';});finish();
+  await page.waitForFunction(()=>window.controlEvents.filter(e=>e.type==='reasoning-applied').some(e=>e.configuration.reasoningEffort==='max'));
+  assert.equal(requests[2].reasoning_effort,'xhigh');
+  await page.locator('.pause-button').click();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='paused'));
+  await page.waitForFunction(()=>document.querySelector('.send-button:not(.stop)'));
+  assert(await page.getByRole('status').filter({hasText:'Paused'}).count());
+  assert(!(await mode.isDisabled()));
+  const runs=await page.evaluate(async()=>{const chat=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return window.localAi.analysis.list(chat.id);});
+  assert.equal(runs.at(-1).status,'interrupted','Pause is not task completion');
+  assert.equal(await page.locator('.task-selector select').inputValue(),runs.at(-1).logicalTaskId,'next message resumes the paused task');
+  assert(!(await page.evaluate(()=>window.controlEvents.some(e=>e.type==='error'))));
+  console.log('PASS actual Electron UI + Rust/scripted SSE: Effort and Strategy live, rapid composed updates, pending then applied, reverse switch, disabled mode/web/context, Pause and restored controls');
+} finally {await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
