@@ -31,6 +31,7 @@ export async function runContextDiscoveryPersistenceRegression() {
   const file = join(directory, 'app.db');
   try {
     const kA = contextDiscoveryKey(identity());
+    assert.equal(kA.key, key({ arguments: [...baseArguments, '--metrics'] }), 'read-only counters must not invalidate a measured context profile');
     const draftArguments = [...baseArguments, '--spec-type', 'draft-mtp', '--model-draft', '/models/assistant.gguf', '--spec-draft-n-max', '4'];
     const draftKey = key({ arguments: draftArguments, draftFingerprint: '514687104:1700000000002' });
     assert.notEqual(draftKey, key({ arguments: [...baseArguments, '--spec-type', 'none'], speculative: 'none' }), 'OFF/ON must not share discovery');

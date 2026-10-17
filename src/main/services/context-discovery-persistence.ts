@@ -76,9 +76,9 @@ export function mergeSavedDiscoveryOptions(fresh: readonly ContextDiscoveryOptio
 }
 
 const valueArguments = new Set(['--ctx-size', '-c', '--cache-type-k', '--cache-type-v', '--cache-type-k-draft', '--cache-type-v-draft', '--host', '--port']);
-const flagArguments = new Set(['--kv-offload', '--no-kv-offload', '-kvo', '-nkvo']);
+const flagArguments = new Set(['--kv-offload', '--no-kv-offload', '-kvo', '-nkvo', '--metrics']);
 
-/** Launch arguments minus what selects the context/KV mode being calibrated or only where the server listens. */
+/** Launch arguments minus what selects the context/KV mode being calibrated or only where the server listens / exposes read-only counters. */
 export function stableRuntimeArguments(args: readonly string[]): string[] {
   const stable: string[] = [];
   for (let i = 0; i < args.length; i += 1) {
