@@ -447,6 +447,7 @@ impl EvidenceStore {
                 Entry::CloseoutRequested => "closeout_requested",
                 Entry::RunComplete => "run_complete",
                 Entry::RuntimeNotice { .. } => "runtime_notice",
+                Entry::PauseCheckpoint { .. } => "pause_checkpoint",
                 Entry::WorkBudget(_) => "work_budget",
                 Entry::ContextExclusion { .. } => "context_exclusion",
                 Entry::LanguagePreference(_) => "language_preference",

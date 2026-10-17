@@ -23,6 +23,7 @@ pub enum Event {
     LoopLifecycle { stage: String, notice: super::loop_detector::LoopNotice, attempt: usize },
     ControlAccepted { id: String },
     ControlRejected { id: String, message: String },
+    ReasoningApplied { configuration: Value },
     AgentCounters { turns: usize, actions: usize },
     LoopDiagnostics { observations: usize, guidance: usize, warnings: usize, pauses: usize },
     WorkBudget { budget: super::work_budget::BudgetView },

@@ -3,6 +3,8 @@ import type { LocalAiApi } from '../shared/types';
 
 const api: LocalAiApi = {
   liveBrowser: {
+    input: (sessionId, input) => ipcRenderer.invoke('live-browser:input', sessionId, input),
+    close: sessionId => ipcRenderer.invoke('live-browser:close', sessionId),
     watch: (conversationId, visible) => ipcRenderer.invoke('live-browser:watch', conversationId, visible),
     acknowledge: (sessionId, sequence) => void ipcRenderer.invoke('live-browser:ack', sessionId, sequence).catch(() => undefined),
     onEvent: listener => { const callback = (_: unknown, event: Parameters<typeof listener>[0]) => listener(event); ipcRenderer.on('live-browser:event', callback); return () => ipcRenderer.removeListener('live-browser:event', callback); },

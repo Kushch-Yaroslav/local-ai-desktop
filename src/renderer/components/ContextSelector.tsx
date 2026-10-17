@@ -25,7 +25,8 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
     place();window.addEventListener('resize',place);
     return () => window.removeEventListener('resize',place);
   },[open]);
-  useEffect(() => { setOpen(false); }, [disabled, options.map(contextChoiceId).join('|')]);
+  const optionKeys = options.map(contextChoiceId).join('|');
+  useEffect(() => { setOpen(false); }, [disabled, optionKeys]);
   useEffect(() => {
     if (!open) return;
     rows.current[active]?.scrollIntoView({ block: 'nearest' });
@@ -35,9 +36,9 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
   }, [open, active]);
   const choose = (index: number) => { if (options[index]) onChange(options[index]); setOpen(false); trigger.current?.focus(); };
   return <div className="context-selector" ref={container}>
-    <span className="context-selector-label" id={`${id}-label`}>{t('Контекст')}</span>
+    <span className="context-selector-label" id={`${id}-label`}>{t('Контекст')} ⟳</span>
     <button className="context-selector-trigger" ref={trigger} role="combobox" type="button" disabled={disabled || !options.length}
-      aria-labelledby={`${id}-label`} aria-describedby={`${id}-value`} title={localizeMessage(selected?.warning ?? selected?.explanation ?? 'Не оценено для этой конфигурации')} aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox"
+      aria-labelledby={`${id}-label`} aria-describedby={`${id}-value`} title={'Для изменения требуется перезагрузка модели или контекста. ' + localizeMessage(selected?.warning ?? selected?.explanation ?? 'Не оценено для этой конфигурации')} aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox"
       aria-activedescendant={open ? `${id}-${active}` : undefined}
       onClick={() => { setActive(selectedIndex); setOpen(!open); }}
       onKeyDown={event => {
@@ -74,8 +75,9 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
         title={[option.explanation, option.warning].filter(Boolean).map(value => localizeMessage(value!)).join('\n')}
         className={`context-selector-option ${index === active ? 'active' : ''}`} onMouseMove={() => setActive(index)} onClick={() => choose(index)}>
         <span className={`context-fit-dot ${option.status ?? 'unevaluated'}`} aria-hidden="true" />
-        <span><b>{option.label}</b><small>{localizeMessage(option.explanation ?? t('Не оценено для этой конфигурации'))}</small>{option.warning && <small className="context-fit-warning">{localizeMessage(option.warning)}</small>}</span>
+        <span><b>{option.label}</b><small>{localizeMessage(option.explanation ?? t('Не оценено для этой конфигурации'))}</small></span>
       </div>)}
+      {[...new Set(options.filter(option => option.kvCacheType === type).map(option => option.warning).filter((warning): warning is string => Boolean(warning)))].map(warning => <small className="context-fit-warning" key={warning}>{localizeMessage(warning)}</small>)}
       </div>)}
     </div>}
   </div>;

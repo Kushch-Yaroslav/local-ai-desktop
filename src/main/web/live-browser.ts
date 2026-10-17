@@ -1,16 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import type { CDPSession, Page } from 'playwright-core';
-import type { BrowserAction, BrowserFrame, BrowserStatus, LiveBrowserEvent, LiveBrowserState } from '../../shared/live-browser';
+import type { BrowserAction, BrowserFrame, BrowserStatus, LiveBrowserEvent, LiveBrowserState, BrowserInput, BrowserOwnership } from '../../shared/live-browser';
 
 export interface ProjectBrowserObserver {
-  ready(page: Page, visibility?: (visible: boolean) => void): void;
+  readonly ownerId?: number;
+  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; close(): Promise<void> }): void;
+  ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
   action(action: BrowserAction): void;
   closed(): void;
   captureFinal?(): Promise<void>;
 }
 interface Entry {
+  controls?: { input(input: BrowserInput): Promise<void>; close(): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; cdp?: CDPSession;
   frame?: BrowserFrame; sequence: number; pending?: number;
   removeFrameListener?: () => void; credit?: () => void; deadline?: ReturnType<typeof setTimeout>; lastSent: number; streaming: boolean; attaching?: boolean;
@@ -39,8 +42,14 @@ export class LiveBrowserHub {
     const ensure = () => {
       if (entry) return entry;
       const key = this.key(owner.id, conversationId), previous = this.entries.get(key);
+      if (previous && !previous.ended && previous.page && !previous.page.isClosed()) {
+        entry = previous;
+        entry.state = { ...entry.state, generationId, ownership: 'agent', action: undefined, error: undefined };
+        this.send(entry, { type: 'state', state: entry.state });
+        return entry;
+      }
       if (previous) void this.end(previous);
-      entry = { owner, state: { conversationId, generationId, sessionId: randomUUID(), status: 'loading', url: '' }, sequence: 0, lastSent: 0, streaming: false, reconcile: Promise.resolve(), ended: false };
+      entry = { owner, state: { conversationId, generationId, sessionId: randomUUID(), ownership: 'agent', status: 'loading', url: '' }, sequence: 0, lastSent: 0, streaming: false, reconcile: Promise.resolve(), ended: false };
       this.entries.delete(key); this.entries.set(key, entry);
       // Keep at most eight last frames per window; no disk persistence.
       const older = [...this.entries.entries()].filter(([, item]) => item.owner.id === owner.id && item.ended);
@@ -49,7 +58,9 @@ export class LiveBrowserHub {
       return entry;
     };
     return {
-      ready: (page, visibility) => { const item = ensure(); item.page = page; item.visibility = visibility; visibility?.(this.visible(item)); page.once('close', () => { void this.end(item); }); void this.attach(item); },
+      ownerId: owner.id,
+      ownership: ownership => { const item = ensure(); if (!item.ended) { item.state = { ...item.state, ownership }; this.send(item, { type: 'state', state: item.state }); } },
+      ready: (page, visibility, controls) => { const item = ensure(); const changedPage = item.page !== page; item.controls = controls; item.page = page; item.visibility = visibility; visibility?.(this.visible(item)); if (changedPage) page.once('close', () => { void this.end(item); }); void this.attach(item); },
       state: (status, url, error) => { const item = ensure(); if (item.ended) return; item.state = { ...item.state, status, ...(url === undefined ? {} : { url }), error }; this.send(item, { type: 'state', state: item.state }); },
       action: action => { const item = ensure(); if (item.ended) return; item.state = { ...item.state, action }; this.send(item, { type: 'state', state: item.state }); },
       captureFinal: async () => {
@@ -59,7 +70,7 @@ export class LiveBrowserHub {
         const data = (await item.page.screenshot({ type: 'jpeg', quality: 65, timeout: 2000 })).toString('base64');
         if (item.ended || data.length > 2 * 1024 * 1024) return;
         const viewport = item.page.viewportSize() ?? { width: 1280, height: 900 };
-        item.frame = { conversationId, generationId, sessionId: item.state.sessionId, sequence: ++item.sequence, data, ...viewport };
+        item.frame = { conversationId, generationId: item.state.generationId, sessionId: item.state.sessionId, sequence: ++item.sequence, data, ...viewport };
       },
       closed: () => { if (entry) void this.end(entry); },
     };
@@ -126,13 +137,29 @@ export class LiveBrowserHub {
       else await entry.cdp.send('Page.stopScreencast');
     }).catch(error => { entry.streaming = false; entry.credit?.(); entry.removeFrameListener?.(); entry.removeFrameListener = undefined; const cdp = entry.cdp; entry.cdp = undefined; void cdp?.detach().catch(() => undefined); if (!entry.ended) { entry.state = { ...entry.state, status: 'error', error: `Live view disconnected: ${String(error).slice(0, 200)}` }; this.send(entry, { type: 'state', state: entry.state }); } });
   }
+  async input(owner: WebContents, sessionId: unknown, input: unknown) {
+    const entry = this.authorizedEntry(owner, sessionId);
+    if (entry.state.ownership !== 'user' || !this.visible(entry) || !entry.controls) throw new Error('Browser is controlled by the agent or unavailable');
+    await entry.controls.input(input as BrowserInput); // Session validates every field before Playwright.
+  }
+  async close(owner: WebContents, sessionId: unknown) { await this.end(this.authorizedEntry(owner, sessionId)); }
+  async closeConversation(owner: WebContents, conversationId: string) {
+    const entry = this.entries.get(this.key(owner.id, conversationId));
+    if (entry) await this.end(entry);
+  }
+  private authorizedEntry(owner: WebContents, sessionId: unknown) {
+    const entry = [...this.entries.values()].find(item => item.owner === owner && !item.ended && item.state.sessionId === sessionId);
+    if (typeof sessionId !== 'string' || !entry) throw new Error('Browser session is closed or belongs to another window');
+    return entry;
+  }
   private async end(entry: Entry) {
     if (entry.ended) return;
     entry.ended = true; entry.visibility?.(false); entry.visibility = undefined; entry.credit?.(); clearTimeout(entry.deadline);
-    entry.state = { ...entry.state, status: entry.state.status === 'error' ? 'error' : 'ended' };
+    entry.state = { ...entry.state, ownership: 'closed', status: entry.state.status === 'error' ? 'error' : 'ended' };
     this.send(entry, { type: 'state', state: entry.state });
     await entry.reconcile;
     entry.removeFrameListener?.(); entry.removeFrameListener = undefined;
+    const controls = entry.controls; entry.controls = undefined; await controls?.close().catch(() => undefined);
     await entry.cdp?.detach().catch(() => undefined); entry.credit = undefined; entry.cdp = undefined; entry.page = undefined;
   }
 }

@@ -32,9 +32,12 @@ export function Composer() {
     setFiles(next);
   }, [files]);
   const [steeringSubmitting, setSteeringSubmitting] = useState(false);
+  const pausePhase = useAppStore(state => state.pausePhase);
+  const pauseOperation = useAppStore(state => state.toolActivities.findLast(activity => activity.state === 'running')?.label);
   const [pauseRequested, setPauseRequested] = useState(false);
   useEffect(() => { if (!isGenerating) setPauseRequested(false); }, [isGenerating]);
   const requestPause = () => {
+    useAppStore.setState({ pausePhase: 'Pause requested' });
     setPauseRequested(true);
     void steer(pauseRequestText, 'pause').then((accepted) => { if (!accepted) setPauseRequested(false); });
   };
@@ -90,7 +93,7 @@ export function Composer() {
     resizeHandle.current = false;
     window.requestAnimationFrame(() => { if (ref.current) { manualHeight.current = ref.current.offsetHeight; ref.current.style.overflowY = 'auto'; } });
   };
-  return <div className="composer-wrap">{chat?.mode === 'agent' && !isGenerating && <TaskSelector />}<CurrentAgentStatus /><LoopWarning />{chat?.mode === 'agent' && <div className="composer-toolbar"><AgentControls />{isGenerating && <span className="task-running-indicator" role="status">{t('Уточнение текущей задачи')}</span>}</div>}<div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles([...event.dataTransfer.files]); }}>
+  return <div className="composer-wrap">{chat?.mode === 'agent' && !isGenerating && <><TaskSelector />{pausePhase === 'Paused' && <span role="status">Paused</span>}</>}<CurrentAgentStatus /><LoopWarning />{chat?.mode === 'agent' && <div className="composer-toolbar"><AgentControls />{isGenerating && <span className="task-running-indicator" role="status">{pausePhase ?? t('Уточнение текущей задачи')}{pauseRequested && pauseOperation ? ` · ${pauseOperation}` : ''}</span>}</div>}<div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles([...event.dataTransfer.files]); }}>
     {(files.length > 0 || projectReferences.length > 0) && <div className="attachment-draft">{projectReferences.map((reference) => <ProjectReferenceChip key={reference.id} reference={reference} onRemove={() => setProjectReferences((items) => items.filter((item) => item.id !== reference.id))} />)}{files.map((file, index) => <DraftAttachment key={`${file.name}-${index}`} file={file} index={isImageFile(file) ? files.slice(0, index + 1).filter(isImageFile).length - 1 : index} onRemove={() => { setFiles((items) => items.filter((_, itemIndex) => itemIndex !== index)); setAttachmentError(null); }} />)}</div>}
     <input ref={inputRef} className="attachment-input" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.txt,.md,.json,.csv,.log,.js,.ts,.jsx,.tsx,.html,.css,.yaml,.yml,.xml,.docx,.xlsx,.xls,.pdf" onChange={(event) => { addFiles([...(event.target.files ?? [])]); event.currentTarget.value = ''; }} />
     {isGenerating && chat?.mode === 'agent' && <button className="steering-button" type="button" disabled={!value.trim() || files.length > 0 || projectReferences.length > 0 || steeringSubmitting} onClick={submit} title={steeringStatus === 'applied' ? t("Предыдущее уточнение передано модели") : steeringStatus === 'accepted' ? t("Предыдущее уточнение принято; ожидает границы хода") : t("Отправить уточнение без остановки Agent")}>{t("Уточнить")}</button>}

@@ -19,6 +19,7 @@ pub struct LoopCommand {
 }
 #[derive(Clone, Debug, Default)]
 pub struct ExecutionControl {
+    pub reasoning: Option<(String, serde_json::Value, serde_json::Value)>,
     pub permissions: Permissions,
     pub permissions_epoch: usize,
     pub commands: VecDeque<LoopCommand>,

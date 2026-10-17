@@ -17,11 +17,21 @@ import { resolveReasoningSelection, type ReasoningEffort } from '../../shared/re
 export function Toolbar() {
   useLocale();
   const { conversations, activeId, models, hardware, settings, isGenerating, updateConversation, refreshRuntimeStatus } = useAppStore(useShallow((state) => ({ conversations: state.conversations, activeId: state.activeId, models: state.models, hardware: state.hardware, settings: state.settings, isGenerating: state.isGenerating, updateConversation: state.updateConversation, refreshRuntimeStatus: state.refreshRuntimeStatus })));
+  const runtimeNotice = useAppStore(state => state.runtimeNotice);
+  const transitions = useAppStore(state => state.modeTransitions);
+  useEffect(() => {
+    if (!runtimeNotice) return;
+    const timer = window.setTimeout(() => { if (useAppStore.getState().runtimeNotice === runtimeNotice) useAppStore.setState({ runtimeNotice: null }); }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [runtimeNotice]);
+  const afterResponse = 'Дождитесь завершения ответа или остановите задачу.';
+  const liveHint = 'Можно менять во время работы. Применится на следующем шаге модели.';
   const [estimateResponse, setEstimateResponse] = useState<{ modelId: string; value?: RuntimeContextEstimate; error?: string } | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const [contextLoadError, setContextLoadError] = useState<string | null>(null);
   const [contextDraft, setContextDraft] = useState<ContextChoice | null>(null);
-  useEffect(() => setContextDraft(null), [activeId, conversations.find(c => c.id === activeId)?.modelId]);
+  const conversationModelId = conversations.find(c => c.id === activeId)?.modelId;
+  useEffect(() => setContextDraft(null), [activeId, conversationModelId]);
   const [discovery, setDiscovery] = useState<ContextDiscoveryResult | null>(null);
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
@@ -75,7 +85,7 @@ export function Toolbar() {
   const chooseDirectory = async (slot: 1 | 2, currentDirectory: string | null) => { const directory = await window.localAi.dialog.chooseDirectory(currentDirectory); if (directory) await updateConversation(chat.id, slot === 1 ? { workingDirectory: directory } : { secondaryWorkingDirectory: directory }); };
   const contextLabel = selectedModelId ? `${chat.contextWindow / 1024}K (${cacheModeLabel(chat.llamaKvCacheType ?? 'f16')}) · KV ${(chat.llamaKvOffload ?? true) ? 'GPU' : 'RAM'}` : '—';
   const contextEstimate = estimateResponse?.modelId === selectedModelId ? estimateResponse.value : undefined;
-  const projectSelector = (slot: 1 | 2, directory: string | null) => <div className={`directory project-selector project-${slot}`}><button title={directory ?? undefined} onClick={() => void chooseDirectory(slot, directory)}><ProjectBadge path={directory} label={directory ? undefined : tr`Проект ${slot}: не выбран`} /></button>{directory && <button className="icon-button" aria-label={tr`Убрать проект ${slot}`} onClick={() => void updateConversation(chat.id, slot === 1 ? { workingDirectory: null } : { secondaryWorkingDirectory: null })}><X size={14} /></button>}</div>;
+  const projectSelector = (slot: 1 | 2, directory: string | null) => <div className={`directory project-selector project-${slot}`}><button disabled={isGenerating} title={isGenerating ? afterResponse : directory ?? undefined} onClick={() => void chooseDirectory(slot, directory)}><ProjectBadge path={directory} label={directory ? undefined : tr`Проект ${slot}: не выбран`} /></button>{directory && <button className="icon-button" disabled={isGenerating} aria-label={tr`Убрать проект ${slot}`} onClick={() => void updateConversation(chat.id, slot === 1 ? { workingDirectory: null } : { secondaryWorkingDirectory: null })}><X size={14} /></button>}</div>;
   const llama = settings?.llamaRuntime;
   const requestedContext = contextDraft ?? { contextWindow: chat.contextWindow, kvCacheType: chat.llamaKvCacheType ?? 'f16', kvOffload: chat.llamaKvOffload ?? true };
   const runtimeMatchesSelection = llama?.status === 'ready' && llama.modelId === selectedModelId && llama.contextWindow === requestedContext.contextWindow && llama.kvCacheType === requestedContext.kvCacheType && llama.kvOffload === requestedContext.kvOffload;
@@ -108,6 +118,8 @@ export function Toolbar() {
     catch (error) { setDiscoveryError(error instanceof Error ? error.message : String(error)); }
     finally { setDiscoveryLoading(false); }
   };
+  const liveDisabled = isGenerating && chat.mode !== 'agent';
+  const pending = transitions[chat.id];
   return (
     <header className="toolbar">
       <div className="monitoring-row" aria-label={t("Мониторинг llama.cpp")}>
@@ -138,18 +150,19 @@ export function Toolbar() {
         </details>}
         {discoveryError && <span role="alert">{t('Поиск не завершён: ')}{localizeMessage(discoveryError)}</span>}
       </div>
+      {runtimeNotice && <div className="runtime-notice" role="status">{runtimeNotice}</div>}
       <div className="toolbar-controls">
-        <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading} value={selectedModelId ?? ''} onChange={(event) => void updateConversation(chat.id, { modelId: event.target.value || null }).catch(() => undefined)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
-        <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId} onChange={setContextDraft} />
-        {reasoningCapability && <label className="control" title={reasoningControlText.thinkingHint}><span>{reasoningControlText.thinking}</span>{reasoningCapability.thinkingToggle
-          ? <select value={reasoningSelection.thinking === false ? 'off' : 'on'} onChange={(event) => void updateConversation(chat.id, { thinkingEnabled: event.target.value === 'on' }).catch(() => undefined)}><option value="on">{thinkingLabel.on}</option><option value="off">{thinkingLabel.off}</option></select>
+        <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading || isGenerating} title={isGenerating ? afterResponse : "Для изменения требуется перезагрузка модели или контекста."} value={selectedModelId ?? ''} onChange={(event) => void updateConversation(chat.id, { modelId: event.target.value || null }).catch(() => undefined)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
+        <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || isGenerating} onChange={setContextDraft} />
+        {reasoningCapability && <label className="control" title={isGenerating ? afterResponse : reasoningControlText.thinkingHint}><span>{reasoningControlText.thinking}</span>{reasoningCapability.thinkingToggle
+          ? <select disabled={isGenerating} value={reasoningSelection.thinking === false ? 'off' : 'on'} onChange={(event) => void updateConversation(chat.id, { thinkingEnabled: event.target.value === 'on' }).catch(() => undefined)}><option value="on">{thinkingLabel.on}</option><option value="off">{thinkingLabel.off}</option></select>
           : <select disabled title={reasoningControlText.thinkingUnavailable} value="unavailable"><option value="unavailable">{reasoningControlText.unavailable}</option></select>}</label>}
-        {reasoningCapability && <label className="control" title={reasoningSelection.thinking === false ? reasoningControlText.effortInactive : reasoningControlText.effortHint}><span>{reasoningControlText.effort}</span>{reasoningCapability.efforts.length
-          ? <select disabled={reasoningSelection.thinking === false} value={reasoningSelection.effort ?? ''} onChange={(event) => void updateConversation(chat.id, { reasoningEffort: event.target.value as ReasoningEffort }).catch(() => undefined)}>{reasoningCapability.efforts.map((effort) => <option value={effort} key={effort}>{reasoningEffortLabel[effort]}</option>)}</select>
+        {reasoningCapability && <label className="control" title={liveDisabled ? afterResponse : reasoningSelection.thinking === false ? reasoningControlText.effortInactive : liveHint}><span>{reasoningControlText.effort} <small aria-label="Live">{pending?.desired.reasoningEffort !== undefined ? "◷" : "↻"}</small></span>{reasoningCapability.efforts.length
+          ? <select disabled={reasoningSelection.thinking === false || liveDisabled} value={reasoningSelection.effort ?? ''} onChange={(event) => void updateConversation(chat.id, { reasoningEffort: event.target.value as ReasoningEffort }).catch(() => undefined)}>{reasoningCapability.efforts.map((effort) => <option value={effort} key={effort}>{reasoningEffortLabel[effort]}</option>)}</select>
           : <select disabled title={reasoningControlText.effortUnavailable} value="unavailable"><option value="unavailable">{reasoningControlText.unavailable}</option></select>}</label>}
-        {reasoningCapability && <label className="control" title={reasoningControlText.strategyHint}><span>{reasoningControlText.strategy}</span><select value={chat.reasoningMode === 'deep' ? 'deep' : 'fast'} onChange={(event) => void updateConversation(chat.id, { reasoningMode: event.target.value as 'fast' | 'deep' }).catch(() => undefined)}><option value="fast">{reasoningModeLabel.fast}</option><option value="deep">{reasoningModeLabel.deep}</option></select></label>}
-        <label className="control"><span>{t("Веб")}</span><select value={chat.webMode} onChange={(event) => void updateConversation(chat.id, { webMode: event.target.value as 'off' | 'auto' })}><option value="off">{t("Нет")}</option><option value="auto">{t("Да")}</option></select></label>
-        <label className="control"><span>{t("Режим")}</span><select value={chat.mode} onChange={(event) => void updateConversation(chat.id, { mode: event.target.value as 'chat' | 'agent' })}><option value="chat">{t("Чат")}</option><option value="agent">{t("Агент")}</option></select></label>
+        {reasoningCapability && <label className="control" title={liveDisabled ? afterResponse : liveHint}><span>{reasoningControlText.strategy} <small aria-label="Live">{pending?.desired.reasoningMode !== undefined ? "◷" : "↻"}</small></span><select disabled={liveDisabled} value={chat.reasoningMode === 'deep' ? 'deep' : 'fast'} onChange={(event) => void updateConversation(chat.id, { reasoningMode: event.target.value as 'fast' | 'deep' }).catch(() => undefined)}><option value="fast">{reasoningModeLabel.fast}</option><option value="deep">{reasoningModeLabel.deep}</option></select></label>}
+        <label className="control" title={afterResponse}><span>{t("Веб")} ◴</span><select disabled={isGenerating} value={chat.webMode} onChange={(event) => void updateConversation(chat.id, { webMode: event.target.value as 'off' | 'auto' })}><option value="off">{t("Нет")}</option><option value="auto">{t("Да")}</option></select></label>
+        <label className="control" title={afterResponse}><span>{t("Режим")} ◴</span><select disabled={isGenerating} value={chat.mode} onChange={(event) => void updateConversation(chat.id, { mode: event.target.value as 'chat' | 'agent' })}><option value="chat">{t("Чат")}</option><option value="agent">{t("Агент")}</option></select></label>
         <div className="project-selectors">{projectSelector(1, chat.workingDirectory)}{projectSelector(2, chat.secondaryWorkingDirectory)}</div>
       </div>
     </header>

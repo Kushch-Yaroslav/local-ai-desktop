@@ -68,6 +68,7 @@ pub enum Request {
         intent: Option<String>,
     },
     Control { run_id:String, id:String, #[serde(default)] permissions:Option<crate::agent::permissions::Permissions>, #[serde(default)] action:Option<crate::agent::control::LoopAction>, #[serde(default)] signature:Option<String> },
+    Reasoning { run_id: String, id: String, mode: String, options: Value, selection: Value },
     Shutdown,
 }
 

@@ -50,9 +50,9 @@ export function describeContextChoice(choice: ContextChoice, modelId: string, di
   const measurement = discovered.filter(option => option.modelId === modelId && option.kvCacheType === choice.kvCacheType && option.kvOffload === true && choice.kvOffload === true)
     .sort((a,b) => b.discoveredAt.localeCompare(a.discoveredAt))[0];
   if (!measurement) return { ...choice, status: 'unevaluated', warning: undefined, explanation: 'Не оценено для этой конфигурации' };
-  if (choice.contextWindow > measurement.contextWindow) return { ...choice, status: 'above', explanation: 'Выше измеренного GPU-fit предела: требуется больше памяти; возможна ошибка загрузки', warning: measurement.conditions !== 'comparable' ? measurement.conditionWarning ?? 'Условия прошлого измерения не подтверждены' : undefined };
-  if (measurement.conditions !== 'comparable') return { ...choice, status: 'unevaluated', explanation: 'Условия прошлого измерения не подтверждены', warning: measurement.conditionWarning ?? 'Доступная память или конфигурация runtime могли измениться' };
-  return { ...choice, status: choice.contextWindow === measurement.contextWindow ? 'maximum' : 'fit', warning: undefined, explanation: choice.contextWindow === measurement.contextWindow ? 'Точный найденный GPU-fit максимум' : 'В проверенном GPU-fit диапазоне при сопоставимых условиях' };
+  if (choice.contextWindow > measurement.contextWindow) return { ...choice, status: 'above', explanation: 'Выше измеренного GPU-fit предела: требуется больше памяти; возможна ошибка загрузки', warning: measurement.conditions === 'changed' ? measurement.conditionWarning ?? 'Рекомендуется повторная проверка условий GPU/RAM' : undefined };
+  if (measurement.conditions !== 'comparable') return { ...choice, status: 'unevaluated', explanation: measurement.conditions === 'changed' ? 'Рекомендуется повторная проверка' : 'По предыдущему измерению; текущая телеметрия не подтверждена', warning: measurement.conditions === 'changed' ? measurement.conditionWarning ?? 'Условия GPU/RAM изменились' : undefined };
+  return { ...choice, status: choice.contextWindow === measurement.contextWindow ? 'maximum' : 'fit', warning: undefined, explanation: measurement.restored ? 'По предыдущему измерению; текущие условия сопоставимы' : choice.contextWindow === measurement.contextWindow ? 'Точный найденный GPU-fit максимум' : 'В проверенном GPU-fit диапазоне при сопоставимых условиях' };
 }
 
 export function normalContextPatch(contextWindow: number) {

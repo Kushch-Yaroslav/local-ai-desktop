@@ -8,6 +8,7 @@ import type { Browser, BrowserContext, Page } from 'playwright-core';
 import type { ConfirmAction, ProjectToolDefinition } from '../tools/project-tools';
 import { projectPath } from '../tools/project-path';
 import { launchWebBrowser } from './web-tools';
+import type { BrowserInput } from '../../shared/live-browser';
 import type { ProjectBrowserObserver } from './live-browser';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
@@ -25,6 +26,7 @@ export const projectBrowserTool: ProjectToolDefinition = { type: 'function', fun
   }, required: ['action'], additionalProperties: false },
 } };
 const staticOrigin = 'https://project-preview.invalid';
+const previewCsp = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'self'";
 const mime: Record<string, string> = { '.html': 'text/html', '.htm': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2' };
 const maxBytes = 4 * 1024 * 1024;
 export function loopbackTarget(raw: string): URL {
@@ -84,11 +86,63 @@ export class ProjectBrowserSession {
   private context?: BrowserContext;
   private page?: Page;
   private origin?: string;
+  private lastAllowedUrl?: string;
+  private blockedNavigation = false;
+  private recoveringNavigation = false;
   private closed = false;
   private readonly abort = new AbortController();
   private readonly errors: string[] = [];
   private readonly blocked: string[] = [];
   private captures = 0;
+  private ownership: 'agent' | 'user' = 'agent';
+  private authorized = false;
+  private denied?: string;
+  private readonly heldKeys = new Set<string>();
+  private queuedInputs = 0;
+  get reusable() { return !this.closed && Boolean(this.page && !this.page.isClosed()); }
+  beginRun(observer: ProjectBrowserObserver) {
+    this.ownership = 'agent'; this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
+    if (this.page) this.bindObserver();
+  }
+  async finishRun() {
+    await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); });
+    if (!this.reusable || !this.authorized) { await this.close(); return; }
+    this.ownership = 'user'; this.observer?.ownership?.('user');
+  }
+  private bindObserver() {
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), close: () => this.close() });
+    this.observer?.ownership?.(this.ownership);
+  }
+  private async releaseInput() {
+    for (const key of this.heldKeys) await this.page?.keyboard.up(key).catch(() => undefined);
+    this.heldKeys.clear(); await this.page?.mouse.up().catch(() => undefined);
+  }
+  async input(input: BrowserInput) {
+    if (this.ownership !== 'user' || !this.reusable || !input || typeof input !== 'object') throw new Error('Interactive preview unavailable');
+    if (this.queuedInputs >= 64) throw new Error('Preview input queue is full');
+    this.queuedInputs++;
+    return this.exclusive(async () => {
+      if (this.ownership !== 'user' || !this.reusable) throw new Error('Browser control returned to agent');
+      const page = this.page!;
+      const bounded = (value: unknown, limit: number) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit;
+      if (input.kind === 'pointer' && ['down', 'up', 'move'].includes(input.phase) && bounded(input.x, 1280) && bounded(input.y, 900) && input.x >= 0 && input.y >= 0) {
+        await page.mouse.move(input.x, input.y);
+        if (input.phase === 'down') await page.mouse.down();
+        if (input.phase === 'up') await page.mouse.up();
+      } else if (input.kind === 'wheel' && bounded(input.dx, 2000) && bounded(input.dy, 2000)) await page.mouse.wheel(input.dx, input.dy);
+      else if (input.kind === 'text' && typeof input.text === 'string' && input.text.length <= 4000) await page.keyboard.insertText(input.text);
+      else if (input.kind === 'key' && ['down', 'up'].includes(input.phase) && typeof input.key === 'string' && ((Array.from(input.key).length === 1 && !/\p{C}/u.test(input.key)) || ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Backspace', 'Delete', 'Escape', 'Shift', 'Home', 'End', 'PageUp', 'PageDown'].includes(input.key))) {
+        if (Array.from(input.key).length === 1 && !/^[\x20-\x7E]$/.test(input.key)) {
+          if (input.phase === 'down') await page.keyboard.insertText(input.key);
+        } else if (input.phase === 'down') { this.heldKeys.add(input.key); await page.keyboard.down(input.key); }
+        else { this.heldKeys.delete(input.key); await page.keyboard.up(input.key); }
+      } else if (input.kind === 'release') await this.releaseInput();
+      else if (input.kind === 'back') await page.goBack({ waitUntil: 'load' });
+      else if (input.kind === 'forward') await page.goForward({ waitUntil: 'load' });
+      else if (input.kind === 'reload') await page.reload({ waitUntil: 'load' });
+      else throw new Error('Invalid interactive browser input');
+    }).finally(() => { this.queuedInputs--; });
+  }
   private operations: Promise<void> = Promise.resolve();
   private watcher?: ProjectFileWatcher;
   private previewVisible = false;
@@ -135,9 +189,10 @@ export class ProjectBrowserSession {
       this.serverManaged = true; this.stopWatching();
     }
   }
-  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private readonly observer?: ProjectBrowserObserver) {}
+  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
+    this.ownership = 'agent'; this.observer?.ownership?.('agent');
     const cancel = () => { void this.close(); };
     signal.addEventListener('abort', cancel, { once: true });
     try { return await this.exclusive(() => this.executePage(args, signal, confirm, actionId)); }
@@ -146,6 +201,19 @@ export class ProjectBrowserSession {
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
+      await this.releaseInput();
+      if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
+      if (!this.authorized && (args.action === 'open' || this.page)) {
+        const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
+        if (this.origin && proposed !== this.origin) throw new Error('Preview is scoped to its initially approved origin');
+        const decision = await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'system_command', actionId,
+          detail: `Разрешить браузер проекта ${this.root} для этого запуска и последующего Interactive Preview? Origin: ${proposed}. Только GET, без внешней сети.` }, signal);
+        if (!decision?.approved || signal.aborted) {
+          this.denied = decision?.reason ?? 'ui_unavailable';
+          return { error: 'Project browser authorization denied', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', origin: proposed, projectRoot: this.root, retrySameArguments: false };
+        }
+        this.authorized = true;
+      }
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
       if (['read', 'screenshot'].includes(String(args.action)) && this.watcher) { await this.watcher.flush(); await this.refresh(); }
@@ -155,9 +223,6 @@ export class ProjectBrowserSession {
         if (url.origin !== staticOrigin && args.url === undefined) throw new Error('Invalid project path');
         if (this.origin && this.origin !== url.origin) throw new Error('Preview is scoped to its initial origin for this run');
         if (!this.origin) {
-          const decision = await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'system_command', actionId,
-            detail: `До конца этого запуска разрешить read-only браузеру ${args.url ? url.origin : `статические web-файлы проекта ${this.root}`}? Скрипты страницы выполняются; другие адреса и запись через HTTP заблокированы.` }, signal);
-          if (!decision?.approved || signal.aborted) return { error: 'Project browser permission denied or unavailable', code: 'PERMISSION_DENIED', retrySameArguments: false };
           this.origin = url.origin;
           this.observer?.state('loading', url.href);
           await this.start();
@@ -192,7 +257,7 @@ export class ProjectBrowserSession {
           this.observer?.action({ kind: String(args.action), at: Date.now() });
         }
         else if (args.action === 'screenshot') {
-          if (this.captures >= 8) throw new Error('Screenshot limit reached (8 per run)');
+          if (this.captures >= 8) return { error: 'Screenshot limit reached (8 per run)', code: 'SCREENSHOT_LIMIT', retrySameArguments: false };
           this.captures += 1;
           await this.page.waitForTimeout(Number(waitMs));
           const bytes = await this.page.screenshot({ type: 'png', timeout: 10_000 });
@@ -210,7 +275,7 @@ export class ProjectBrowserSession {
     } catch (error) {
       // Failed startup cannot leave a half-initialized reusable session.
       const code = signal.aborted || this.closed ? 'BROWSER_CLOSED_OR_CANCELLED' : !this.page && this.origin ? 'BROWSER_UNAVAILABLE' : 'PROJECT_BROWSER_FAILED';
-      if (this.origin) this.observer?.state('error', undefined, String(error).slice(0, 300));
+      if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
       if (!this.page && this.origin) await this.close();
       return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: false };
     } finally { await this.ensureWatching(); }
@@ -230,13 +295,14 @@ export class ProjectBrowserSession {
         if (url.origin !== this.origin || url.username || url.password || req.method() !== 'GET' || ++requests > 256 || totalBytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or budget');
         if (this.origin === staticOrigin) {
           const asset = await readPreviewAsset(this.root, url.pathname); totalBytes += asset.body.length;
-          await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff' } });
+          await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff', 'content-security-policy': previewCsp } });
         } else {
           const response = await fetchLoopback(url, this.abort.signal); totalBytes += response.body.length;
           this.detectServerReload(url.pathname, response.body, Boolean(response.headers['content-type']?.includes('text/html')));
-          await route.fulfill(response);
+          await route.fulfill({ ...response, headers: { ...response.headers, 'content-security-policy': [response.headers['content-security-policy'], previewCsp].filter(Boolean).join(', ') } });
         }
       } catch (error) {
+        try { if (req.isNavigationRequest() && req.frame() === this.page?.mainFrame()) this.blockedNavigation = true; } catch { /* Popup requests may precede frame creation; they are still blocked. */ }
         this.note(this.blocked, `${req.method()} ${req.url()}: ${String(error)}`);
         await route.abort('blockedbyclient').catch(() => undefined);
       }
@@ -245,19 +311,25 @@ export class ProjectBrowserSession {
     this.page = await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     this.page.on('close', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
-    this.observer?.ready(this.page, visible => { this.previewVisible = visible; this.scheduleRefresh(); });
+    this.bindObserver();
     this.browser.on('disconnected', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
     this.context.on('page', page => { if (page !== this.page) void page.close(); });
     this.page.on('framenavigated', frame => {
       if (frame === this.page?.mainFrame() && frame.url() !== 'about:blank') {
-        try { if (new URL(frame.url()).origin === this.origin) { this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
+        try { if (new URL(frame.url()).origin === this.origin) { this.lastAllowedUrl = frame.url(); this.blockedNavigation = false; this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
         this.note(this.blocked, `Navigation outside approved origin: ${frame.url()}`);
-        void this.page?.close();
+        if (frame.url() === 'chrome-error://chromewebdata/' && this.blockedNavigation && this.lastAllowedUrl && !this.recoveringNavigation) {
+          const target = this.lastAllowedUrl; this.blockedNavigation = false; this.recoveringNavigation = true;
+          void this.exclusive(async () => {
+            if (!this.closed && this.page && !this.page.isClosed()) await this.page.goto(target, { waitUntil: 'load' });
+          }).catch(() => this.close()).finally(() => { this.recoveringNavigation = false; });
+        } else void this.page?.close();
       }
     });
     this.page.on('pageerror', error => this.note(this.errors, error.message));
-    this.page.on('console', message => { if (message.type() === 'error') this.note(this.errors, message.text()); });
+    this.page.on('console', message => { if (message.type() === 'error') { this.note(this.errors, message.text()); if (/Content Security Policy/i.test(message.text())) this.note(this.blocked, message.text()); } });
+    this.page.on('download', download => { void download.cancel(); });
     this.page.on('dialog', dialog => { void dialog.dismiss(); });
     await this.ensureWatching();
   }

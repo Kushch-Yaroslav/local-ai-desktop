@@ -29,6 +29,7 @@ function logApprovalTransport(data: Record<string, unknown>): void {
 export type AgentProject = { id: string; slot: 1 | 2; root: string; label: string };
 
 type RuntimeEvent = {
+  configuration?: import('../../shared/conversation-settings').EffectiveModeState;
   observations?: number; guidance?: number; warnings?: number; pauses?: number;
   trigger_reason?: string; context_window?: number; projected_input_before?: number; projected_input_after?: number; compaction_target_tokens?: number; trigger_threshold_tokens?: number; safety_reserve_tokens?: number; preferred_output_tokens?: number; available_output_before?: number; available_output_after?: number;
   notice?: LoopNotice | null; paused?: boolean;
@@ -148,9 +149,10 @@ export function taskPlan(value: unknown): AgentPlan {
 /** Electron bridge for the Rust runtime. It passes each content delta through
  * immediately; `final` is metadata, not a delayed text transport. */
 export class RustAgentRuntime {
-  private readonly controls = new Map<string, (payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string }) => Promise<void>>();
+  private readonly previews = new Map<string, { root: string; session: ProjectBrowserSession }>();
+  private readonly controls = new Map<string, (payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string; reasoning?: { mode: ReasoningMode; options: Record<string, Record<string, unknown>>; selection: import('../../shared/conversation-settings').EffectiveModeState } }) => Promise<void>>();
   hasRun(runId: string): boolean { return this.controls.has(runId); }
-  control(runId: string, payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string }): Promise<void> { return this.controls.get(runId)?.(payload) ?? Promise.reject(new Error('Agent execution is unavailable')); }
+  control(runId: string, payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string; reasoning?: { mode: ReasoningMode; options: Record<string, Record<string, unknown>>; selection: import('../../shared/conversation-settings').EffectiveModeState } }): Promise<void> { return this.controls.get(runId)?.(payload) ?? Promise.reject(new Error('Agent execution is unavailable')); }
   private readonly steering = new Map<string, (content: string, intent?: SteeringIntent) => Promise<void>>();
   constructor(private readonly endpoint: string, private readonly binary = agentRuntimePath(), private readonly web = new WebBrowserService(), private readonly readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>) {}
 
@@ -187,7 +189,7 @@ export class RustAgentRuntime {
       const id = randomUUID();
       const timer = setTimeout(() => { controlPending.delete(id); reject(new Error('Runtime control processing timed out; Stop remains available')); }, payload.action ? 30_000 : 5_000);
       controlPending.set(id, { resolve, reject, timer });
-      child.stdin.write(`${JSON.stringify({ type: 'control', run_id: runId, id, ...payload })}\n`);
+      child.stdin.write(`${JSON.stringify(payload.reasoning ? { type: 'reasoning', run_id: runId, id, ...payload.reasoning } : { type: 'control', run_id: runId, id, ...payload })}\n`);
     }));
     // Permission dialogs can await for minutes. Consume steering/control acknowledgments
     // independently of the async generator's awaited host operation.
@@ -210,6 +212,7 @@ export class RustAgentRuntime {
     lines.on('line', acknowledgeControl);
     let session: Promise<WebBrowserSession> | undefined;
     let projectBrowser: ProjectBrowserSession | undefined;
+    const previewKey = browserObserver?.ownerId !== undefined && conversationId ? JSON.stringify([browserObserver.ownerId, conversationId]) : undefined;
     let previewProject: string | undefined;
     const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(!signal.aborted), session?.then(browser => browser.close(), () => undefined)]); };
     signal.addEventListener('abort', closeWeb, { once: true });
@@ -256,6 +259,8 @@ export class RustAgentRuntime {
           if (pending) { clearTimeout(pending.timer); controlPending.delete(event.id!); if (event.type === 'control_accepted') pending.resolve(); else pending.reject(new Error(event.message)); }
           continue;
         }
+        if (event.type === 'reasoning_applied' && event.configuration) { yield { type: 'reasoning-applied', configuration: event.configuration }; continue; }
+        if (event.type === 'run_state' && ['pause_requested', 'saving_checkpoint'].includes(event.state ?? '')) { yield { type: 'pause-state', phase: event.state as 'pause_requested' | 'saving_checkpoint' }; continue; }
         if (event.type === 'loop_state') { yield { type: 'loop-state', notice: event.notice ?? null, paused: Boolean(event.paused) }; continue; }
         if (event.type === 'loop_lifecycle' && event.notice && event.stage) { yield { type: 'loop-event', lifecycle: { stage: event.stage, notice: event.notice, attempt: event.attempt ?? 0 } }; continue; }
         if (event.type === 'loop_diagnostics') { yield { type: 'agent-telemetry', telemetry: { loopObservations: event.observations, loopGuidance: event.guidance, loopWarnings: event.warnings, loopPauses: event.pauses } }; continue; }
@@ -278,8 +283,17 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
-              projectBrowser ??= new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver);
+              if (!projectBrowser) {
+                const prior = previewKey ? this.previews.get(previewKey) : undefined;
+                if (prior?.root === project.root && prior.session.reusable && browserObserver) {
+                  projectBrowser = prior.session; projectBrowser.beginRun(browserObserver);
+                } else {
+                  await prior?.session.close();
+                  projectBrowser = new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver);
+                }
+              }
               result = await projectBrowser.execute(event.arguments ?? {}, signal, confirm, String(event.id));
+              if (result && typeof result === 'object' && 'error' in result) log('agent.browser.operation.refused', { conversationId, runId, projectId: project.id, projectRoot: project.root, action: event.arguments?.action, ...result });
             } else if (event.name === 'download_file') {
               const slot = event.arguments?.project ?? 1;
               const project = projects.find(project => project.slot === slot);
@@ -418,7 +432,15 @@ export class RustAgentRuntime {
       if (!signal.aborted && terminalFinal) yield { type: 'done', finishReason: terminalFinishReason };
       else if (!signal.aborted && !terminalFailure && !terminalStopped) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
     } finally {
-      await closeWeb();
+      if (!signal.aborted && terminalFinal && browserObserver && previewKey && projectBrowser?.reusable) {
+        await projectBrowser.finishRun().catch(() => projectBrowser?.close());
+        if (projectBrowser.reusable) {
+          this.previews.delete(previewKey);
+          this.previews.set(previewKey, { root: projects.find(p => p.id === previewProject)!.root, session: projectBrowser });
+          while (this.previews.size > 8) { const [key, old] = this.previews.entries().next().value!; this.previews.delete(key); await old.session.close(); }
+        }
+        await session?.then(browser => browser.close(), () => undefined);
+      } else await closeWeb();
       signal.removeEventListener('abort', closeWeb);
       this.steering.delete(runId);
       this.controls.delete(runId);

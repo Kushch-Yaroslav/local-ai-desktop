@@ -63,6 +63,7 @@ export interface RuntimeContextEstimate {
 
 export interface ContextDiscoveryOption {
   /** Ephemeral main-process assessment; never inferred from another KV type. */
+  validation?: 'confirmed' | 'previous' | 'revalidation' | 'unavailable';
   conditions?: 'comparable' | 'changed' | 'unknown';
   conditionWarning?: string;
   vramBudget?: import('./vram-budget').VramBudget;

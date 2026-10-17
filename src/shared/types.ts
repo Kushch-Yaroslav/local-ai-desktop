@@ -423,6 +423,8 @@ export interface AnalysisProgress {
 }
 
 export type StreamEvent =
+  | { type: 'reasoning-applied'; configuration: import('./conversation-settings').EffectiveModeState }
+  | { type: 'pause-state'; phase: 'pause_requested' | 'saving_checkpoint' }
   | { type: 'loop-event'; lifecycle: LoopLifecycle; timelinePosition?: number }
   | { type: 'model-state'; state: 'waiting' | 'streaming' }
   | { type: 'work-budget'; budget: WorkBudget }

@@ -438,3 +438,8 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .live-action { position:absolute; width:24px; height:24px; margin:-12px; border:2px solid #fa9b56; border-radius:50%; background:#fa9b5640; pointer-events:none; animation:live-click 1s ease-out forwards; }
 @keyframes live-click { from { transform:scale(.5); opacity:1; } to { transform:scale(1.8); opacity:0; } }
 .live-workspace.is-narrow.mode-split { flex-direction:column; }.live-workspace.is-narrow.mode-split .live-chat { flex:1; min-height:220px; }.is-narrow .live-divider { display:none; }.live-workspace.is-narrow.mode-split .live-browser { flex:1; min-height:220px; }
+
+.runtime-notice { position: fixed; right: 18px; bottom: 90px; z-index: 100; max-width: 420px; padding: 10px 14px; background: var(--panel, #202630); color: var(--text, #eee); border: 1px solid var(--border, #495363); border-radius: 9px; font-size: 12px; box-shadow: 0 4px 18px #0004; }
+.live-address button { flex: 0 0 auto; display: inline-flex; border: 0; background: transparent; color: inherit; padding: 3px; }
+.live-address button:disabled { opacity: .35; }
+.live-viewport canvas:focus-visible { outline: 2px solid #5cabbc; }

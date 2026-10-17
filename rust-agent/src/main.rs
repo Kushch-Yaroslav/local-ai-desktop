@@ -195,6 +195,7 @@ fn main() {
                         queue.push(content.clone());
                         if intent.as_deref() == Some("pause") {
                             control.pause_requested.store(true, Ordering::Relaxed);
+                            local_ai_agent_runtime::protocol::emit(&run_id, local_ai_agent_runtime::agent::events::Event::RunState { state: "pause_requested".into() });
                         }
                         local_ai_agent_runtime::protocol::emit(
                             &run_id,
@@ -222,6 +223,17 @@ fn main() {
                     if let (Some(action),Some(signature))=(action,signature){c.commands.push_back(local_ai_agent_runtime::agent::control::LoopCommand{id:Some(id),action,signature});}
                     else { emit(&run_id,Event::ControlAccepted{id}); }
                 } else {emit(&run_id,Event::ControlRejected{id,message:"Agent execution ended".into()});}
+            }
+            Request::Reasoning { run_id, id, mode, options, selection } => {
+                use local_ai_agent_runtime::{protocol::emit, agent::events::Event};
+                if let Some(control) = controls.get(&run_id).filter(|c| !c.finished.load(Ordering::Relaxed) && !c.cancelled.load(Ordering::Relaxed) && !c.pause_requested.load(Ordering::Relaxed)) {
+                    if !matches!(mode.as_str(), "fast" | "deep") || !options.is_object() {
+                        emit(&run_id, Event::ControlRejected { id, message: "Invalid reasoning configuration".into() });
+                        continue;
+                    }
+                    control.execution.lock().expect("execution control").reasoning = Some((mode, options, selection));
+                    emit(&run_id, Event::ControlAccepted { id });
+                } else { emit(&run_id, Event::ControlRejected { id, message: "Agent execution ended or pausing".into() }); }
             }
             Request::Shutdown => {
                 for control in controls.values() {

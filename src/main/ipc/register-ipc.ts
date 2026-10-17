@@ -14,7 +14,7 @@ import { activeConversationModel, initialModelContext } from '../../shared/model
 import { defaultLlamaKv, normalContextForModel, resolveLlamaKvSelection } from '../../shared/context-options';
 import { Database } from '../services/database';
 import { getGpuIdentity, getHardwareStats, getOwnedServerVramBudget } from '../services/hardware';
-import { buildContextDiscoveryIdentity, contextDiscoveryKey, mergeSavedDiscoveryOptions } from '../services/context-discovery-persistence';
+import { buildContextDiscoveryIdentity, contextDiscoveryKey, mergeSavedDiscoveryOptions, stableRuntimeArguments } from '../services/context-discovery-persistence';
 import { DiscoveryConditionTracker, discoveryConditionSample } from '../services/context-discovery-conditions';
 import { vramBudgetStillFits, vramProbeGuardBytes } from '../../shared/vram-budget';
 import { LlamaCppBackend } from '../backends/llama-cpp-backend';
@@ -79,6 +79,13 @@ type ActiveGeneration = {
   timelinePosition: number;
   lastTimelineKind: ThinkingTimelineEvent['kind'] | null;
 };
+const conversationUpdates = new Map<string, Promise<unknown>>();
+function serializeConversationUpdate<T>(id: string, action: () => Promise<T>): Promise<T> {
+  const result = (conversationUpdates.get(id) ?? Promise.resolve()).catch(() => undefined).then(action);
+  conversationUpdates.set(id, result);
+  void result.finally(() => { if (conversationUpdates.get(id) === result) conversationUpdates.delete(id); }).catch(() => undefined);
+  return result;
+}
 const activeGenerations = new Map<string, ActiveGeneration>();
 const approvalBroker = new ApprovalBroker();
 const autonomySessions = new AutonomySessions();
@@ -144,11 +151,7 @@ async function runtimeConfigurationIdentity(modelId: string): Promise<string> {
   const state = await llamaRuntime.state();
   if (!profile?.modelPath || state.status !== 'ready' || state.modelId !== modelId || !state.serverPid) throw new Error('Проверенная конфигурация llama.cpp больше не запущена.');
   const args = (await readFile(`/proc/${state.serverPid}/cmdline`, 'utf8')).split('\0').filter(Boolean);
-  const stableArgs: string[] = [];
-  for (let i = 0; i < args.length; i += 1) {
-    if (['--ctx-size', '-c', '--cache-type-k', '--cache-type-v', '--cache-type-k-draft', '--cache-type-v-draft'].includes(args[i])) { i += 1; continue; }
-    stableArgs.push(args[i]);
-  }
+  const stableArgs = stableRuntimeArguments(args);
   return JSON.stringify({ args: stableArgs, model: await modelFileIdentity(profile.modelPath),
     projector: profile.mmprojPath ? await modelFileIdentity(profile.mmprojPath) : null,
     ...(state.speculativeMode !== 'none' && profile.draft ? { draft: await modelFileIdentity(profile.draft.path) } : {}),
@@ -351,6 +354,7 @@ async function discoverModelContexts(modelId: string): Promise<ContextDiscoveryR
       const identity = await persistentDiscoveryIdentity(modelId);
       result.measurementIdentity = identity.key;
       database.saveContextDiscoveryOptions(identity.key, identity.serialized, result.options);
+      result.options = result.options.map(option => ({ ...option, conditions: 'comparable', validation: 'confirmed', conditionWarning: undefined }));
       saved = database.loadContextDiscoveryOptions(identity.key, modelId, identity.hardLimit);
       log('context.discovery.saved', { modelId, options: result.options.map((option) => ({ contextWindow: option.contextWindow, kvCacheType: option.kvCacheType })) });
     } catch (error) {
@@ -439,9 +443,11 @@ async function assessDiscoveryStatus(requestedModelId: string): Promise<ContextD
   if (!result || result.modelId !== requestedModelId) return { busy: false, modelId: requestedModelId, stage: '', probeCount: 0 };
   const assessmentKey = (option: ContextDiscoveryOption) => JSON.stringify([result.configurationId, result.measurementIdentity,
     option.modelId, option.discoveredAt, option.contextWindow, option.kvCacheType, option.kvOffload]);
-  const annotate = (option: ContextDiscoveryOption, conditions: ContextDiscoveryOption['conditions']) => ({ ...option, conditions,
-    conditionWarning: conditions === 'comparable' ? undefined : conditions === 'unknown' ? 'Текущие условия измерения не подтверждены'
-      : 'Условия GPU/RAM или идентичность модели/runtime отличаются от измерения; GPU-fit сейчас не подтверждён' });
+  const annotate = (option: ContextDiscoveryOption, conditions: ContextDiscoveryOption['conditions'], sample?: ReturnType<typeof discoveryConditionSample>) => ({ ...option, conditions,
+    validation: conditions === 'comparable' ? (option.restored ? 'previous' as const : 'confirmed' as const) : conditions === 'changed' ? 'revalidation' as const : 'previous' as const,
+    conditionWarning: conditions !== 'changed' ? undefined : sample === 'identity-changed' ? 'Идентичность модели или конфигурация runtime изменилась после измерения.'
+      : sample === 'unsafe' ? 'Текущего запаса GPU/RAM недостаточно для подтверждённого профиля.'
+      : 'Доступная память GPU/RAM устойчиво отличается от условий измерения. Рекомендуется повторная проверка.' });
   let sameIdentity = false;
   let identityConfirmed = false;
   try {
@@ -454,7 +460,7 @@ async function assessDiscoveryStatus(requestedModelId: string): Promise<ContextD
     if (hostReserve.bytes === null) throw new Error(hostReserve.error ?? 'Некорректный резерв памяти для поиска.');
     const options = result.options.map(option => {
       const sample = discoveryConditionSample(option, estimate, sameIdentity, hostReserve.bytes!);
-      return annotate(option, discoveryConditions.assess(assessmentKey(option), sample));
+      return annotate(option, discoveryConditions.assess(assessmentKey(option), sample), sample);
     });
     if (contextDiscoveryProgress.result === result && !contextDiscoveryBusy && !runtimeSelectionBusy) {
       contextDiscoveryProgress = { ...contextDiscoveryProgress, currentVramBudget: estimate.vramBudget, result: { ...result, options } };
@@ -504,16 +510,26 @@ export function registerIpc(): void {
     if (modelId && !getModelProfile(modelId)) throw new Error('Выбранная модель отсутствует в реестре приложения');
     return database.createConversation(modelId);
   });
-  ipcMain.handle('conversations:update', async (_event, id: string, patch: Partial<Pick<Conversation, 'title' | 'modelId' | 'mode' | 'workingDirectory' | 'secondaryWorkingDirectory' | 'contextWindow' | 'llamaKvCacheType' | 'llamaKvOffload' | 'reasoningMode' | 'thinkingEnabled' | 'reasoningEffort' | 'webMode'>>) => {
+  ipcMain.handle('conversations:update', async (_event, id: string, patch: Partial<Pick<Conversation, 'title' | 'modelId' | 'mode' | 'workingDirectory' | 'secondaryWorkingDirectory' | 'contextWindow' | 'llamaKvCacheType' | 'llamaKvOffload' | 'reasoningMode' | 'thinkingEnabled' | 'reasoningEffort' | 'webMode'>>) => serializeConversationUpdate(id, async () => {
     // Reasoning/mode/web/project/title changes never touch llama.cpp, so they must not queue behind
     // (or be refused by) a runtime switch: a refusal made the UI roll the user's choice back.
     if (!touchesRuntime(patch)) {
-      if (activeGenerations.size && Object.keys(patch).some((key) => key !== 'title')) throw new Error('Дождитесь завершения активной генерации перед изменением настроек.');
       const existing = database.getConversation(id);
       if (!existing) throw new Error('Чат не найден');
       const reasoningError = reasoningPatchError(patch, reasoningCapability(llamaRuntimeProfile(existing.modelId ?? '')));
       if (reasoningError) throw new Error(reasoningError);
-      const stored = database.updateConversation(id, pinLegacyReasoning(existing, reasoningCapability(llamaRuntimeProfile(existing.modelId ?? '')), patch));
+      const capability = reasoningCapability(llamaRuntimeProfile(existing.modelId ?? ''));
+      const pinned = pinLegacyReasoning(existing, capability, patch);
+      const active = activeGenerations.get(id);
+      if (activeGenerations.size && Object.keys(patch).some(key => key !== 'title')) {
+        const next = { ...existing, ...pinned };
+        const unchangedThinking = pinned.thinkingEnabled === undefined || pinned.thinkingEnabled === resolveReasoningSelection(capability, existing.reasoningMode, existing).thinking;
+        if (!active || !rustAgent.hasRun(active.id) || existing.mode !== 'agent' || !unchangedThinking || Object.keys(pinned).some(key => !['title', 'reasoningMode', 'reasoningEffort', 'thinkingEnabled'].includes(key))) throw new Error('Дождитесь завершения ответа или остановите задачу.');
+        const selection = resolveReasoningSelection(capability, next.reasoningMode, next);
+        await rustAgent.control(active.id, { reasoning: { mode: next.reasoningMode, options: agentReasoningOptions(existing.modelId ?? '', selection) ?? {}, selection: { mode: 'agent', reasoningMode: next.reasoningMode === 'deep' ? 'deep' : 'fast', reasoningEffort: selection.effort, thinkingEnabled: selection.thinking } } });
+      }
+      if (patch.webMode === 'off' || patch.workingDirectory !== undefined || patch.secondaryWorkingDirectory !== undefined) await liveBrowsers.closeConversation(_event.sender, id);
+      const stored = database.updateConversation(id, pinned);
       if ((patch.workingDirectory !== undefined && patch.workingDirectory !== existing.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== existing.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
       return database.getConversation(id) ?? stored;
     }
@@ -598,9 +614,10 @@ export function registerIpc(): void {
       deviceChanged();
       void visionDevice.flush();
     }
-  });
+  }));
   ipcMain.handle('conversations:delete', async (_event, id: string) => {
     if (activeGenerations.has(id)) throw new Error('Нельзя удалить чат с активной генерацией.');
+    await liveBrowsers.closeConversation(_event.sender, id);
     approvalBroker.revoke(id); await attachments.removeManagedFiles(database.deleteConversation(id));
     await discardAgentEvidence(paths.userData, id, true);
   });
@@ -755,13 +772,14 @@ export function registerIpc(): void {
   ipcMain.handle('chat:revoke-approvals', (_event, conversationId: string, generationId: string, grantId?: string) => {
     const generation = activeGenerations.get(conversationId);
     if (!generation || generation.id !== generationId) return false;
-    approvalBroker.revoke(generationId, grantId); return true;
+    approvalBroker.revoke(generationId, grantId); void liveBrowsers.closeConversation(_event.sender, conversationId); return true;
   });
   ipcMain.handle('chat:permissions', (_event, id: string) => autonomySessions.get(id));
   ipcMain.handle('chat:grants', (_event, id: string, runId: string) => activeGenerations.get(id)?.id === runId ? approvalBroker.list(runId) : []);
   ipcMain.handle('chat:set-permissions', async (event, id: string, mode: AutonomyMode, trust: boolean) => {
     const conversation = database.listConversations().find(item => item.id === id);
     if (!conversation) throw new Error('Чат недоступен');
+    await liveBrowsers.closeConversation(event.sender, id);
     const permissions = await autonomySessions.set(id, mode, [conversation.workingDirectory, conversation.secondaryWorkingDirectory].filter((root): root is string => Boolean(root)), trust === true, async () => false);
     const generation = activeGenerations.get(id);
     if (generation?.mode === 'agent' && !generation.abort.signal.aborted && rustAgent.hasRun(generation.id)) await rustAgent.control(generation.id, { permissions });
@@ -772,6 +790,8 @@ export function registerIpc(): void {
     if (generation?.id !== runId || generation.mode !== 'agent' || !['correct', 'continue', 'pause', 'correct_resume', 'continue_anyway'].includes(action) || typeof signature !== 'string') throw new Error('Управление циклом недоступно');
     await rustAgent.control(runId, { action, signature });
   });
+  ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
+  ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));
   ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => liveBrowsers.watch(event.sender, conversationId, visible));
   ipcMain.handle('live-browser:ack', (event, sessionId: unknown, sequence: unknown) => liveBrowsers.acknowledge(event.sender, sessionId, sequence));
   ipcMain.handle('chat:send', async (event, request: ChatRequest) => {
@@ -788,7 +808,7 @@ export function registerIpc(): void {
     let run: AnalysisRun | null = null;
     let runFinalized = false;
     let logicalTaskId: string | undefined;
-    let output = ''; let thinking = ''; let messageDiagnostics: import('../../shared/types').GenerationDiagnostics | undefined; let completed = false; let failed = false; let cancelled = false; let finishReason: 'stop' | 'length' = 'stop';
+    let output = ''; let thinking = ''; let messageDiagnostics: import('../../shared/types').GenerationDiagnostics | undefined; let completed = false; let failed = false; let cancelled = false; let paused = false; let finishReason: 'stop' | 'length' = 'stop';
     const { thinkingTimeline, activityTimelinePositions } = generation;
     let failure: string | undefined;
     // The timeline is checkpointed at stable boundaries (steering, pause, tool
@@ -920,6 +940,7 @@ export function registerIpc(): void {
           continue;
         }
         if (chunk.type === 'paused') {
+          paused = true;
           closeReasoning();
           const timelinePosition = ++generation.timelinePosition;
           thinkingTimeline.push({ id: `paused-${timelinePosition}`, kind: 'paused', position: timelinePosition });
@@ -1024,6 +1045,11 @@ export function registerIpc(): void {
         ...(inputTokens !== undefined ? { inputTokens } : {}),
       };
       const response = { ...(thinking.trim() ? { thinking } : {}), ...(thinkingTimeline.length ? { thinkingTimeline } : {}), ...(generationStats ? { generationStats } : {}), ...(generation.richArtifacts.length ? { richArtifacts: generation.richArtifacts } : {}) };
+      if (paused && run) {
+        sendRun(finishRun('interrupted'));
+        event.sender.send('chat:stream', { type: 'done', conversationId: request.conversationId, generationId: generation.id, assistant: null, finishReason });
+        return;
+      }
       const result = run ? database.completeAnalysisRun(run.id, output, response) : null;
       if (result) runFinalized = true;
       const assistant = result ? result.assistant : output || generation.richArtifacts.length ? database.addMessage(request.conversationId, 'assistant', output, undefined, [], response) : null;

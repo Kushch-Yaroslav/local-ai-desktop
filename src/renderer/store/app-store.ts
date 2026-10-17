@@ -1,5 +1,6 @@
 import type { LoopNotice, LoopLifecycle } from '../../shared/autonomy';
 import { t } from '../../shared/locale';
+import { reasoningEffortLabel, reasoningModeLabel } from '../../shared/localization';
 import { activeConversationModel } from '../../shared/model-selection';
 import { create } from 'zustand';
 import type { ActionApproval, AgentPlan, AgentTelemetry, WorkBudget, AnalysisProgress, AnalysisRun, AppSettings, Attachment, AttachmentStatus, ApprovalDecision, ApprovalStatus, ChatMessage, Conversation, FinishReason, GenerationDiagnostics, HardwareStats, ModelInfo, ProjectReference, SteeringIntent, ToolActivity } from '../../shared/types';
@@ -21,6 +22,8 @@ type State = {
   /** Process-wide inference ownership token; per-chat view state stays separate. */
   generationOwnerId: string | null;
   generationState: 'idle' | 'thinking' | 'reasoning' | 'using-tool' | 'running-terminal' | 'waiting-for-approval' | 'generating' | 'stopping' | 'cancelled' | 'error';
+  runtimeNotice: string | null;
+  pausePhase: string | null;
   error: string | null;
   toolActivities: ToolActivity[];
   toolActivityCount: number;
@@ -56,7 +59,7 @@ type State = {
   editMessage: (message: ChatMessage, content: string) => Promise<boolean>;
   regenerateMessage: (message: ChatMessage) => Promise<boolean>;
   stop: () => Promise<void>;
-  handleStream: (event: { type: string; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; notice?: LoopNotice | null; lifecycle?: LoopLifecycle; paused?: boolean; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
+  handleStream: (event: { type: string; phase?: 'pause_requested' | 'saving_checkpoint'; configuration?: import('../../shared/conversation-settings').EffectiveModeState; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; notice?: LoopNotice | null; lifecycle?: LoopLifecycle; paused?: boolean; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
 };
 
 const assistantId = (generationId: string) => `stream-${generationId}`;
@@ -79,7 +82,7 @@ const mergeToolActivity = (prior: ToolActivity | undefined, next: ToolActivity):
   return { ...prior, ...next, ...(terminal ? { terminal } : {}) };
 };
 
-const viewKeys = ['loopNotice', 'loopPaused', 'messages', 'isGenerating', 'generationId', 'generationState', 'error', 'toolActivities', 'toolActivityCount', 'activeContextWindow', 'analysisProgress', 'analysisRuns', 'agentPlan', 'legacyAgentPlan', 'continuationTaskId', 'continuationLabel', 'lastFinishReason', 'performance', 'pendingApproval', 'approvalSubmitting', 'agentTelemetry', 'steeringStatus'] as const;
+const viewKeys = ['loopNotice', 'loopPaused', 'messages', 'isGenerating', 'generationId', 'generationState', 'error', 'toolActivities', 'toolActivityCount', 'activeContextWindow', 'analysisProgress', 'analysisRuns', 'agentPlan', 'legacyAgentPlan', 'continuationTaskId', 'continuationLabel', 'lastFinishReason', 'performance', 'pendingApproval', 'approvalSubmitting', 'agentTelemetry', 'steeringStatus', 'pausePhase'] as const;
 type ConversationView = Pick<State, typeof viewKeys[number]>;
 const viewOf = (state: State): ConversationView => Object.fromEntries(viewKeys.map((key) => [key, state[key]])) as ConversationView;
 
@@ -162,7 +165,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     return true;
   };
   return {
-  modeTransitions: {},
+  modeTransitions: {}, runtimeNotice: null, pausePhase: null,
   conversations: [], activeId: null, messages: [], models: [], hardware: null, settings: null, isGenerating: false, generationId: null, generationConversationId: null, generationOwnerId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: null, analysisProgress: [], analysisRuns: [], agentPlan: null, legacyAgentPlan: null, continuationTaskId: null, continuationLabel: null, lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null,
   selectTaskContinuation: (logicalTaskId, label) => {
     if (get().generationConversationId || branchRegenerationPending) return;
@@ -192,7 +195,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
     const conversation = get().conversations.find((item) => item.id === id);
     const cached = views.get(id);
-    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
+    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, pausePhase: null, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
   },
   createConversation: async () => {
     const conversation = await window.localAi.conversations.create();
@@ -221,7 +224,17 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     try {
       const updated = await window.localAi.conversations.update(id, patch);
       set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? updated : chat), performance: state.activeId === id && patch.modelId !== undefined ? null : state.performance }));
-      settle();
+      const live = get().isGenerating && get().generationConversationId === id && before?.mode === 'agent' && (patch.reasoningEffort !== undefined || patch.reasoningMode !== undefined);
+      if (live) {
+        modeUpdatesInFlight.delete(id);
+        if (get().modeTransitions[id]) {
+          const changes = [
+            patch.reasoningEffort ? `Глубина рассуждений: ${before?.reasoningEffort ? reasoningEffortLabel[before.reasoningEffort] : '—'} → ${reasoningEffortLabel[patch.reasoningEffort]}` : '',
+            patch.reasoningMode ? `Стратегия: ${reasoningModeLabel[before?.reasoningMode === 'deep' ? 'deep' : 'fast']} → ${reasoningModeLabel[patch.reasoningMode === 'deep' ? 'deep' : 'fast']}` : '',
+          ].filter(Boolean);
+          set({ runtimeNotice: `${changes.join('. ')}. Ожидает применения на следующем шаге модели.` });
+        }
+      } else settle();
       if (patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined) await get().refreshRuntime();
     } catch (error) {
       if (before) set((state) => ({ conversations: state.conversations.map((chat) => chat.id === id ? revertRefusedPatch(chat, before, patch) : chat), activeContextWindow: state.activeContextWindow }));
@@ -271,7 +284,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
     set({ agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: chat?.mode === 'agent' ? { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } : null });
     try {
-      set({ steeringStatus: null });
+      set({ steeringStatus: null, pausePhase: get().pausePhase === 'Paused' ? 'Resuming' : null });
       if (!chat?.modelId) await get().updateConversation(activeId, { modelId: model });
       if (chat?.title === 'Новый чат') await get().updateConversation(activeId, { title: content.trim().slice(0, 56) });
       const attachmentInputs = await Promise.all(files.map(async (file, index) => ({ id: attached[index].id, messageId: user.id, index: attached[index].index, filename: file.name, mimeType: file.type, data: new Uint8Array(await file.arrayBuffer()) })));
@@ -334,6 +347,13 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       set((state) => ({ conversations: state.conversations.map((chat) => chat.id === event.conversationId ? { ...chat, contextTokens: used, contextModelId: event.modelId ?? chat.modelId } : chat) }));
     }
     if (!isCurrentGenerationEvent(event.conversationId, event.generationId, get().activeId, get().generationId)) return;
+    if (['done', 'error', 'cancelled'].includes(event.type)) {
+      set(state => {
+        if (!state.modeTransitions[event.conversationId]) return {};
+        const transitions = { ...state.modeTransitions }; delete transitions[event.conversationId];
+        return { modeTransitions: transitions, runtimeNotice: 'Параметры сохранены для следующего запуска.' };
+      });
+    }
     if (event.type === 'steering' && event.userMessage) {
       const message = event.userMessage;
       const incomingStatus: 'accepted' | 'applied' = event.status === 'applied' ? 'applied' : 'accepted';
@@ -350,10 +370,23 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         return { steeringStatus: status, messages };
       });
     }
+    if (event.type === 'pause-state') set({ pausePhase: event.phase === 'saving_checkpoint' ? 'Saving checkpoint' : 'Finishing current operation — ожидается завершение инструмента или прерывание генерации' });
+    if (event.type === 'reasoning-applied' && event.configuration) {
+      const configuration = event.configuration;
+      set(state => {
+        const transition = state.modeTransitions[event.conversationId];
+        const rest = { ...state.modeTransitions };
+        if (transition && Object.entries(transition.desired).some(([key, value]) => configuration[key as keyof typeof configuration] !== value)) rest[event.conversationId] = { ...transition, effective: configuration };
+        else delete rest[event.conversationId];
+        return { modeTransitions: rest, runtimeNotice: 'Новые параметры рассуждений применены.' };
+      });
+    }
     if (event.type === 'paused') {
+      set({ pausePhase: 'Paused' });
       set((state) => {
         const assistantMessageId = assistantId(event.generationId);
-        return { messages: state.messages.map((entry) => entry.id === assistantMessageId ? { ...entry, thinkingTimeline: appendPausedMarker(entry.thinkingTimeline ?? [], event.timelinePosition) } : entry) };
+        const run = state.analysisRuns.findLast(run => run.generationId === event.generationId);
+        return { ...(run?.logicalTaskId ? { continuationTaskId: run.logicalTaskId } : {}), messages: state.messages.map((entry) => entry.id === assistantMessageId ? { ...entry, thinkingTimeline: appendPausedMarker(entry.thinkingTimeline ?? [], event.timelinePosition) } : entry) };
       });
     }
     if (event.type === 'token') {
@@ -373,7 +406,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         },
       } : {});
     }
-    if (event.type === 'model-state') set({ generationState: event.state === 'waiting' ? 'thinking' : 'reasoning' });
+    if (event.type === 'model-state') set({ ...(get().pausePhase === 'Resuming' ? { pausePhase: null } : {}), generationState: event.state === 'waiting' ? 'thinking' : 'reasoning' });
     if (event.type === 'thinking') {
       pendingThinking.set(event.generationId, [...(pendingThinking.get(event.generationId) ?? []), { content: event.content ?? '', timelinePosition: event.timelinePosition }]);
       if (animationFrame === null) animationFrame = window.requestAnimationFrame(() => drainStream());

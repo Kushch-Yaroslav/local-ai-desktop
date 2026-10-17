@@ -960,6 +960,20 @@ fn begin_pause(config: &Config, state: &mut AgentState, source: &str) -> bool {
     true
 }
 
+fn save_runtime_pause(config: &Config, state: &AgentState, transcript: &mut Transcript) {
+    emit(&config.run_id, Event::RunState { state: "saving_checkpoint".into() });
+    transcript.checkpoint_pause(serde_json::to_value(&state.task_memory).expect("serializable runtime memory"));
+    checkpoint_work_budget(config, state, transcript);
+    emit_task_memory(config, state);
+    if let Some(message) = transcript.storage_error() {
+        emit(&config.run_id, Event::AgentError { code: "evidence_store".into(), message: message.into() });
+        return;
+    }
+    emit(&config.run_id, Event::ThinkingFinished);
+    emit(&config.run_id, Event::RunPaused { checkpoint_turns: 0 });
+    emit(&config.run_id, Event::Final { complete: true, continuation_count: 0, chars: 0, finish_reason: "pause".into() });
+}
+
 const PAUSE_DIRECTIVE: &str = "<run_paused>The user paused this run. Do not start new investigation or work. With the checkpoint tools only: record in task_memory what is established and what is still unknown, with the next step, and set each deliverable to its true status (implemented is not verified), and keep the plan current. Then write a short answer for the user: what is done, what is not, and that the work continues when they ask to continue. Do not claim unfinished work as done.</run_paused>";
 
 const PAUSED_TOOL_MESSAGE: &str = "The run is paused: only the checkpoint tools (task_memory, deliverables, plan) are available. Save the checkpoint and write the short pause summary.";
@@ -1243,7 +1257,10 @@ fn restore_task_memory(
     value: Option<&Value>,
     transcript: &Transcript,
 ) -> Result<crate::agent::task_memory::TaskMemory, String> {
-    let memory: crate::agent::task_memory::TaskMemory = match value {
+    let checkpoint = transcript.entries().iter().rev().find_map(|entry| match entry {
+        super::transcript::Entry::PauseCheckpoint { memory } => Some(memory), _ => None,
+    });
+    let memory: crate::agent::task_memory::TaskMemory = match value.or(checkpoint) {
         Some(value) => serde_json::from_value(value.clone())
             .map_err(|error| format!("Invalid saved Task Memory: {error}"))?,
         None => return Ok(Default::default()),
@@ -1620,6 +1637,7 @@ fn observe_loop(config:&Config,state:&mut AgentState,transcript:&mut Transcript,
 fn loop_boundary(config:&Config,state:&mut AgentState,transcript:&mut Transcript)->bool {
     loop {
         if config.cancelled.load(Ordering::Relaxed) {return false;}
+        if config.pause_requested.load(Ordering::Relaxed) { return true; }
         let (commands,interactive)={let mut c=config.control.lock().expect("execution control");(c.commands.drain(..).collect::<Vec<_>>(),c.interactive)};
         for command in commands {
             let Some(mut notice)=state.loop_notice.clone().filter(|n|n.signature==command.signature) else {
@@ -2774,6 +2792,8 @@ fn stream_call(
     run_id: &str,
     turn_index: usize,
     cancelled: &AtomicBool,
+    pause_requested: &Arc<AtomicBool>,
+    applied_configuration: Option<&Value>,
     emit_visible: bool,
     emit_content: bool,
 ) -> Result<StreamedTurn, String> {
@@ -2796,6 +2816,26 @@ fn stream_call(
         if cancelled.load(Ordering::Relaxed) { "cancelled".into() }
         else { format!("Provider connection failed at {host_port}{path} before request submission: {error}. Saved agent work is retained; reload the model and continue.") }
     })?;
+    // Pause closes only this provider request, never the task cancellation token.
+    // This also interrupts partial HTTP headers/chunks and a silent reasoning stream.
+    struct PauseSocket { done: Arc<AtomicBool>, worker: Option<std::thread::JoinHandle<()>> }
+    impl Drop for PauseSocket {
+        fn drop(&mut self) {
+            self.done.store(true, Ordering::Relaxed);
+            if let Some(worker) = self.worker.take() { let _ = worker.join(); }
+        }
+    }
+    let done = Arc::new(AtomicBool::new(false));
+    let finished = done.clone();
+    let pause = pause_requested.clone();
+    let socket = stream.try_clone().map_err(|error| error.to_string())?;
+    let _pause_socket = PauseSocket { done, worker: Some(std::thread::spawn(move || {
+        while !finished.load(Ordering::Relaxed) {
+            if pause.load(Ordering::Relaxed) { let _ = socket.shutdown(std::net::Shutdown::Both); break; }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    })) };
+    if pause_requested.load(Ordering::Relaxed) { return Err("pause_requested".into()); }
     let body = payload.to_string();
     trace_forensics(
         run_id,
@@ -2816,6 +2856,9 @@ fn stream_call(
     stream
         .write_all(request.as_bytes())
         .map_err(|error| error.to_string())?;
+    if let Some(configuration) = applied_configuration {
+        emit(run_id, Event::ReasoningApplied { configuration: configuration.clone() });
+    }
     // Install the timeout before status/header parsing too. Otherwise Stop
     // cannot interrupt a provider that accepts the socket but never sends its
     // first response byte.
@@ -3202,6 +3245,8 @@ fn summarize_span(config: &Config, plan: &CompactionPlan) -> SummaryResult {
             &config.run_id,
             0,
             &config.cancelled,
+            &config.pause_requested,
+            None,
             false,
             false,
         ) {
@@ -3216,6 +3261,7 @@ fn summarize_span(config: &Config, plan: &CompactionPlan) -> SummaryResult {
                 };
             }
         }
+        if config.pause_requested.load(Ordering::Relaxed) { break; }
         if attempt == 0 {
             attempt_messages.push(json!({"role":"user", "content":"Reply with the plain-text checkpoint only, under the required headings. Do not call tools and do not write tool-call markup."}));
         }
@@ -3473,6 +3519,7 @@ fn compact_once(
     } else {
         summarize_span(config, &plan)
     };
+    if config.pause_requested.load(Ordering::Relaxed) || config.cancelled.load(Ordering::Relaxed) { return None; }
     let checkpoint = continuation_checkpoint(transcript, summary.text);
     let summary_output_chars = checkpoint.chars().count();
     trace_forensics(
@@ -3809,6 +3856,16 @@ fn run_tool(
 
 fn tool_call_fingerprint(tool: &ValidatedCall) -> String {
     format!("{}:{}", tool.name, serde_json::to_string(&tool.arguments).unwrap_or_default())
+}
+
+fn clear_edit_failures_after_read(state: &mut AgentState, tool: &ValidatedCall) {
+    if tool.name != "read_file" { return; }
+    let path = tool.arguments.get("path").and_then(Value::as_str);
+    state.failed_tool_calls.retain(|fingerprint, _| {
+        let Some((name, arguments)) = fingerprint.split_once(':') else { return true; };
+        let parsed = serde_json::from_str::<Value>(arguments).ok();
+        !mutation_tool(name) || !parsed.as_ref().is_some_and(|args| crate::tools::filesystem::mutation_paths(name, args).is_ok_and(|paths| paths.iter().any(|candidate| Some(candidate.as_str()) == path)) && args.get("project").and_then(Value::as_u64).unwrap_or(1) == tool.arguments.get("project").and_then(Value::as_u64).unwrap_or(1))
+    });
 }
 
 fn failed_call_retry_exhausted(state: &AgentState, fingerprint: &str) -> bool {
@@ -4698,7 +4755,7 @@ fn review_tool_free_final(
     FinalCandidateReview::Accept
 }
 
-pub fn run(config: Config) {
+pub fn run(mut config: Config) {
     let _owned_tasks = crate::process::tasks::OwnerGuard::new(&config.run_id);
     let mut transcript = if let Some(dir) = &config.evidence_dir {
         match Transcript::durable(
@@ -4836,6 +4893,7 @@ pub fn run(config: Config) {
     }
     emit_knowledge_diagnostics(&config, &state);
     checkpoint_work_budget(&config, &state, &mut transcript);
+    let mut applied_reasoning = None;
     for turn in 0_usize.. {
         if let Some(error) = transcript.storage_error() {
             emit(
@@ -4867,7 +4925,17 @@ pub fn run(config: Config) {
                 steering_applied = true;
             }
             if config.pause_requested.swap(false, Ordering::Relaxed) {
-                begin_pause(&config, &mut state, "user_control");
+                save_runtime_pause(&config, &state, &mut transcript);
+                return;
+            }
+        }
+        if let Some((mode, options, selection)) = config.control.lock().expect("execution control").reasoning.take() {
+            state.strategy = Strategy::from_mode(&mode);
+            config.reasoning_mode = mode;
+            config.reasoning_options = Some(options);
+            applied_reasoning = Some(selection);
+            if state.strategy.is_deep() && state.project_test_command.is_none() && state.can_verify {
+                state.project_test_command = config.work_root().and_then(|root| verification::detect_test_command(Path::new(root)));
             }
         }
         state.pause_offered = steering_applied && state.pause.is_none();
@@ -5024,6 +5092,7 @@ pub fn run(config: Config) {
                 );
             }
         }
+        if config.pause_requested.load(Ordering::Relaxed) { save_runtime_pause(&config, &state, &mut transcript); return; }
         if !has_minimum_useful_output(output_limit) {
             let message = budget_error(
                 &config,
@@ -5153,6 +5222,8 @@ pub fn run(config: Config) {
             &config.run_id,
             turn + 1,
             &config.cancelled,
+            &config.pause_requested,
+            applied_reasoning.take().as_ref(),
             !continuation_pending,
             false,
         ) {
@@ -5167,7 +5238,11 @@ pub fn run(config: Config) {
                 transcript.clear_reminders();
                 streamed
             }
-            Err(error) if error == "cancelled" => {
+            Err(_) if config.pause_requested.load(Ordering::Relaxed) && !config.cancelled.load(Ordering::Relaxed) => {
+                save_runtime_pause(&config, &state, &mut transcript);
+                return;
+            }
+            Err(error) if error == "cancelled" || config.cancelled.load(Ordering::Relaxed) => {
                 emit(
                     &config.run_id,
                     Event::AgentStopped {
@@ -5288,8 +5363,9 @@ pub fn run(config: Config) {
         );
         // A graceful pause can arrive while the model is generating. Apply it
         // before executing newly generated calls, without interrupting a write.
-        if config.pause_requested.swap(false, Ordering::Relaxed) {
-            begin_pause(&config, &mut state, "user_control");
+        if config.pause_requested.load(Ordering::Relaxed) {
+            save_runtime_pause(&config, &state, &mut transcript);
+            return;
         }
         let raw_calls = streamed.calls.into_values().collect::<Vec<_>>();
         let calls = match validate_calls(&raw_calls, Some(&streamed.finish_reason)) {
@@ -5598,10 +5674,17 @@ pub fn run(config: Config) {
         let mut budget = TurnBudget::new(config.context_limit);
         let mut call_index = 0_usize;
         while call_index < calls.len() {
-            if config.pause_requested.swap(false, Ordering::Relaxed) {
-                begin_pause(&config, &mut state, "user_control");
+            if config.pause_requested.load(Ordering::Relaxed) {
+                for pending in &calls[call_index..] {
+                    let message = "Not executed: user requested Pause. Resume from the saved results; this operation remains pending.";
+                    transcript.tool_result(&pending.id, &pending.name, concise_tool_error(message));
+                    emit(&config.run_id, Event::ToolError { id: pending.id.clone(), name: pending.name.clone(), message: message.into() });
+                }
+                save_runtime_pause(&config, &state, &mut transcript);
+                return;
             }
             if !loop_boundary(&config,&mut state,&mut transcript) { emit(&config.run_id,Event::AgentStopped{reason:"cancelled".into()}); return; }
+            if config.pause_requested.load(Ordering::Relaxed) { continue; }
             if !transcript.is_finalizing()
                 && state.pause.is_none()
                 && can_parallelize_safe_read(
@@ -5671,7 +5754,7 @@ pub fn run(config: Config) {
                 let results = std::thread::scope(|scope| {
                     let handles = limited
                         .iter()
-                        .map(|tool| scope.spawn(|| run_safe_read_tool(&config, tool)))
+                        .map(|tool| scope.spawn(|| { if config.pause_requested.load(Ordering::Relaxed) { Err("Not executed: user requested Pause".into()) } else { run_safe_read_tool(&config, tool) } }))
                         .collect::<Vec<_>>();
                     handles
                         .into_iter()
@@ -5694,6 +5777,7 @@ pub fn run(config: Config) {
                     state.record_tool_call(&tool.name);
                     match result {
                         Ok((value, diff)) => {
+                            clear_edit_failures_after_read(&mut state, tool);
                             record_safe_read_effect(&config, &mut state, tool, &value);
                             observe_loop(&config,&mut state,&mut transcript,tool,&value,false);
                             let content = value.to_string();
@@ -5846,7 +5930,7 @@ pub fn run(config: Config) {
                 transcript.tool_result(&tool.id, &tool.name, message); continue;
             }
             let failure_fingerprint = tool_call_fingerprint(tool);
-            if !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal") && failed_call_retry_exhausted(&state, &failure_fingerprint) {
+            if !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint) {
                 let message = "This identical tool call has a deterministic failure or has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
                 emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string() });
                 transcript.tool_result(&tool.id, &tool.name, json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string());
@@ -5956,6 +6040,7 @@ pub fn run(config: Config) {
             match outcome {
                 Ok((value, diff)) => {
                     state.failed_tool_calls.remove(&failure_fingerprint);
+                    clear_edit_failures_after_read(&mut state, tool);
                     if mutation_tool(&tool.name) || tool.name == "run_terminal" {
                         state.failed_tool_calls.retain(|key, _| !key.starts_with("run_terminal:"));
                     }
@@ -6016,6 +6101,7 @@ pub fn run(config: Config) {
                     };
                     observe_loop(&config,&mut state,&mut transcript,tool,&serde_json::from_str(&stored_error).unwrap_or(json!({"error":stored_error})),false);
                     let deterministic = serde_json::from_str::<Value>(&stored_error).ok().is_some_and(|error| error.get("retrySameArguments") == Some(&Value::Bool(false)) || error.get("stage").and_then(Value::as_str)==Some("validation"));
+                    if mutation_tool(&tool.name) && deterministic { state.failed_tool_calls.insert(failure_fingerprint.clone(), 2); }
                     if tool.name == "run_terminal" || crate::tools::web::is_host_tool(&tool.name) {
                         if deterministic { if tool.name!="create_visual_artifact" {state.failed_tool_calls.insert(failure_fingerprint.clone(), 2);} }
                         else { state.failed_tool_calls.remove(&failure_fingerprint); }
@@ -6093,6 +6179,21 @@ mod tests {
         assert!(transcript.runtime_guidance().contains("metadata only"));
         config.cancelled.store(true,Ordering::Relaxed);
         assert!(!loop_boundary(&config,&mut state,&mut transcript), "Stop must release any live boundary");
+    }
+
+    #[test]
+    fn cooperative_pause_releases_a_suspended_loop_boundary_without_new_work() {
+        let config = test_config(32768);
+        config.control.lock().unwrap().interactive = true;
+        let mut state = AgentState::default(); state.suspended = true;
+        let mut transcript = Transcript::default();
+        config.pause_requested.store(true, Ordering::Relaxed);
+        let started = std::time::Instant::now();
+        assert!(loop_boundary(&config, &mut state, &mut transcript));
+        assert!(started.elapsed() < std::time::Duration::from_millis(100));
+        assert!(state.suspended, "releasing the wait must not resume the loop's work");
+        config.cancelled.store(true, Ordering::Relaxed);
+        assert!(!loop_boundary(&config, &mut state, &mut transcript), "Stop retains priority");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw } from 'lucide-react';
-import type { BrowserFrame, LiveBrowserState } from '../../shared/live-browser';
+import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
+import type { BrowserFrame, LiveBrowserState, BrowserInput } from '../../shared/live-browser';
 import { useLocale } from '../use-locale';
 
 type Mode = 'split' | 'expanded' | 'chat';
@@ -73,6 +73,16 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
     const interval = window.setInterval(() => { setFps(painted.current); painted.current = 0; }, 1000);
     return () => { observer.disconnect(); window.clearInterval(interval); };
   }, []);
+  const interactive = browser?.ownership === 'user' && browser.status === 'live';
+  const [inputError, setInputError] = useState<string | null>(null);
+  const input = (event: BrowserInput) => {
+    if (!interactive || !browser) return;
+    void window.localAi.liveBrowser?.input(browser.sessionId, event).then(() => setInputError(null)).catch(error => setInputError(String(error).slice(0, 180)));
+  };
+  const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return { x: Math.max(0, Math.min(1280, (event.clientX - rect.left) * 1280 / rect.width)), y: Math.max(0, Math.min(900, (event.clientY - rect.top) * 900 / rect.height)) };
+  };
   const status = browser?.status;
   const statusText = status === 'loading' ? (ru ? 'Загрузка' : 'Loading') : status === 'live' ? (ru ? 'Подключён' : 'Connected') : status === 'error' ? (ru ? 'Ошибка' : 'Error') : (ru ? 'Последний кадр' : 'Last frame');
   const action = browser?.action;
@@ -87,16 +97,28 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       <header className="live-header"><span className="live-title"><Globe size={16} />Live Browser</span><div className="live-view-controls">
         <button className={mode === 'split' ? 'selected' : ''} title="Split View" aria-label="Split View" onClick={() => changeMode('split')}><Columns2 size={15} /></button>
         <button className={mode === 'expanded' ? 'selected' : ''} title="Browser Expanded" aria-label="Browser Expanded" onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
-        <button title="Chat Only" aria-label="Chat Only" onClick={() => changeMode('chat')}><X size={16} /></button>
+        <button title="Chat Only" aria-label="Chat Only" onClick={() => changeMode('chat')}><MessageSquare size={15} /></button>
+        <button title="Close Browser" aria-label="Close Browser" onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
       </div></header>
-      <div className="live-address"><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || (ru ? 'Ожидание страницы' : 'Waiting for a page')}</span></div>
-      <div ref={screen} className="live-screen"><div className="live-viewport" style={{ width: screenWidth }}><canvas ref={canvas} width={1280} height={900} aria-label={ru ? 'Страница браузера агента' : 'Agent browser page'} />
+      <div className="live-address"><button disabled={!interactive} title="Back" onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title="Forward" onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title="Refresh" onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || (ru ? 'Ожидание страницы' : 'Waiting for a page')}</span></div>
+      <div ref={screen} className="live-screen"><div className="live-viewport" style={{ width: screenWidth }}><canvas ref={canvas} width={1280} height={900} tabIndex={interactive ? 0 : -1} style={{ cursor: interactive ? 'auto' : 'default', touchAction: 'none' }}
+          onPointerDown={event => { if (!interactive) return; event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); input({ kind: 'pointer', phase: 'down', ...point(event) }); }}
+          onPointerUp={event => { if (!interactive) return; input({ kind: 'pointer', phase: 'up', ...point(event) }); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
+          onPointerCancel={() => input({ kind: 'release' })}
+          onBlur={() => input({ kind: 'release' })}
+          onPointerMove={event => { if (interactive && event.currentTarget.hasPointerCapture(event.pointerId)) input({ kind: 'pointer', phase: 'move', ...point(event) }); }}
+          onWheel={event => { if (interactive) { event.preventDefault(); input({ kind: 'wheel', dx: Math.max(-2000, Math.min(2000, event.deltaX)), dy: Math.max(-2000, Math.min(2000, event.deltaY)) }); } }}
+          onKeyDown={event => { if (interactive && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); input({ kind: 'key', phase: 'down', key: event.key }); } }}
+          onKeyUp={event => { if (interactive) { event.preventDefault(); input({ kind: 'key', phase: 'up', key: event.key }); } }}
+          onPaste={event => { if (interactive) { event.preventDefault(); input({ kind: 'text', text: event.clipboardData.getData('text').slice(0, 4000) }); } }}
+          aria-label={ru ? 'Страница браузера агента' : 'Agent browser page'} />
         {action && action.x !== undefined && action.y !== undefined && <span key={`${browser?.sessionId}:${action.at}`} className={`live-action action-${action.kind}`} style={{ left: `${100 * action.x / 1280}%`, top: `${100 * action.y / 900}%` }} />}
       </div>{!browser && <div className="live-empty"><Globe size={28} />{ru ? 'Agent откроет страницу через web_project' : 'The Agent opens pages with web_project'}</div>}</div>
-      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? `${fps} fps` : ''}</span><span className="live-action-label">{action && Date.now() - action.at < 2500 ? action.kind : (ru ? 'Наблюдение' : 'Observe only')}</span>
+      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? `${fps} fps` : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? (ru ? 'Управляете вы' : 'User Controlled') : browser?.ownership === 'closed' ? 'Closed' : status === 'error' ? 'Unavailable' : browser ? 'Agent Controlled' : 'Idle'}</span>
         <button title={ru ? 'Переподключить просмотр' : 'Reconnect live view'} aria-label="Reconnect live view" onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
         {mode === 'expanded' && <button aria-label="Show chat" onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}
       </footer>
+      {inputError && <p role="status" className="live-error">{inputError}</p>}
       {browser?.error && <p className="live-error" role="status">{browser.error}</p>}
     </aside>
   </div>;

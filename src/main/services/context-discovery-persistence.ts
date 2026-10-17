@@ -64,7 +64,7 @@ export function parseStoredDiscoveryOption(serialized: string, expected: { model
   try { parsed = JSON.parse(serialized); } catch { return null; }
   if (!isPersistableDiscoveryOption(parsed, expected)) return null;
   if (parsed.kvCacheType !== expected.kvCacheType || parsed.kvOffload !== expected.kvOffload) return null;
-  const option: ContextDiscoveryOption = { ...parsed, restored: true };
+  const option: ContextDiscoveryOption = { ...parsed, restored: true, conditions: 'unknown', validation: 'previous', conditionWarning: undefined }; // Display assessments are session-local, never trusted from disk.
   return option;
 }
 

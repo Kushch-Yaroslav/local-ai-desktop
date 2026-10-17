@@ -47,6 +47,7 @@ pub enum Entry {
     ContextExclusion { start: usize, end: usize, actions: usize },
     RuntimeNotice { notice: super::loop_detector::LoopNotice, guidance: bool },
     WorkBudget(super::work_budget::WorkBudget),
+    PauseCheckpoint { memory: Value },
     Message(Value),
     RunUser(Value),
     Compaction {
@@ -142,6 +143,7 @@ impl Transcript {
         self.entries.iter().skip(start).rev().filter_map(|entry|match entry{Entry::RuntimeNotice{notice,guidance:true}=>Some(notice.guidance.as_str()),_=>None}).take(4).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
     }
 
+    pub fn checkpoint_pause(&mut self, memory: Value) { self.record(Entry::PauseCheckpoint { memory }); }
     pub fn checkpoint_work_budget(&mut self, budget: super::work_budget::WorkBudget) {
         self.record(Entry::WorkBudget(budget));
     }
@@ -613,6 +615,7 @@ impl Transcript {
                 | Entry::ClearReminders
                 | Entry::Finalizing
                 | Entry::RuntimeNotice { .. }
+                | Entry::PauseCheckpoint { .. }
                 | Entry::WorkBudget(_)
                 | Entry::CloseoutRequested
                 | Entry::RunComplete
