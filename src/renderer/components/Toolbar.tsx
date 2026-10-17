@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { X } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 import { ContextSelector } from './ContextSelector';
+import { MtpControl } from './MtpControl';
 import { Hardware } from './Hardware';
 import { MaximumContextPopover } from './MaximumContextPopover';
 import { ProjectBadge } from './ProjectBadge';
@@ -153,6 +154,7 @@ export function Toolbar() {
       {runtimeNotice && <div className="runtime-notice" role="status">{runtimeNotice}</div>}
       <div className="toolbar-controls">
         <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading || isGenerating} title={isGenerating ? afterResponse : "Для изменения требуется перезагрузка модели или контекста."} value={selectedModelId ?? ''} onChange={(event) => void updateConversation(chat.id, { modelId: event.target.value || null }).catch(() => undefined)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
+        <MtpControl modelId={selectedModelId} />
         <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || isGenerating} onChange={setContextDraft} />
         {reasoningCapability && <label className="control" title={isGenerating ? afterResponse : reasoningControlText.thinkingHint}><span>{reasoningControlText.thinking}</span>{reasoningCapability.thinkingToggle
           ? <select disabled={isGenerating} value={reasoningSelection.thinking === false ? 'off' : 'on'} onChange={(event) => void updateConversation(chat.id, { thinkingEnabled: event.target.value === 'on' }).catch(() => undefined)}><option value="on">{thinkingLabel.on}</option><option value="off">{thinkingLabel.off}</option></select>

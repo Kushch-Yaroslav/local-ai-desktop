@@ -443,3 +443,8 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .live-address button { flex: 0 0 auto; display: inline-flex; border: 0; background: transparent; color: inherit; padding: 3px; }
 .live-address button:disabled { opacity: .35; }
 .live-viewport canvas:focus-visible { outline: 2px solid #5cabbc; }
+
+.mtp-control { position: relative; display: flex; align-items: center; gap: 4px; }
+.mtp-effective { max-width: 80px; font-size: 10px; color: var(--text-muted); }
+.mtp-confirm { position: absolute; z-index: 120; top: 100%; left: 0; width: min(380px, 80vw); padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); box-shadow: 0 8px 24px #0005; font-size: 12px; }
+.mtp-confirm button { margin-right: 6px; }
