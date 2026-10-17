@@ -20,6 +20,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [AppArmor security review](apparmor-security-review.md)
 - [Bubblewrap installation and acceptance](bwrap-installation-acceptance.md)
 - [Agent runtime and workspace protection](runtime-self-protection.md)
+- [P1 MTP technical analysis](v0.3-p1-mtp-analysis.md) · [measured verification](v0.3-p1-mtp-verification.md) · [early reasoning interruption analysis](v0.3-p1-interrupt-analysis.md)
 - [Historical release and validation records](archive/README.md)
 
 ## Release status

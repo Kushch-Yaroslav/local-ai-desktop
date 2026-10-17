@@ -1,0 +1,42 @@
+{
+  "result": "PASS",
+  "model": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+  "context": 32768,
+  "mtp": true,
+  "mtpDiagnostics": {
+    "drafted": 986,
+    "accepted": 708,
+    "acceptanceRate": 0.718052738336714,
+    "source": "llama-server metrics",
+    "scope": "server lifetime"
+  },
+  "vision": false,
+  "realQwenBrowserRuns": 2,
+  "browserApprovals": 2,
+  "browserFrames": 203,
+  "measurements": [
+    {
+      "run": "pause-real",
+      "pauseMs": 39.7
+    },
+    {
+      "run": "live-real",
+      "pauseMs": 30.4
+    }
+  ],
+  "applied": [
+    {
+      "mode": "agent",
+      "reasoningMode": "fast",
+      "reasoningEffort": "medium",
+      "thinkingEnabled": true
+    },
+    {
+      "mode": "agent",
+      "reasoningMode": "deep",
+      "reasoningEffort": "max",
+      "thinkingEnabled": true
+    }
+  ],
+  "root": "/tmp/lad-runtime-qwen-msqZAw"
+}

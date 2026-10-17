@@ -1,0 +1,45 @@
+{
+  "result": "PASS",
+  "provider": "scripted SSE; real Rust executable; no Qwen inference",
+  "measurements": [
+    {
+      "scenario": "ordinary",
+      "elapsedMs": 214.5
+    },
+    {
+      "scenario": "reasoning",
+      "elapsedMs": 156.4
+    },
+    {
+      "scenario": "silent",
+      "elapsedMs": 191.8
+    },
+    {
+      "scenario": "partial-chunk",
+      "elapsedMs": 37.2
+    },
+    {
+      "scenario": "after-edit",
+      "elapsedMs": 36.1
+    },
+    {
+      "scenario": "resume-0",
+      "elapsedMs": 32.1
+    },
+    {
+      "scenario": "resume-1",
+      "elapsedMs": 35.3
+    },
+    {
+      "scenario": "resume-2",
+      "elapsedMs": 34.9
+    },
+    {
+      "scenario": "during-tool",
+      "elapsedMs": 379.5
+    }
+  ],
+  "repeatedResume": 3,
+  "liveEffortBothDirections": true,
+  "stop": true
+}

@@ -1,0 +1,1274 @@
+{
+  "model": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+  "binary": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+  "context": 16384,
+  "kv": "q8_0",
+  "gpuLayers": 999,
+  "seed": 42,
+  "temperature": 0,
+  "root": "/tmp/lad-p1-mtp-NQ3eVI",
+  "rows": [
+    {
+      "mode": "off",
+      "scenario": "A-technical",
+      "maxTokens": 1536,
+      "elapsedMs": 23437.602863,
+      "ttftMs": 200.44390699999985,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 4084,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 39,
+        "prompt_ms": 194.01,
+        "prompt_per_token_ms": 4.974615384615384,
+        "prompt_per_second": 201.02056595020875,
+        "predicted_n": 699,
+        "predicted_ms": 23233.742,
+        "predicted_per_token_ms": 33.28616332378223,
+        "predicted_per_second": 30.04251316899362
+      },
+      "usage": {
+        "completion_tokens": 699,
+        "prompt_tokens": 39,
+        "total_tokens": 738,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17291,
+        "gpuFreeMiB": 6828,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.87109375
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17323,
+        "gpuFreeMiB": 6796,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.06640625
+      }
+    },
+    {
+      "mode": "off",
+      "scenario": "B-code",
+      "maxTokens": 1536,
+      "elapsedMs": 6460.806606999999,
+      "ttftMs": 399.7995540000011,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 622,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 54,
+        "prompt_ms": 197.056,
+        "prompt_per_token_ms": 3.6491851851851855,
+        "prompt_per_second": 274.0337772003897,
+        "predicted_n": 183,
+        "predicted_ms": 6059.213,
+        "predicted_per_token_ms": 33.29237912087912,
+        "predicted_per_second": 30.036904132599403
+      },
+      "usage": {
+        "completion_tokens": 183,
+        "prompt_tokens": 54,
+        "total_tokens": 237,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17323,
+        "gpuFreeMiB": 6796,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.10546875
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17302,
+        "gpuFreeMiB": 6817,
+        "processGpuMiB": 16258,
+        "rssMiB": 1646.953125
+      }
+    },
+    {
+      "mode": "off",
+      "scenario": "C-agent",
+      "elapsedMs": 10992.712787999997,
+      "complete": true,
+      "successfulReads": 2,
+      "errors": 0,
+      "telemetry": [
+        {
+          "turn": 1
+        },
+        {
+          "contextUsed": 9700,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 6956,
+          "outputTokens": 26,
+          "tokensPerSecond": 29.807858543826494,
+          "cachedTokens": 0
+        },
+        {
+          "loopObservations": 1,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 2
+        },
+        {
+          "contextUsed": 8484,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7068,
+          "outputTokens": 26,
+          "tokensPerSecond": 29.197284886083875,
+          "cachedTokens": 6981
+        },
+        {
+          "loopObservations": 2,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 3
+        },
+        {
+          "contextUsed": 7918,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7180,
+          "outputTokens": 43,
+          "tokensPerSecond": 29.191276534522853,
+          "cachedTokens": 7093
+        }
+      ],
+      "memoryAfter": {
+        "gpuUsedMiB": 17304,
+        "gpuFreeMiB": 6815,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.3984375
+      }
+    },
+    {
+      "mode": "off",
+      "scenario": "D-reasoning",
+      "maxTokens": 4096,
+      "elapsedMs": 59683.282940000005,
+      "ttftMs": 1095.4135139999999,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 568,
+      "reasoningChars": 5779,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 269.73,
+        "prompt_per_token_ms": 4.21453125,
+        "prompt_per_second": 237.2743113483854,
+        "predicted_n": 1733,
+        "predicted_ms": 58585.824,
+        "predicted_per_token_ms": 33.825533487297925,
+        "predicted_per_second": 29.56346572850115
+      },
+      "usage": {
+        "completion_tokens": 1733,
+        "prompt_tokens": 64,
+        "total_tokens": 1797,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17304,
+        "gpuFreeMiB": 6815,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.41015625
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17475,
+        "gpuFreeMiB": 6644,
+        "processGpuMiB": 16260,
+        "rssMiB": 3396.921875
+      }
+    },
+    {
+      "mode": "on",
+      "scenario": "A-technical",
+      "maxTokens": 1536,
+      "elapsedMs": 14079.765169000006,
+      "ttftMs": 247.47343000001274,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 3942,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 39,
+        "prompt_ms": 243.713,
+        "prompt_per_token_ms": 6.249051282051282,
+        "prompt_per_second": 160.02429086671617,
+        "predicted_n": 661,
+        "predicted_ms": 13830.697,
+        "predicted_per_token_ms": 20.955601515151514,
+        "predicted_per_second": 47.71993775874057,
+        "draft_n": 590,
+        "draft_n_accepted": 365
+      },
+      "usage": {
+        "completion_tokens": 661,
+        "prompt_tokens": 39,
+        "total_tokens": 700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 590,
+      "accepted": 365,
+      "acceptance": 0.6186440677966102,
+      "memoryBefore": {
+        "gpuUsedMiB": 18187,
+        "gpuFreeMiB": 5932,
+        "processGpuMiB": 16984,
+        "rssMiB": 1211.03125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18219,
+        "gpuFreeMiB": 5900,
+        "processGpuMiB": 17020,
+        "rssMiB": 1463.47265625
+      }
+    },
+    {
+      "mode": "on",
+      "scenario": "B-code",
+      "maxTokens": 1536,
+      "elapsedMs": 3403.572866000017,
+      "ttftMs": 434.61885600000096,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 622,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 54,
+        "prompt_ms": 233.305,
+        "prompt_per_token_ms": 4.320462962962963,
+        "prompt_per_second": 231.45667688219285,
+        "predicted_n": 183,
+        "predicted_ms": 2967.673,
+        "predicted_per_token_ms": 16.3058956043956,
+        "predicted_per_second": 61.32751148795707,
+        "draft_n": 130,
+        "draft_n_accepted": 118
+      },
+      "usage": {
+        "completion_tokens": 183,
+        "prompt_tokens": 54,
+        "total_tokens": 237,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 130,
+      "accepted": 118,
+      "acceptance": 0.9076923076923077,
+      "memoryBefore": {
+        "gpuUsedMiB": 18219,
+        "gpuFreeMiB": 5900,
+        "processGpuMiB": 17020,
+        "rssMiB": 1463.52734375
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18219,
+        "gpuFreeMiB": 5900,
+        "processGpuMiB": 17020,
+        "rssMiB": 1790.8828125
+      }
+    },
+    {
+      "mode": "on",
+      "scenario": "C-agent",
+      "elapsedMs": 10308.279859000002,
+      "complete": true,
+      "successfulReads": 2,
+      "errors": 0,
+      "telemetry": [
+        {
+          "turn": 1
+        },
+        {
+          "contextUsed": 9700,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 6956,
+          "outputTokens": 26,
+          "tokensPerSecond": 51.60278242202819,
+          "cachedTokens": 0
+        },
+        {
+          "loopObservations": 1,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 2
+        },
+        {
+          "contextUsed": 8483,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7068,
+          "outputTokens": 26,
+          "tokensPerSecond": 51.96316850616283,
+          "cachedTokens": 6983
+        },
+        {
+          "loopObservations": 2,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 3
+        },
+        {
+          "contextUsed": 7917,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7180,
+          "outputTokens": 45,
+          "tokensPerSecond": 56.425158439280125,
+          "cachedTokens": 7095
+        }
+      ],
+      "drafted": 68,
+      "accepted": 65,
+      "memoryAfter": {
+        "gpuUsedMiB": 18225,
+        "gpuFreeMiB": 5894,
+        "processGpuMiB": 17022,
+        "rssMiB": 3209.6484375
+      }
+    },
+    {
+      "mode": "on",
+      "scenario": "D-reasoning",
+      "maxTokens": 4096,
+      "elapsedMs": 62227.32144300002,
+      "ttftMs": 1194.5184250000166,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 697,
+      "reasoningChars": 11551,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 305.01,
+        "prompt_per_token_ms": 4.76578125,
+        "prompt_per_second": 209.82918592833022,
+        "predicted_n": 3409,
+        "predicted_ms": 61030.476,
+        "predicted_per_token_ms": 17.908003521126762,
+        "predicted_per_second": 55.84095395225165,
+        "draft_n": 2596,
+        "draft_n_accepted": 2111
+      },
+      "usage": {
+        "completion_tokens": 3409,
+        "prompt_tokens": 64,
+        "total_tokens": 3473,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 2596,
+      "accepted": 2111,
+      "acceptance": 0.8131741140215717,
+      "memoryBefore": {
+        "gpuUsedMiB": 18225,
+        "gpuFreeMiB": 5894,
+        "processGpuMiB": 17022,
+        "rssMiB": 3209.6484375
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18237,
+        "gpuFreeMiB": 5883,
+        "processGpuMiB": 17022,
+        "rssMiB": 3793.9609375
+      }
+    },
+    {
+      "mode": "auto",
+      "scenario": "A-technical",
+      "maxTokens": 1536,
+      "elapsedMs": 14139.719974000007,
+      "ttftMs": 254.55258099999628,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 3942,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 39,
+        "prompt_ms": 250.464,
+        "prompt_per_token_ms": 6.422153846153846,
+        "prompt_per_second": 155.71100038328862,
+        "predicted_n": 661,
+        "predicted_ms": 13883.473,
+        "predicted_per_token_ms": 21.03556515151515,
+        "predicted_per_second": 47.538537367415195,
+        "draft_n": 590,
+        "draft_n_accepted": 365
+      },
+      "usage": {
+        "completion_tokens": 661,
+        "prompt_tokens": 39,
+        "total_tokens": 700,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 590,
+      "accepted": 365,
+      "acceptance": 0.6186440677966102,
+      "memoryBefore": {
+        "gpuUsedMiB": 18190,
+        "gpuFreeMiB": 5929,
+        "processGpuMiB": 16984,
+        "rssMiB": 1211.10546875
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18219,
+        "gpuFreeMiB": 5900,
+        "processGpuMiB": 17020,
+        "rssMiB": 1463.52734375
+      }
+    },
+    {
+      "mode": "auto",
+      "scenario": "B-code",
+      "maxTokens": 1536,
+      "elapsedMs": 3490.525980000006,
+      "ttftMs": 456.63527699999395,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 622,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 54,
+        "prompt_ms": 234.344,
+        "prompt_per_token_ms": 4.339703703703703,
+        "prompt_per_second": 230.43047827125935,
+        "predicted_n": 183,
+        "predicted_ms": 3032.304,
+        "predicted_per_token_ms": 16.66101098901099,
+        "predicted_per_second": 60.020367351030764,
+        "draft_n": 130,
+        "draft_n_accepted": 118
+      },
+      "usage": {
+        "completion_tokens": 183,
+        "prompt_tokens": 54,
+        "total_tokens": 237,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 130,
+      "accepted": 118,
+      "acceptance": 0.9076923076923077,
+      "memoryBefore": {
+        "gpuUsedMiB": 18219,
+        "gpuFreeMiB": 5900,
+        "processGpuMiB": 17020,
+        "rssMiB": 1463.58203125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18218,
+        "gpuFreeMiB": 5901,
+        "processGpuMiB": 17020,
+        "rssMiB": 1790.9375
+      }
+    },
+    {
+      "mode": "auto",
+      "scenario": "C-agent",
+      "elapsedMs": 10428.848708000005,
+      "complete": true,
+      "successfulReads": 2,
+      "errors": 0,
+      "telemetry": [
+        {
+          "turn": 1
+        },
+        {
+          "contextUsed": 9701,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 6956,
+          "outputTokens": 26,
+          "tokensPerSecond": 52.81716177474114,
+          "cachedTokens": 0
+        },
+        {
+          "loopObservations": 1,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 2
+        },
+        {
+          "contextUsed": 8484,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7068,
+          "outputTokens": 26,
+          "tokensPerSecond": 53.49870854117582,
+          "cachedTokens": 6983
+        },
+        {
+          "loopObservations": 2,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 3
+        },
+        {
+          "contextUsed": 7917,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7180,
+          "outputTokens": 54,
+          "tokensPerSecond": 58.69733990300541,
+          "cachedTokens": 7095
+        }
+      ],
+      "drafted": 74,
+      "accepted": 72,
+      "memoryAfter": {
+        "gpuUsedMiB": 18216,
+        "gpuFreeMiB": 5903,
+        "processGpuMiB": 17022,
+        "rssMiB": 3210.69921875
+      }
+    },
+    {
+      "mode": "auto",
+      "scenario": "D-reasoning",
+      "maxTokens": 4096,
+      "elapsedMs": 62592.55775900002,
+      "ttftMs": 1195.7654960000073,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 697,
+      "reasoningChars": 11551,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 314.461,
+        "prompt_per_token_ms": 4.913453125,
+        "prompt_per_second": 203.52285339040452,
+        "predicted_n": 3409,
+        "predicted_ms": 61394.49,
+        "predicted_per_token_ms": 18.01481514084507,
+        "predicted_per_second": 55.50986741644079,
+        "draft_n": 2600,
+        "draft_n_accepted": 2109
+      },
+      "usage": {
+        "completion_tokens": 3409,
+        "prompt_tokens": 64,
+        "total_tokens": 3473,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "drafted": 2600,
+      "accepted": 2109,
+      "acceptance": 0.8111538461538461,
+      "memoryBefore": {
+        "gpuUsedMiB": 18216,
+        "gpuFreeMiB": 5903,
+        "processGpuMiB": 17022,
+        "rssMiB": 3210.69921875
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 18220,
+        "gpuFreeMiB": 5899,
+        "processGpuMiB": 17022,
+        "rssMiB": 3795.359375
+      }
+    },
+    {
+      "mode": "off-after-on",
+      "scenario": "A-technical",
+      "maxTokens": 1536,
+      "elapsedMs": 23708.859112000035,
+      "ttftMs": 193.2680629999959,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 4084,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 39,
+        "prompt_ms": 190.269,
+        "prompt_per_token_ms": 4.878692307692308,
+        "prompt_per_second": 204.97295933651827,
+        "predicted_n": 699,
+        "predicted_ms": 23514.344,
+        "predicted_per_token_ms": 33.688171919770774,
+        "predicted_per_second": 29.684009045712695
+      },
+      "usage": {
+        "completion_tokens": 699,
+        "prompt_tokens": 39,
+        "total_tokens": 738,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17432,
+        "gpuFreeMiB": 6687,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.828125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17445,
+        "gpuFreeMiB": 6674,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.01171875
+      }
+    },
+    {
+      "mode": "off-after-on",
+      "scenario": "B-code",
+      "maxTokens": 1536,
+      "elapsedMs": 6461.198380999966,
+      "ttftMs": 400.0036540000001,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 622,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 54,
+        "prompt_ms": 199.316,
+        "prompt_per_token_ms": 3.691037037037037,
+        "prompt_per_second": 270.9265688655201,
+        "predicted_n": 183,
+        "predicted_ms": 6059.955,
+        "predicted_per_token_ms": 33.29645604395604,
+        "predicted_per_second": 30.033226319337356
+      },
+      "usage": {
+        "completion_tokens": 183,
+        "prompt_tokens": 54,
+        "total_tokens": 237,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17441,
+        "gpuFreeMiB": 6678,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.05078125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17441,
+        "gpuFreeMiB": 6678,
+        "processGpuMiB": 16258,
+        "rssMiB": 1646.90234375
+      }
+    },
+    {
+      "mode": "off-after-on",
+      "scenario": "C-agent",
+      "elapsedMs": 10989.140223999973,
+      "complete": true,
+      "successfulReads": 2,
+      "errors": 0,
+      "telemetry": [
+        {
+          "turn": 1
+        },
+        {
+          "contextUsed": 9703,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 6958,
+          "outputTokens": 26,
+          "tokensPerSecond": 28.846775161311168,
+          "cachedTokens": 0
+        },
+        {
+          "loopObservations": 1,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 2
+        },
+        {
+          "contextUsed": 8486,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7070,
+          "outputTokens": 26,
+          "tokensPerSecond": 29.610328082435156,
+          "cachedTokens": 6983
+        },
+        {
+          "loopObservations": 2,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 3
+        },
+        {
+          "contextUsed": 7920,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7182,
+          "outputTokens": 40,
+          "tokensPerSecond": 29.632803969883955,
+          "cachedTokens": 7095
+        }
+      ],
+      "memoryAfter": {
+        "gpuUsedMiB": 17455,
+        "gpuFreeMiB": 6664,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.36328125
+      }
+    },
+    {
+      "mode": "off-after-on",
+      "scenario": "D-reasoning",
+      "maxTokens": 4096,
+      "elapsedMs": 59209.24019599997,
+      "ttftMs": 1106.3765140000032,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 568,
+      "reasoningChars": 5779,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 277.342,
+        "prompt_per_token_ms": 4.33346875,
+        "prompt_per_second": 230.76201945612277,
+        "predicted_n": 1733,
+        "predicted_ms": 58101.383,
+        "predicted_per_token_ms": 33.5458331408776,
+        "predicted_per_second": 29.809961666489077
+      },
+      "usage": {
+        "completion_tokens": 1733,
+        "prompt_tokens": 64,
+        "total_tokens": 1797,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17455,
+        "gpuFreeMiB": 6664,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.375
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17460,
+        "gpuFreeMiB": 6660,
+        "processGpuMiB": 16260,
+        "rssMiB": 3396.8671875
+      }
+    },
+    {
+      "mode": "off-after-restart",
+      "scenario": "A-technical",
+      "maxTokens": 1536,
+      "elapsedMs": 23667.72958600003,
+      "ttftMs": 191.12841499998467,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 4084,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 39,
+        "prompt_ms": 188.512,
+        "prompt_per_token_ms": 4.833641025641025,
+        "prompt_per_second": 206.88338142929894,
+        "predicted_n": 699,
+        "predicted_ms": 23475.247,
+        "predicted_per_token_ms": 33.63215902578796,
+        "predicted_per_second": 29.73344646810319
+      },
+      "usage": {
+        "completion_tokens": 699,
+        "prompt_tokens": 39,
+        "total_tokens": 738,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17430,
+        "gpuFreeMiB": 6690,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.8828125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17373,
+        "gpuFreeMiB": 6746,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.07421875
+      }
+    },
+    {
+      "mode": "off-after-restart",
+      "scenario": "B-code",
+      "maxTokens": 1536,
+      "elapsedMs": 6590.011872000003,
+      "ttftMs": 420.54695200000424,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 622,
+      "reasoningChars": 0,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 54,
+        "prompt_ms": 208.391,
+        "prompt_per_token_ms": 3.8590925925925923,
+        "prompt_per_second": 259.12827329395225,
+        "predicted_n": 183,
+        "predicted_ms": 6168.275,
+        "predicted_per_token_ms": 33.89162087912088,
+        "predicted_per_second": 29.50581807717717
+      },
+      "usage": {
+        "completion_tokens": 183,
+        "prompt_tokens": 54,
+        "total_tokens": 237,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17369,
+        "gpuFreeMiB": 6750,
+        "processGpuMiB": 16258,
+        "rssMiB": 1320.11328125
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17369,
+        "gpuFreeMiB": 6751,
+        "processGpuMiB": 16258,
+        "rssMiB": 1646.9609375
+      }
+    },
+    {
+      "mode": "off-after-restart",
+      "scenario": "C-agent",
+      "elapsedMs": 10607.149846000015,
+      "complete": true,
+      "successfulReads": 2,
+      "errors": 0,
+      "telemetry": [
+        {
+          "turn": 1
+        },
+        {
+          "contextUsed": 9705,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 6959,
+          "outputTokens": 26,
+          "tokensPerSecond": 28.61642995155811,
+          "cachedTokens": 0
+        },
+        {
+          "loopObservations": 1,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 2
+        },
+        {
+          "contextUsed": 8487,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7071,
+          "outputTokens": 26,
+          "tokensPerSecond": 28.633997947515027,
+          "cachedTokens": 6984
+        },
+        {
+          "loopObservations": 2,
+          "loopGuidance": 0,
+          "loopWarnings": 0,
+          "loopPauses": 0
+        },
+        {
+          "turn": 3
+        },
+        {
+          "contextUsed": 7921,
+          "contextLimit": 16384
+        },
+        {
+          "inputTokens": 7183,
+          "outputTokens": 26,
+          "tokensPerSecond": 28.632850125354615,
+          "cachedTokens": 7096
+        }
+      ],
+      "memoryAfter": {
+        "gpuUsedMiB": 17369,
+        "gpuFreeMiB": 6750,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.42578125
+      }
+    },
+    {
+      "mode": "off-after-restart",
+      "scenario": "D-reasoning",
+      "maxTokens": 4096,
+      "elapsedMs": 59232.506906000024,
+      "ttftMs": 1091.780104000005,
+      "finish": "stop",
+      "complete": true,
+      "contentChars": 568,
+      "reasoningChars": 5779,
+      "toolDeltas": 0,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 274.643,
+        "prompt_per_token_ms": 4.291296875,
+        "prompt_per_second": 233.02978776083864,
+        "predicted_n": 1733,
+        "predicted_ms": 58139.364,
+        "predicted_per_token_ms": 33.567762124711315,
+        "predicted_per_second": 29.790487560201036
+      },
+      "usage": {
+        "completion_tokens": 1733,
+        "prompt_tokens": 64,
+        "total_tokens": 1797,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "memoryBefore": {
+        "gpuUsedMiB": 17369,
+        "gpuFreeMiB": 6750,
+        "processGpuMiB": 16260,
+        "rssMiB": 2857.4375
+      },
+      "memoryAfter": {
+        "gpuUsedMiB": 17369,
+        "gpuFreeMiB": 6750,
+        "processGpuMiB": 16260,
+        "rssMiB": 3396.46484375
+      }
+    }
+  ],
+  "switches": [
+    {
+      "mode": "off",
+      "pid": 98722,
+      "elapsedMs": 5017.686512,
+      "memory": {
+        "gpuUsedMiB": 17291,
+        "gpuFreeMiB": 6828,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.83203125
+      }
+    },
+    {
+      "mode": "on",
+      "pid": 99673,
+      "elapsedMs": 6516.387050999998,
+      "memory": {
+        "gpuUsedMiB": 18187,
+        "gpuFreeMiB": 5932,
+        "processGpuMiB": 16984,
+        "rssMiB": 1210.91015625
+      }
+    },
+    {
+      "mode": "auto",
+      "pid": 101319,
+      "elapsedMs": 8517.703488,
+      "memory": {
+        "gpuUsedMiB": 18186,
+        "gpuFreeMiB": 5933,
+        "processGpuMiB": 16984,
+        "rssMiB": 1210.984375
+      }
+    },
+    {
+      "mode": "off-after-on",
+      "pid": 102314,
+      "elapsedMs": 5014.403789000004,
+      "memory": {
+        "gpuUsedMiB": 17432,
+        "gpuFreeMiB": 6687,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.7890625
+      }
+    },
+    {
+      "mode": "off-after-restart",
+      "pid": 102968,
+      "elapsedMs": 4515.10375900002,
+      "memory": {
+        "gpuUsedMiB": 17430,
+        "gpuFreeMiB": 6690,
+        "processGpuMiB": 16234,
+        "rssMiB": 1124.84375
+      }
+    }
+  ],
+  "deterministic": [
+    {
+      "mode": "off",
+      "tokens": [
+        220,
+        17,
+        11,
+        220,
+        18,
+        11,
+        220,
+        20,
+        11,
+        220,
+        22,
+        11,
+        220,
+        16,
+        16,
+        11,
+        220,
+        16,
+        18,
+        11,
+        220,
+        16,
+        22,
+        11,
+        220,
+        16,
+        24,
+        11,
+        220,
+        17,
+        18,
+        11,
+        321,
+        220,
+        17,
+        24,
+        13,
+        3437,
+        369,
+        279,
+        2542,
+        314,
+        1439,
+        5600,
+        9944,
+        4947,
+        30,
+        271,
+        1206,
+        1423,
+        279,
+        2542,
+        314,
+        279,
+        1118,
+        5600,
+        9944,
+        4947,
+        11,
+        567,
+        884,
+        1070,
+        91291,
+        25
+      ],
+      "content": " 2, 3, 5, 7, 11, 13, 17, 19, 23, and 29. What is the sum of these ten prime numbers?\n\nTo find the sum of the first ten prime numbers, we add them sequentially:",
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 6,
+        "prompt_ms": 170.791,
+        "prompt_per_token_ms": 28.465166666666665,
+        "prompt_per_second": 35.130656767628274,
+        "predicted_n": 64,
+        "predicted_ms": 2120.373,
+        "predicted_per_token_ms": 33.65671428571429,
+        "predicted_per_second": 29.71175354524888
+      }
+    },
+    {
+      "mode": "on",
+      "tokens": [
+        220,
+        17,
+        11,
+        220,
+        18,
+        11,
+        220,
+        20,
+        11,
+        220,
+        22,
+        11,
+        220,
+        16,
+        16,
+        11,
+        220,
+        16,
+        18,
+        11,
+        220,
+        16,
+        22,
+        11,
+        220,
+        16,
+        24,
+        11,
+        220,
+        17,
+        18,
+        11,
+        321,
+        220,
+        17,
+        24,
+        13,
+        3437,
+        369,
+        279,
+        2542,
+        314,
+        1439,
+        5600,
+        9944,
+        4947,
+        30,
+        271,
+        1206,
+        1423,
+        279,
+        2542,
+        314,
+        279,
+        1118,
+        5600,
+        9944,
+        4947,
+        11,
+        567,
+        884,
+        1070,
+        91291,
+        25
+      ],
+      "content": " 2, 3, 5, 7, 11, 13, 17, 19, 23, and 29. What is the sum of these ten prime numbers?\n\nTo find the sum of the first ten prime numbers, we add them sequentially:",
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 6,
+        "prompt_ms": 189.631,
+        "prompt_per_token_ms": 31.605166666666666,
+        "prompt_per_second": 31.64039634869826,
+        "predicted_n": 64,
+        "predicted_ms": 1034.639,
+        "predicted_per_token_ms": 16.422841269841268,
+        "predicted_per_second": 60.89080345898425,
+        "draft_n": 43,
+        "draft_n_accepted": 41
+      }
+    }
+  ],
+  "errors": [],
+  "deterministicEqual": true,
+  "success": true,
+  "cleanup": [
+    {
+      "pid": 98722,
+      "alive": false
+    },
+    {
+      "pid": 99673,
+      "alive": false
+    },
+    {
+      "pid": 101319,
+      "alive": false
+    },
+    {
+      "pid": 102314,
+      "alive": false
+    },
+    {
+      "pid": 102968,
+      "alive": false
+    }
+  ]
+}

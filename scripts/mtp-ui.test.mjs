@@ -35,8 +35,13 @@ try{
  const denial=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',true);return '';}catch(e){return String(e);}},model);assert.match(denial,/не прерывает генерацию|Дождитесь/);
  assert(await page.locator('.send-button.stop').count(),'MTP change must not stop the active agent');
  await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));
+ const conversationId=await page.evaluate(async()=>(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace').id);
+ const messagesBefore=await page.evaluate(id=>window.localAi.messages.list(id),conversationId);assert(messagesBefore.some(m=>m.role==='user'));
  const unconfirmed=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',false);return '';}catch(e){return String(e);}},model);assert.match(unconfirmed,/confirmation/);
  await mtp.selectOption('off');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Disabled');
  await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();await page.waitForFunction(()=>document.querySelector('[aria-label="Multi-Token Prediction (MTP)"]')?.value==='off');
- console.log('PASS Electron MTP UI/IPC: confirmation/cancel, persisted Auto/On/Off, actual vs requested state, disabled during generation, server-side rejection without implicit Stop, reload and restored preference. Launcher/hardware are fixtures; real MTP is tested separately.');
+ assert.deepEqual(await page.evaluate(id=>window.localAi.messages.list(id),conversationId),messagesBefore,'MTP reload preserves existing chat history');
+ await page.locator('.composer textarea').fill('Continue the same read-only task.');await page.locator('.send-button:not(.stop)').click();await page.waitForFunction(()=>document.querySelector('.send-button.stop'));
+ await page.waitForTimeout(300);assert(requests.length>=2,'the existing chat can generate after MTP reload');await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));
+ console.log('PASS Electron MTP UI/IPC: confirmation/cancel, persisted Auto/On/Off, actual vs requested state, disabled during generation, server-side rejection without implicit Stop, reload, restored preference and existing chat continuation. Launcher/hardware are fixtures; real MTP is tested separately.');
 }finally{await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

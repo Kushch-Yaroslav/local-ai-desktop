@@ -49,6 +49,13 @@ try {
   await wait(() => last('live-real', 'reasoning_applied')?.configuration.reasoningEffort === 'max', 'max applies on following Qwen step');
   assert.equal(last('live-real', 'request_policy').reasoning_effort, 'xhigh');
   await pause('live-real');
+  start('stop-real', 'xhigh', 'deep');
+  await wait(() => last('stop-real', 'thinking_delta'), 'real Qwen generation before Stop');
+  const stopStarted = performance.now(); send({ type: 'cancel', run_id: 'stop-real' });
+  await wait(() => last('stop-real', 'agent_stopped'), 'real Qwen Stop', 10000);
+  measurements.push({ run: 'stop-real', stopMs: Math.round((performance.now() - stopStarted) * 10) / 10 });
+  assert(!last('stop-real', 'run_paused'), 'Stop must retain its terminal semantics');
+  assert((await fetch(`http://127.0.0.1:${port}/health`)).ok, 'Stop must leave the model available');
   assert.equal(await import('node:fs/promises').then(fs=>fs.readFile(join(project,'a.txt'),'utf8')), 'A: runtime checkpoint retained\n');
   process.env.LOCAL_AI_RUNTIME_ROOT = root;
   const require = createRequire(import.meta.url);

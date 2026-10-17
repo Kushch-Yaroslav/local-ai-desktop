@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
+const tokenComparison = process.env.LOCAL_AI_MTP_TOKEN_COMPARISON === '1';
 const root = await mkdtemp(join(tmpdir(), 'lad-p1-mtp-'));
 process.env.LOCAL_AI_RUNTIME_ROOT = root;
 const require = createRequire(import.meta.url);
@@ -24,7 +25,7 @@ const base=`http://127.0.0.1:${port}`, controller=new LlamaRuntimeController({st
 let launcher;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 const results={model,binary,context,kv:'q8_0',gpuLayers:999,seed:42,temperature:0,root,rows:[],switches:[],deterministic:[],errors:[]};
-const out=resolve('artifacts/p1-mtp/benchmark.json'); await mkdir(resolve('artifacts/p1-mtp'),{recursive:true});
+const out=resolve(`artifacts/p1-mtp/${tokenComparison?'token-comparison':'benchmark'}.json`); await mkdir(resolve('artifacts/p1-mtp'),{recursive:true});
 const persist=()=>writeFile(out,JSON.stringify(results,null,2));
 function memory(pid){
   const gpu=execFileSync('nvidia-smi',['--query-gpu=memory.used,memory.free','--format=csv,noheader,nounits'],{encoding:'utf8'}).trim().split(',').map(Number);
@@ -37,7 +38,7 @@ async function generate(mode,scenario,prompt,thinking=false){
   const start=performance.now();let first,content='',reasoning='',finish,timings,usage,calls=[];
   const response=await fetch(base+'/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:modelId,messages:[{role:'user',content:prompt}],stream:true,stream_options:{include_usage:true},max_tokens:thinking?4096:1536,temperature:0,seed:42,cache_prompt:false,chat_template_kwargs:{enable_thinking:thinking},...(thinking?{reasoning_effort:'medium'}:{})}),signal:AbortSignal.timeout(180000)});
   if (!response.ok) throw Error((await response.text()).slice(0,500));
-  let buffer='';for await(const chunk of response.body){buffer+=new TextDecoder().decode(chunk);let i;while((i=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,i);buffer=buffer.slice(i+2);for(const line of event.split('\n'))if(line.startsWith('data: ')&&line!=='data: [DONE]'){const e=JSON.parse(line.slice(6)),choice=e.choices?.[0],d=choice?.delta??{};if((d.content||d.reasoning_content)&&first===undefined)first=performance.now()-start;content+=d.content??'';reasoning+=d.reasoning_content??'';if(d.tool_calls)calls.push(...d.tool_calls);if(choice?.finish_reason)finish=choice.finish_reason;if(e.timings)timings=e.timings;if(e.usage)usage=e.usage;}}}
+  let buffer='';const decoder=new TextDecoder();for await(const chunk of response.body){buffer+=decoder.decode(chunk,{stream:true});let i;while((i=buffer.indexOf('\n\n'))>=0){const event=buffer.slice(0,i);buffer=buffer.slice(i+2);for(const line of event.split('\n'))if(line.startsWith('data: ')&&line!=='data: [DONE]'){const e=JSON.parse(line.slice(6)),choice=e.choices?.[0],d=choice?.delta??{};if((d.content||d.reasoning_content)&&first===undefined)first=performance.now()-start;content+=d.content??'';reasoning+=d.reasoning_content??'';if(d.tool_calls)calls.push(...d.tool_calls);if(choice?.finish_reason)finish=choice.finish_reason;if(e.timings)timings=e.timings;if(e.usage)usage=e.usage;}}}
   const after=await metrics(), elapsedMs=performance.now()-start;
   const drafted=before&&after?after.drafted-before.drafted:undefined,accepted=before&&after?after.accepted-before.accepted:undefined;
   const row={mode,scenario,maxTokens:thinking?4096:1536,elapsedMs,ttftMs:first,finish,complete:finish==='stop',contentChars:content.length,reasoningChars:reasoning.length,toolDeltas:calls.length,timings,usage,...(drafted!==undefined?{drafted,accepted,acceptance:drafted?accepted/drafted:undefined}:{}),memoryBefore:memBefore,memoryAfter:await memory(state.serverPid)};
@@ -58,7 +59,7 @@ const ownedPids=[];
 try{
  launcher=spawn('bash',[resolve('run-local-ai-desktop-llama-cpp-mtp.sh')],{env:{...process.env,LOCAL_AI_APP_DIR:resolve('.'),LOCAL_AI_LLAMA_PORT:String(port),LOCAL_AI_LAUNCHER_HEADLESS:'1',LOCAL_AI_PARENT_PID:String(process.pid)},stdio:['ignore','ignore','pipe']});let err='';launcher.stderr.on('data',c=>err+=c);
  for(let i=0;i<300;i++){try{if((await controller.state()).status==='idle')break;}catch{/* state not published yet */}if(launcher.exitCode!==null)throw Error(err);await delay(50);}
- for(const [index,mode]of ['off','on','auto','off','off'].entries()){
+ for(const [index,mode]of (tokenComparison?['off','on','off']:['off','on','auto','off','off']).entries()){
   const prior=await controller.state();
   // Fifth pass restarts the supervisor to prove saved Off survives a fresh launcher.
   if(index===4){launcher.kill('SIGTERM');await new Promise(r=>launcher.once('exit',r));launcher=spawn('bash',[resolve('run-local-ai-desktop-llama-cpp-mtp.sh')],{env:{...process.env,LOCAL_AI_APP_DIR:resolve('.'),LOCAL_AI_LLAMA_PORT:String(port),LOCAL_AI_LAUNCHER_HEADLESS:'1',LOCAL_AI_PARENT_PID:String(process.pid)},stdio:'ignore'});await delay(700);}
@@ -69,6 +70,16 @@ try{
   if(prior.serverPid&&prior.serverPid!==sw.state.serverPid){let alive=true;try{process.kill(prior.serverPid,0);}catch{alive=false;}assert(!alive,'previous owned server survived reload');}
   const label=index===3?'off-after-on':index===4?'off-after-restart':mode;
   results.switches.push({mode:label,pid:sw.state.serverPid,elapsedMs:performance.now()-start,memory:await memory(sw.state.serverPid)});await persist();
+  if (tokenComparison) {
+    const promptText='Explain cooperative cancellation in four substantial paragraphs. Include safe operation boundaries, checkpoints, deduplication of file edits and recovery invariants.';
+    const template=await fetch(base+'/apply-template',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:promptText}],chat_template_kwargs:{enable_thinking:false}})});
+    assert(template.ok);const {prompt}=await template.json();
+    const response=await fetch(base+'/completion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,n_predict:768,temperature:0,seed:42,cache_prompt:false,return_tokens:true})});
+    const body=await response.json();assert(response.ok);assert(Array.isArray(body.tokens)&&body.tokens.length>0);
+    const diagnostic={mode:index===2?'off-repeat':mode,prompt,tokens:body.tokens,content:body.content,timings:body.timings,metrics:await metrics()};
+    results.deterministic.push(diagnostic);await persist();console.log(JSON.stringify({mode:diagnostic.mode,tokens:body.tokens.length}));
+    continue;
+  }
   await generate(label,'A-technical','Explain cooperative cancellation in four substantial paragraphs. Include safe operation boundaries, checkpoints, deduplication of file edits and recovery invariants.');
   await generate(label,'B-code','Write a concise self-contained TypeScript bounded retry function in at most 30 lines with AbortSignal, max 3 attempts, exponential delay, and no retry after cancellation. Include only code and one usage line.');
   await agent(label);
@@ -76,7 +87,7 @@ try{
   if(index<2){const r=await fetch(base+'/completion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'The first ten prime numbers are',n_predict:64,temperature:0,seed:42,cache_prompt:false,return_tokens:true})});const body=await r.json();assert(r.ok,JSON.stringify(body));assert(Array.isArray(body.tokens)&&body.tokens.length>0,'backend did not return token IDs');results.deterministic.push({mode,tokens:body.tokens,content:body.content,timings:body.timings});await persist();}
   await copyFile(join(root,'logs/llama-cpp-mtp-server.log'),resolve(`artifacts/p1-mtp/server-${label}.log`));
  }
- results.deterministicEqual=JSON.stringify(results.deterministic[0].tokens)===JSON.stringify(results.deterministic[1].tokens);results.success=true;
+ results.deterministicEqual=JSON.stringify(results.deterministic[0].tokens)===JSON.stringify(results.deterministic[1].tokens);results.success=true;if(tokenComparison){const [a,b,c]=results.deterministic;results.offRepeatEqual=JSON.stringify(a.tokens)===JSON.stringify(c.tokens);results.firstDivergence=a.tokens.findIndex((id,i)=>id!==b.tokens[i]);results.samePrompt=results.deterministic.every(d=>d.prompt===a.prompt);}
 }catch(error){results.errors.push(String(error));throw error;}finally{
  if(launcher?.exitCode===null){launcher.kill('SIGTERM');await Promise.race([new Promise(r=>launcher.once('exit',r)),delay(15000)]);}
  results.cleanup=ownedPids.map(pid=>{try{process.kill(pid,0);return{pid,alive:true};}catch{return{pid,alive:false};}});await persist();console.log(`Benchmark artifact: ${out}; runtime: ${root}`);
