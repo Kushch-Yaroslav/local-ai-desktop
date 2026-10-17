@@ -45,7 +45,9 @@ function normalizeModel(raw: unknown, modelsPath: string): RuntimeModelConfigura
   const supportsTools = builtin ? builtin.supportsTools : value.supportsTools === true;
   const speculative = value.speculative === 'none' ? 'none' : builtin || value.speculative === 'mtp' ? 'mtp' : 'none';
   if (value.speculative !== undefined && value.speculative !== 'none' && value.speculative !== 'mtp') throw new Error(`Некорректный режим MTP для «${displayName}».`);
-  return { id, displayName, modelPath: expandPath(value.modelPath, modelsPath),
+  const mtpMode = value.mtpMode ?? (speculative === 'none' ? 'off' : 'auto');
+  if (!['auto', 'on', 'off'].includes(String(mtpMode))) throw new Error('Некорректный режим MTP.');
+  return { id, displayName, mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
     mmprojPath: value.mmprojPath ? expandPath(String(value.mmprojPath), modelsPath) : '',
     gpuLayers, projectorDevice: projectorDevice as 'auto' | 'gpu' | 'cpu', supportsTools, speculative, builtin: Boolean(builtin) };
 }

@@ -1,3 +1,6 @@
+import { mtpCapability, resolveMtpMode } from '../services/mtp-capability';
+import { parseMtpMetrics } from '../services/mtp-diagnostics';
+import type { MtpStatus, MtpMode } from '../../shared/types';
 import { liveBrowsers } from '../web/live-browser';
 import { AutonomySessions } from '../services/autonomy-session';
 import type { AutonomyMode, LoopAction } from '../../shared/autonomy';
@@ -678,6 +681,41 @@ export function registerIpc(): void {
   });
   // The toolbar polls only live process health. Model paths and GGUF metadata
   // are checked on initialization and when model settings are opened/saved.
+  const mtpStatus = async (modelId: string): Promise<MtpStatus> => {
+    const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
+    if (!model) throw new Error('Unknown model');
+    const capability = await mtpCapability(model.modelPath, config.llamaServerPath);
+    const state = await currentLlamaRuntime();
+    const requested = model.mtpMode ?? (model.speculative === 'none' ? 'off' : 'auto');
+    const active = state.status === 'ready' && state.modelId === modelId;
+    const effective = active && state.speculativeMode === 'mtp' ? 'active' : active && state.mtpFallbackReason ? 'error' : requested === 'off' ? 'disabled' : !capability.supported ? capability.status === 'requires-weights' ? 'requires-weights' : capability.status === 'error' ? 'error' : 'unsupported' : 'reload-required';
+    let diagnostics;
+    if (active && state.speculativeMode === 'mtp') {
+      try { const response = await fetch(`${llamaCppUrl.replace(/\/$/, '')}/metrics`, { signal: AbortSignal.timeout(1500) }); if (response.ok) diagnostics = parseMtpMetrics((await response.text()).slice(0, 128 * 1024)); } catch { /* Unavailable is not a fabricated zero. */ }
+    }
+    return { modelId, requested, effective, capability, ...(active && state.mtpMode ? { activeMode: state.mtpMode } : {}), ...(diagnostics ? { diagnostics } : {}), ...(state.mtpFallbackReason ? { error: state.mtpFallbackReason } : {}) };
+  };
+  ipcMain.handle('mtp:status', (_event, modelId: string) => mtpStatus(modelId));
+  ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean) => {
+    if (!['auto', 'on', 'off'].includes(mode) || confirmed !== true) throw new Error('Explicit MTP reload confirmation required');
+    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error('Дождитесь завершения ответа или остановите задачу. MTP не прерывает генерацию автоматически.');
+    runtimeSelectionBusy = true;
+    try {
+      const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
+      if (!model) throw new Error('Unknown model');
+      await resolveMtpMode(mode, model.modelPath, config.llamaServerPath);
+      const current = await llamaRuntime.state();
+      if (current.status === 'ready' && current.modelId === modelId) {
+        const result = await llamaRuntime.switchTo(modelId, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice, mode);
+        if (!result.ok) throw new Error(result.error);
+      }
+      saveRuntimeConfiguration({ ...config, models: config.models.map(model => model.id === modelId ? { ...model, mtpMode: mode } : model) });
+      // MTP changes the measured runtime identity and allocation envelope. Preserve historical measurements.
+      savedDiscoveryAttempted = null; discoveredContextOptions.clear();
+      await syncLlamaBackend();
+      return await mtpStatus(modelId);
+    } finally { runtimeSelectionBusy = false; void visionDevice.flush(); }
+  });
   ipcMain.handle('runtime:state', currentLlamaRuntime);
   const getSettings = async () => {
     const llama = await syncLlamaBackend();
@@ -703,7 +741,9 @@ export function registerIpc(): void {
     try {
     const next = normalizeConfiguration(config);
     // Native menu owns this preference; an older open setup form must not revert it.
-    next.imageProcessingDevice = effectiveRuntimeConfiguration().imageProcessingDevice;
+    const existingConfig = effectiveRuntimeConfiguration();
+    next.imageProcessingDevice = existingConfig.imageProcessingDevice;
+    next.models = next.models.map(model => ({ ...model, mtpMode: existingConfig.models.find(current => current.id === model.id)?.mtpMode ?? model.mtpMode }));
     const input = next.llamaServerInput ?? next.llamaServerPath ?? '';
     if (input.trim()) {
       const resolution = await resolveLlamaExecutable(input, next.llamaServerPath ?? undefined);

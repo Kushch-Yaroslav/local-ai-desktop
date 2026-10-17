@@ -35,6 +35,7 @@ export type LlamaRuntimeProfile = {
   mmprojPath?: string;
   projectorDevice?: 'auto' | 'gpu' | 'cpu';
   projectorPreference?: 'gpu' | 'cpu';
+  mtpMode?: import('../../shared/types').MtpMode;
   speculative: LlamaSpeculativeMode;
   /** Maximum tokens proposed per step by an embedded MTP head. */
   speculativeDraftTokens?: number;
@@ -93,8 +94,8 @@ export function llamaRuntimeProfilesList(config = effectiveRuntimeConfiguration(
   const known = new Map(llamaRuntimeProfiles.map((profile) => [profile.id, profile]));
   return config.models.map((model) => {
     const builtin = known.get(model.id);
-    if (builtin) return { ...builtin, speculative: model.speculative, ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
-    return { id: model.id, maxContext: 32_768, ...modelPaths(model.id, config), speculative: model.speculative,
+    if (builtin) return { ...builtin, speculative: model.speculative, mtpMode: model.mtpMode, ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
+    return { id: model.id, maxContext: 32_768, ...modelPaths(model.id, config), speculative: model.speculative, mtpMode: model.mtpMode,
       vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), visionWithMtp: false,
       gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
   });

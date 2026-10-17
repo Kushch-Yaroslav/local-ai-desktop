@@ -4,6 +4,8 @@ import { getModelProfile } from './model-registry';
 import { llamaRuntimeProfile, type LlamaRuntimeProfile } from './llama-runtime-policy';
 import { readGgufSpeculativeMetadata, type GgufSpeculativeMetadata } from '../services/gguf-speculative';
 import { verifyGgufArtifacts } from '../services/gguf-artifacts';
+import { resolveMtpMode } from '../services/mtp-capability';
+import { effectiveRuntimeConfiguration } from '../services/runtime-settings';
 import { verifyHostMemory } from '../services/host-memory-guard';
 
 export function effectiveSpeculativeMode(profile: LlamaRuntimeProfile, enabled: string | undefined) {
@@ -82,16 +84,20 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
 
 if (require.main === module) {
   void (async () => {
-    const profile = llamaRuntimeProfile(process.argv[2]);
+    let profile = llamaRuntimeProfile(process.argv[2]);
     if (!profile) throw new Error(`Unknown Local AI llama.cpp model: ${process.argv[2]}`);
-    const environment = launchProfileEnvironment(profile, process.env.LOCAL_AI_LLAMA_SPECULATIVE);
+    const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
+    if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
+    profile = { ...profile, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
+    const environment = launchProfileEnvironment(profile);
+
     if (process.argv[3] === '--verify') {
       verifyGgufArtifacts(profile.modelPath!);
       if (profile.hostResidentBudgetBytes !== undefined) verifyHostMemory(profile.hostResidentBudgetBytes);
-      const mode = effectiveSpeculativeMode(profile, process.env.LOCAL_AI_LLAMA_SPECULATIVE);
+      const mode = effectiveSpeculativeMode(profile, undefined);
       if (mode === 'mtp' && !profile.draft) verifyEmbeddedMtp(profile);
       if (mode !== 'none' && profile.draft) await verifyDraftFile(profile);
     }
-    process.stdout.write(environment + '\n');
+    process.stdout.write(environment + `\nMTP_REQUESTED_MODE=${quote(requested)}\n`);
   })().catch((error: unknown) => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; });
 }

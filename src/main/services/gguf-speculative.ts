@@ -2,7 +2,7 @@ import { closeSync, fstatSync, openSync, readSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
-export type GgufSpeculativeMetadata = { values: Record<string, string | number | boolean>; tokenizer: Record<string, string> };
+export type GgufSpeculativeMetadata = { values: Record<string, string | number | boolean>; tokenizer: Record<string, string>; tensors?: Record<string, number[]> };
 
 const metadataCache = new Map<string, { identity: string; metadata?: GgufSpeculativeMetadata; error?: string }>();
 const metadataCacheLimit = 32;
@@ -96,7 +96,7 @@ function parseGgufSpeculativeMetadata(path: string): GgufSpeculativeMetadata {
       return undefined;
     };
     if (bytes(4).toString('ascii') !== 'GGUF' || ![2, 3].includes(u32())) throw new Error('Draft должен быть корректным GGUF v2/v3.');
-    u64(); const count = u64();
+    const tensorCount = u64(); const count = u64();
     if (count > 1_000_000) throw new Error('Слишком много полей GGUF.');
     const metadata: GgufSpeculativeMetadata = { values: {}, tokenizer: {} };
     for (let i = 0; i < count; i += 1) {
@@ -106,6 +106,29 @@ function parseGgufSpeculativeMetadata(path: string): GgufSpeculativeMetadata {
       if (item !== undefined) metadata.values[key] = item;
       if (digest) metadata.tokenizer[key] = digest.digest('hex');
     }
+    if (tensorCount > 100_000) throw new Error('Слишком много тензоров GGUF.');
+    metadata.tensors = {};
+    const locations: Array<{ name: string; shape: number[]; type: number; offset: number }> = [];
+    for (let i = 0; i < tensorCount; i++) {
+      const name = text(), dimensions = u32();
+      if (dimensions < 1 || dimensions > 4) throw new Error('Некорректные размеры тензора GGUF.');
+      const shape = Array.from({ length: dimensions }, u64);
+      const type = u32(); const offset = u64();
+      if (shape.some(n => n < 1) || offset >= size) throw new Error('Некорректный тензор GGUF.');
+      locations.push({ name, shape, type, offset });
+    }
+    const alignment = Number(metadata.values['general.alignment'] ?? 32);
+    if (!Number.isSafeInteger(alignment) || alignment < 1 || alignment > 4096) throw new Error('Некорректное выравнивание GGUF.');
+    const dataStart = Math.ceil(position / alignment) * alignment;
+    const layouts: Record<number, [number, number]> = { 0: [1, 4], 1: [1, 2], 2: [32, 18], 3: [32, 20], 6: [32, 22], 7: [32, 24], 8: [32, 34], 12: [256, 144], 13: [256, 176], 14: [256, 210], 15: [256, 292], 30: [1, 2] };
+    for (const tensor of locations) {
+      const layout = layouts[tensor.type];
+      if (!layout) continue; // Unknown quantizations cannot certify MTP weights.
+      const elements = tensor.shape.reduce((a, b) => a * b, 1);
+      const extent = dataStart + tensor.offset + elements / layout[0] * layout[1];
+      if (Number.isSafeInteger(elements) && Number.isInteger(elements / layout[0]) && extent <= size) metadata.tensors[tensor.name] = Object.freeze(tensor.shape) as number[];
+    }
+    Object.freeze(metadata.tensors);
     return metadata;
   } finally { closeSync(fd); }
 }

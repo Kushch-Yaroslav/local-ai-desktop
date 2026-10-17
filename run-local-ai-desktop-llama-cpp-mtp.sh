@@ -37,6 +37,8 @@ ACTIVE_CONTEXT=""
 ACTIVE_KV_TYPE="f16"
 ACTIVE_KV_OFFLOAD="1"
 ACTIVE_SPECULATIVE_MODE="none"
+ACTIVE_MTP_MODE="off"
+MTP_FALLBACK_REASON=""
 ACTIVE_PROJECTOR_DEVICE=""
 LAUNCH_ERROR=""
 REQUEST_CONTEXT_FOR_ERROR=""
@@ -53,7 +55,7 @@ log() { printf '%s %s\n' "$(timestamp)" "$*" >> "$LOG_FILE"; }
 # Sets the launch variables for a model id. Fails for a model without a runtime.
 select_variant() {
   local config
-  config="$(ELECTRON_RUN_AS_NODE=1 "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$1" "${2:-}" 2>&1)" || { LAUNCH_ERROR="$config"; return 1; }
+  config="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_MTP_MODE="${REQUESTED_MTP_MODE:-}" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$1" "${2:-}" 2>&1)" || { LAUNCH_ERROR="$config"; return 1; }
   # The compiled profile helper emits fixed variable names and shell-quoted values.
   eval "$config"
 }
@@ -78,8 +80,8 @@ process_start_time() {
 write_state() {
   local status="$1" request_id="${2:-}" error="${3:-}" rolled_back="${4:-false}"
   local tmp="$STATE_FILE.$$.tmp"
-  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"updatedAt":"%s","serverStartTime":"%s","launcherStartTime":"%s"}\n' \
-    "$status" "$(json_escape "$request_id")" "$(json_escape "$ACTIVE_MODEL")" "${ACTIVE_CONTEXT:-0}" "$ACTIVE_KV_TYPE" "$([[ "$ACTIVE_KV_OFFLOAD" == "1" ]] && echo true || echo false)" "$ACTIVE_SPECULATIVE_MODE" "$ACTIVE_PROJECTOR_DEVICE" "${SERVER_PID:-0}" "$$" \
+  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","mtpMode":"%s","mtpFallbackReason":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"updatedAt":"%s","serverStartTime":"%s","launcherStartTime":"%s"}\n' \
+    "$status" "$(json_escape "$request_id")" "$(json_escape "$ACTIVE_MODEL")" "${ACTIVE_CONTEXT:-0}" "$ACTIVE_KV_TYPE" "$([[ "$ACTIVE_KV_OFFLOAD" == "1" ]] && echo true || echo false)" "$ACTIVE_SPECULATIVE_MODE" "$ACTIVE_MTP_MODE" "$(json_escape "$MTP_FALLBACK_REASON")" "$ACTIVE_PROJECTOR_DEVICE" "${SERVER_PID:-0}" "$$" \
     "$(json_escape "$error")" "$rolled_back" "$(timestamp)" "$(process_start_time "${SERVER_PID:-0}")" "$(process_start_time "$$")" > "$tmp"
   mv -f "$tmp" "$STATE_FILE"
 }
@@ -179,7 +181,7 @@ build_server_args() {
     server_args+=(--no-warmup)
   fi
   case "$SPECULATIVE_MODE" in
-    mtp) server_args+=(--spec-type draft-mtp) ;;
+    mtp) server_args+=(--spec-type draft-mtp --metrics) ;;
     eagle3) server_args+=(--spec-type draft-eagle3) ;;
     none) server_args+=(--spec-type none) ;;
     *) LAUNCH_ERROR="Unsupported speculative mechanism: $SPECULATIVE_MODE"; return 1 ;;
@@ -195,6 +197,7 @@ build_server_args() {
 launch_server() {
   local model_id="$1" context="$2" kv_type="${3:-f16}" kv_offload="${4:-1}"
   local REQUESTED_PROJECTOR_DEVICE="${5:-}"
+  local REQUESTED_MTP_MODE="${6:-}"
   LAUNCH_ERROR=""; REQUEST_CONTEXT_FOR_ERROR="$context"
   # Settings may have changed since this long-lived supervisor started.
   # Reload only at a launch boundary; saving unrelated settings never interrupts
@@ -286,6 +289,7 @@ launch_server() {
     ACTIVE_PROJECTOR_DEVICE="gpu"
     for arg in "${server_args[@]}"; do [[ "$arg" == "--no-mmproj-offload" ]] && ACTIVE_PROJECTOR_DEVICE="cpu"; done
   fi
+  ACTIVE_MTP_MODE="$MTP_REQUESTED_MODE"
   ACTIVE_MODEL="$RUNTIME_MODEL_ID"; ACTIVE_CONTEXT="$context"; ACTIVE_KV_TYPE="$kv_type"; ACTIVE_KV_OFFLOAD="$kv_offload"; ACTIVE_SPECULATIVE_MODE="$SPECULATIVE_MODE"
   log "runtime.ready model=$ACTIVE_MODEL context=$ACTIVE_CONTEXT kv_type=$ACTIVE_KV_TYPE kv_offload=$ACTIVE_KV_OFFLOAD pid=$SERVER_PID"
   return 0
@@ -311,35 +315,50 @@ trap 'CLEANUP_REASON="SIGTERM"; exit 143' TERM
 
 # Electron asked for another model/context. Transaction, with rollback.
 switch_runtime() {
-  local REQUEST_ID="" MODEL_ID="" CONTEXT="" KV_TYPE="f16" KV_OFFLOAD="1" REQUEST_PROJECTOR_DEVICE=""
+  local REQUEST_ID="" MODEL_ID="" CONTEXT="" KV_TYPE="f16" KV_OFFLOAD="1" REQUEST_PROJECTOR_DEVICE="" REQUEST_MTP_MODE=""
   if [[ ! -r "$REQUEST_FILE" ]]; then log "runtime.switch ignored=no-request-file"; return 0; fi
   # The file is written by Electron from allow-listed values; parse it as data.
   while IFS='=' read -r key value; do
-    case "$key" in REQUEST_ID) REQUEST_ID="$value" ;; MODEL_ID) MODEL_ID="$value" ;; CONTEXT) CONTEXT="$value" ;; KV_TYPE) KV_TYPE="$value" ;; KV_OFFLOAD) KV_OFFLOAD="$value" ;; PROJECTOR_DEVICE) REQUEST_PROJECTOR_DEVICE="$value" ;; esac
+    case "$key" in REQUEST_ID) REQUEST_ID="$value" ;; MODEL_ID) MODEL_ID="$value" ;; CONTEXT) CONTEXT="$value" ;; KV_TYPE) KV_TYPE="$value" ;; KV_OFFLOAD) KV_OFFLOAD="$value" ;; PROJECTOR_DEVICE) REQUEST_PROJECTOR_DEVICE="$value" ;; MTP_MODE) REQUEST_MTP_MODE="$value" ;; esac
   done < "$REQUEST_FILE"
   rm -f "$REQUEST_FILE"
   [[ -z "$REQUEST_PROJECTOR_DEVICE" || "$REQUEST_PROJECTOR_DEVICE" == "cpu" || "$REQUEST_PROJECTOR_DEVICE" == "gpu" ]] || { log "runtime.switch invalid-projector-device"; return 1; }
+  [[ -z "$REQUEST_MTP_MODE" || "$REQUEST_MTP_MODE" =~ ^(auto|on|off)$ ]] || { log "runtime.switch invalid-mtp-mode"; return 1; }
+  local previous_mtp="$ACTIVE_MTP_MODE"
+  local previous_fallback="$MTP_FALLBACK_REASON" previous_spec="$ACTIVE_SPECULATIVE_MODE"
   local previous_device="$ACTIVE_PROJECTOR_DEVICE"
   local previous_model="$ACTIVE_MODEL" previous_context="$ACTIVE_CONTEXT" previous_kv_type="$ACTIVE_KV_TYPE" previous_kv_offload="$ACTIVE_KV_OFFLOAD"
   log "runtime.switch request=$REQUEST_ID from=${previous_model:-none}/${previous_context:-0}/${previous_kv_type}/${previous_kv_offload} to=$MODEL_ID/$CONTEXT/$KV_TYPE/$KV_OFFLOAD electron_pid=${ELECTRON_PID:-none}"
-  if [[ ( -z "$REQUEST_PROJECTOR_DEVICE" || "$REQUEST_PROJECTOR_DEVICE" == "$ACTIVE_PROJECTOR_DEVICE" ) && "$MODEL_ID" == "$previous_model" && "$CONTEXT" == "$previous_context" && "$KV_TYPE" == "$previous_kv_type" && "$KV_OFFLOAD" == "$previous_kv_offload" && -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null && curl --silent --fail "$URL/health" >/dev/null 2>&1; then
+  if [[ ( -z "$REQUEST_MTP_MODE" || "$REQUEST_MTP_MODE" == "$ACTIVE_MTP_MODE" ) && ( -z "$REQUEST_PROJECTOR_DEVICE" || "$REQUEST_PROJECTOR_DEVICE" == "$ACTIVE_PROJECTOR_DEVICE" ) && "$MODEL_ID" == "$previous_model" && "$CONTEXT" == "$previous_context" && "$KV_TYPE" == "$previous_kv_type" && "$KV_OFFLOAD" == "$previous_kv_offload" && -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null && curl --silent --fail "$URL/health" >/dev/null 2>&1; then
     write_state ready "$REQUEST_ID"
     log "runtime.switch request=$REQUEST_ID result=already-active"
     return 0
   fi
+  MTP_FALLBACK_REASON=""
   write_state switching "$REQUEST_ID"
   stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"
   ACTIVE_MODEL=""; ACTIVE_CONTEXT=0
-  if launch_server "$MODEL_ID" "$CONTEXT" "$KV_TYPE" "$KV_OFFLOAD" "$REQUEST_PROJECTOR_DEVICE"; then
+  if launch_server "$MODEL_ID" "$CONTEXT" "$KV_TYPE" "$KV_OFFLOAD" "$REQUEST_PROJECTOR_DEVICE" "$REQUEST_MTP_MODE"; then
     write_state ready "$REQUEST_ID"
     log "runtime.switch request=$REQUEST_ID result=ready"
     return 0
   fi
   local failure="$LAUNCH_ERROR"
+  # One bounded Auto fallback. No timers/retries; the next identical request is already-active.
+  if [[ "$REQUEST_MTP_MODE" == "auto" || ( -z "$REQUEST_MTP_MODE" && "${MTP_REQUESTED_MODE:-}" == "auto" ) ]]; then
+    stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"
+    if launch_server "$MODEL_ID" "$CONTEXT" "$KV_TYPE" "$KV_OFFLOAD" "$REQUEST_PROJECTOR_DEVICE" off; then
+      ACTIVE_MTP_MODE="auto"; MTP_FALLBACK_REASON="$failure"
+      write_state ready "$REQUEST_ID"; log "runtime.switch auto-fallback=off reason=$failure"; return 0
+    fi
+  fi
   log "runtime.switch request=$REQUEST_ID result=failed error=$failure"
   if [[ -n "$previous_model" ]]; then
     log "runtime.switch request=$REQUEST_ID rollback=$previous_model/$previous_context"
-    if launch_server "$previous_model" "$previous_context" "$previous_kv_type" "$previous_kv_offload" "$previous_device"; then
+    local rollback_mtp="$previous_mtp"
+    [[ "$previous_mtp" == "auto" && "$previous_spec" == "none" ]] && rollback_mtp="off"
+    if launch_server "$previous_model" "$previous_context" "$previous_kv_type" "$previous_kv_offload" "$previous_device" "$rollback_mtp"; then
+      ACTIVE_MTP_MODE="$previous_mtp"; MTP_FALLBACK_REASON="$previous_fallback"
       write_state ready "$REQUEST_ID" "$failure" true
       log "runtime.switch request=$REQUEST_ID rollback=ready"
       return 0
