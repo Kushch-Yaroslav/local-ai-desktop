@@ -48,6 +48,8 @@ export function qaSteps(input: unknown): QaStep[] {
   for (const step of input) {
     if (!step || !['click', 'fill', 'key', 'scroll'].includes(step.action)) throw new Error('Invalid QA action');
     for (const field of ['selector', 'value', 'key']) if (step[field] !== undefined && (typeof step[field] !== 'string' || step[field].length > 500)) throw new Error(`Invalid QA ${field}`);
+    if (['click','fill'].includes(step.action) && (typeof step.selector !== 'string' || !step.selector.trim())) throw new Error('Click/fill requires a selector');
+    if (step.action === 'fill' && typeof step.value !== 'string') throw new Error('Fill requires a value');
     if (step.action === 'key' && !['w', 'a', 's', 'd', 'Enter', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Escape', 'Space'].includes(step.key)) throw new Error('Unsupported QA key');
     if (step.expect && step.expect.changed !== undefined && typeof step.expect.changed !== 'boolean') throw new Error('Invalid changed expectation');
     if (step.expect && ['text','value','changed'].filter(key=>step.expect[key]!==undefined).length>1) throw new Error('Choose one expected text, value or changed state');
@@ -55,7 +57,7 @@ export function qaSteps(input: unknown): QaStep[] {
   }
   return input;
 }
-export async function runBrowserQa(options: { page: Page; signal: AbortSignal; steps: QaStep[]; errors(): string[]; capture(): Promise<BrowserCapture>; analyze?: (capture: BrowserCapture) => Promise<BrowserVisualResult>; status?(status: BrowserQaStatus): void }): Promise<BrowserQaReport> {
+export async function runBrowserQa(options: { page: Page; signal: AbortSignal; steps: QaStep[]; errors(): string[]; capture(): Promise<BrowserCapture>; analyze?: (capture: BrowserCapture, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?(status: BrowserQaStatus): void }): Promise<BrowserQaReport> {
   const { page, signal } = options, started = performance.now(), checks: BrowserQaCheck[] = [], captures: BrowserCapture[] = [];
   const status = (phase: BrowserQaStatus['phase']) => options.status?.({ phase });
   const check = (action: string, expected: string, actual: string, pass: boolean) => checks.push({ action, expected, actual, status: pass ? 'Verified' : 'Failed' });
@@ -73,10 +75,12 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
     check('layout', 'Interactive controls are not entirely outside horizontal viewport', layout.length ? layout.join(', ') : 'No offscreen controls observed', !layout.length);
     status('interacting');
     const canvas = page.locator('canvas').first();
+    const hasCanvas = await canvas.count() > 0; let canvasStateVerified = !hasCanvas;
     if (await canvas.count() && await canvas.isVisible()) {
-      const box = await canvas.boundingBox();
+      let box = await canvas.boundingBox();
       if (box) {
         await canvas.click({ position: { x: Math.min(20, box.width / 2), y: Math.min(20, box.height / 2) }, timeout: 3000 });
+        box = await canvas.boundingBox() ?? box;
         for (const key of ['w', 'a', 's', 'd']) { boundary(); await page.keyboard.down(key); try { await page.waitForTimeout(100); } finally { await page.keyboard.up(key); } }
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
         try { await page.mouse.move(box.x + Math.min(box.width - 1, box.width / 2 + 90), box.y + Math.min(box.height - 1, box.height / 2 + 30), { steps: 8 }); } finally { await page.mouse.up(); }
@@ -101,6 +105,7 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
           expectations++; const expected = page.locator(step.expect.selector).first(); await expected.waitFor({ state: 'visible', timeout: 3000 });
           const actual = step.expect.value !== undefined ? await expected.inputValue() : (await expected.textContent() ?? '').trim();
           const wanted = step.expect.value ?? step.expect.text;
+          if(step.expect.changed === true && actual !== beforeText && (step.action==='key' || step.action==='click' && target && await target.evaluate(element=>element instanceof HTMLCanvasElement || Boolean(element.querySelector('canvas'))))) canvasStateVerified=true;
           const changed = step.expect.changed;
           check(`${step.action} ${step.selector ?? step.key ?? ''}`, changed === undefined ? wanted ?? 'Visible expected element' : changed ? 'Application state changes after input' : 'Application state stays unchanged', (changed === undefined ? actual : `${beforeText} → ${actual}`).slice(0,1000), changed === undefined ? wanted === undefined || actual === wanted : (actual !== beforeText) === changed);
         } else checks.push({ action: step.action, expected: 'Application-specific expectation not supplied', actual: 'Action delivered; handling not established', status: 'Partially Verified' });
@@ -110,14 +115,15 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
     const state = await snapshot(page), errors = [...options.errors(), ...state.rejections];
     check('exposed numeric diagnostics', 'No NaN/Infinity in optional window.__qaDiagnostics (bounded depth)', state.diagnosticInvalid.join(', ') || 'None observed', state.diagnosticInvalid.length === 0);
     check('runtime errors', 'No uncaught errors, console errors or unhandled rejections', errors.length ? errors.join('\n').slice(0, 3000) : 'None observed', errors.length === 0);
-    if (options.analyze) { status('analyzing'); visual = await options.analyze(captures[captures.length - 1]); }
+    if (options.analyze) { status('analyzing'); visual = await options.analyze(captures[captures.length - 1], captures[0]); }
     boundary();
-    const failed = checks.some(c => c.status === 'Failed') || visual.status === 'Failed';
-    const result: BrowserQaReport = { id: randomUUID(), url: page.url(), capturedAt: new Date().toISOString(), checks, errors, captures, visual, elapsedMs: performance.now() - started, status: failed ? 'Failed' : expectations > 0 && checks.every(c => c.status === 'Verified') && (!options.analyze || visual.status === 'Verified') ? 'Verified' : 'Partially Verified', ...(!expectations ? { reason: 'Smoke tests establish observed execution, not application-specific correctness. Supply interaction expectations for stronger evidence.' } : {}) };
+    const functionalStatus = checks.some(c=>c.status==='Failed') ? 'Failed' : expectations>0 && canvasStateVerified && checks.every(c=>c.status==='Verified') ? 'Verified' : 'Partially Verified';
+    const failed = functionalStatus === 'Failed' || visual.status === 'Failed';
+    const result: BrowserQaReport = { scope: 'interaction', functionalStatus, id: randomUUID(), url: page.url(), capturedAt: new Date().toISOString(), checks, errors, captures, visual, elapsedMs: performance.now() - started, status: failed ? 'Failed' : functionalStatus === 'Verified' && (!options.analyze || visual.status === 'Verified') ? 'Verified' : 'Partially Verified', ...(!expectations || !canvasStateVerified ? { reason: 'Smoke tests establish observed execution, not application-specific correctness. Supply interaction expectations for stronger evidence, including changed application state after Canvas input.' } : {}) };
     if (captures.length === 2 && captures[0].sha256 !== captures[1].sha256) checks.push({ action: 'frame comparison', expected: 'Record pixel change without inferring correctness', actual: 'Captured pixels differ after interaction', status: 'Verified' });
     if (failed) status('issue'); options.status?.({ phase: 'complete', report: result }); return result;
   } catch (error) {
-    const report: BrowserQaReport = { id: randomUUID(), status: signal.aborted ? 'Blocked' : String(error).includes('Screenshot limit') ? 'Not Verified' : 'Failed', url: page.isClosed() ? '' : page.url(), capturedAt: new Date().toISOString(), checks, errors: [...options.errors(), String(error).slice(0, 500)], captures, visual, elapsedMs: performance.now() - started, reason: String(error) };
+    const report: BrowserQaReport = { scope: 'interaction', id: randomUUID(), status: signal.aborted ? 'Blocked' : String(error).includes('Screenshot limit') ? 'Not Verified' : 'Failed', url: page.isClosed() ? '' : page.url(), capturedAt: new Date().toISOString(), checks, errors: [...options.errors(), String(error).slice(0, 500)], captures, visual, elapsedMs: performance.now() - started, reason: String(error) };
     options.status?.({ phase: 'complete', report }); return report;
   }
 }

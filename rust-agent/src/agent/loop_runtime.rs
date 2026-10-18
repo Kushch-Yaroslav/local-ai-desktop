@@ -1897,21 +1897,21 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
         return;
     }
-    if let Some(qa) = result.get("qa").filter(|_| args["action"] == "qa") {
+    if let Some(qa) = result.get("qa").filter(|_| args["action"] == "qa" || args["action"] == "screenshot") {
         state.task_memory.browser_qa = Some(qa.clone());
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
     }
 
     if !matches!(args.get("action").and_then(Value::as_str), Some("open" | "read" | "click" | "back" | "qa"))
         || result.get("error").is_some() { return; }
-    if result.get("qa").is_some_and(|qa| qa["status"] != "Verified" && qa["status"] != "Failed") { return; }
+    if result.get("qa").is_some_and(|qa| qa.get("functionalStatus").unwrap_or(&qa["status"]) != "Verified" && qa.get("functionalStatus").unwrap_or(&qa["status"]) != "Failed") { return; }
     let Some(source) = result.get("source_path").and_then(Value::as_str) else { return; };
     let Ok(base) = std::fs::canonicalize(root) else { return; };
     let Ok(path) = std::fs::canonicalize(source) else { return; };
     if !path.starts_with(&base) { return; }
     let Some(errors) = result.get("javascript_errors").and_then(Value::as_array) else { return; };
     let Some(blocked) = result.get("blocked_requests").and_then(Value::as_array) else { return; };
-    let pass = errors.is_empty() && blocked.is_empty() && result.get("qa").map(|qa| qa["status"] == "Verified").unwrap_or(true);
+    let pass = errors.is_empty() && blocked.is_empty() && result.get("qa").map(|qa| qa.get("functionalStatus").unwrap_or(&qa["status"]) == "Verified").unwrap_or(true);
     let subject = format!("web_project {} {}", args["action"].as_str().unwrap_or(""), result["url"].as_str().unwrap_or(""));
     state.task_memory.verification.record_outcome(verification::Kind::Browser, &subject, pass,
         if args["action"] == "qa" { "Bounded browser QA with explicit per-action expectations; consult qa.visual for actual image analysis" } else { "Real browser DOM/runtime snapshot; observed errors only, no visual or exhaustive behavioural assertion" }, state.turn, &result.to_string());
@@ -4737,9 +4737,21 @@ fn review_tool_free_final(
         ));
     }
     let web_changed = state.task_memory.verification.changed.keys().any(|path| [".html", ".css", ".tsx", ".jsx"].iter().any(|suffix| path.ends_with(suffix)));
-    let qa_status = state.task_memory.browser_qa.as_ref().and_then(|qa| qa.get("status")).and_then(Value::as_str);
+    if state.browser_qa_enabled && state.browser_qa_unavailable && (state.browser_qa_used || web_changed) {
+        state.browser_qa_denied = true;
+        state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
+        state.task_memory.browser_qa = Some(json!({"status":"Blocked","reason":"Browser tool disabled or unavailable. Enable Web and authorize the browser in a new run; do not bypass with terminal browser launches.","checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));
+    }
     let qa_stale = state.browser_qa_at_epoch != Some(state.task_memory.verification.epoch);
-    if state.browser_qa_enabled && (state.browser_qa_used || web_changed) && (qa_stale || qa_status == Some("Failed")) && !state.browser_qa_denied && state.browser_qa_reviews < 3 {
+    if qa_stale && !state.browser_qa_denied {
+        if let Some(qa) = state.task_memory.browser_qa.as_mut() {
+            qa["status"] = json!("Not Verified");
+            qa["reason"] = json!("No fresh QA for this revision/run. Previous evidence is retained but does not verify subsequent changes.");
+            if let Some(visual) = qa.get_mut("visual") { visual["status"] = json!("Not Verified"); visual["reason"] = json!("Image analysis refers to the previous captured revision"); }
+        }
+    }
+    let qa_status = state.task_memory.browser_qa.as_ref().and_then(|qa| qa.get("status")).and_then(Value::as_str);
+    if state.browser_qa_enabled && (state.browser_qa_used || web_changed) && (qa_stale || qa_status == Some("Failed") || state.task_memory.browser_qa.as_ref().is_some_and(|qa| qa["scope"] == "capture")) && !state.browser_qa_denied && state.browser_qa_reviews < 3 {
         state.browser_qa_reviews += 1;
         return FinalCandidateReview::VerificationPending(format!("Autonomous Browser QA review {}/3: call web_project action=qa on the current project (opens index.html if necessary). Supply checks with concrete expected text/value for relevant controls. For a JS/Canvas failure, use the evidence to fix the source and rerun qa after the edit. Preserve approvals; do not retry an explicit security deny. Screenshot paths and DOM snapshots alone are not visual verification. Current evidence: {}. If unavailable or the budget is exhausted, finish honestly as Failed, Blocked or Partially Verified; do not claim unperformed visual checks.", state.browser_qa_reviews, state.task_memory.browser_qa.as_ref().map(Value::to_string).unwrap_or_else(|| "Not Verified".into())));
     }
@@ -4883,12 +4895,14 @@ pub fn run(mut config: Config) {
     state.can_verify = schemas
         .iter()
         .any(|schema| tool_name(schema) == "run_terminal");
-    state.browser_qa_enabled = config.browser_qa && schemas.iter().any(|schema| tool_name(schema) == "web_project");
+    state.browser_qa_enabled = config.browser_qa;
+    state.browser_qa_unavailable = config.browser_qa && !schemas.iter().any(|schema| tool_name(schema) == "web_project");
     state.browser_qa_used = state.task_memory.browser_qa.is_some();
     state.browser_available = config.browser_capability.unwrap_or_else(|| {
         schemas.iter().any(|schema| tool_name(schema) == "web_project")
             || state.can_verify && config.work_root().is_some_and(|root| verification::browser_available(Path::new(root)))
     });
+    if state.browser_qa_unavailable { state.browser_available = false; }
     if state.can_verify && state.strategy.is_deep() {
         state.project_test_command = config
             .work_root()
@@ -6421,6 +6435,23 @@ mod tests {
         assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
         state.browser_qa_denied=false; state.browser_qa_at_epoch=None;
         assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)), "a new run may obtain fresh approval rather than inheriting a stale denied session");
+    }
+
+    #[test]
+    fn manual_qa_is_invalidated_by_a_later_revision_without_auto_running_checks() {
+        let mut state=AgentState::default(); state.browser_qa_at_epoch=Some(0); state.task_memory.verification.epoch=1;
+        state.task_memory.browser_qa=Some(json!({"status":"Verified","visual":{"analyzed":true,"status":"Verified"}}));
+        let mut transcript=Transcript::default();
+        assert!(matches!(review_tool_free_final(&mut state,&mut transcript,&Ledger::default()),FinalCandidateReview::Accept));
+        let qa=state.task_memory.browser_qa.as_ref().unwrap();
+        assert_eq!(qa["status"],"Not Verified"); assert_eq!(qa["visual"]["status"],"Not Verified"); assert_eq!(state.browser_qa_reviews,0);
+    }
+
+    #[test]
+    fn autonomous_qa_respects_an_unavailable_browser_instead_of_requesting_a_bypass() {
+        let mut state=AgentState::default();state.browser_qa_enabled=true;state.browser_qa_unavailable=true;state.browser_qa_used=true;
+        assert!(matches!(review_tool_free_final(&mut state,&mut Transcript::default(),&Ledger::default()),FinalCandidateReview::Accept));
+        assert_eq!(state.task_memory.browser_qa.as_ref().unwrap()["status"],"Blocked");assert_eq!(state.browser_qa_reviews,0);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import { installQaInstrumentation, qaSteps, runBrowserQa, screenshotHash } from './browser-qa';
-import type { BrowserCapture, BrowserQaStatus, BrowserVisualResult } from '../../shared/browser-qa';
+import type { BrowserCapture, BrowserQaReport, BrowserQaStatus, BrowserVisualResult } from '../../shared/browser-qa';
 import { ProjectFileWatcher } from './project-file-watcher';
 import { constants } from 'node:fs';
 import { lstat, open, realpath, mkdir, writeFile } from 'node:fs/promises';
@@ -85,7 +85,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { runId?: string; analyze?: (capture: BrowserCapture, signal: AbortSignal) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { runId?: string; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private context?: BrowserContext;
@@ -202,7 +202,8 @@ export class ProjectBrowserSession {
     this.ownership = 'agent'; this.observer?.ownership?.('agent');
     const cancel = () => { void this.close(); };
     signal.addEventListener('abort', cancel, { once: true });
-    try { return await this.exclusive(() => this.executePage(args, signal, confirm, actionId)); }
+    const operationSignal = AbortSignal.any([signal, this.abort.signal]);
+    try { return await this.exclusive(() => this.executePage(args, operationSignal, confirm, actionId)); }
     finally { signal.removeEventListener('abort', cancel); }
   }
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
@@ -268,10 +269,11 @@ export class ProjectBrowserSession {
           this.observer?.action({ kind: String(args.action), at: Date.now() });
         }
         else if (args.action === 'qa') {
+          let steps; try { steps=qaSteps(args.checks); } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
           if (++this.qaRuns > 3) return { error: 'QA repair budget reached (3 runs)', code: 'QA_LIMIT', retrySameArguments: false };
           this.errors.length = 0; this.blocked.length = 0;
           await this.page.reload({ waitUntil: 'load' });
-          const qa = await runBrowserQa({ page: this.page, signal: this.qaOptions.signal ? AbortSignal.any([signal, this.qaOptions.signal]) : signal, steps: qaSteps(args.checks), errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, signal), analyze: this.qaOptions.analyze ? capture => this.qaOptions.analyze!(capture, signal) : undefined, status: this.qaOptions.status });
+          const qa = await runBrowserQa({ page: this.page, signal: this.qaOptions.signal ? AbortSignal.any([signal, this.qaOptions.signal]) : signal, steps, errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, signal), analyze: this.qaOptions.analyze ? (capture, before) => this.qaOptions.analyze!(capture, signal, before) : undefined, status: this.qaOptions.status });
           qa.runId = this.qaOptions.runId;
           const source = await this.read();
           if (source.source_path) { const bytes = await readPreviewAsset(this.root, new URL(this.page.url()).pathname); qa.sourceFingerprint = screenshotHash(bytes.body); }
@@ -279,10 +281,15 @@ export class ProjectBrowserSession {
           qa.evidencePath = join(this.captureDirectory, `${qa.id}.json`); await writeFile(qa.evidencePath, JSON.stringify(qa, null, 2), { flag: 'wx', mode: 0o600 });
           return { ...source, qa, visual_analysis: qa.visual.analyzed };
         } else if (args.action === 'screenshot') {
+          this.qaOptions.status?.({phase:'capturing'});
           await this.page.waitForTimeout(Number(waitMs));
           const capture = await this.capture(args, signal);
-          const visual = this.qaOptions.analyze ? await this.qaOptions.analyze(capture, signal) : { analyzed: false, status: 'Not Verified', reason: 'Browser Vision Off' };
-          return { screenshot_path: capture.path, capture, visual, visual_analysis: visual.analyzed, ...(await this.read()) };
+          if (this.qaOptions.analyze) this.qaOptions.status?.({phase:'analyzing'});
+          const visual: BrowserVisualResult = this.qaOptions.analyze ? await this.qaOptions.analyze(capture, signal) : { analyzed: false, status: 'Not Verified', reason: 'Browser Vision Off' };
+          const qa: BrowserQaReport = { scope:'capture', id:randomUUID(), runId:this.qaOptions.runId, status:visual.analyzed?'Partially Verified':'Not Verified', url:capture.url, capturedAt:capture.capturedAt, checks:[], errors:[...this.errors], captures:[capture], visual, elapsedMs: capture.captureMs!+(visual.latencyMs??0), reason:'Single captured image; no interaction verification in this action' };
+          qa.evidencePath=join(this.captureDirectory,`${qa.id}.json`);await writeFile(qa.evidencePath,JSON.stringify(qa,null,2),{flag:'wx',mode:0o600});
+          this.qaOptions.status?.({phase:'complete',report:qa});
+          return { screenshot_path: capture.path, capture, visual, qa, visual_analysis: visual.analyzed, ...(await this.read()) };
         } else if (args.action !== 'read') throw new Error('Unknown project browser action');
       }
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled');

@@ -39,6 +39,7 @@ pub struct AgentState {
     /// checked in one.
     pub browser_available: bool,
     pub browser_qa_enabled: bool,
+    pub browser_qa_unavailable: bool,
     pub browser_qa_used: bool,
     pub browser_qa_denied: bool,
     pub browser_qa_at_epoch: Option<u64>,

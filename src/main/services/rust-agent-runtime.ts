@@ -199,7 +199,8 @@ export class RustAgentRuntime {
     const qaPause = new AbortController();
     const browserConfig = loadRuntimeConfiguration();
     const vision = browserConfig.browserVision && browserConfig.browserVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model) : undefined;
-    const qaOptions = { runId, signal: qaPause.signal, status: qaStatus, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal])) } : {}) };
+    let qaAttempts = 0; let lastQaFailed = false;
+    const qaOptions = { runId, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -374,6 +375,7 @@ export class RustAgentRuntime {
           yield runtimeTextEvent(event, runId, statusCount)!;
         }
         else if (event.type === 'tool_call_started') {
+          if (lastQaFailed && ['replace_text','apply_patch','write_file','create_file','delete_file'].includes(event.name ?? '')) qaStatus?.({phase:'fixing'});
           const command = event.name === 'run_terminal' && typeof event.arguments?.command === 'string' ? event.arguments.command : undefined;
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), toolName: event.name, arguments: event.arguments, startedAt: new Date().toISOString(), label: activityLabel(event.name), ...(event.name === 'create_visual_artifact' ? { metadata: { artifactType: String((event.arguments?.artifact as { type?: string })?.type ?? '') } } : {}), detail: command ?? event.name, kind: activityKind(event.name), state: 'running', ...(command ? { terminal: { command, status: 'running' } } : {}) } };
         } else if (event.type === 'tool_process_started') {
