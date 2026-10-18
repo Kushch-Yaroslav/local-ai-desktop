@@ -985,5 +985,12 @@ export const english: Record<string, string> = {
   "Некорректное значение параметра «Глубина рассуждений».": "Invalid Reasoning effort value.",
   "Выбранная модель не поддерживает этот уровень глубины рассуждений.": "The selected model does not support this reasoning effort.",
   "Генерация завершилась с ошибкой.": "Generation failed.",
-  "Некорректные данные о памяти VRAM процесса llama-server.": "Invalid llama-server process VRAM data."
+  "Некорректные данные о памяти VRAM процесса llama-server.": "Invalid llama-server process VRAM data.",
+  "Browser Vision включён, но у выбранной модели нет совместимого локального projector. Выберите модель с поддержкой изображений и projector.": "Browser Vision is enabled, but the selected model has no compatible local projector. Choose a model with image support and projector weights.",
+  "Выбранная модель несовместима с Browser Vision при включённом MTP. Измените настройки модели; MTP автоматически не отключён.": "The selected model does not support Browser Vision together with MTP. Change the model settings; MTP has not been disabled automatically.",
+  "После загрузки llama-server не подтвердил поддержку изображений. Запрошенный выбор чата не применён; Browser Vision остаётся ожидающей проверку.": "After loading, llama-server did not confirm image support. The requested chat selection was not applied; Browser Vision remains pending validation.",
+  "После загрузки совместимой модели Browser Vision сможет анализировать изображения. Нужен локальный projector.": "Browser Vision can analyze images after you load a compatible model. A local projector is required.",
+  "Загруженная модель принимает изображения. Для анализа страниц также требуется разрешение на браузер.": "The loaded model accepts images. Browser permission is still required to analyze pages.",
+  "Загруженная модель не подтвердила поддержку изображений. Проверьте совместимость модели и наличие локального projector.": "The loaded model has not confirmed image support. Check model compatibility and local projector.",
+  "Функциональная проверка браузера доступна и без анализа изображений.": "Functional browser QA remains available without image analysis."
 };

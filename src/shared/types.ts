@@ -477,7 +477,7 @@ export interface LocalAiApi {
   webImages: { load(url: string): Promise<RemoteImageData>; openSource(url: string): Promise<void> };
   analysis: { list(conversationId: string): Promise<AnalysisRun[]> };
   models: { list(): Promise<ModelInfo[]> };
-  browserQa: { status(): Promise<{ mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean): Promise<void> };
+  browserQa: { status(): Promise<{ mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; pending?: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean): Promise<void> };
   mtp: { status(modelId: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean): Promise<MtpStatus> };
   runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>> };
   settings: { setLanguage(language: 'en' | 'ru'): Promise<void>; validateDraft(config: Pick<RuntimeConfiguration, 'modelsPath' | 'models'>): Promise<RuntimeDraftAvailability>; resolveExecutable(path: string, selected?: string): Promise<ExecutableResolution>; cancelResolution(): Promise<void>; onLanguageChanged(listener: (language: 'ru' | 'en') => void): () => void; get(): Promise<AppSettings>; save(config: RuntimeConfiguration): Promise<AppSettings>; dismissSetup(): Promise<AppSettings> };

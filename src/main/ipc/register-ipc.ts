@@ -555,6 +555,7 @@ export function registerIpc(): void {
     const requestedContext = patch.contextWindow ?? current.contextWindow;
     const modelChanged = nextModelId !== current.modelId;
     const firstSelection = patch.modelId !== undefined && !activeConversationModel(current, runtime);
+    const runtimeConfig = effectiveRuntimeConfiguration();
     const normalConfiguration = llamaRuntimeProfile(nextModelId ?? '')?.normalContext;
     const initial = initialModelContext(allowed, normalConfiguration);
     const contextWindow = (modelChanged && (firstSelection || normalConfiguration)) && patch.contextWindow === undefined ? initial.contextWindow : modelChanged && patch.contextWindow === undefined && allowed.length ? normalContextForModel(requestedContext, allowed) : requestedContext;
@@ -567,6 +568,18 @@ export function registerIpc(): void {
       const isRuntimeRequest = patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined;
       const { llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload } = resolveLlamaKvSelection(current, patch, modelChanged, initial);
       if (!['f16', 'q8_0'].includes(kvCacheType)) throw new Error('Неподдерживаемый тип KV-cache.');
+      if (isRuntimeRequest && runtimeConfig.browserVision === 'on') {
+        const visionProfile = llamaRuntimeProfile(nextModelId ?? '');
+        if (!visionProfile?.vision || !visionProfile.mmprojPath) {
+          throw new Error(t('Browser Vision включён, но у выбранной модели нет совместимого локального projector. Выберите модель с поддержкой изображений и projector.'));
+        }
+        const modelConfig = runtimeConfig.models.find(model => model.id === nextModelId);
+        const requestedMtp = modelConfig?.mtpMode ?? (modelConfig?.speculative === 'none' ? 'off' : 'auto');
+        const effectiveMtp = await resolveMtpMode(requestedMtp, modelConfig?.modelPath ?? visionProfile.modelPath ?? '', runtimeConfig.llamaServerPath);
+        if (effectiveMtp === 'mtp' && visionProfile.visionWithMtp === false) {
+          throw new Error(t('Выбранная модель несовместима с Browser Vision при включённом MTP. Измените настройки модели; MTP автоматически не отключён.'));
+        }
+      }
       runtimeActivation = { conversationId: id, modelId: nextModelId, contextWindow, kvCacheType, kvOffload, phase: 'validating' };
       log('context.activation.requested', runtimeActivation);
       // Discovery is a recommendation, not authorization to load a configuration.
@@ -588,6 +601,14 @@ export function registerIpc(): void {
         if (result.ok) modelSelectedThisProcess = true;
         await syncLlamaBackend();
         log('llama.runtime.switch.finished', { conversationId: id, ok: result.ok, state: result.state, error: result.ok ? undefined : result.error });
+        if (result.ok && runtimeConfig.browserVision === 'on' && !await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false)) {
+          if (runtime.status === 'ready' && runtime.modelId && runtime.contextWindow) {
+            const rollback = await llamaRuntime.switchTo(runtime.modelId, runtime.contextWindow, runtime.kvCacheType ?? 'f16', runtime.kvOffload ?? true, runtime.projectorDevice, runtime.mtpMode);
+            await syncLlamaBackend();
+            log('browser.vision.load.rollback', { conversationId: id, ok: rollback.ok, restoredModelId: rollback.ok ? runtime.modelId : rollback.state.modelId });
+          }
+          throw new Error(t('После загрузки llama-server не подтвердил поддержку изображений. Запрошенный выбор чата не применён; Browser Vision остаётся ожидающей проверку.'));
+        }
         // A failed switch preserves the requested conversation configuration.
         // The runtime separately reports the active/rolled-back configuration.
         if (!result.ok) throw new Error(`Не удалось переключить llama.cpp на ${profile.displayName} (${Math.round(contextWindow / 1024)}K, ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}): ${result.error}${result.state.rolledBack ? ` Продолжает работать ${result.state.modelId}.` : result.state.status === 'offline' ? ' llama.cpp сейчас не запущен.' : ''}`);
@@ -700,7 +721,14 @@ export function registerIpc(): void {
   ipcMain.handle('browser-qa:status', async () => {
     const config = effectiveRuntimeConfiguration();
     const available = await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false);
-    return { mode: config.browserVision ?? 'off', autonomous: config.autonomousBrowserQa === true, available, reason: available ? 'Loaded backend accepts actual images; browser approval still required.' : 'No live multimodal backend. Functional QA remains available; On requires a configured projector and model reload.' };
+    const runtime = await currentLlamaRuntime();
+    const mode = config.browserVision ?? 'off';
+    const pending = mode === 'on' && !available && runtime.status !== 'ready';
+    const reason = available ? t('Загруженная модель принимает изображения. Для анализа страниц также требуется разрешение на браузер.')
+      : pending ? t('После загрузки совместимой модели Browser Vision сможет анализировать изображения. Нужен локальный projector.')
+        : runtime.status === 'ready' ? t('Загруженная модель не подтвердила поддержку изображений. Проверьте совместимость модели и наличие локального projector.')
+          : t('Функциональная проверка браузера доступна и без анализа изображений.');
+    return { mode, autonomous: config.autonomousBrowserQa === true, available, pending, reason };
   });
   ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean) => {
     if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw new Error('Explicit Browser Vision configuration confirmation required');
@@ -709,11 +737,16 @@ export function registerIpc(): void {
     try {
       const config = effectiveRuntimeConfiguration();
       if (mode === 'on' && mode !== config.browserVision && !await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false)) {
-        const current = await llamaRuntime.state(); const profile = current.modelId ? llamaRuntimeProfile(current.modelId) : undefined;
-        if (current.status !== 'ready' || !profile?.vision || !profile.mmprojPath || current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error('Browser Vision On requires a loaded compatible model and local projector. MTP is preserved; no automatic downloads or model substitution.');
-        const result = await llamaRuntime.switchTo(current.modelId!, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice ?? config.imageProcessingDevice ?? 'cpu', current.mtpMode);
-        if (!result.ok) throw new Error(result.error);
-        if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error('Reloaded backend did not confirm multimodal capability');
+        const current = await currentLlamaRuntime(); const profile = current.modelId ? llamaRuntimeProfile(current.modelId) : undefined;
+        // Browser Vision is a persisted preference and may be selected before
+        // any model is loaded. Capability is enforced at the model-load boundary.
+        if (current.status === 'ready') {
+          if (!profile?.vision || !profile.mmprojPath) throw new Error('The loaded model does not have compatible local image projector weights. Browser Vision was not changed.');
+          if (current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error('This loaded model does not support Browser Vision together with active MTP. MTP was preserved and Browser Vision was not changed.');
+          const result = await llamaRuntime.switchTo(current.modelId!, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice ?? config.imageProcessingDevice ?? 'cpu', current.mtpMode);
+          if (!result.ok) throw new Error(result.error);
+          if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error('The reloaded backend did not confirm image support. Browser Vision was not changed.');
+        }
       }
       saveRuntimeConfiguration({ ...effectiveRuntimeConfiguration(), browserVision: mode, autonomousBrowserQa: autonomous });
       await syncLlamaBackend();
