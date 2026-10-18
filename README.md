@@ -52,6 +52,8 @@ An administrator must authorize each desktop account for Agent terminal use. See
 
 The [User guide](docs/en/USER_GUIDE.md) explains the controls and common workflows.
 
+For context sizing, VRAM headroom, MTP and Vision performance, see [GPU performance troubleshooting](docs/gpu-performance-troubleshooting.md).
+
 ## Current limitations
 
 This is an Experimental Alpha. The app does not download models, and model compatibility depends on the GGUF, `llama.cpp`, hardware and task. Agent changes affect real project files, so review them and keep backups. Terminal isolation is mandatory, but it is not a privacy boundary: readable host files may remain visible and network access is shared. Unsupported terminal startup fails closed. A clean installation and broad distribution compatibility have not been independently verified.
