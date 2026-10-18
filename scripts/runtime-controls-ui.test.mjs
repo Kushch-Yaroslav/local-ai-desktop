@@ -33,7 +33,7 @@ try {
   const web=controls.locator('select').filter({has:page.locator('option[value="auto"]')}).filter({hasNot:page.locator('option[value="on"]')});
   assert(await mode.isDisabled());assert(await web.isDisabled());assert(await page.locator('.context-selector-trigger').isDisabled());
   await effort.selectOption('medium');await strategy.selectOption('fast');
-  await page.waitForFunction(()=>document.querySelector('.runtime-notice')?.textContent.includes('Ожидает применения'));
+  await page.waitForFunction(()=>document.querySelector('.runtime-notice')?.textContent.match(/Ожидает применения|configuration pending/));
   await page.waitForFunction(async()=>{const c=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return c.reasoningEffort==='medium'&&c.reasoningMode==='fast';});
   assert.equal(requests.length,1);assert(!(await page.evaluate(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'))));
   finish();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'));

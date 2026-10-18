@@ -14,6 +14,12 @@ app.whenReady().then(async () => {
   fixture.db.updateConversation(fixture.chat.id,{title:'Live Browser workspace',mode:'agent',workingDirectory:project,webMode:'auto',contextWindow:65536});
   fixture.db.addMessage(fixture.chat.id,'assistant','I will check the navigation, then review the page in the browser.',undefined,[],{thinking:'Review the page while preserving the existing project boundaries.\n'.repeat(24)});
   const second=fixture.db.createConversation(model);fixture.db.updateConversation(second.id,{title:'Separate chat'});fixture.db.addMessage(second.id,'user','A separate conversation with no browser.');
+  ipcMain.handle('settings:setLanguage', (_event, language) => {
+    if (!['en','ru'].includes(language)) throw new Error('Invalid language');
+    require(resolve('dist/main/services/runtime-settings.js')).saveLanguage(language);
+    require(resolve('dist/shared/locale.js')).setLanguage(language);
+    BrowserWindow.getAllWindows().forEach(window => window.webContents.send('settings:language', language));
+  });
   const window = new BrowserWindow({width:1480,height:960,webPreferences:{preload:resolve('dist/preload/index.js'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   const {ProjectBrowserSession}=require(resolve('dist/main/web/project-browser.js'));
   const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));

@@ -1,0 +1,364 @@
+{
+  "root": "/tmp/lad-p2-qwen-qa-scNmP5",
+  "model": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+  "projector": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+  "context": 32768,
+  "mtp": true,
+  "visionChallenge": {
+    "answer": "From left to right, the colored shapes in the image are:\n\n1. **Blue square**\n2. **Red triangle**\n3. **Yellow circle**\n\n✅ Final Answer: **Blue square, red triangle, yellow circle**",
+    "latencyMs": 1910.5969970000006,
+    "usage": {
+      "completion_tokens": 50,
+      "prompt_tokens": 122,
+      "total_tokens": 172,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    },
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 122,
+      "prompt_ms": 1093.907,
+      "prompt_per_token_ms": 8.966450819672131,
+      "prompt_per_second": 111.52684826040972,
+      "predicted_n": 50,
+      "predicted_ms": 805.673,
+      "predicted_per_token_ms": 16.44230612244898,
+      "predicted_per_second": 60.81871925706831,
+      "draft_n": 34,
+      "draft_n_accepted": 34
+    }
+  },
+  "reports": [
+    {
+      "scope": "interaction",
+      "id": "e1ec5d1e-5396-42cd-a297-d78b97941567",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-18T13:38:59.232Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document loaded and rendered body exists",
+          "actual": "City QA",
+          "status": "Verified"
+        },
+        {
+          "action": "layout",
+          "expected": "Interactive controls are not entirely outside horizontal viewport",
+          "actual": "No offscreen controls observed",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas input delivery",
+          "expected": "Real keyboard and pointer events arrive",
+          "actual": "{\"pointermove\":10,\"click\":2,\"keydown\":4,\"keyup\":4}",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Previously active RAF callbacks continue after camera/keyboard actions",
+          "actual": "23 → 23",
+          "status": "Failed"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Previously active draw calls continue after interaction",
+          "actual": "299 → 299",
+          "status": "Failed"
+        },
+        {
+          "action": "canvas finite values",
+          "expected": "No observed NaN/Infinity canvas draw arguments",
+          "actual": "0",
+          "status": "Verified"
+        },
+        {
+          "action": "click #inc",
+          "expected": "1",
+          "actual": "1",
+          "status": "Verified"
+        },
+        {
+          "action": "fill #message",
+          "expected": "QA input",
+          "actual": "QA input",
+          "status": "Verified"
+        },
+        {
+          "action": "click canvas",
+          "expected": "Application state changes after input",
+          "actual": "475 → 824",
+          "status": "Verified"
+        },
+        {
+          "action": "key w",
+          "expected": "Application state changes after input",
+          "actual": "824 → 829",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in optional window.__qaDiagnostics (bounded depth)",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No uncaught errors, console errors or unhandled rejections",
+          "actual": "camera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect",
+          "status": "Failed"
+        },
+        {
+          "action": "frame comparison",
+          "expected": "Record pixel change without inferring correctness",
+          "actual": "Captured pixels differ after interaction",
+          "status": "Verified"
+        }
+      ],
+      "errors": [
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect"
+      ],
+      "captures": [
+        {
+          "runId": "p2-qa-real",
+          "id": "054e444e-d029-40f7-a2b4-0a6050a38386",
+          "path": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/054e444e-d029-40f7-a2b4-0a6050a38386.png",
+          "sha256": "44bb39b503a55e0b875a600a3ec7a09e16170a2bddffb13d9a604cd22ad9721d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-18T13:38:25.456Z",
+          "captureMs": 60.29712400000062,
+          "bytes": 13146
+        },
+        {
+          "runId": "p2-qa-real",
+          "id": "fcd0ceba-8b8b-4825-ae2e-a7ab04c47132",
+          "path": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/fcd0ceba-8b8b-4825-ae2e-a7ab04c47132.png",
+          "sha256": "a9acde6e2d6dce1de5de9ac82561beb7fceac7352cd6d1a693ac3f2bd6ee7d1d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-18T13:38:26.989Z",
+          "captureMs": 27.665540000001783,
+          "bytes": 14978
+        }
+      ],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The scene updates to show a focused state on the main canvas and a populated input field. The counter value changes from '00' to '1829', and the input field displays the text 'QA input'. The main canvas acquires a white border, indicating focus or selection.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 32241.648066,
+        "promptTokens": 2410,
+        "completionTokens": 78
+      },
+      "elapsedMs": 33836.585403000005,
+      "status": "Failed",
+      "runId": "p2-qa-real",
+      "sourceFingerprint": "1fe7dcae3c2bb9c0c414838bdf281c78404de6817a57ff08ee09a51bfc3b48fb",
+      "evidencePath": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/e1ec5d1e-5396-42cd-a297-d78b97941567.json"
+    },
+    {
+      "scope": "interaction",
+      "id": "c2d24f54-8482-4194-9041-0dfd1a756f63",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-18T13:39:45.673Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document loaded and rendered body exists",
+          "actual": "City QA",
+          "status": "Verified"
+        },
+        {
+          "action": "layout",
+          "expected": "Interactive controls are not entirely outside horizontal viewport",
+          "actual": "No offscreen controls observed",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas input delivery",
+          "expected": "Real keyboard and pointer events arrive",
+          "actual": "{\"pointermove\":10,\"click\":2,\"keydown\":4,\"keyup\":4}",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Previously active RAF callbacks continue after camera/keyboard actions",
+          "actual": "53 → 66",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Previously active draw calls continue after interaction",
+          "actual": "702 → 871",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas finite values",
+          "expected": "No observed NaN/Infinity canvas draw arguments",
+          "actual": "0",
+          "status": "Verified"
+        },
+        {
+          "action": "click #inc",
+          "expected": "1",
+          "actual": "1",
+          "status": "Verified"
+        },
+        {
+          "action": "fill #message",
+          "expected": "QA input",
+          "actual": "QA input",
+          "status": "Verified"
+        },
+        {
+          "action": "click canvas",
+          "expected": "Application state changes after input",
+          "actual": "475 → 824",
+          "status": "Verified"
+        },
+        {
+          "action": "key w",
+          "expected": "Application state changes after input",
+          "actual": "824 → 829",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in optional window.__qaDiagnostics (bounded depth)",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No uncaught errors, console errors or unhandled rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "frame comparison",
+          "expected": "Record pixel change without inferring correctness",
+          "actual": "Captured pixels differ after interaction",
+          "status": "Verified"
+        }
+      ],
+      "errors": [],
+      "captures": [
+        {
+          "runId": "p2-qa-real",
+          "id": "3e856f04-e56a-46f6-bbf9-0111300f8bc9",
+          "path": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/3e856f04-e56a-46f6-bbf9-0111300f8bc9.png",
+          "sha256": "1e89cc97bbb55a66dd91bf95d7ba4c50ca847b808b071c33ef89c8b3c285f050",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-18T13:39:10.723Z",
+          "captureMs": 40.044479000003776,
+          "bytes": 13144
+        },
+        {
+          "runId": "p2-qa-real",
+          "id": "37e0c026-6ac2-4b0d-8e8c-7c4e628a770f",
+          "path": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/37e0c026-6ac2-4b0d-8e8c-7c4e628a770f.png",
+          "sha256": "be70747af2293259aa2d7b5a8815db3e4aabbe5abdf87695f9a9eb80704818e0",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-18T13:39:12.270Z",
+          "captureMs": 30.240292000002228,
+          "bytes": 14978
+        }
+      ],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The scene shows a 'City camera' interface with a bar chart and controls. Between the two frames, the numeric display changed from '00' to '1829', the text input field changed from empty to containing 'QA input', and the bar chart elements shifted slightly to the left. The overall layout and background remain consistent.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 33401.643239,
+        "promptTokens": 2410,
+        "completionTokens": 88
+      },
+      "elapsedMs": 34989.61974000001,
+      "status": "Verified",
+      "runId": "p2-qa-real",
+      "sourceFingerprint": "6c4c00b42e5aa061b035623c12641a5d7b87c7cad5580eeebed8018319de5cff",
+      "evidencePath": "/tmp/lad-p2-qwen-qa-scNmP5/cache/browser-captures/p2-qa-real/c2d24f54-8482-4194-9041-0dfd1a756f63.json"
+    }
+  ],
+  "errors": [],
+  "editCalls": [
+    "2u2nEbibb8gIJdg9qHOnNn8pGw8IP0ao"
+  ],
+  "pauseDuringVisionMs": 56.7988020000048,
+  "resumedCheckpoint": true,
+  "approvals": 2,
+  "metrics": {
+    "drafted": 1716,
+    "accepted": 1388,
+    "acceptanceRate": 0.8088578088578089,
+    "source": "llama-server metrics",
+    "scope": "server lifetime"
+  },
+  "gpu": "18709, 5410",
+  "result": "PASS",
+  "serverExited": true,
+  "rssKiB": 10837032
+}

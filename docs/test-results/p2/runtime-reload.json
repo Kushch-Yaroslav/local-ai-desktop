@@ -1,0 +1,81 @@
+{
+  "root": "/tmp/lad-p2-reload-3ewgYb",
+  "project": "/tmp/lad-p2-reload-workspace-lVL9vv",
+  "switches": [
+    {
+      "mode": "on",
+      "visionPolicy": "on",
+      "imageAnalyzed": true,
+      "effective": "mtp",
+      "pid": 41949,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17881, 6238",
+        "rssKiB": 4441284
+      },
+      "modeValidationMs": 26503.659459000002
+    },
+    {
+      "mode": "off",
+      "visionPolicy": "off",
+      "imageAnalyzed": false,
+      "effective": "none",
+      "pid": 42430,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17128, 6991",
+        "rssKiB": 3525496
+      },
+      "modeValidationMs": 24686.315950999997
+    },
+    {
+      "mode": "auto",
+      "visionPolicy": "auto",
+      "imageAnalyzed": true,
+      "effective": "mtp",
+      "pid": 42901,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17882, 6238",
+        "rssKiB": 4441712
+      },
+      "modeValidationMs": 25740.602911
+    },
+    {
+      "mode": "off",
+      "visionPolicy": "off",
+      "imageAnalyzed": false,
+      "effective": "none",
+      "pid": 43317,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17125, 6995",
+        "rssKiB": 3525472
+      },
+      "modeValidationMs": 25225.512831
+    }
+  ],
+  "errors": [],
+  "pauseMs": 41.73210200000176,
+  "resumed": true,
+  "result": "PASS",
+  "cleanup": [
+    {
+      "pid": 41949,
+      "alive": false
+    },
+    {
+      "pid": 42430,
+      "alive": false
+    },
+    {
+      "pid": 42901,
+      "alive": false
+    },
+    {
+      "pid": 43317,
+      "alive": false
+    }
+  ],
+  "timingNote": "modeValidationMs includes reload plus native/browser validation; not isolated reload latency"
+}

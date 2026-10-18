@@ -6,7 +6,7 @@ import { _electron as electron } from 'playwright-core';
 const root = await mkdtemp(join(tmpdir(), 'lad-context-electron-'));
 let application;
 const launch = async (environment = {}) => {
-  application = await electron.launch({ executablePath: resolve('node_modules/electron/dist/electron'), args: [resolve('test-fixtures/context-profiles/electron-main.cjs')], env: { ...process.env, LOCAL_AI_RUNTIME_ROOT: root, ...environment } });
+  application = await electron.launch({ executablePath: resolve(process.env.LOCAL_AI_TEST_ELECTRON ?? 'node_modules/electron/dist/electron'), args: [resolve('test-fixtures/context-profiles/electron-main.cjs')], env: { ...process.env, LOCAL_AI_RUNTIME_ROOT: root, ...environment } });
   const page = await application.firstWindow();
   await page.waitForFunction(() => ['f16','q8_0'].every(type=>/^\d+(?:\.\d+)?K$/.test(document.querySelector(`[data-kv-type=${type}] b`)?.textContent ?? '')));
   return page;
@@ -15,6 +15,7 @@ const selector = page => page.getByRole('combobox', { name: /^(Context|Конт�
 const choose = async (page,id) => { await selector(page).click(); await page.locator(`[role=option][data-context-id="${id}"]`).click(); };
 const choices = async page => { await selector(page).click(); const text=await page.getByRole('listbox').innerText(); await page.keyboard.press('Escape'); return text; };
 const state = async () => application.evaluate(() => global.contextFixture.state());
+const loadConfiguration = async page => { const reload=(await state()).status==='ready'; await page.getByRole('button',{name:/Load selected configuration|Загрузить выбранную конфигурацию/}).click(); if(reload) await page.getByRole('dialog').getByRole('button',{name:/Apply and reload|Применить и перезагрузить/}).click(); };
 try {
   let page = await launch();
   assert.match(await selector(page).innerText(), /72K \(FP16\)/);
@@ -47,7 +48,7 @@ try {
   assert.match(await loadSelected.getAttribute('class'),/primary/);
 
   await application.evaluate(()=>global.contextFixture.set({loadDelayMs:700}));
-  await page.getByRole('button', { name: /Load selected configuration|Загрузить выбранную конфигурацию/ }).click();
+  await loadConfiguration(page);
   await page.locator('.context-load[aria-busy=true]').waitFor();
   assert(await page.locator('.context-load').isDisabled());
 
@@ -123,7 +124,7 @@ try {
   page = await launch();
   assert.match(await choices(page), /108K \(Q8\)/, 'restart preserves requested context/KV');
   assert.equal((await state()).status, 'idle');
-  await page.getByRole('button', { name: /Load selected configuration|Загрузить выбранную конфигурацию/ }).click();
+  await loadConfiguration(page);
   await page.waitForFunction(() => document.querySelector('.context-active')?.textContent.includes('108K (Q8)'));
   await application.evaluate(() => global.contextFixture.set({ freshPair: true, nearBoundary: true, backgroundMiB: 1142 }));
   await page.getByRole('button', { name: /Find maximum context|Найти максимальный контекст/ }).click();
@@ -149,8 +150,9 @@ try {
   assert.match(await choices(page), /108K \(Q8\)/);
   await application.evaluate(() => global.contextFixture.set({ pressure: false, startupFailure: true }));
   await choose(page,'77824:f16:gpu');
-  await page.getByRole('button', { name: /Load selected configuration|Загрузить выбранную конфигурацию/ }).click();
+  await loadConfiguration(page);
   await page.waitForFunction(() => document.body.textContent.includes('fixture CUDA out of memory'));
+  await page.keyboard.press('Escape');
   assert.match(await selector(page).innerText(), /76K \(FP16\)/); assert.equal((await state()).contextWindow, 110592);
   await page.locator('.context-load-diagnostic > summary').click();
   assert.match(await page.locator('.context-requested').innerText(), /76K \(FP16\)/, 'failed requested tuple must remain visible separately from selected rollback');
@@ -161,7 +163,7 @@ try {
   assert.match(await choices(page), /108K \(Q8\)/);
   await application.evaluate(() => global.contextFixture.set({ discoveryFailure: false }));
   await choose(page,'77824:f16:gpu');
-  await page.getByRole('button', { name: /Load selected configuration|Загрузить выбранную конфигурацию/ }).click();
+  await loadConfiguration(page);
   await page.waitForFunction(() => document.querySelector('.context-active')?.textContent.includes('76K (FP16)'));
   assert.equal((await state()).kvCacheType, 'f16');
   assert.equal(await application.evaluate(() => global.contextFixture.db.listMessages(global.contextFixture.chat.id).length), 2);
