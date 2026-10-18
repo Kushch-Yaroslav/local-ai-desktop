@@ -93,6 +93,11 @@ impl LoopDetector {
         if changed {
             self.progress();
         }
+        // The browser's pre-execution guard already suppresses no-progress QA.
+        // A local QA blocker must not escalate into pausing the entire agent.
+        if name == "web_project" && result.get("code").and_then(Value::as_str) == Some("QA_NO_PROGRESS") {
+            return None;
+        }
         let unavailable_resource = matches!(
             result.get("code").and_then(Value::as_str),
             Some("HTTP_NOT_FOUND" | "AUTH_REQUIRED" | "RESOURCE_NOT_FOUND")

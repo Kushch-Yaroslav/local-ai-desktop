@@ -1882,15 +1882,14 @@ fn record_terminal_evidence(
 /// to the selected project's files.
 fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &Value, result: &Value) {
     state.browser_qa_used = true;
-    if matches!(result.get("code").and_then(Value::as_str), Some("QA_LIMIT" | "SCREENSHOT_LIMIT")) {
-        state.browser_qa_reviews = 3;
-        let failed = state.task_memory.browser_qa.as_ref().is_some_and(|qa| qa["status"] == "Failed");
-        let qa = state.task_memory.browser_qa.get_or_insert_with(|| json!({"checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));
-        qa["status"] = json!(if failed { "Failed" } else { "Not Verified" });
-        qa["reason"] = json!("Browser QA/screenshot budget exhausted; no automatic retries. Final status is limited to recorded evidence.");
+    if result.get("code").and_then(Value::as_str) == Some("QA_NO_PROGRESS") {
+        state.task_memory.browser_qa = result.get("qa").cloned().or_else(|| Some(json!({"status":"Blocked","reason":result.get("error"),"loop":result.get("loop")})));
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
+        state.browser_qa_reviewed_epoch = Some(state.task_memory.verification.epoch);
         return;
     }
+    // Explicit screenshot limits do not exhaust interaction QA or invalidate its evidence.
+    if result.get("code").and_then(Value::as_str) == Some("SCREENSHOT_LIMIT") { return; }
     if result.get("code").and_then(Value::as_str) == Some("PERMISSION_DENIED") {
         state.browser_qa_denied = true;
         state.task_memory.browser_qa = Some(json!({"status":"Blocked", "reason":"Explicit browser security decision; no automatic retry", "detail":result}));
@@ -4751,12 +4750,12 @@ fn review_tool_free_final(
         }
     }
     let qa_status = state.task_memory.browser_qa.as_ref().and_then(|qa| qa.get("status")).and_then(Value::as_str);
-    if state.browser_qa_enabled && (state.browser_qa_used || web_changed) && (qa_stale || qa_status == Some("Failed") || state.task_memory.browser_qa.as_ref().is_some_and(|qa| qa["scope"] == "capture")) && !state.browser_qa_denied && state.browser_qa_reviews < 3 {
+    if state.browser_qa_enabled && (state.browser_qa_used || web_changed)
+        && (qa_stale || qa_status == Some("Failed") || state.task_memory.browser_qa.as_ref().is_some_and(|qa| qa["scope"] == "capture"))
+        && !state.browser_qa_denied && state.browser_qa_reviewed_epoch != Some(state.task_memory.verification.epoch) {
         state.browser_qa_reviews += 1;
-        return FinalCandidateReview::VerificationPending(format!("Autonomous Browser QA review {}/3: call web_project action=qa on the current project (opens index.html if necessary). Supply checks with concrete expected text/value for relevant controls. For a JS/Canvas failure, use the evidence to fix the source and rerun qa after the edit. Preserve approvals; do not retry an explicit security deny. Screenshot paths and DOM snapshots alone are not visual verification. Current evidence: {}. If unavailable or the budget is exhausted, finish honestly as Failed, Blocked or Partially Verified; do not claim unperformed visual checks.", state.browser_qa_reviews, state.task_memory.browser_qa.as_ref().map(Value::to_string).unwrap_or_else(|| "Not Verified".into())));
-    }
-    if state.browser_qa_enabled && (state.browser_qa_used || web_changed) && qa_stale && state.browser_qa_reviews >= 3 && !state.browser_qa_denied {
-        state.task_memory.browser_qa = Some(json!({"status":"Not Verified", "reason":"QA budget exhausted without fresh evidence for the final changes", "checks":[], "visual":{"analyzed":false,"status":"Not Verified"}}));
+        state.browser_qa_reviewed_epoch = Some(state.task_memory.verification.epoch);
+        return FinalCandidateReview::VerificationPending(format!("Autonomous Browser QA: verify the current source revision with web_project action=qa and concrete application-state expectations. There is no lifetime repair/check count limit: after a real edit, fix and retest as needed. Unchanged repeated scenarios are protected by progress-aware loop detection. Use actual key/keydown/keyup/hold for Canvas input, never fill(body), hidden inputs or a terminal browser workaround. Preserve approvals and prior evidence; do not retry explicit security denies. Current evidence: {}. If blocked, continue useful non-QA work and finish honestly with the remaining Failed, Blocked or Partially Verified checks.", state.task_memory.browser_qa.as_ref().map(Value::to_string).unwrap_or_else(|| "Not Verified".into())));
     }
     if let Some(gap) = verification_gap(state) {
         let failure = state
@@ -5985,7 +5984,7 @@ pub fn run(mut config: Config) {
                 transcript.tool_result(&tool.id, &tool.name, message); continue;
             }
             let failure_fingerprint = tool_call_fingerprint(tool);
-            if !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint) {
+            if !(tool.name == "web_project" && tool.arguments["action"] == "qa") && !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint) {
                 let message = "This identical tool call has a deterministic failure or has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
                 emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string() });
                 transcript.tool_result(&tool.id, &tool.name, json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string());
@@ -6158,7 +6157,8 @@ pub fn run(mut config: Config) {
                     let deterministic = serde_json::from_str::<Value>(&stored_error).ok().is_some_and(|error| error.get("retrySameArguments") == Some(&Value::Bool(false)) || error.get("stage").and_then(Value::as_str)==Some("validation"));
                     if mutation_tool(&tool.name) && deterministic { state.failed_tool_calls.insert(failure_fingerprint.clone(), 2); }
                     if tool.name == "run_terminal" || crate::tools::web::is_host_tool(&tool.name) {
-                        if deterministic { if tool.name!="create_visual_artifact" {state.failed_tool_calls.insert(failure_fingerprint.clone(), 2);} }
+                        if tool.name == "web_project" && tool.arguments["action"] == "qa" { state.failed_tool_calls.remove(&failure_fingerprint); }
+                        else if deterministic { if tool.name!="create_visual_artifact" {state.failed_tool_calls.insert(failure_fingerprint.clone(), 2);} }
                         else { state.failed_tool_calls.remove(&failure_fingerprint); }
                     }
                     // A failed terminal keeps its structured execution so the
@@ -6421,20 +6421,23 @@ mod tests {
     }
 
     #[test]
-    fn browser_qa_gate_requires_fresh_evidence_and_is_bounded() {
+    fn browser_qa_gate_is_progress_bound_not_a_lifetime_check_limit() {
         let mut state = AgentState::default(); state.browser_qa_enabled = true; state.browser_qa_used = true;
         let mut transcript = Transcript::default(); let ledger = Ledger::default();
-        for _ in 0..3 { assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_))); }
+        // Any number of changed revisions can earn a fresh check; unchanged
+        // final drafts do not cause an endless completion reminder loop.
+        for epoch in 0..10 {
+            state.task_memory.verification.epoch = epoch;
+            assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)));
+            assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
+        }
+        assert_eq!(state.browser_qa_reviews, 10);
+        state.browser_qa_at_epoch=Some(9); state.task_memory.browser_qa=Some(json!({"status":"Verified"}));
         assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
-        assert_eq!(state.task_memory.browser_qa.as_ref().unwrap()["status"], "Not Verified");
-        state.browser_qa_reviews=0; state.browser_qa_at_epoch=Some(0); state.task_memory.browser_qa=Some(json!({"status":"Verified"}));
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
-        state.mutations=1; state.task_memory.verification.epoch=1;
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)));
         state.task_memory.browser_qa=Some(json!({"status":"Blocked"})); state.browser_qa_denied=true;
         assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
-        state.browser_qa_denied=false; state.browser_qa_at_epoch=None;
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)), "a new run may obtain fresh approval rather than inheriting a stale denied session");
+        state.browser_qa_denied=false; state.browser_qa_at_epoch=None; state.browser_qa_reviewed_epoch=None;
+        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { installQaInstrumentation, qaSteps, runBrowserQa, screenshotHash } from './browser-qa';
+import { installQaInstrumentation, qaSteps, runBrowserQa, screenshotHash, keyboardActions, keyboardStep } from './browser-qa';
 import type { BrowserCapture, BrowserQaReport, BrowserQaStatus, BrowserVisualResult } from '../../shared/browser-qa';
 import { ProjectFileWatcher } from './project-file-watcher';
 import { constants } from 'node:fs';
@@ -13,20 +13,24 @@ import { launchWebBrowser } from './web-tools';
 import type { BrowserInput } from '../../shared/live-browser';
 import type { ProjectBrowserObserver } from './live-browser';
 import type { NativeProjectPage } from './native-project-page';
+import { QaLoopGuard, projectRevision } from './qa-loop-guard';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Supply checks with explicit expected text/value to establish handling, not just input delivery. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Supply checks with explicit expected text/value to establish handling, not just input delivery. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: {
-    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa'] },
+    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
     selector: { type: 'string', description: 'CSS selector for click or fill.' },
+    key: {type:'string',description:'Real keyboard key/combination, e.g. w, Shift+w, q, e. Never use fill(body) for keyboard testing.'},
+    duration_ms: {type:'integer',minimum:0,maximum:2000,description:'Hold duration; default 300 ms.'},
+    repeat: {type:'integer',minimum:1,maximum:8},
     wait_ms: { type: 'integer', minimum: 0, maximum: 2000, description: 'Optional bounded settling delay before reading or capturing; default 100 ms.' },
     value: { type: 'string', maxLength: 4000, description: 'Text for fill; never a file upload.' },
     delta_y: { type: 'integer', minimum: -2000, maximum: 2000, description: 'Vertical wheel distance for scroll.' },
     clip: { type: 'object', properties: { x: {type:'number'}, y:{type:'number'}, width:{type:'number'}, height:{type:'number'} }, required:['x','y','width','height'], additionalProperties:false },
-    checks: { type:'array', maxItems:8, items:{type:'object',properties:{ action:{type:'string',enum:['click','fill','key','scroll']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean',description:'Expected text state changes after the action; true proves handling, not just delivery.'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false} },
+    checks: { type:'array', maxItems:8, items:{type:'object',properties:{ action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean',description:'Expected text state changes after the action; true proves handling, not just delivery.'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false} },
     project: { type: 'integer', enum: [1, 2] },
   }, required: ['action'], additionalProperties: false },
 } };
@@ -86,7 +90,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { runId?: string; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
@@ -100,8 +104,10 @@ export class ProjectBrowserSession {
   private readonly abort = new AbortController();
   private readonly errors: string[] = [];
   private readonly blocked: string[] = [];
+  private networkBudget = { requests:0, bytes:0, started:Date.now() };
   private captures = 0;
-  private qaRuns = 0;
+  private readonly fallbackGuard = new QaLoopGuard();
+  private get qaGuard() { return this.qaOptions.guard ?? this.fallbackGuard; }
   private ownership: 'agent' | 'user' | 'paused' = 'agent';
   private authorized = false;
   private denied?: string;
@@ -109,7 +115,8 @@ export class ProjectBrowserSession {
   private queuedInputs = 0;
   get reusable() { return !this.closed && Boolean(this.page && !this.page.isClosed()); }
   beginRun(observer: ProjectBrowserObserver, qaOptions: ProjectQaOptions = {}) {
-    this.qaOptions = qaOptions; this.qaRuns = 0;
+    this.qaOptions = qaOptions;
+    if (!qaOptions.guard) this.fallbackGuard.rearm();
     this.ownership = 'agent'; this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
     if (this.page) this.bindObserver();
   }
@@ -213,8 +220,9 @@ export class ProjectBrowserSession {
   }
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
+      this.networkBudget = { requests:0, bytes:0, started:Date.now() };
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
-      await this.releaseInput();
+      if (!keyboardActions.has(String(args.action))) await this.releaseInput();
       if (args.action === 'qa' && !this.page && !this.denied) {
         const opened = await this.executePage({action:'open', ...(args.path ? {path:args.path} : {}), ...(args.url ? {url:args.url} : {})}, signal, confirm, actionId);
         if (opened && typeof opened === 'object' && 'error' in opened) return opened;
@@ -239,6 +247,7 @@ export class ProjectBrowserSession {
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), staticOrigin);
         if (url.origin !== staticOrigin && args.url === undefined) throw new Error('Invalid project path');
         if (this.origin && this.origin !== url.origin) throw new Error('Preview is scoped to its initial origin for this run');
+        const newPage = !this.origin;
         if (!this.origin) {
           this.origin = url.origin;
           this.observer?.state('loading', url.href);
@@ -248,6 +257,7 @@ export class ProjectBrowserSession {
         this.observer?.state('loading', url.href);
         const response = await this.page!.goto(url.href, { waitUntil: 'load' });
         if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
+        if (newPage) this.qaGuard.reopened(await this.qaState());
         this.observer?.action({ kind: 'navigate', at: Date.now() });
       } else {
         if (!this.page) throw new Error('Use web_project action=open first');
@@ -258,6 +268,7 @@ export class ProjectBrowserSession {
           const box = await target.boundingBox();
           if (args.action === 'click') await target.click();
           else {
+            if (!await target.evaluate(element => element.matches('input:not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]),textarea') || (element as HTMLElement).isContentEditable === true)) return {error:'fill requires an editable input, textarea or contenteditable element. For Canvas use key, keydown, keyup or hold; never add hidden inputs to simulate keyboard.',code:'NOT_EDITABLE',retrySameArguments:false};
             if (typeof args.value !== 'string' || args.value.length > 4000) throw new Error('fill requires value of at most 4000 characters');
             await target.fill(args.value);
           }
@@ -273,22 +284,35 @@ export class ProjectBrowserSession {
           else { this.errors.length = 0; this.blocked.length = 0; await this.page.reload({ waitUntil: 'load' }); }
           this.observer?.action({ kind: String(args.action), at: Date.now() });
         }
-        else if (args.action === 'qa') {
+        else if (keyboardActions.has(String(args.action))) {
+          const [step] = qaSteps([{action:args.action,key:args.key,duration_ms:args.duration_ms,repeat:args.repeat}]);
+          await keyboardStep(this.page, step, this.heldKeys);
+        } else if (args.action === 'qa') {
           let steps; try { steps=qaSteps(args.checks); } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
-          if (++this.qaRuns > 3) return { error: 'QA repair budget reached (3 runs)', code: 'QA_LIMIT', retrySameArguments: false };
+          const revision = await projectRevision(this.root, [this.captureDirectory]);
+          const key = this.qaGuard.key(revision, this.page.url(), steps, await this.qaState(), this.qaOptions.runtimeIdentity);
+          const blocked = this.qaGuard.before(key);
+          if (blocked) {
+            const qa: BrowserQaReport = { scope:'interaction', id:randomUUID(), runId:this.qaOptions.runId, status:'Blocked', url:this.page.url(), capturedAt:new Date().toISOString(), checks:[], errors:[], captures:[], visual:{analyzed:false,status:'Not Verified',reason:'No new image analysis; previous evidence retained'}, elapsedMs:0, reason:blocked.error, revisionFingerprint:revision, loop:blocked.loop };
+            await this.saveQa(qa); this.qaOptions.status?.({phase:'complete',report:qa});
+            return { ...blocked, qa };
+          }
           this.errors.length = 0; this.blocked.length = 0;
           await this.page.reload({ waitUntil: 'load' });
-          const qa = await runBrowserQa({ page: this.page, signal: this.qaOptions.signal ? AbortSignal.any([signal, this.qaOptions.signal]) : signal, steps, errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, signal), analyze: this.qaOptions.analyze ? (capture, before) => this.qaOptions.analyze!(capture, signal, before) : undefined, status: this.qaOptions.status });
-          qa.runId = this.qaOptions.runId;
+          const qaSignal = AbortSignal.any([signal, AbortSignal.timeout(90000), ...(this.qaOptions.signal ? [this.qaOptions.signal] : [])]);
+          const qa = await runBrowserQa({ page: this.page, signal: qaSignal, steps, errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, qaSignal), analyze: this.qaOptions.analyze ? (capture, before) => this.qaOptions.analyze!(capture, qaSignal, before) : undefined, status: this.qaOptions.status });
+          qa.runId = this.qaOptions.runId; qa.revisionFingerprint = revision;
           const source = await this.read();
           if (source.source_path) { const bytes = await readPreviewAsset(this.root, new URL(this.page.url()).pathname); qa.sourceFingerprint = screenshotHash(bytes.body); }
-          await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });
-          qa.evidencePath = join(this.captureDirectory, `${qa.id}.json`); await writeFile(qa.evidencePath, JSON.stringify(qa, null, 2), { flag: 'wx', mode: 0o600 });
+          await this.saveQa(qa);
+          this.qaGuard.record(key, qa, await this.qaState());
           return { ...source, qa, visual_analysis: qa.visual.analyzed };
         } else if (args.action === 'screenshot') {
+          if (this.captures >= 8) throw new Error('Screenshot limit reached (8 explicit screenshots per run; QA captures are independent)');
           this.qaOptions.status?.({phase:'capturing'});
           await this.page.waitForTimeout(Number(waitMs));
           const capture = await this.capture(args, signal);
+          this.captures++;
           if (this.qaOptions.analyze) this.qaOptions.status?.({phase:'analyzing'});
           const visual: BrowserVisualResult = this.qaOptions.analyze ? await this.qaOptions.analyze(capture, signal) : { analyzed: false, status: 'Not Verified', reason: 'Browser Vision Off' };
           const qa: BrowserQaReport = { scope:'capture', id:randomUUID(), runId:this.qaOptions.runId, status:visual.analyzed?'Partially Verified':'Not Verified', url:capture.url, capturedAt:capture.capturedAt, checks:[], errors:[...this.errors], captures:[capture], visual, elapsedMs: capture.captureMs!+(visual.latencyMs??0), reason:'Single captured image; no interaction verification in this action' };
@@ -311,7 +335,6 @@ export class ProjectBrowserSession {
   }
   private async capture(args: Record<string, unknown>, signal: AbortSignal): Promise<BrowserCapture> {
     const captureStarted = performance.now();
-    if (this.captures >= 8) throw new Error('Screenshot limit reached (8 per run)');
     if (!this.page || signal.aborted || this.closed) throw new Error('Capture cancelled');
     const page = this.page, viewport = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
     let region = { x: 0, y: 0, ...viewport };
@@ -320,7 +343,6 @@ export class ProjectBrowserSession {
       const box = await page.locator(args.selector).first().boundingBox(); if (!box) throw new Error('Screenshot element is not visible'); region = box;
     } else if (args.clip !== undefined) region = args.clip as typeof region;
     if (!region || ![region.x, region.y, region.width, region.height].every(Number.isFinite) || region.x < 0 || region.y < 0 || region.width < 1 || region.height < 1 || region.x + region.width > viewport.width || region.y + region.height > viewport.height) throw new Error('Screenshot region must fit the current viewport');
-    this.captures++;
     let bytes = await page.screenshot({ type: 'png', clip: region, scale: 'css', timeout: 10000 });
     if (this.native && region.width * region.height > 1280*900) {
       const { nativeImage } = await import('electron');
@@ -334,6 +356,14 @@ export class ProjectBrowserSession {
     await writeFile(path, bytes, { flag: 'wx', mode: 0o600 });
     return { ...(this.qaOptions.runId ? {runId:this.qaOptions.runId} : {}), id, path, sha256: screenshotHash(bytes), width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), viewport, region, ...(typeof args.selector === 'string' ? { selector: args.selector } : {}), url: page.url(), capturedAt: new Date().toISOString(), captureMs: performance.now()-captureStarted, bytes: bytes.length };
   }
+  private async saveQa(qa: BrowserQaReport) {
+    await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });
+    qa.evidencePath = join(this.captureDirectory, `${qa.id}.json`);
+    await writeFile(qa.evidencePath, JSON.stringify(qa, null, 2), { flag:'wx', mode:0o600 });
+  }
+  private async qaState() {
+    return this.page!.evaluate(() => ({ url:location.href, viewport:{width:innerWidth,height:innerHeight}, scroll:{x:scrollX,y:scrollY}, focus:document.activeElement?.id || document.activeElement?.tagName, text:document.body.innerText.slice(0,8000), fields:Array.from(document.querySelectorAll('input:not([type=file]),textarea,select')).slice(0,40).map(element => ({ id:element.id, value:(element as HTMLInputElement).value })), diagnostics:JSON.stringify((window as unknown as {__qaDiagnostics?:unknown}).__qaDiagnostics)?.slice(0,4000) }));
+  }
   private async start() {
     this.native = await this.observer?.createPage?.(this.origin!);
     this.browser = this.native?.browser ?? await this.launch();
@@ -342,17 +372,17 @@ export class ProjectBrowserSession {
     await this.context.clearPermissions();
     await this.context.addInitScript(() => { Object.defineProperty(window, 'RTCPeerConnection', { value: undefined, configurable: false }); Object.defineProperty(navigator, 'serviceWorker', {value:undefined,configurable:false}); });
     await this.context.routeWebSocket('**/*', socket => socket.close());
-    let requests = 0; let totalBytes = 0;
     await this.context.route('**/*', async route => {
       const req = route.request();
       try {
         const url = new URL(req.url());
-        if (url.origin !== this.origin || url.username || url.password || req.method() !== 'GET' || ++requests > 256 || totalBytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or budget');
+        if (Date.now()-this.networkBudget.started > 30000) this.networkBudget = { requests:0, bytes:0, started:Date.now() };
+        if (url.origin !== this.origin || url.username || url.password || req.method() !== 'GET' || ++this.networkBudget.requests > 256 || this.networkBudget.bytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or per-operation/30-second request budget');
         if (this.origin === staticOrigin) {
-          const asset = await readPreviewAsset(this.root, url.pathname); totalBytes += asset.body.length;
+          const asset = await readPreviewAsset(this.root, url.pathname); this.networkBudget.bytes += asset.body.length;
           await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff', 'x-dns-prefetch-control':'off', 'content-security-policy': previewCsp } });
         } else {
-          const response = await fetchLoopback(url, this.abort.signal); totalBytes += response.body.length;
+          const response = await fetchLoopback(url, this.abort.signal); this.networkBudget.bytes += response.body.length;
           this.detectServerReload(url.pathname, response.body, Boolean(response.headers['content-type']?.includes('text/html')));
           await route.fulfill({ ...response, headers: { ...response.headers, 'x-dns-prefetch-control':'off', 'content-security-policy': [response.headers['content-security-policy'], previewCsp].filter(Boolean).join(', ') } });
         }

@@ -44,6 +44,7 @@ pub struct AgentState {
     pub browser_qa_denied: bool,
     pub browser_qa_at_epoch: Option<u64>,
     pub browser_qa_reviews: usize,
+    pub browser_qa_reviewed_epoch: Option<u64>,
     /// The project's own test command, looked up in Deep runs only.
     pub project_test_command: Option<String>,
     /// The single reminder about unopened requested local files was already

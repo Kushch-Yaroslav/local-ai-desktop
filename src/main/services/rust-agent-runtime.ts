@@ -3,6 +3,7 @@ import { BrowserVisionProvider } from './browser-vision';
 import type { BrowserQaStatus } from '../../shared/browser-qa';
 import type { ProjectBrowserObserver } from '../web/live-browser';
 import { ProjectBrowserSession, projectBrowserTool } from '../web/project-browser';
+import { QaLoopGuard } from '../web/qa-loop-guard';
 import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
 import { randomUUID } from 'node:crypto';
@@ -152,6 +153,7 @@ export function taskPlan(value: unknown): AgentPlan {
 /** Electron bridge for the Rust runtime. It passes each content delta through
  * immediately; `final` is metadata, not a delayed text transport. */
 export class RustAgentRuntime {
+  private readonly qaGuards = new Map<string, QaLoopGuard>();
   private readonly previews = new Map<string, { root: string; session: ProjectBrowserSession }>();
   private readonly controls = new Map<string, (payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string; reasoning?: { mode: ReasoningMode; options: Record<string, Record<string, unknown>>; selection: import('../../shared/conversation-settings').EffectiveModeState } }) => Promise<void>>();
   hasRun(runId: string): boolean { return this.controls.has(runId); }
@@ -199,8 +201,13 @@ export class RustAgentRuntime {
     const qaPause = new AbortController();
     const browserConfig = loadRuntimeConfiguration();
     const vision = browserConfig.browserVision && browserConfig.browserVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model) : undefined;
+    const qaKey = JSON.stringify([conversationId, logicalTaskId, projects.map(project => project.root)]);
+    const guard = this.qaGuards.get(qaKey) ?? new QaLoopGuard();
+    // Only an explicit user run/continuation resets QA observations, never a browser reopen.
+    guard.rearm(); this.qaGuards.delete(qaKey); this.qaGuards.set(qaKey, guard);
+    while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { runId, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
+    const qaOptions = { runId, guard, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -224,7 +231,8 @@ export class RustAgentRuntime {
     const previewKey = browserObserver?.ownerId !== undefined && conversationId ? JSON.stringify([browserObserver.ownerId, conversationId]) : undefined;
     let previewProject: string | undefined;
     const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(!signal.aborted), session?.then(browser => browser.close(), () => undefined)]); };
-    signal.addEventListener('abort', closeWeb, { once: true });
+    const abortWeb = () => { void session?.then(browser => browser.close(), () => undefined); };
+    signal.addEventListener('abort', abortWeb, { once: true });
     let stopped = false;
     const stop = () => {
       if (stopped || !child.stdin.writable) return;
@@ -255,6 +263,7 @@ export class RustAgentRuntime {
     let compactions = 0;
     let statusCount = 0;
     let terminalFinal = false;
+    let terminalPaused = false;
     let terminalFailure = false;
     let terminalStopped = false;
     let terminalFinishReason: 'stop' | 'length' = 'stop';
@@ -366,7 +375,7 @@ export class RustAgentRuntime {
         else if (event.type === 'steering_applied') {
           yield { type: 'steering', userMessage: { id: '', conversationId: conversationId ?? '', role: 'user', content: event.content ?? '', createdAt: new Date().toISOString() }, status: 'applied' };
         }
-        else if (event.type === 'run_paused') yield { type: 'paused' };
+        else if (event.type === 'run_paused') { terminalPaused = true; await projectBrowser?.pauseRun(); yield { type: 'paused' }; }
         else if (event.type === 'thinking_delta') yield { type: 'thinking', content: event.content ?? '' };
         else if (event.type === 'turn_started') { yield { type: 'model-state', state: 'waiting' }; yield { type: 'agent-telemetry', telemetry: { turn: event.index ?? 0 } }; }
         else if (event.type === 'work_budget' && event.budget) yield { type: 'work-budget', budget: event.budget };
@@ -441,10 +450,10 @@ export class RustAgentRuntime {
         }
       }
       if (!signal.aborted && terminalFinal) yield { type: 'done', finishReason: terminalFinishReason };
-      else if (!signal.aborted && !terminalFailure && !terminalStopped) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
+      else if (!signal.aborted && !terminalFailure && !terminalStopped && !terminalPaused) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
     } finally {
-      if (!signal.aborted && terminalFinal && browserObserver && previewKey && projectBrowser?.reusable) {
-        await projectBrowser.finishRun().catch(() => projectBrowser?.close());
+      if ((terminalFinal || terminalPaused || terminalStopped || signal.aborted) && browserObserver && previewKey && projectBrowser?.reusable) {
+        await (terminalPaused ? projectBrowser.pauseRun() : projectBrowser.finishRun(!signal.aborted && terminalFinal)).catch(() => projectBrowser?.close());
         if (projectBrowser.reusable) {
           this.previews.delete(previewKey);
           this.previews.set(previewKey, { root: projects.find(p => p.id === previewProject)!.root, session: projectBrowser });
@@ -452,7 +461,7 @@ export class RustAgentRuntime {
         }
         await session?.then(browser => browser.close(), () => undefined);
       } else await closeWeb();
-      signal.removeEventListener('abort', closeWeb);
+      signal.removeEventListener('abort', abortWeb);
       this.steering.delete(runId);
       this.controls.delete(runId);
       lines.removeListener('line', acknowledgeControl);
