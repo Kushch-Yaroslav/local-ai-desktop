@@ -34,3 +34,6 @@ rust-agent/target/
 
 # Reproducible real-model MTP benchmark output
 /artifacts/p1-mtp/
+
+# P2 screenshots and inference traces
+/artifacts/p2/
