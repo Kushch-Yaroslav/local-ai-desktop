@@ -706,7 +706,7 @@ export function registerIpc(): void {
   // are checked on initialization and when model settings are opened/saved.
   const mtpStatus = async (modelId: string): Promise<MtpStatus> => {
     const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
-    if (!model) throw new Error('Unknown model');
+    if (!model) throw new Error(t('Неизвестная модель.'));
     const capability = await mtpCapability(model.modelPath, config.llamaServerPath);
     const state = await currentLlamaRuntime();
     const requested = model.mtpMode ?? (model.speculative === 'none' ? 'off' : 'auto');
@@ -731,8 +731,8 @@ export function registerIpc(): void {
     return { mode, autonomous: config.autonomousBrowserQa === true, available, pending, reason };
   });
   ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean) => {
-    if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw new Error('Explicit Browser Vision configuration confirmation required');
-    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error('Wait for completion or Stop. Browser Vision never stops generation automatically.');
+    if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw new Error(t('Подтвердите применение настроек Browser Vision.'));
+    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error(t('Дождитесь завершения ответа или остановите задачу. Browser Vision не останавливает генерацию автоматически.'));
     runtimeSelectionBusy = true;
     try {
       const config = effectiveRuntimeConfiguration();
@@ -741,11 +741,11 @@ export function registerIpc(): void {
         // Browser Vision is a persisted preference and may be selected before
         // any model is loaded. Capability is enforced at the model-load boundary.
         if (current.status === 'ready') {
-          if (!profile?.vision || !profile.mmprojPath) throw new Error('The loaded model does not have compatible local image projector weights. Browser Vision was not changed.');
-          if (current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error('This loaded model does not support Browser Vision together with active MTP. MTP was preserved and Browser Vision was not changed.');
+          if (!profile?.vision || !profile.mmprojPath) throw new Error(t('У загруженной модели нет совместимых локальных весов projector. Browser Vision не изменён.'));
+          if (current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error(t('Эта модель не поддерживает Browser Vision с активным MTP. MTP сохранён, Browser Vision не изменён.'));
           const result = await llamaRuntime.switchTo(current.modelId!, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice ?? config.imageProcessingDevice ?? 'cpu', current.mtpMode);
           if (!result.ok) throw new Error(result.error);
-          if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error('The reloaded backend did not confirm image support. Browser Vision was not changed.');
+          if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error(t('После перезагрузки сервер не подтвердил поддержку изображений. Browser Vision не изменён.'));
         }
       }
       saveRuntimeConfiguration({ ...effectiveRuntimeConfiguration(), browserVision: mode, autonomousBrowserQa: autonomous });
@@ -754,12 +754,12 @@ export function registerIpc(): void {
   });
   ipcMain.handle('mtp:status', (_event, modelId: string) => mtpStatus(modelId));
   ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean) => {
-    if (!['auto', 'on', 'off'].includes(mode) || confirmed !== true) throw new Error('Explicit MTP reload confirmation required');
+    if (!['auto', 'on', 'off'].includes(mode) || confirmed !== true) throw new Error(t('Подтвердите применение настроек MTP.'));
     if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error('Дождитесь завершения ответа или остановите задачу. MTP не прерывает генерацию автоматически.');
     runtimeSelectionBusy = true;
     try {
       const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
-      if (!model) throw new Error('Unknown model');
+      if (!model) throw new Error(t('Неизвестная модель.'));
       await resolveMtpMode(mode, model.modelPath, config.llamaServerPath);
       const current = await llamaRuntime.state();
       if (current.status === 'ready' && current.modelId === modelId) {

@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../../shared/locale';
 import { useLocale } from '../use-locale';
 import type { ContextDiscoveryOption } from '../../shared/context-estimator';
+import { ControlHelp } from './ControlHelp';
 
 export function MaximumContextPopover({ options, supportedContext, vram }: {
   options: ContextDiscoveryOption[];
@@ -41,7 +42,7 @@ export function MaximumContextPopover({ options, supportedContext, vram }: {
     return () => { window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);document.removeEventListener('pointerdown',closeOutside); };
   },[open,options,supportedContext,vram]);
   const gb=(bytes:number)=>(bytes/1024**3).toFixed(1);
-  return <details className="context-estimate" ref={container} open={open} onToggle={event=>setOpen(event.currentTarget.open)}
+  return <div className="control-help-field context-estimate-wrap"><details className="context-estimate" ref={container} open={open} onToggle={event=>setOpen(event.currentTarget.open)}
     onKeyDown={event=>{if(event.key==='Escape'){setOpen(false);summary.current?.focus();}}}>
     <summary ref={summary}>{t('Максимальный контекст')}</summary>
     <div className="context-estimate-details" ref={panel} style={{...layout,visibility:open && layout?'visible':'hidden'}}>
@@ -61,5 +62,5 @@ export function MaximumContextPopover({ options, supportedContext, vram }: {
       </section>
       <p className="context-supported-limit"><span>{t('Предел выбранной модели/backend')}</span><b>{supportedContext?`${supportedContext/1024}K`:t('неизвестен')}</b></p>
     </div>
-  </details>;
+  </details><ControlHelp label={t('Контекст')}>{t('Показывает измерения для KV-кэша FP16 и Q8. FP16 занимает больше памяти, Q8 — меньше. Память GPU показывается, если приложение может её измерить.')}</ControlHelp></div>;
 }

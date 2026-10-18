@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { BrowserFrame, LiveBrowserState, BrowserInput } from '../../shared/live-browser';
+import { t } from '../../shared/locale';
 import { useLocale } from '../use-locale';
+import { ControlHelp } from './ControlHelp';
 
 type Mode = 'split' | 'expanded' | 'chat';
 export function LiveBrowserWorkspace({ conversationId, children }: { conversationId: string | null; children: ReactNode }) {
-  const language = useLocale();
-  const ru = language === 'ru';
+  useLocale();
   const choices = useRef(new Map<string, Mode>());
   const [mode, setMode] = useState<Mode>('chat');
   const [browser, setBrowser] = useState<LiveBrowserState | null>(null);
@@ -84,23 +85,23 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
     return { x: Math.max(0, Math.min(1280, (event.clientX - rect.left) * 1280 / rect.width)), y: Math.max(0, Math.min(900, (event.clientY - rect.top) * 900 / rect.height)) };
   };
   const status = browser?.status;
-  const statusText = status === 'loading' ? (ru ? 'Загрузка' : 'Loading') : status === 'live' ? (ru ? 'Подключён' : 'Connected') : status === 'error' ? (ru ? 'Ошибка' : 'Error') : (ru ? 'Последний кадр' : 'Last frame');
+  const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Последний кадр');
   const action = browser?.action;
   return <div ref={root} className={`live-workspace mode-${mode} ${narrow ? 'is-narrow' : ''}`} style={{ '--chat-share': `${ratio}%` } as CSSProperties}>
-    <div className="live-chat">{browser && mode === 'chat' && <button className="live-reopen" onClick={() => changeMode('split')}><Globe size={15} />Live Browser<span>{statusText}</span></button>}{children}</div>
-    {mode === 'split' && <div className="live-divider" role="separator" aria-label={ru ? 'Размер панелей' : 'Panel size'} aria-orientation="vertical" aria-valuemin={25} aria-valuemax={75} aria-valuenow={Math.round(ratio)} tabIndex={0}
+    <div className="live-chat">{browser && mode === 'chat' && <button className="live-reopen" onClick={() => changeMode('split')}><Globe size={15} />{t('Живой браузер')}<span>{statusText}</span></button>}{children}</div>
+    {mode === 'split' && <div className="live-divider" role="separator" aria-label={t('Размер панелей')} aria-orientation="vertical" aria-valuemin={25} aria-valuemax={75} aria-valuenow={Math.round(ratio)} tabIndex={0}
       onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setRatio(value => Math.max(25, Math.min(75, value + (event.key === 'ArrowLeft' ? -3 : 3)))); } }}
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
       onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId) || !root.current) return; const rect = root.current.getBoundingClientRect(); setRatio(Math.max(25, Math.min(75, 100 * (event.clientX - rect.left) / rect.width))); }}
       onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />}
-    <aside className="live-browser" aria-label="Live Browser" aria-hidden={mode === 'chat'}>
-      <header className="live-header"><span className="live-title"><Globe size={16} />Live Browser</span><div className="live-view-controls">
-        <button className={mode === 'split' ? 'selected' : ''} title="Split View" aria-label="Split View" onClick={() => changeMode('split')}><Columns2 size={15} /></button>
-        <button className={mode === 'expanded' ? 'selected' : ''} title="Browser Expanded" aria-label="Browser Expanded" onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
-        <button title="Chat Only" aria-label="Chat Only" onClick={() => changeMode('chat')}><MessageSquare size={15} /></button>
-        <button title="Close Browser" aria-label="Close Browser" onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
+    <aside className="live-browser" aria-label={t('Живой браузер')} aria-hidden={mode === 'chat'}>
+      <header className="live-header"><span className="live-title"><Globe size={16} />{t('Живой браузер')}</span><div className="live-view-controls">
+        <button className={mode === 'split' ? 'selected' : ''} title={t('Разделённый вид')} aria-label={t('Разделённый вид')} onClick={() => changeMode('split')}><Columns2 size={15} /></button>
+        <button className={mode === 'expanded' ? 'selected' : ''} title={t('Браузер на весь экран')} aria-label={t('Браузер на весь экран')} onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
+        <button title={t('Только чат')} aria-label={t('Только чат')} onClick={() => changeMode('chat')}><MessageSquare size={15} /></button>
+        <button title={t('Закрыть браузер')} aria-label={t('Закрыть браузер')} onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
       </div></header>
-      <div className="live-address"><button disabled={!interactive} title="Back" onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title="Forward" onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title="Refresh" onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || (ru ? 'Ожидание страницы' : 'Waiting for a page')}</span></div>
+      <div className="live-address"><button disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title={t('Обновить')} aria-label={t('Обновить')} onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || t('Ожидание страницы')}</span></div>
       <div ref={screen} className="live-screen"><div className="live-viewport" style={{ width: screenWidth }}><canvas ref={canvas} width={1280} height={900} tabIndex={interactive ? 0 : -1} style={{ cursor: interactive ? 'auto' : 'default', touchAction: 'none' }}
           onPointerDown={event => { if (!interactive) return; event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); input({ kind: 'pointer', phase: 'down', ...point(event) }); }}
           onPointerUp={event => { if (!interactive) return; input({ kind: 'pointer', phase: 'up', ...point(event) }); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
@@ -111,12 +112,13 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
           onKeyDown={event => { if (interactive && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); input({ kind: 'key', phase: 'down', key: event.key }); } }}
           onKeyUp={event => { if (interactive) { event.preventDefault(); input({ kind: 'key', phase: 'up', key: event.key }); } }}
           onPaste={event => { if (interactive) { event.preventDefault(); input({ kind: 'text', text: event.clipboardData.getData('text').slice(0, 4000) }); } }}
-          aria-label={ru ? 'Страница браузера агента' : 'Agent browser page'} />
+          aria-label={t('Страница браузера агента')} />
         {action && action.x !== undefined && action.y !== undefined && <span key={`${browser?.sessionId}:${action.at}`} className={`live-action action-${action.kind}`} style={{ left: `${100 * action.x / 1280}%`, top: `${100 * action.y / 900}%` }} />}
-      </div>{!browser && <div className="live-empty"><Globe size={28} />{ru ? 'Agent откроет страницу через web_project' : 'The Agent opens pages with web_project'}</div>}</div>
-      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? `${fps} fps` : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? (ru ? 'Управляете вы' : 'User Controlled') : browser?.ownership === 'closed' ? 'Closed' : status === 'error' ? 'Unavailable' : browser ? 'Agent Controlled' : 'Idle'}</span>
-        <button title={ru ? 'Переподключить просмотр' : 'Reconnect live view'} aria-label="Reconnect live view" onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
-        {mode === 'expanded' && <button aria-label="Show chat" onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}
+      </div>{!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}</div>
+      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? `${fps} fps` : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
+        <ControlHelp label={t('Состояние браузера')}>{interactive ? t('Страница передана вам: можно нажимать, прокручивать и вводить текст.') : browser?.ownership === 'agent' ? t('Агент сейчас управляет этой страницей. После завершения задачи управление перейдёт вам.') : status === 'error' ? t('Браузер недоступен; проверьте сообщение об ошибке и повторно откройте страницу, если это безопасно.') : t('Браузер ожидает действий агента или открытия страницы.')}</ControlHelp>
+        <button title={t('Переподключить просмотр')} aria-label={t('Переподключить просмотр')} onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
+        {mode === 'expanded' && <button aria-label={t('Показать чат')} title={t('Показать чат')} onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}
       </footer>
       {inputError && <p role="status" className="live-error">{inputError}</p>}
       {browser?.error && <p className="live-error" role="status">{browser.error}</p>}

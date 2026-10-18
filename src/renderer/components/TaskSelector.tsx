@@ -5,6 +5,7 @@ import type { AgentTaskSummary } from '../../shared/types';
 import { t } from '../../shared/locale';
 import { useLocale } from '../use-locale';
 import { useAppStore } from '../store/app-store';
+import { ControlHelp } from './ControlHelp';
 
 const folder = (path: string) => path.replace(/\/$/, '').split('/').at(-1) || path;
 
@@ -40,7 +41,8 @@ export function TaskSelector() {
         {selected && !task && <option value={selected}>{title}</option>}
         {tasks.map(item => <option value={item.logicalTaskId} key={item.logicalTaskId}>{item.title || t('Задача')}{item.projects.length ? ` · ${item.projects.map(project => folder(project.path)).join(', ')}` : ''}</option>)}
       </select>
-      {selectedId && !busy && <button type="button" className="task-selector-reset" onClick={() => choose(null)}><X size={14} />{t('Новая задача')}</button>}
+      {selectedId && !busy && <><button type="button" className="task-selector-reset" onClick={() => choose(null)}><X size={14} />{t('Новая задача')}</button><ControlHelp label={t('Новая задача')}>{t('Отменяет продолжение выбранной задачи. Следующее сообщение начнёт новую задачу в этом чате, не удаляя историю предыдущей.')}</ControlHelp></>}
+      <ControlHelp label={t('Выбрать задачу')}>{t('Выбирает задачу, которую продолжит следующее сообщение. Новая задача начинает отдельную работу в том же чате.')}{selected ? ` ${t('Следующее сообщение продолжит выбранную задачу из сохранённой контрольной точки, включая результаты уже завершённых инструментов.')}` : ''}</ControlHelp>
     </div>
     {selected && <div className="task-selector-project" title={task?.projects.map(project => `${project.path}${project.id ? ` (${project.id})` : ''}`).join('\n')}>
       <Folder size={14} aria-hidden="true" />{task?.projects.length ? task.projects.map(project => project.path).join(' · ') : t('Проект не указан')}

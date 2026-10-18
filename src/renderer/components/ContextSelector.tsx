@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { t, localizeMessage } from '../../shared/locale';
 import { cacheModeLabel, contextChoiceId, type ContextChoice } from '../../shared/context-options';
+import { ControlHelp } from './ControlHelp';
 
 export function ContextSelector({ options, selected, disabled, onChange }: {
   options: ContextChoice[]; selected?: ContextChoice; disabled: boolean; onChange: (option: ContextChoice) => void;
@@ -26,6 +27,7 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
     return () => window.removeEventListener('resize',place);
   },[open]);
   const optionKeys = options.map(contextChoiceId).join('|');
+  const help = `${t('Контекст — объём текста, который модель учитывает за раз. Больший размер помогает с длинными чатами и файлами, но расходует больше памяти и требует загрузки заново.')} ${selected ? localizeMessage(selected.explanation ?? '') : ''} ${selected?.warning ? localizeMessage(selected.warning) : ''} ${disabled ? t('Контекст нельзя изменить во время генерации; после ответа его потребуется пересоздать.') : ''}`;
   useEffect(() => { setOpen(false); }, [disabled, optionKeys]);
   useEffect(() => {
     if (!open) return;
@@ -36,7 +38,7 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
   }, [open, active]);
   const choose = (index: number) => { if (options[index]) onChange(options[index]); setOpen(false); trigger.current?.focus(); };
   return <div className="context-selector" ref={container}>
-    <span className="context-selector-label" id={`${id}-label`}>{t('Контекст')} <span aria-hidden="true">⟳</span></span>
+    <div className="control-help-field context-selector-label-row"><span className="context-selector-label" id={`${id}-label`}>{t('Контекст')} <span aria-hidden="true">⟳</span></span><ControlHelp label={t('Контекст')}>{help}</ControlHelp></div>
     <button className="context-selector-trigger" ref={trigger} role="combobox" type="button" disabled={disabled || !options.length}
       aria-labelledby={`${id}-label`} aria-describedby={`${id}-value`} title={'Для изменения требуется перезагрузка модели или контекста. ' + localizeMessage(selected?.warning ?? selected?.explanation ?? 'Не оценено для этой конфигурации')} aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox"
       aria-activedescendant={open ? `${id}-${active}` : undefined}
