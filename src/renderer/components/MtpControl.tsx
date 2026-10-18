@@ -5,7 +5,7 @@ import type { MtpMode, MtpStatus } from '../../shared/types';
 import { useLocale } from '../use-locale';
 import { useAppStore } from '../store/app-store';
 
-export function MtpControl({ modelId }: { modelId: string | null | undefined }) {
+export function MtpControl({ modelId, onStatusChange }: { modelId: string | null | undefined; onStatusChange?: (status: MtpStatus | undefined) => void }) {
   const ru = useLocale() === 'ru';
   const generating = useAppStore(state => Boolean(state.generationOwnerId));
   const [status, setStatus] = useState<MtpStatus>();
@@ -21,6 +21,7 @@ export function MtpControl({ modelId }: { modelId: string | null | undefined }) 
     poll(); const interval = window.setInterval(poll, 4000);
     return () => { alive = false; window.clearInterval(interval); };
   }, [modelId]);
+  useEffect(() => { onStatusChange?.(status); }, [status, onStatusChange]);
   if (!modelId) return null;
   const reload = ru ? 'Для изменения требуется перезагрузка модели или контекста.' : 'Changing MTP requires a model/context reload.';
   const hint = ru ? 'MTP использует дополнительные предсказания токенов для потенциального ускорения генерации. Эффективность зависит от модели и backend.' : 'MTP predicts additional tokens to potentially accelerate generation. Results depend on the model and backend.';

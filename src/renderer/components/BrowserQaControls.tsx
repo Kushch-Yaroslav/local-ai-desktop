@@ -5,10 +5,11 @@ import { useLocale } from '../use-locale';
 import { ReloadDialog } from './ReloadDialog';
 import { ControlHelp } from './ControlHelp';
 
-export function BrowserQaControls() {
+export function BrowserQaControls({ onStatusChange }: { onStatusChange?: (status: Awaited<ReturnType<typeof window.localAi.browserQa.status>> | undefined) => void }) {
   const ru=useLocale()==='ru', generating=useAppStore(state=>Boolean(state.generationOwnerId));
   const [value,setValue]=useState<Awaited<ReturnType<typeof window.localAi.browserQa.status>>>(),[draft,setDraft]=useState<{mode:BrowserVisionMode;autonomous:boolean}>(),[busy,setBusy]=useState(false),[error,setError]=useState<string>();
   useEffect(()=>{let alive=true;const poll=()=>{void window.localAi.browserQa.status().then(v=>{if(alive)setValue(v);}).catch(e=>{if(alive)setError(String(e));});};poll();const timer=setInterval(poll,4000);return()=>{alive=false;clearInterval(timer);};},[]);
+  useEffect(()=>{onStatusChange?.(value);},[value,onStatusChange]);
   const save=async(mode:BrowserVisionMode,autonomous:boolean)=>{setBusy(true);setError(undefined);try{await window.localAi.browserQa.configure(mode,autonomous,true);setValue(await window.localAi.browserQa.status());}catch(e){setError(String(e));}finally{setBusy(false);}};
   const apply=async()=>{if(!draft||generating)return;setBusy(true);try{await window.localAi.browserQa.configure(draft.mode,draft.autonomous,true);setValue(await window.localAi.browserQa.status());setDraft(undefined);setError(undefined);await useAppStore.getState().refreshRuntime();}catch(e){setError(String(e));}finally{setBusy(false);}};
   return <><label className="control"><span>Browser Vision ⟳</span><select aria-label="Browser Vision" disabled={generating||busy||!value} value={value?.mode??'off'} onChange={event=>{const mode=event.target.value as BrowserVisionMode;if(mode==='on'&&!value?.available)setDraft({mode,autonomous:value?.autonomous??false});else void save(mode,value?.autonomous??false);}}><option value="off">Off</option><option value="auto">Auto</option><option value="on">On</option></select></label>

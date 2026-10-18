@@ -514,3 +514,23 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .control-panel .mtp-effective { font-size:11px; }
 .control-panel .browser-qa-panel { position:sticky; top:0; z-index:4; }
 .control-panel > * { flex-shrink:0; }
+
+/* Display mode only: keep controls mounted and their runtime state intact. */
+.control-panel.toolbar { max-height:none; overflow:visible; padding:9px 16px; gap:0; }
+.control-panel-heading { flex-wrap:wrap; gap:7px 12px; }
+.panel-model { max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.compact-context { font-size:12px; color:var(--text-muted); }
+.compact-indicators { display:flex; flex-wrap:wrap; gap:6px 10px; font-size:11px; color:var(--text-muted); }
+.compact-indicators>span { overflow-wrap:anywhere; }
+.panel-mode-toggle { display:inline-flex; align-items:center; justify-content:center; gap:5px; margin-left:auto; padding:5px 9px; min-height:30px; border:1px solid var(--border-strong); background:var(--surface-raised); color:var(--text); border-radius:7px; white-space:nowrap; }
+.panel-mode-toggle:hover { background:var(--surface-hover); border-color:var(--accent); }
+.panel-expansion { display:grid; grid-template-rows:0fr; visibility:hidden; transition:grid-template-rows .2s ease,visibility .2s; }
+.control-panel[data-panel-mode=expanded] .panel-expansion { grid-template-rows:1fr; visibility:visible; }
+.panel-details { min-height:0; overflow:auto; max-height:max(100px,calc(46vh - 60px)); scrollbar-width:thin; display:flex; flex-direction:column; gap:12px; transition:padding-top .2s ease; }
+.panel-details>* { flex-shrink:0; }
+.control-panel[data-panel-mode=expanded] .panel-details { padding-top:12px; }
+.control-panel[data-panel-mode=compact] .panel-details { overflow:hidden; }
+.control-panel .runtime-notice { margin-top:7px; }
+@media (max-width:700px) { .panel-model { max-width:100%; }.compact-context { flex-basis:100%; }.panel-mode-toggle { margin-left:0; }.compact-indicators { flex:1; }.control-panel.toolbar { padding:8px 12px; } }
+@media (prefers-reduced-motion:reduce) { .panel-expansion { transition:none; } }
+.control-panel[data-panel-mode=compact] .context-estimate-details { visibility:hidden!important; }

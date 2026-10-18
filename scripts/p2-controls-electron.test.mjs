@@ -7,7 +7,7 @@ const root=await mkdtemp('/tmp/lad-p2-controls-');let app;
 const contrast=(a,b)=>{const luminance=color=>{const v=color.match(/[\d.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});return .2126*v[0]+.7152*v[1]+.0722*v[2];};const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
 try{
  app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
- const page=await app.firstWindow();const errors=[];page.on('pageerror',error=>errors.push(String(error)));page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+ const page=await app.firstWindow();const errors=[];page.on('pageerror',error=>errors.push(String(error)));page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,1000));
  assert.equal(await page.locator('.control-group').count(),4);
  const help=page.getByRole('button',{name:'Model & context',exact:true});await help.focus();await page.getByRole('tooltip').waitFor();assert.match(await page.getByRole('tooltip').innerText(),/checkpoint/);await page.keyboard.press('Escape');assert.equal(await page.getByRole('tooltip').count(),0);

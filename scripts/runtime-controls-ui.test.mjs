@@ -18,7 +18,7 @@ try {
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_MODEL:'qwen3.8:27b-q4_K_M',LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
   const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();
-  await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+  await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
   await page.getByRole('button',{name:/Load selected configuration/}).click();
   await page.waitForFunction(()=>document.querySelector('.context-active')?.textContent.includes('64K'));
   await page.evaluate(()=>{window.controlEvents=[];window.localAi.chat.onStream(e=>window.controlEvents.push(e));});
@@ -28,6 +28,10 @@ try {
   await effort.selectOption('max');await strategy.selectOption('deep');
   await page.locator('.composer textarea').fill('Inspect the plan using plan view; do not modify files.');await page.locator('.send-button:not(.stop)').click();
   await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='thinking'));
+  const toggle=page.locator('.panel-mode-toggle');
+  await toggle.click();assert.equal(await toggle.getAttribute('aria-expanded'),'false','Compact is available during generation');
+  assert(await page.locator('.send-button.stop').isVisible(),'collapsing does not stop generation');
+  await toggle.click();
   assert(!(await effort.isDisabled()));assert(!(await strategy.isDisabled()));
   const mode=controls.locator('select').filter({has:page.locator('option[value="agent"]')});
   const web=controls.locator('select').filter({has:page.locator('option[value="auto"]')}).filter({hasNot:page.locator('option[value="on"]')});
@@ -36,6 +40,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('.runtime-notice')?.textContent.match(/Ожидает применения|configuration pending/));
   await page.waitForFunction(async()=>{const c=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return c.reasoningEffort==='medium'&&c.reasoningMode==='fast';});
   assert.equal(requests.length,1);assert(!(await page.evaluate(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'))));
+  await toggle.click();assert.match(await page.locator('.configuration-state').innerText(),/Pending/);await toggle.click();
   finish();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='reasoning-applied'));
   assert.equal(requests[1].reasoning_effort,'medium');
   assert.equal(await effort.inputValue(),'medium');assert.equal(await strategy.inputValue(),'fast');
@@ -46,6 +51,7 @@ try {
   await page.locator('.pause-button').click();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='paused'));
   await page.waitForFunction(()=>document.querySelector('.send-button:not(.stop)'));
   assert(await page.getByRole('status').filter({hasText:'Paused'}).count());
+  await toggle.click();assert.match(await page.locator('.runtime-state').innerText(),/Paused/);await toggle.click();
   assert(!(await mode.isDisabled()));
   const runs=await page.evaluate(async()=>{const chat=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return window.localAi.analysis.list(chat.id);});
   assert.equal(runs.at(-1).status,'interrupted','Pause is not task completion');

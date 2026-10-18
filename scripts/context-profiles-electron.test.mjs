@@ -9,6 +9,7 @@ const launch = async (environment = {}) => {
   application = await electron.launch({ executablePath: resolve(process.env.LOCAL_AI_TEST_ELECTRON ?? 'node_modules/electron/dist/electron'), args: [resolve('test-fixtures/context-profiles/electron-main.cjs')], env: { ...process.env, LOCAL_AI_RUNTIME_ROOT: root, ...environment } });
   const page = await application.firstWindow();
   await page.waitForFunction(() => ['f16','q8_0'].every(type=>/^\d+(?:\.\d+)?K$/.test(document.querySelector(`[data-kv-type=${type}] b`)?.textContent ?? '')));
+  if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
   return page;
 };
 const selector = page => page.getByRole('combobox', { name: /^(Context|Контекст)$/ });

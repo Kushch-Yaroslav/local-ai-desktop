@@ -5,9 +5,9 @@ import { ControlHelp } from './ControlHelp';
 import { useLocale } from '../use-locale';
 import { t, tr, localizeMessage } from '../../shared/locale';
 import { activeConversationModel } from '../../shared/model-selection';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { X } from 'lucide-react';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 import { ContextSelector } from './ContextSelector';
 import { MtpControl } from './MtpControl';
@@ -19,7 +19,16 @@ import { buildContextChoices, cacheModeLabel, describeContextChoice, type Contex
 import { reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkingLabel } from '../../shared/localization';
 import { resolveReasoningSelection, type ReasoningEffort } from '../../shared/reasoning-controls';
 
+const panelModeKey = 'local-ai-control-panel-mode';
+
 export function Toolbar() {
+  const [expanded, setExpanded] = useState(() => { try { return localStorage.getItem(panelModeKey) === 'expanded'; } catch { return false; } });
+  const panelId = useId();
+  const [mtpStatus, setMtpStatus] = useState<import('../../shared/types').MtpStatus>();
+  const [browserStatus, setBrowserStatus] = useState<Awaited<ReturnType<typeof window.localAi.browserQa.status>>>();
+  const qaStatus = useAppStore(state => state.activeId ? state.qaStatuses[state.activeId] : undefined);
+  const toggleExpanded = () => { const next = !expanded; setExpanded(next); try { localStorage.setItem(panelModeKey, next ? 'expanded' : 'compact'); } catch { /* Display remains usable when storage is unavailable. */ } };
+
   const ru = useLocale() === 'ru';
   const inferenceBusy = useAppStore(state => Boolean(state.generationOwnerId));
   const pausePhase = useAppStore(state => state.generationConversationId === state.activeId || state.continuationTaskId && state.pausePhase === 'Paused' ? state.pausePhase : null);
@@ -137,9 +146,25 @@ export function Toolbar() {
   const liveDisabled = isGenerating && chat.mode !== 'agent';
   const pending = transitions[chat.id];
   const notice = ru ? runtimeNotice : runtimeNotice?.includes('Ожидает') ? 'Reasoning configuration pending. Applies on the next model request.' : runtimeNotice?.includes('применены') ? 'New reasoning configuration applied.' : runtimeNotice ? 'Configuration saved for the next run.' : null;
+  const summaryModelName = models.find(model => model.id === llama?.modelId)?.name ?? selectedModel?.name ?? (ru ? 'Модель не выбрана' : 'No model selected');
+  const summaryContext = llama?.status === 'ready' && llama.contextWindow
+    ? `${llama.contextWindow / 1024}K (${llama.kvCacheType ? cacheModeLabel(llama.kvCacheType) : '?'}) · KV ${llama.kvOffload === undefined ? '?' : llama.kvOffload ? 'GPU' : 'RAM'}`
+    : (ru ? 'Контекст: —' : 'Context: —');
+  const summaryMtp = llama?.status === 'ready' && llama.speculativeMode ? (llama.speculativeMode === 'mtp' ? 'active' : 'disabled') : mtpStatus?.effective ?? '…';
   return (
-    <header className={`toolbar control-panel ${inferenceBusy ? 'is-working' : ''}`}>
-      <div className="control-panel-heading"><strong>{ru?'Управление':'Control center'}</strong><span className="runtime-state" role="status"><i/>{pausePhase ?? (contextBusy ? (ru?'Загрузка модели':'Loading model') : inferenceBusy && !isGenerating ? (ru?'Модель занята в другом чате':'Model busy in another chat') : isGenerating ? (chat.mode==='agent' ? (ru?'Агент работает':'Agent working') : (ru?'Генерация':'Generating')) : llama?.status==='ready' ? (ru?'Готово':'Ready') : (ru?'Модель не загружена':'Model unloaded'))}</span>{(pending || modelDraft || contextDraft || runtimeNotice?.includes('применены')) && <span className="configuration-state" role="status" data-state={pending?'pending':modelDraft||contextDraft?'reload':'applied'}>{pending ? (ru?'◷ Ожидает шага модели':'◷ Pending model step') : modelDraft||contextDraft ? (ru?'⟳ Требуется загрузка':'⟳ Reload required') : (ru?'✓ Применено':'✓ Applied')}</span>}<span className="control-panel-note">{ru?'Параметры и проверки текущей задачи':'Inference, reasoning & verification'}</span></div>
+    <header data-panel-mode={expanded ? 'expanded' : 'compact'} className={`toolbar control-panel ${inferenceBusy ? 'is-working' : ''}`}>
+      <div className="control-panel-heading"><strong className="panel-model" title={summaryModelName}>{summaryModelName}</strong><span className="runtime-state" role="status"><i/>{pausePhase ?? (contextBusy ? (ru?'Загрузка модели':'Loading model') : inferenceBusy && !isGenerating ? (ru?'Модель занята в другом чате':'Model busy in another chat') : isGenerating ? (chat.mode==='agent' ? (ru?'Агент работает':'Agent working') : (ru?'Генерация':'Generating')) : llama?.status==='ready' ? (ru?'Готово':'Ready') : (ru?'Модель не загружена':'Model unloaded'))}</span>{(pending || modelDraft || contextDraft || runtimeNotice?.includes('применены')) && <span className="configuration-state" role="status" data-state={pending?'pending':modelDraft||contextDraft?'reload':'applied'}>{pending ? (ru?'◷ Ожидает шага модели':'◷ Pending model step') : modelDraft||contextDraft ? (ru?'⟳ Требуется загрузка':'⟳ Reload required') : (ru?'✓ Применено':'✓ Applied')}</span>}<span className="compact-context" title={ru?'Активный вычислительный контекст':'Active inference context'}>{summaryContext}</span>
+        {!expanded && <div className="compact-indicators" aria-label={ru?'Статусы возможностей':'Capability status'}>
+          <span title={mtpStatus?.capability.reason}>MTP: {summaryMtp}</span>
+          <span title={browserStatus?.reason}>Vision: {browserStatus ? browserStatus.mode === 'off' ? 'Off' : browserStatus.available ? `${browserStatus.mode} · Ready` : `${browserStatus.mode} · Unavailable` : '…'}</span>
+          <span title={qaStatus?.report?.reason}>QA: {qaStatus && qaStatus.phase !== 'complete' ? qaStatus.phase : qaStatus?.report?.status ?? (browserStatus ? browserStatus.autonomous ? 'On' : 'Off' : '…')}</span>
+        </div>}
+        {selectedModelId && (expanded || !runtimeMatchesSelection) && <button className="context-load primary" aria-label={t('Загрузить выбранную конфигурацию')} aria-busy={contextBusy} disabled={Boolean(runtimeMatchesSelection || inferenceBusy || discoveryLoading || contextBusy)} onClick={() => { if (llama?.status === 'ready') setReloadContext(true); else void applyContext(); }}>{contextBusy ? (ru?'Загрузка…':'Loading…') : llama?.status === 'ready' ? (ru?'Перезагрузить':'Reload') : (ru?'Загрузить':'Load')}</button>}
+        <button className="panel-mode-toggle" aria-expanded={expanded} aria-controls={panelId} title={expanded ? (ru?'Свернуть панель управления':'Collapse control panel') : (ru?'Развернуть панель управления':'Expand control panel')} onClick={toggleExpanded}>{expanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}<span>{expanded ? (ru?'Свернуть':'Collapse') : (ru?'Параметры':'Expand')}</span></button>
+      </div>
+      {notice && <div className="runtime-notice" role="status">{notice}</div>}
+      {!expanded && (contextLoadError || llama?.error || llama?.activation?.error) && <div className="runtime-notice" role="alert">{localizeMessage(contextLoadError ?? llama?.activation?.error ?? llama?.error ?? '')}</div>}
+      <div id={panelId} className="panel-expansion" inert={!expanded} aria-hidden={!expanded}><div className="panel-details">
       <div className="monitoring-row" aria-label={t("Мониторинг llama.cpp")}>
         <Hardware value={hardware} />
         <span className="backend-indicator">{runtimeLabel}{llama?.pendingProjectorDevice ? tr` · После генерации: ${llama.pendingProjectorDevice.toUpperCase()}` : ''}</span>{llama?.deviceError && <span role="status" title={llama.deviceError}>{t("Не удалось переключить обработку изображений")}: {llama.deviceError}</span>}
@@ -147,7 +172,7 @@ export function Toolbar() {
         {selectedModelId && <div className="context-activation">
           <span className="context-selected">{t('Выбрано')}: {requestedContext.contextWindow / 1024}K ({cacheModeLabel(requestedContext.kvCacheType)})</span>
           <span role="status" className="context-active">{t('Активно')}: {actualLabel}</span>
-          <button className={`context-load ${!runtimeMatchesSelection ? 'primary' : ''}`} aria-busy={contextBusy} disabled={Boolean(runtimeMatchesSelection || inferenceBusy || discoveryLoading || contextBusy)} onClick={() => { if (llama?.status === 'ready') setReloadContext(true); else void applyContext(); }}>{contextBusy ? t('Проверка и загрузка выбранной конфигурации') : t('Загрузить выбранную конфигурацию')}</button>
+
         </div>}
         {contextLoadError && <span role="alert">{localizeMessage(contextLoadError)}</span>}
         {llama?.activation?.phase === 'validating' && <span role="status">{t('Проверка и загрузка выбранной конфигурации')}</span>}
@@ -162,12 +187,11 @@ export function Toolbar() {
         </details>}
         {discoveryError && <span role="alert">{t('Поиск не завершён: ')}{localizeMessage(discoveryError)}</span>}
       </div>
-      {notice && <div className="runtime-notice" role="status">{notice}</div>}
       <BrowserQaPanel/>
       <div className="toolbar-controls">
         <section className="control-group inference-group" aria-label={ru?'Модель и инференс':'Model & Inference'}><div className="control-group-heading"><strong>{ru?'МОДЕЛЬ И ИНФЕРЕНС':'MODEL & INFERENCE'}</strong><span>⟳ {ru?'Перезагрузка':'Reload required'}</span><ControlHelp label={ru?'Модель и контекст':'Model & context'}>{ru?'Модель, контекст и MTP изменяются после ответа. Перезагрузка пересоздаёт KV-cache, сохраняя чат и checkpoint. Выберите конфигурацию, затем примените её кнопкой загрузки.':'Model, context and MTP change after response. Reload recreates KV cache while preserving chat and checkpoints. Select a configuration, then apply it with the load button.'}</ControlHelp></div><div className="control-group-fields">
         <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading || inferenceBusy} title={inferenceBusy ? afterResponse : "Для изменения требуется перезагрузка модели или контекста."} value={selectedModelId ?? ''} onChange={(event) => setModelDraft(event.target.value)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
-        <MtpControl modelId={selectedModelId} />
+        <MtpControl modelId={selectedModelId} onStatusChange={setMtpStatus} />
         <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || inferenceBusy} onChange={setContextDraft} />
         </div></section>
         <section className="control-group reasoning-group" aria-label={ru?'Рассуждения и агент':'Reasoning & Agent'}><div className="control-group-heading"><strong>{ru?'РАССУЖДЕНИЯ И АГЕНТ':'REASONING & AGENT'}</strong><span>↻ {ru?'Глубина и стратегия — Live':'Effort & strategy — Live'}</span><ControlHelp label={ru?'Когда применятся параметры':'When settings apply'}>{ru?'Глубина и стратегия применяются на следующем обращении к модели. Ожидающие параметры помечены часами. Thinking, Web и Чат/Агент доступны после завершения или Stop. История и план не сбрасываются.':'Effort and strategy apply on the next model request. A clock marks pending settings. Thinking, Web and Chat/Agent change after completion or Stop. History and plan are preserved.'}</ControlHelp></div><div className="control-group-fields">
@@ -181,9 +205,10 @@ export function Toolbar() {
         <label className="control" title={afterResponse}><span>{t("Веб")} ◴</span><select disabled={isGenerating} value={chat.webMode} onChange={(event) => void updateConversation(chat.id, { webMode: event.target.value as 'off' | 'auto' })}><option value="off">{t("Нет")}</option><option value="auto">{t("Да")}</option></select></label>
         <label className="control" title={afterResponse}><span>{t("Режим")} ◴</span><select disabled={isGenerating} value={chat.mode} onChange={(event) => void updateConversation(chat.id, { mode: event.target.value as 'chat' | 'agent' })}><option value="chat">{t("Чат")}</option><option value="agent">{t("Агент")}</option></select></label>
         </div></section>
-        <section className="control-group browser-group" aria-label="Browser & QA"><div className="control-group-heading"><strong>BROWSER & QA</strong><span>◴ {ru?'После ответа':'After response'}</span></div><div className="control-group-fields"><BrowserQaControls/></div></section>
+        <section className="control-group browser-group" aria-label="Browser & QA"><div className="control-group-heading"><strong>BROWSER & QA</strong><span>◴ {ru?'После ответа':'After response'}</span></div><div className="control-group-fields"><BrowserQaControls onStatusChange={setBrowserStatus}/></div></section>
         <section className="control-group projects-group" aria-label={ru?'Проекты':'Projects'}><div className="control-group-heading"><strong>{ru?'ПРОЕКТЫ И ССЫЛКИ':'PROJECTS & REFERENCES'}</strong><ControlHelp label={ru?'Контекст проекта':'Project context'}>{ru?'Проекты задают разрешённые рабочие каталоги. Ссылки на файлы и папки добавляются через @ в поле сообщения. Менять проекты можно после завершения ответа или Stop; прежние ссылки сохраняют исходную идентичность.':'Projects define authorized working directories. Add file and folder references with @ in the composer. Change projects after response or Stop; existing references retain their original identity.'}</ControlHelp></div><div className="project-selectors">{projectSelector(1, chat.workingDirectory)}{projectSelector(2, chat.secondaryWorkingDirectory)}</div></section>
       </div>
+      </div></div>
       {reloadContext&&<ReloadDialog title={ru?'Модель и контекст':'Model & context'} busy={contextLoading} disabled={isGenerating} error={contextLoadError??undefined} onCancel={()=>setReloadContext(false)} onApply={()=>void applyContext()}><p>{selectedModel?.name} · {requestedLabel}</p><p>{ru?'Изменение не останавливает агентную задачу автоматически. Приостановленную задачу можно продолжить из checkpoint после загрузки.':'This change never stops an agent automatically. A paused task can resume from its checkpoint after loading.'}</p></ReloadDialog>}
     </header>
   );
