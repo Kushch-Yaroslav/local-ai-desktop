@@ -38,6 +38,11 @@ pub struct AgentState {
     /// A real browser (or a driver for one) exists here, so a page can be
     /// checked in one.
     pub browser_available: bool,
+    pub browser_qa_enabled: bool,
+    pub browser_qa_used: bool,
+    pub browser_qa_denied: bool,
+    pub browser_qa_at_epoch: Option<u64>,
+    pub browser_qa_reviews: usize,
     /// The project's own test command, looked up in Deep runs only.
     pub project_test_command: Option<String>,
     /// The single reminder about unopened requested local files was already

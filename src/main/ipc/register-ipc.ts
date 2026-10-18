@@ -1,3 +1,5 @@
+import { liveMultimodal } from '../services/browser-vision';
+import type { BrowserVisionMode } from '../../shared/browser-qa';
 import { mtpCapability, resolveMtpMode } from '../services/mtp-capability';
 import { parseMtpMetrics } from '../services/mtp-diagnostics';
 import type { MtpStatus, MtpMode } from '../../shared/types';
@@ -695,6 +697,28 @@ export function registerIpc(): void {
     }
     return { modelId, requested, effective, capability, ...(active && state.mtpMode ? { activeMode: state.mtpMode } : {}), ...(diagnostics ? { diagnostics } : {}), ...(state.mtpFallbackReason ? { error: state.mtpFallbackReason } : {}) };
   };
+  ipcMain.handle('browser-qa:status', async () => {
+    const config = effectiveRuntimeConfiguration();
+    const available = await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false);
+    return { mode: config.browserVision ?? 'off', autonomous: config.autonomousBrowserQa === true, available, reason: available ? 'Loaded backend accepts actual images; browser approval still required.' : 'No live multimodal backend. Functional QA remains available; On requires a configured projector and model reload.' };
+  });
+  ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean) => {
+    if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw new Error('Explicit Browser Vision configuration confirmation required');
+    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error('Wait for completion or Stop. Browser Vision never stops generation automatically.');
+    runtimeSelectionBusy = true;
+    try {
+      const config = effectiveRuntimeConfiguration();
+      if (mode === 'on' && mode !== config.browserVision && !await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false)) {
+        const current = await llamaRuntime.state(); const profile = current.modelId ? llamaRuntimeProfile(current.modelId) : undefined;
+        if (current.status !== 'ready' || !profile?.vision || !profile.mmprojPath || current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error('Browser Vision On requires a loaded compatible model and local projector. MTP is preserved; no automatic downloads or model substitution.');
+        const result = await llamaRuntime.switchTo(current.modelId!, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice ?? config.imageProcessingDevice ?? 'cpu', current.mtpMode);
+        if (!result.ok) throw new Error(result.error);
+        if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error('Reloaded backend did not confirm multimodal capability');
+      }
+      saveRuntimeConfiguration({ ...effectiveRuntimeConfiguration(), browserVision: mode, autonomousBrowserQa: autonomous });
+      await syncLlamaBackend();
+    } finally { runtimeSelectionBusy = false; void visionDevice.flush(); }
+  });
   ipcMain.handle('mtp:status', (_event, modelId: string) => mtpStatus(modelId));
   ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean) => {
     if (!['auto', 'on', 'off'].includes(mode) || confirmed !== true) throw new Error('Explicit MTP reload confirmation required');
@@ -743,6 +767,7 @@ export function registerIpc(): void {
     // Native menu owns this preference; an older open setup form must not revert it.
     const existingConfig = effectiveRuntimeConfiguration();
     next.imageProcessingDevice = existingConfig.imageProcessingDevice;
+    next.browserVision = existingConfig.browserVision; next.autonomousBrowserQa = existingConfig.autonomousBrowserQa;
     next.models = next.models.map(model => ({ ...model, mtpMode: existingConfig.models.find(current => current.id === model.id)?.mtpMode ?? model.mtpMode }));
     const input = next.llamaServerInput ?? next.llamaServerPath ?? '';
     if (input.trim()) {
@@ -956,7 +981,7 @@ export function registerIpc(): void {
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id))
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); })
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));

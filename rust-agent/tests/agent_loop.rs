@@ -672,6 +672,7 @@ impl Workspace {
             task_memory: None,
             provider_max_output: None,
             browser_capability: Some(false),
+            browser_qa: false,
             cancelled: Arc::new(AtomicBool::new(false)),
             steering: Arc::new(Mutex::new(Vec::new())),
             steering_closed: Arc::new(AtomicBool::new(false)),

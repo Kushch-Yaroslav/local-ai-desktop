@@ -89,9 +89,12 @@ export function normalizeConfiguration(raw: unknown): RuntimeConfiguration {
   } else if (value.models === undefined) models = seededModels(modelsPath);
   else throw new Error('Некорректный список моделей.');
   if (value.llamaServerInput !== undefined && (typeof value.llamaServerInput !== 'string' || value.llamaServerInput.length > 4096 || /[\0\r\n]/.test(value.llamaServerInput))) throw new Error('Некорректный путь к llama-server или папке.');
+  if (value.browserVision !== undefined && !['off','auto','on'].includes(String(value.browserVision))) throw new Error('Invalid Browser Vision mode');
+  if (value.autonomousBrowserQa !== undefined && typeof value.autonomousBrowserQa !== 'boolean') throw new Error('Invalid Browser QA setting');
   const server = typeof value.llamaServerPath === 'string' ? value.llamaServerPath.trim() : '';
   return { llamaServerPath: server ? (server.includes('/') || server.startsWith('~') ? expandPath(server) : server) : null,
     ...(typeof value.llamaServerInput === 'string' ? { llamaServerInput: value.llamaServerInput.trim() } : {}),
+    browserVision: value.browserVision ?? 'off', autonomousBrowserQa: value.autonomousBrowserQa === true,
     modelsPath, gpuLayers: Number(value.gpuLayers), setupDismissed: value.setupDismissed === true,
     searchProvider: searchPreference(value.searchProvider), allowBingFallback: value.allowBingFallback === true,
     schemaVersion: 2, language: value.language === 'ru' ? 'ru' : 'en', ...(value.imageProcessingDevice ? { imageProcessingDevice: value.imageProcessingDevice } : {}), models } as RuntimeConfiguration;

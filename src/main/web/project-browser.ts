@@ -1,3 +1,5 @@
+import { installQaInstrumentation, qaSteps, runBrowserQa, screenshotHash } from './browser-qa';
+import type { BrowserCapture, BrowserQaStatus, BrowserVisualResult } from '../../shared/browser-qa';
 import { ProjectFileWatcher } from './project-file-watcher';
 import { constants } from 'node:fs';
 import { lstat, open, realpath, mkdir, writeFile } from 'node:fs/promises';
@@ -13,15 +15,17 @@ import type { ProjectBrowserObserver } from './live-browser';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Screenshots are files, not model vision. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser, without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Supply checks with explicit expected text/value to establish handling, not just input delivery. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: {
-    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot'] },
+    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
     selector: { type: 'string', description: 'CSS selector for click or fill.' },
     wait_ms: { type: 'integer', minimum: 0, maximum: 2000, description: 'Optional bounded settling delay before reading or capturing; default 100 ms.' },
     value: { type: 'string', maxLength: 4000, description: 'Text for fill; never a file upload.' },
     delta_y: { type: 'integer', minimum: -2000, maximum: 2000, description: 'Vertical wheel distance for scroll.' },
+    clip: { type: 'object', properties: { x: {type:'number'}, y:{type:'number'}, width:{type:'number'}, height:{type:'number'} }, required:['x','y','width','height'], additionalProperties:false },
+    checks: { type:'array', maxItems:8, items:{type:'object',properties:{ action:{type:'string',enum:['click','fill','key','scroll']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean',description:'Expected text state changes after the action; true proves handling, not just delivery.'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false} },
     project: { type: 'integer', enum: [1, 2] },
   }, required: ['action'], additionalProperties: false },
 } };
@@ -81,6 +85,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
+export type ProjectQaOptions = { runId?: string; analyze?: (capture: BrowserCapture, signal: AbortSignal) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private context?: BrowserContext;
@@ -94,13 +99,15 @@ export class ProjectBrowserSession {
   private readonly errors: string[] = [];
   private readonly blocked: string[] = [];
   private captures = 0;
+  private qaRuns = 0;
   private ownership: 'agent' | 'user' = 'agent';
   private authorized = false;
   private denied?: string;
   private readonly heldKeys = new Set<string>();
   private queuedInputs = 0;
   get reusable() { return !this.closed && Boolean(this.page && !this.page.isClosed()); }
-  beginRun(observer: ProjectBrowserObserver) {
+  beginRun(observer: ProjectBrowserObserver, qaOptions: ProjectQaOptions = {}) {
+    this.qaOptions = qaOptions; this.qaRuns = 0;
     this.ownership = 'agent'; this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
     if (this.page) this.bindObserver();
   }
@@ -189,7 +196,7 @@ export class ProjectBrowserSession {
       this.serverManaged = true; this.stopWatching();
     }
   }
-  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver) {}
+  constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver, private qaOptions: ProjectQaOptions = {}) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     this.ownership = 'agent'; this.observer?.ownership?.('agent');
@@ -202,6 +209,10 @@ export class ProjectBrowserSession {
     try {
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
       await this.releaseInput();
+      if (args.action === 'qa' && !this.page && !this.denied) {
+        const opened = await this.executePage({action:'open', ...(args.path ? {path:args.path} : {}), ...(args.url ? {url:args.url} : {})}, signal, confirm, actionId);
+        if (opened && typeof opened === 'object' && 'error' in opened) return opened;
+      }
       if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
       if (!this.authorized && (args.action === 'open' || this.page)) {
         const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
@@ -216,7 +227,7 @@ export class ProjectBrowserSession {
       }
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
-      if (['read', 'screenshot'].includes(String(args.action)) && this.watcher) { await this.watcher.flush(); await this.refresh(); }
+      if (['read', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher) { await this.watcher.flush(); await this.refresh(); }
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), staticOrigin);
@@ -256,16 +267,22 @@ export class ProjectBrowserSession {
           else { this.errors.length = 0; this.blocked.length = 0; await this.page.reload({ waitUntil: 'load' }); }
           this.observer?.action({ kind: String(args.action), at: Date.now() });
         }
-        else if (args.action === 'screenshot') {
-          if (this.captures >= 8) return { error: 'Screenshot limit reached (8 per run)', code: 'SCREENSHOT_LIMIT', retrySameArguments: false };
-          this.captures += 1;
-          await this.page.waitForTimeout(Number(waitMs));
-          const bytes = await this.page.screenshot({ type: 'png', timeout: 10_000 });
-          if (signal.aborted || this.closed) throw new Error('Project browser cancelled');
+        else if (args.action === 'qa') {
+          if (++this.qaRuns > 3) return { error: 'QA repair budget reached (3 runs)', code: 'QA_LIMIT', retrySameArguments: false };
+          this.errors.length = 0; this.blocked.length = 0;
+          await this.page.reload({ waitUntil: 'load' });
+          const qa = await runBrowserQa({ page: this.page, signal: this.qaOptions.signal ? AbortSignal.any([signal, this.qaOptions.signal]) : signal, steps: qaSteps(args.checks), errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, signal), analyze: this.qaOptions.analyze ? capture => this.qaOptions.analyze!(capture, signal) : undefined, status: this.qaOptions.status });
+          qa.runId = this.qaOptions.runId;
+          const source = await this.read();
+          if (source.source_path) { const bytes = await readPreviewAsset(this.root, new URL(this.page.url()).pathname); qa.sourceFingerprint = screenshotHash(bytes.body); }
           await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });
-          const path = join(this.captureDirectory, `${randomUUID()}.png`);
-          await writeFile(path, bytes, { flag: 'wx', mode: 0o600 });
-          return { screenshot_path: path, bytes: bytes.length, visual_analysis: false, ...(await this.read()) };
+          qa.evidencePath = join(this.captureDirectory, `${qa.id}.json`); await writeFile(qa.evidencePath, JSON.stringify(qa, null, 2), { flag: 'wx', mode: 0o600 });
+          return { ...source, qa, visual_analysis: qa.visual.analyzed };
+        } else if (args.action === 'screenshot') {
+          await this.page.waitForTimeout(Number(waitMs));
+          const capture = await this.capture(args, signal);
+          const visual = this.qaOptions.analyze ? await this.qaOptions.analyze(capture, signal) : { analyzed: false, status: 'Not Verified', reason: 'Browser Vision Off' };
+          return { screenshot_path: capture.path, capture, visual, visual_analysis: visual.analyzed, ...(await this.read()) };
         } else if (args.action !== 'read') throw new Error('Unknown project browser action');
       }
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled');
@@ -274,11 +291,31 @@ export class ProjectBrowserSession {
       return await this.read();
     } catch (error) {
       // Failed startup cannot leave a half-initialized reusable session.
-      const code = signal.aborted || this.closed ? 'BROWSER_CLOSED_OR_CANCELLED' : !this.page && this.origin ? 'BROWSER_UNAVAILABLE' : 'PROJECT_BROWSER_FAILED';
+      const code = String(error).includes('Screenshot limit reached') ? 'SCREENSHOT_LIMIT' : signal.aborted || this.closed ? 'BROWSER_CLOSED_OR_CANCELLED' : !this.page && this.origin ? 'BROWSER_UNAVAILABLE' : 'PROJECT_BROWSER_FAILED';
       if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
       if (!this.page && this.origin) await this.close();
       return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: false };
     } finally { await this.ensureWatching(); }
+  }
+  private async capture(args: Record<string, unknown>, signal: AbortSignal): Promise<BrowserCapture> {
+    const captureStarted = performance.now();
+    if (this.captures >= 8) throw new Error('Screenshot limit reached (8 per run)');
+    if (!this.page || signal.aborted || this.closed) throw new Error('Capture cancelled');
+    const page = this.page, viewport = page.viewportSize()!;
+    let region = { x: 0, y: 0, ...viewport };
+    if (args.selector !== undefined) {
+      if (typeof args.selector !== 'string' || args.selector.length > 500) throw new Error('Invalid screenshot selector');
+      const box = await page.locator(args.selector).first().boundingBox(); if (!box) throw new Error('Screenshot element is not visible'); region = box;
+    } else if (args.clip !== undefined) region = args.clip as typeof region;
+    if (!region || ![region.x, region.y, region.width, region.height].every(Number.isFinite) || region.x < 0 || region.y < 0 || region.width < 1 || region.height < 1 || region.x + region.width > viewport.width || region.y + region.height > viewport.height) throw new Error('Screenshot region must fit the current viewport');
+    this.captures++;
+    const bytes = await page.screenshot({ type: 'png', clip: region, timeout: 10000 });
+    if (signal.aborted || this.closed) throw new Error('Capture cancelled');
+    if (bytes.length > 2 * 1024 * 1024) throw new Error('Screenshot exceeds 2 MiB budget');
+    await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });
+    const id = randomUUID(), path = join(this.captureDirectory, `${id}.png`);
+    await writeFile(path, bytes, { flag: 'wx', mode: 0o600 });
+    return { ...(this.qaOptions.runId ? {runId:this.qaOptions.runId} : {}), id, path, sha256: screenshotHash(bytes), width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), viewport, region, ...(typeof args.selector === 'string' ? { selector: args.selector } : {}), url: page.url(), capturedAt: new Date().toISOString(), captureMs: performance.now()-captureStarted, bytes: bytes.length };
   }
   private async start() {
     this.browser = await this.launch();
@@ -310,6 +347,7 @@ export class ProjectBrowserSession {
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     this.page = await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
+    await installQaInstrumentation(this.page);
     this.page.on('close', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
     this.bindObserver();
     this.browser.on('disconnected', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });

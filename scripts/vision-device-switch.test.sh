@@ -6,6 +6,7 @@ trap 'rm -r -- "$fixture"' EXIT
 REQUEST_FILE="$fixture/request.env"
 URL=http://fixture.invalid
 ACTIVE_MODEL=fixture; ACTIVE_CONTEXT=32768; ACTIVE_KV_TYPE=q8_0; ACTIVE_KV_OFFLOAD=1
+ACTIVE_MTP_MODE=off; ACTIVE_SPECULATIVE_MODE=none; MTP_FALLBACK_REASON=""
 ACTIVE_PROJECTOR_DEVICE=cpu; SERVER_PID=111; ELECTRON_PID=777; SERVER_PID_FILE="$fixture/server.pid"
 LAUNCH_ERROR=""; launches=0; stops=0; fail_gpu=0
 log() { :; }

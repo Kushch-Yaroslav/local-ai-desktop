@@ -229,6 +229,8 @@ export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ 
 export type ExecutableResolution = { status: ExecutableValidation['status'] | 'multiple' | 'not-found' | 'incomplete' | 'cancelled'; path?: string; candidates: string[]; kind?: 'file' | 'directory'; incomplete?: boolean; selectedMissing?: boolean; reasons?: string[] };
 
 export interface RuntimeConfiguration {
+  browserVision?: import('./browser-qa').BrowserVisionMode;
+  autonomousBrowserQa?: boolean;
   searchProvider?: import('./search-settings').SearchPreference;
   allowBingFallback?: boolean;
   language?: 'ru' | 'en';
@@ -381,7 +383,7 @@ export interface AgentPlan {
   activeMilestoneId?: string | null;
   revision?: number;
   modelTodo?: ModelTodo;
-  taskMemory?: { entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: VerificationState };
+  taskMemory?: { browser_qa?: import('./browser-qa').BrowserQaReport; entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: VerificationState };
   /** Legacy persisted snapshots are normalized at the Electron boundary. */
   steps?: AgentPlanStep[];
 }
@@ -440,6 +442,7 @@ export type StreamEvent =
   | { type: 'task-memory'; memory: NonNullable<AgentPlan['taskMemory']> }
   | { type: 'steering'; userMessage: ChatMessage; status: 'accepted' | 'applied'; timelinePosition?: number }
   | { type: 'paused'; timelinePosition?: number }
+  | { type: 'browser-qa'; qaStatus: import('./browser-qa').BrowserQaStatus }
   | { type: 'tool'; activity: ToolActivity; runId?: string }
   | { type: 'attachment'; activity: ToolActivity }
   | { type: 'approval-request'; actionId: string; approval: ActionApproval }
@@ -474,6 +477,7 @@ export interface LocalAiApi {
   webImages: { load(url: string): Promise<RemoteImageData>; openSource(url: string): Promise<void> };
   analysis: { list(conversationId: string): Promise<AnalysisRun[]> };
   models: { list(): Promise<ModelInfo[]> };
+  browserQa: { status(): Promise<{ mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean): Promise<void> };
   mtp: { status(modelId: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean): Promise<MtpStatus> };
   runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>> };
   settings: { setLanguage(language: 'en' | 'ru'): Promise<void>; validateDraft(config: Pick<RuntimeConfiguration, 'modelsPath' | 'models'>): Promise<RuntimeDraftAvailability>; resolveExecutable(path: string, selected?: string): Promise<ExecutableResolution>; cancelResolution(): Promise<void>; onLanguageChanged(listener: (language: 'ru' | 'en') => void): () => void; get(): Promise<AppSettings>; save(config: RuntimeConfiguration): Promise<AppSettings>; dismissSetup(): Promise<AppSettings> };

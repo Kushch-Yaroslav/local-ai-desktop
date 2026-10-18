@@ -41,6 +41,8 @@ pub enum Request {
         #[serde(default)]
         reasoning_options: Option<Value>,
         web_mode: String,
+        #[serde(default)]
+        browser_qa: bool,
         policy: String,
         #[serde(default)]
         history: Vec<Value>,

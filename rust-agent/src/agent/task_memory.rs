@@ -86,6 +86,8 @@ pub struct Applied {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskMemory {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub browser_qa: Option<serde_json::Value>,
     #[serde(default)]
     pub entries: Vec<TaskMemoryEntry>,
     #[serde(default)]

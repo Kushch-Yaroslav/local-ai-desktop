@@ -1,3 +1,6 @@
+import { loadRuntimeConfiguration } from './runtime-settings';
+import { BrowserVisionProvider } from './browser-vision';
+import type { BrowserQaStatus } from '../../shared/browser-qa';
 import type { ProjectBrowserObserver } from '../web/live-browser';
 import { ProjectBrowserSession, projectBrowserTool } from '../web/project-browser';
 import { join } from 'node:path';
@@ -48,7 +51,7 @@ type RuntimeEvent = {
   knowledge_reads?: number; knowledge_writes?: number; cache_hits?: number; stale_source_entries?: number; bytes_injected?: number;
 };
 type RuntimeRequest = {
-  type: 'run'; run_id: string; endpoint: string; model: string; system: string; ui_language?: 'ru' | 'en'; user: string; user_images?: string[]; user_image_refs?: string[]; web_tools?: unknown[];
+  browser_qa?: boolean; type: 'run'; run_id: string; endpoint: string; model: string; system: string; ui_language?: 'ru' | 'en'; user: string; user_images?: string[]; user_image_refs?: string[]; web_tools?: unknown[];
   project_root?: string; secondary_project_root?: string; context_limit: number; reasoning_mode: ReasoningMode;
   supports_reasoning: boolean; reasoning_options?: Record<string, Record<string, unknown>>;
   web_mode: WebMode; policy: 'auto' | 'safe'; history: unknown[]; artifact_tools: unknown[]; attachment_tools: unknown[]; task_memory?: AgentPlan['taskMemory']; provider_max_output?: number;
@@ -162,7 +165,7 @@ export class RustAgentRuntime {
     return send(content, intent);
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     protectedRuntime.endpoint(this.endpoint);
@@ -193,9 +196,14 @@ export class RustAgentRuntime {
     }));
     // Permission dialogs can await for minutes. Consume steering/control acknowledgments
     // independently of the async generator's awaited host operation.
+    const qaPause = new AbortController();
+    const browserConfig = loadRuntimeConfiguration();
+    const vision = browserConfig.browserVision && browserConfig.browserVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model) : undefined;
+    const qaOptions = { runId, signal: qaPause.signal, status: qaStatus, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal])) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
+        if (event.type === 'run_state' && event.state === 'pause_requested') qaPause.abort();
         if (event.type === 'steering_accepted' || event.type === 'steering_rejected') {
           const next = pending.shift();
           if (event.type === 'steering_accepted') next?.resolve();
@@ -230,6 +238,7 @@ export class RustAgentRuntime {
     const acceptedArtifacts = new Map<string, RichArtifact>();
     const galleryFailures = new Map<string, Record<string, unknown>>();
     const request: RuntimeRequest = {
+      browser_qa: browserConfig.autonomousBrowserQa === true,
       type: 'run', run_id: runId, endpoint: this.endpoint, model,
       approval_ui: Boolean(confirm), permissions,
       ui_language: getLanguage(),
@@ -286,10 +295,10 @@ export class RustAgentRuntime {
               if (!projectBrowser) {
                 const prior = previewKey ? this.previews.get(previewKey) : undefined;
                 if (prior?.root === project.root && prior.session.reusable && browserObserver) {
-                  projectBrowser = prior.session; projectBrowser.beginRun(browserObserver);
+                  projectBrowser = prior.session; projectBrowser.beginRun(browserObserver, qaOptions);
                 } else {
                   await prior?.session.close();
-                  projectBrowser = new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver);
+                  projectBrowser = new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver, qaOptions);
                 }
               }
               result = await projectBrowser.execute(event.arguments ?? {}, signal, confirm, String(event.id));
