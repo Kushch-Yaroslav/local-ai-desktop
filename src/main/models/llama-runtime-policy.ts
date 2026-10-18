@@ -73,7 +73,7 @@ export const llamaRuntimeProfiles: readonly LlamaRuntimeProfile[] = [
     speculative: 'mtp',
     speculativeDraftTokens: 2,
     vision: true,
-    visionWithMtp: false,
+    visionWithMtp: true,
     reasoning: { thinkingKwarg: 'enable_thinking', efforts: {}, final: { chat_template_kwargs: { enable_thinking: false } } },
     placement: { cpuMoeLayers: 4, threads: 8, threadsBatch: 8, batchSize: 1024, ubatchSize: 128, loadMode: 'none' },
     hostResidentBudgetBytes: 8 * 1024 ** 3,
