@@ -22,7 +22,7 @@ try{
  await page.evaluate(async({model,binary,gguf})=>{const settings=await window.localAi.settings.get();const config=settings.setup.config;config.llamaServerPath=binary;config.llamaServerInput=binary;config.models=config.models.map(m=>m.id===model?{...m,modelPath:gguf}:m);await window.localAi.settings.save(config);},{model,binary,gguf});
  await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
  await page.getByRole('button',{name:/Load selected configuration/}).click();await page.waitForFunction(()=>document.querySelector('.context-active')?.textContent.includes('64K'));
- const mtp=page.getByRole('combobox',{name:'Multi-Token Prediction (MTP)'});await mtp.selectOption('off');
+ const mtp=page.getByRole('combobox',{name:'MTP'});await mtp.selectOption('off');
  await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();assert.match(await page.getByRole('dialog',{name:'Apply MTP'}).innerText(),/KV cache/);
  await page.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await mtp.inputValue(),'auto');
  assert.equal((await page.evaluate(model=>window.localAi.mtp.status(model),model)).requested,'auto');
@@ -37,9 +37,9 @@ try{
  await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));
  const conversationId=await page.evaluate(async()=>(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace').id);
  const messagesBefore=await page.evaluate(id=>window.localAi.messages.list(id),conversationId);assert(messagesBefore.some(m=>m.role==='user'));
- const unconfirmed=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',false);return '';}catch(e){return String(e);}},model);assert.match(unconfirmed,/confirmation/);
+ const unconfirmed=await page.evaluate(async model=>{try{await window.localAi.mtp.apply(model,'off',false);return '';}catch(e){return String(e);}},model);assert.match(unconfirmed,/Confirm applying the MTP settings|Подтвердите применение настроек MTP/);
  await mtp.selectOption('off');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Disabled');
- await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();await page.waitForFunction(()=>document.querySelector('[aria-label="Multi-Token Prediction (MTP)"]')?.value==='off');
+ await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();await page.waitForFunction(()=>document.querySelector('[aria-label="MTP"]')?.value==='off');
  assert.deepEqual(await page.evaluate(id=>window.localAi.messages.list(id),conversationId),messagesBefore,'MTP reload preserves existing chat history');
  await page.locator('.composer textarea').fill('Continue the same read-only task.');await page.locator('.send-button:not(.stop)').click();await page.waitForFunction(()=>document.querySelector('.send-button.stop'));
  await page.waitForTimeout(300);assert(requests.length>=2,'the existing chat can generate after MTP reload');await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));

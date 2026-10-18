@@ -22,13 +22,13 @@ try{
  await page.locator('.context-estimate > summary').click();await page.locator('.context-estimate-details').waitFor();
  await page.locator('.panel-mode-toggle').evaluate(e=>e.click());assert(!(await page.locator('.context-estimate-details').isVisible()),'fixed popover is hidden together with collapsed settings');
  await mode(page,true);await page.keyboard.press('Escape');
- const mtp=page.getByRole('combobox',{name:'Multi-Token Prediction (MTP)'});await mtp.focus();await mtp.selectOption('off');await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();
+ const mtp=page.getByRole('combobox',{name:'MTP'});await mtp.focus();await mtp.selectOption('off');await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();
  // Native modal blocks pointer interaction outside it; exercise a programmatic display update too.
  await page.locator('.panel-mode-toggle').evaluate(e=>e.click());assert(await page.getByRole('dialog').isVisible());
  await page.keyboard.press('Tab');assert(await page.evaluate(()=>!!document.activeElement.closest('dialog')));
  await page.keyboard.press('Escape');assert(await page.locator('.panel-mode-toggle').evaluate(e=>document.activeElement===e),'hidden modal trigger falls back to visible expand button');
  await mode(page,true);assert.equal(await mtp.inputValue(),'auto','cancel keeps actual selection');
- const help=page.getByRole('button',{name:'Model & context',exact:true});await help.focus();await page.getByRole('tooltip').waitFor();await page.keyboard.press('Escape');await page.locator('.panel-mode-toggle').focus();await page.keyboard.press('Space');
+ const help=page.getByRole('button',{name:'Help for Model & context',exact:true});await help.focus();await page.getByRole('tooltip').waitFor();await page.keyboard.press('Escape');await page.locator('.panel-mode-toggle').focus();await page.keyboard.press('Space');
  assert(await page.evaluate(()=>window.originalControls.every((e,i)=>e===document.querySelectorAll('.toolbar-controls select')[i])),'controls keep DOM identity without remount');
  await page.keyboard.press('Tab');assert(await page.evaluate(()=>!document.activeElement.closest('.panel-expansion')),'collapsed controls are excluded from keyboard focus');
  assert.deepEqual(await snapshot(),before,'display-only toggles do not modify settings or conversations');
