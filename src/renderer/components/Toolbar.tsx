@@ -1,3 +1,7 @@
+import { ReloadDialog } from './ReloadDialog';
+import { BrowserQaControls } from './BrowserQaControls';
+import { BrowserQaPanel } from './BrowserQaPanel';
+import { ControlHelp } from './ControlHelp';
 import { useLocale } from '../use-locale';
 import { t, tr, localizeMessage } from '../../shared/locale';
 import { activeConversationModel } from '../../shared/model-selection';
@@ -16,7 +20,11 @@ import { reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkin
 import { resolveReasoningSelection, type ReasoningEffort } from '../../shared/reasoning-controls';
 
 export function Toolbar() {
-  useLocale();
+  const ru = useLocale() === 'ru';
+  const inferenceBusy = useAppStore(state => Boolean(state.generationOwnerId));
+  const pausePhase = useAppStore(state => state.generationConversationId === state.activeId || state.continuationTaskId && state.pausePhase === 'Paused' ? state.pausePhase : null);
+  const [reloadContext, setReloadContext] = useState(false);
+  const [modelDraft, setModelDraft] = useState<string>();
   const { conversations, activeId, models, hardware, settings, isGenerating, updateConversation, refreshRuntimeStatus } = useAppStore(useShallow((state) => ({ conversations: state.conversations, activeId: state.activeId, models: state.models, hardware: state.hardware, settings: state.settings, isGenerating: state.isGenerating, updateConversation: state.updateConversation, refreshRuntimeStatus: state.refreshRuntimeStatus })));
   const runtimeNotice = useAppStore(state => state.runtimeNotice);
   const transitions = useAppStore(state => state.modeTransitions);
@@ -32,7 +40,7 @@ export function Toolbar() {
   const [contextLoadError, setContextLoadError] = useState<string | null>(null);
   const [contextDraft, setContextDraft] = useState<ContextChoice | null>(null);
   const conversationModelId = conversations.find(c => c.id === activeId)?.modelId;
-  useEffect(() => setContextDraft(null), [activeId, conversationModelId]);
+  useEffect(() => { setContextDraft(null); setModelDraft(undefined); setReloadContext(false); }, [activeId, conversationModelId]);
   const [discovery, setDiscovery] = useState<ContextDiscoveryResult | null>(null);
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
@@ -43,7 +51,7 @@ export function Toolbar() {
   }, [refreshRuntimeStatus]);
   const chat = conversations.find((item) => item.id === activeId);
   const activeModelId = activeConversationModel(chat, settings?.llamaRuntime);
-  const selectedModelId = chat?.modelId ?? activeModelId;
+  const selectedModelId = modelDraft ?? chat?.modelId ?? activeModelId;
   const selectedModel = models.find((model) => model.id === selectedModelId);
   const reasoningCapability = selectedModel?.reasoning;
   const reasoningSelection = resolveReasoningSelection(reasoningCapability, chat?.reasoningMode ?? 'fast', chat ?? {});
@@ -119,24 +127,27 @@ export function Toolbar() {
     catch (error) { setDiscoveryError(error instanceof Error ? error.message : String(error)); }
     finally { setDiscoveryLoading(false); }
   };
+  const applyContext = async () => {
+    if (!selectedModelId) return;
+    setContextLoading(true); setContextLoadError(null);
+    try { await updateConversation(chat.id, { modelId: selectedModelId, contextWindow: requestedContext.contextWindow, llamaKvCacheType: requestedContext.kvCacheType, llamaKvOffload: requestedContext.kvOffload }); setContextDraft(null); setModelDraft(undefined); setReloadContext(false); }
+    catch (error) { setContextLoadError(String(error)); }
+    finally { setContextLoading(false); }
+  };
   const liveDisabled = isGenerating && chat.mode !== 'agent';
   const pending = transitions[chat.id];
+  const notice = ru ? runtimeNotice : runtimeNotice?.includes('Ожидает') ? 'Reasoning configuration pending. Applies on the next model request.' : runtimeNotice?.includes('применены') ? 'New reasoning configuration applied.' : runtimeNotice ? 'Configuration saved for the next run.' : null;
   return (
-    <header className="toolbar">
+    <header className={`toolbar control-panel ${inferenceBusy ? 'is-working' : ''}`}>
+      <div className="control-panel-heading"><strong>{ru?'Управление':'Control center'}</strong><span className="runtime-state" role="status"><i/>{pausePhase ?? (contextBusy ? (ru?'Загрузка модели':'Loading model') : inferenceBusy && !isGenerating ? (ru?'Модель занята в другом чате':'Model busy in another chat') : isGenerating ? (chat.mode==='agent' ? (ru?'Агент работает':'Agent working') : (ru?'Генерация':'Generating')) : llama?.status==='ready' ? (ru?'Готово':'Ready') : (ru?'Модель не загружена':'Model unloaded'))}</span>{(pending || modelDraft || contextDraft || runtimeNotice?.includes('применены')) && <span className="configuration-state" role="status" data-state={pending?'pending':modelDraft||contextDraft?'reload':'applied'}>{pending ? (ru?'◷ Ожидает шага модели':'◷ Pending model step') : modelDraft||contextDraft ? (ru?'⟳ Требуется загрузка':'⟳ Reload required') : (ru?'✓ Применено':'✓ Applied')}</span>}<span className="control-panel-note">{ru?'Параметры и проверки текущей задачи':'Inference, reasoning & verification'}</span></div>
       <div className="monitoring-row" aria-label={t("Мониторинг llama.cpp")}>
         <Hardware value={hardware} />
         <span className="backend-indicator">{runtimeLabel}{llama?.pendingProjectorDevice ? tr` · После генерации: ${llama.pendingProjectorDevice.toUpperCase()}` : ''}</span>{llama?.deviceError && <span role="status" title={llama.deviceError}>{t("Не удалось переключить обработку изображений")}: {llama.deviceError}</span>}
-        <button className="context-discover" disabled={discoveryLoading || !activeModelId || isGenerating} onClick={() => void discoverMaximum()}>{discoveryLoading ? t("Идёт проверка…") : discoveryForModel?.options.length ? t("Найти максимальный контекст снова") : t("Найти максимальный контекст")}</button>
+        <button className="context-discover" disabled={discoveryLoading || !activeModelId || inferenceBusy} onClick={() => void discoverMaximum()}>{discoveryLoading ? t("Идёт проверка…") : discoveryForModel?.options.length ? t("Найти максимальный контекст снова") : t("Найти максимальный контекст")}</button>
         {selectedModelId && <div className="context-activation">
           <span className="context-selected">{t('Выбрано')}: {requestedContext.contextWindow / 1024}K ({cacheModeLabel(requestedContext.kvCacheType)})</span>
           <span role="status" className="context-active">{t('Активно')}: {actualLabel}</span>
-          <button className={`context-load ${!runtimeMatchesSelection ? 'primary' : ''}`} aria-busy={contextBusy} disabled={Boolean(runtimeMatchesSelection || isGenerating || discoveryLoading || contextBusy)} onClick={() => {
-            setContextLoading(true); setContextLoadError(null);
-            void updateConversation(chat.id, { modelId: selectedModelId, contextWindow: requestedContext.contextWindow, llamaKvCacheType: requestedContext.kvCacheType, llamaKvOffload: requestedContext.kvOffload })
-              .then(() => setContextDraft(null))
-              .catch((error: unknown) => setContextLoadError(error instanceof Error ? error.message : String(error)))
-              .finally(() => setContextLoading(false));
-          }}>{contextBusy ? t('Проверка и загрузка выбранной конфигурации') : t('Загрузить выбранную конфигурацию')}</button>
+          <button className={`context-load ${!runtimeMatchesSelection ? 'primary' : ''}`} aria-busy={contextBusy} disabled={Boolean(runtimeMatchesSelection || inferenceBusy || discoveryLoading || contextBusy)} onClick={() => { if (llama?.status === 'ready') setReloadContext(true); else void applyContext(); }}>{contextBusy ? t('Проверка и загрузка выбранной конфигурации') : t('Загрузить выбранную конфигурацию')}</button>
         </div>}
         {contextLoadError && <span role="alert">{localizeMessage(contextLoadError)}</span>}
         {llama?.activation?.phase === 'validating' && <span role="status">{t('Проверка и загрузка выбранной конфигурации')}</span>}
@@ -151,11 +162,15 @@ export function Toolbar() {
         </details>}
         {discoveryError && <span role="alert">{t('Поиск не завершён: ')}{localizeMessage(discoveryError)}</span>}
       </div>
-      {runtimeNotice && <div className="runtime-notice" role="status">{runtimeNotice}</div>}
+      {notice && <div className="runtime-notice" role="status">{notice}</div>}
+      <BrowserQaPanel/>
       <div className="toolbar-controls">
-        <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading || isGenerating} title={isGenerating ? afterResponse : "Для изменения требуется перезагрузка модели или контекста."} value={selectedModelId ?? ''} onChange={(event) => void updateConversation(chat.id, { modelId: event.target.value || null }).catch(() => undefined)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
+        <section className="control-group inference-group" aria-label={ru?'Модель и инференс':'Model & Inference'}><div className="control-group-heading"><strong>{ru?'МОДЕЛЬ И ИНФЕРЕНС':'MODEL & INFERENCE'}</strong><span>⟳ {ru?'Перезагрузка':'Reload required'}</span><ControlHelp label={ru?'Модель и контекст':'Model & context'}>{ru?'Модель, контекст и MTP изменяются после ответа. Перезагрузка пересоздаёт KV-cache, сохраняя чат и checkpoint. Выберите конфигурацию, затем примените её кнопкой загрузки.':'Model, context and MTP change after response. Reload recreates KV cache while preserving chat and checkpoints. Select a configuration, then apply it with the load button.'}</ControlHelp></div><div className="control-group-fields">
+        <label className="control"><span>{t("Модель")}</span><select disabled={discoveryLoading || inferenceBusy} title={inferenceBusy ? afterResponse : "Для изменения требуется перезагрузка модели или контекста."} value={selectedModelId ?? ''} onChange={(event) => setModelDraft(event.target.value)}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label>
         <MtpControl modelId={selectedModelId} />
-        <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || isGenerating} onChange={setContextDraft} />
+        <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || inferenceBusy} onChange={setContextDraft} />
+        </div></section>
+        <section className="control-group reasoning-group" aria-label={ru?'Рассуждения и агент':'Reasoning & Agent'}><div className="control-group-heading"><strong>{ru?'РАССУЖДЕНИЯ И АГЕНТ':'REASONING & AGENT'}</strong><span>↻ {ru?'Глубина и стратегия — Live':'Effort & strategy — Live'}</span><ControlHelp label={ru?'Когда применятся параметры':'When settings apply'}>{ru?'Глубина и стратегия применяются на следующем обращении к модели. Ожидающие параметры помечены часами. Thinking, Web и Чат/Агент доступны после завершения или Stop. История и план не сбрасываются.':'Effort and strategy apply on the next model request. A clock marks pending settings. Thinking, Web and Chat/Agent change after completion or Stop. History and plan are preserved.'}</ControlHelp></div><div className="control-group-fields">
         {reasoningCapability && <label className="control" title={isGenerating ? afterResponse : reasoningControlText.thinkingHint}><span>{reasoningControlText.thinking}</span>{reasoningCapability.thinkingToggle
           ? <select disabled={isGenerating} value={reasoningSelection.thinking === false ? 'off' : 'on'} onChange={(event) => void updateConversation(chat.id, { thinkingEnabled: event.target.value === 'on' }).catch(() => undefined)}><option value="on">{thinkingLabel.on}</option><option value="off">{thinkingLabel.off}</option></select>
           : <select disabled title={reasoningControlText.thinkingUnavailable} value="unavailable"><option value="unavailable">{reasoningControlText.unavailable}</option></select>}</label>}
@@ -165,8 +180,11 @@ export function Toolbar() {
         {reasoningCapability && <label className="control" title={liveDisabled ? afterResponse : liveHint}><span>{reasoningControlText.strategy} <small aria-label="Live">{pending?.desired.reasoningMode !== undefined ? "◷" : "↻"}</small></span><select disabled={liveDisabled} value={chat.reasoningMode === 'deep' ? 'deep' : 'fast'} onChange={(event) => void updateConversation(chat.id, { reasoningMode: event.target.value as 'fast' | 'deep' }).catch(() => undefined)}><option value="fast">{reasoningModeLabel.fast}</option><option value="deep">{reasoningModeLabel.deep}</option></select></label>}
         <label className="control" title={afterResponse}><span>{t("Веб")} ◴</span><select disabled={isGenerating} value={chat.webMode} onChange={(event) => void updateConversation(chat.id, { webMode: event.target.value as 'off' | 'auto' })}><option value="off">{t("Нет")}</option><option value="auto">{t("Да")}</option></select></label>
         <label className="control" title={afterResponse}><span>{t("Режим")} ◴</span><select disabled={isGenerating} value={chat.mode} onChange={(event) => void updateConversation(chat.id, { mode: event.target.value as 'chat' | 'agent' })}><option value="chat">{t("Чат")}</option><option value="agent">{t("Агент")}</option></select></label>
-        <div className="project-selectors">{projectSelector(1, chat.workingDirectory)}{projectSelector(2, chat.secondaryWorkingDirectory)}</div>
+        </div></section>
+        <section className="control-group browser-group" aria-label="Browser & QA"><div className="control-group-heading"><strong>BROWSER & QA</strong><span>◴ {ru?'После ответа':'After response'}</span></div><div className="control-group-fields"><BrowserQaControls/></div></section>
+        <section className="control-group projects-group" aria-label={ru?'Проекты':'Projects'}><div className="control-group-heading"><strong>{ru?'ПРОЕКТЫ И ССЫЛКИ':'PROJECTS & REFERENCES'}</strong><ControlHelp label={ru?'Контекст проекта':'Project context'}>{ru?'Проекты задают разрешённые рабочие каталоги. Ссылки на файлы и папки добавляются через @ в поле сообщения. Менять проекты можно после завершения ответа или Stop; прежние ссылки сохраняют исходную идентичность.':'Projects define authorized working directories. Add file and folder references with @ in the composer. Change projects after response or Stop; existing references retain their original identity.'}</ControlHelp></div><div className="project-selectors">{projectSelector(1, chat.workingDirectory)}{projectSelector(2, chat.secondaryWorkingDirectory)}</div></section>
       </div>
+      {reloadContext&&<ReloadDialog title={ru?'Модель и контекст':'Model & context'} busy={contextLoading} disabled={isGenerating} error={contextLoadError??undefined} onCancel={()=>setReloadContext(false)} onApply={()=>void applyContext()}><p>{selectedModel?.name} · {requestedLabel}</p><p>{ru?'Изменение не останавливает агентную задачу автоматически. Приостановленную задачу можно продолжить из checkpoint после загрузки.':'This change never stops an agent automatically. A paused task can resume from its checkpoint after loading.'}</p></ReloadDialog>}
     </header>
   );
 }

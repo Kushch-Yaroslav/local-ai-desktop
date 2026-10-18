@@ -1,3 +1,5 @@
+import { ReloadDialog } from './ReloadDialog';
+import { ControlHelp } from './ControlHelp';
 import { useEffect, useState } from 'react';
 import type { MtpMode, MtpStatus } from '../../shared/types';
 import { useLocale } from '../use-locale';
@@ -34,14 +36,9 @@ export function MtpControl({ modelId }: { modelId: string | null | undefined }) 
     finally { setBusy(false); }
   };
   return <div className="mtp-control" title={details}>
-    <label className="control"><span title="Multi-Token Prediction · Reload Required">MTP ⟳</span><select aria-label="Multi-Token Prediction (MTP)" disabled={generating || busy || !status} value={draft ?? status?.requested ?? 'auto'} onChange={event => { setDraft(event.target.value as MtpMode); setConfirm(true); setError(undefined); }}><option value="auto">Auto</option><option value="on">On</option><option value="off">Off</option></select></label>
-    <small role="status" className="mtp-effective">{draft && draft !== status?.activeMode ? 'Reload required' : status ? labels[status.effective] : '…'}</small>
-    {confirm && <div className="mtp-confirm" role="dialog" aria-label={ru ? 'Применение MTP' : 'Apply MTP'}>
-      <p>{ru ? 'Изменение MTP требует перезагрузки модели. Завершите генерацию или используйте Stop. Активный inference context и KV-cache будут пересозданы. История чата и checkpoint сохранятся. Для незагруженной модели выбор сохранится до следующей загрузки.' : 'Changing MTP reloads the model. Finish generation or use Stop first. The inference context and KV cache will be recreated. Chat history and task checkpoints are preserved. For an unloaded model, the choice is saved for its next load.'}</p>
-      <button disabled={busy} onClick={() => { setConfirm(false); setDraft(undefined); setError(undefined); }}>{ru ? 'Отмена' : 'Cancel'}</button>
-      <button disabled={busy || generating} onClick={() => void apply()}>{busy ? '…' : ru ? 'Применить и перезагрузить' : 'Apply and reload'}</button>
-      {error && <p role="alert">{error}</p>}
-    </div>}
+    <label className="control"><span title="Multi-Token Prediction · Reload Required">MTP ⟳ <small role="status" className="mtp-effective">{draft && draft !== status?.activeMode ? 'Reload required' : status ? labels[status.effective] : '…'}</small></span><select aria-label="Multi-Token Prediction (MTP)" disabled={generating || busy || !status} value={draft ?? status?.requested ?? 'auto'} onChange={event => { setDraft(event.target.value as MtpMode); setConfirm(true); setError(undefined); }}><option value="auto">Auto</option><option value="on">On</option><option value="off">Off</option></select></label>
+    <ControlHelp label="MTP · Reload Required">{hint+' '+reload}</ControlHelp>
+    {confirm && <ReloadDialog title={ru ? 'Применение MTP' : 'Apply MTP'} busy={busy} disabled={generating} error={error} onCancel={() => { setConfirm(false); setDraft(undefined); setError(undefined); }} onApply={() => void apply()}><p>{ru ? 'Незагруженная модель: выбор сохранится для следующей загрузки. Перезагрузка активной модели сохраняет задачу и историю. MTP не гарантирует ускорения.' : 'For an unloaded model, the choice is saved for its next load. Reloading an active model preserves the task and history. MTP does not guarantee acceleration.'}</p><p>{status?.capability.reason}</p></ReloadDialog>}
     {!confirm && error && <small role="alert">{error}</small>}
   </div>;
 }

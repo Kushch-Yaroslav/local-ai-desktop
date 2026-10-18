@@ -22,6 +22,7 @@ type State = {
   /** Process-wide inference ownership token; per-chat view state stays separate. */
   generationOwnerId: string | null;
   generationState: 'idle' | 'thinking' | 'reasoning' | 'using-tool' | 'running-terminal' | 'waiting-for-approval' | 'generating' | 'stopping' | 'cancelled' | 'error';
+  qaStatuses: Record<string, import('../../shared/browser-qa').BrowserQaStatus>;
   runtimeNotice: string | null;
   pausePhase: string | null;
   error: string | null;
@@ -59,7 +60,7 @@ type State = {
   editMessage: (message: ChatMessage, content: string) => Promise<boolean>;
   regenerateMessage: (message: ChatMessage) => Promise<boolean>;
   stop: () => Promise<void>;
-  handleStream: (event: { type: string; phase?: 'pause_requested' | 'saving_checkpoint'; configuration?: import('../../shared/conversation-settings').EffectiveModeState; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; notice?: LoopNotice | null; lifecycle?: LoopLifecycle; paused?: boolean; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
+  handleStream: (event: { qaStatus?: import('../../shared/browser-qa').BrowserQaStatus; type: string; phase?: 'pause_requested' | 'saving_checkpoint'; configuration?: import('../../shared/conversation-settings').EffectiveModeState; state?: 'waiting' | 'streaming'; content?: string; artifact?: import('../../shared/rich-artifacts').RichArtifact; message?: string; userMessage?: ChatMessage; details?: string; activity?: ToolActivity; memory?: NonNullable<AgentPlan['taskMemory']>; budget?: WorkBudget; notice?: LoopNotice | null; lifecycle?: LoopLifecycle; paused?: boolean; run?: AnalysisRun; progress?: AnalysisProgress; requested?: number; active?: number; supported?: number; used?: number; maximum?: number; timelinePosition?: number; telemetry?: Partial<AgentTelemetry>; conversationId: string; generationId: string; modelId?: string; assistant?: ChatMessage | null; finishReason?: FinishReason; diagnostics?: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'>; actionId?: string; approval?: ActionApproval; approvalId?: string; status?: Exclude<ApprovalStatus, 'pending'> | AttachmentStatus | 'accepted' | 'applied' }) => void;
 };
 
 const assistantId = (generationId: string) => `stream-${generationId}`;
@@ -165,7 +166,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     return true;
   };
   return {
-  modeTransitions: {}, runtimeNotice: null, pausePhase: null,
+  modeTransitions: {}, qaStatuses: {}, runtimeNotice: null, pausePhase: null,
   conversations: [], activeId: null, messages: [], models: [], hardware: null, settings: null, isGenerating: false, generationId: null, generationConversationId: null, generationOwnerId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: null, analysisProgress: [], analysisRuns: [], agentPlan: null, legacyAgentPlan: null, continuationTaskId: null, continuationLabel: null, lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null,
   selectTaskContinuation: (logicalTaskId, label) => {
     if (get().generationConversationId || branchRegenerationPending) return;
@@ -370,6 +371,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         return { steeringStatus: status, messages };
       });
     }
+    if (event.type === 'browser-qa' && event.qaStatus) set(state => ({ qaStatuses: { ...state.qaStatuses, [event.conversationId]: { ...event.qaStatus!, report: event.qaStatus!.report ?? state.qaStatuses[event.conversationId]?.report } } }));
     if (event.type === 'pause-state') set({ pausePhase: event.phase === 'saving_checkpoint' ? 'Saving checkpoint' : 'Finishing current operation — ожидается завершение инструмента или прерывание генерации' });
     if (event.type === 'reasoning-applied' && event.configuration) {
       const configuration = event.configuration;
@@ -451,9 +453,10 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     if (event.type === 'work-budget' && event.budget) set((state) => ({ agentPlan: { milestones: [], ...state.agentPlan, workBudget: event.budget } }));
     if (event.type === 'task-memory' && event.memory) {
       const prior = get().agentPlan?.taskMemory;
+      if (event.memory.browser_qa) set(state => ({ qaStatuses: { ...state.qaStatuses, [event.conversationId]: { phase: state.qaStatuses[event.conversationId]?.phase ?? 'complete', report: event.memory!.browser_qa } } }));
       // Knowledge updates do not redraw unchanged plan/results/evidence.
-      if (!prior || JSON.stringify(prior?.plan) !== JSON.stringify(event.memory.plan) || JSON.stringify(prior?.deliverables) !== JSON.stringify(event.memory.deliverables) || JSON.stringify(prior?.verification) !== JSON.stringify(event.memory.verification)) {
-        set({ agentPlan: { milestones: [], ...(get().agentPlan?.workBudget ? { workBudget: get().agentPlan!.workBudget } : {}), taskMemory: { entries: [], plan: event.memory.plan, deliverables: event.memory.deliverables, verification: event.memory.verification } } });
+      if (!prior || JSON.stringify(prior?.plan) !== JSON.stringify(event.memory.plan) || JSON.stringify(prior?.deliverables) !== JSON.stringify(event.memory.deliverables) || JSON.stringify(prior?.verification) !== JSON.stringify(event.memory.verification) || JSON.stringify(prior?.browser_qa) !== JSON.stringify(event.memory.browser_qa)) {
+        set({ agentPlan: { milestones: [], ...(get().agentPlan?.workBudget ? { workBudget: get().agentPlan!.workBudget } : {}), taskMemory: { entries: [], browser_qa: event.memory.browser_qa, plan: event.memory.plan, deliverables: event.memory.deliverables, verification: event.memory.verification } } });
       }
     }
     if (event.type === 'analysis-run' && event.run?.logicalTaskId) set(state => ({ messages: state.messages.map(message => message.id === event.run!.triggeringMessageId || message.id === assistantId(event.generationId) ? { ...message, logicalTaskId: event.run!.logicalTaskId } : message) }));
