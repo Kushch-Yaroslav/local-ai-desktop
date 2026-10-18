@@ -12,6 +12,7 @@ import { projectPath } from '../tools/project-path';
 import { launchWebBrowser } from './web-tools';
 import type { BrowserInput } from '../../shared/live-browser';
 import type { ProjectBrowserObserver } from './live-browser';
+import type { NativeProjectPage } from './native-project-page';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
@@ -88,6 +89,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
 export type ProjectQaOptions = { runId?: string; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
+  private native?: NativeProjectPage;
   private context?: BrowserContext;
   private page?: Page;
   private origin?: string;
@@ -100,7 +102,7 @@ export class ProjectBrowserSession {
   private readonly blocked: string[] = [];
   private captures = 0;
   private qaRuns = 0;
-  private ownership: 'agent' | 'user' = 'agent';
+  private ownership: 'agent' | 'user' | 'paused' = 'agent';
   private authorized = false;
   private denied?: string;
   private readonly heldKeys = new Set<string>();
@@ -111,17 +113,20 @@ export class ProjectBrowserSession {
     this.ownership = 'agent'; this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
     if (this.page) this.bindObserver();
   }
-  async finishRun() {
-    await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); });
+  async finishRun(refresh = true) {
+    if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); });
     if (!this.reusable || !this.authorized) { await this.close(); return; }
+    await this.releaseInput();
     this.ownership = 'user'; this.observer?.ownership?.('user');
   }
+  async pauseRun() { this.ownership = 'paused'; await this.releaseInput(); this.observer?.ownership?.('paused'); }
   private bindObserver() {
     this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), close: () => this.close() });
     this.observer?.ownership?.(this.ownership);
   }
   private async releaseInput() {
-    for (const key of this.heldKeys) await this.page?.keyboard.up(key).catch(() => undefined);
+    await this.native?.releaseInput();
+    for (const key of [...this.heldKeys].reverse()) await this.page?.keyboard.up(key).catch(() => undefined);
     this.heldKeys.clear(); await this.page?.mouse.up().catch(() => undefined);
   }
   async input(input: BrowserInput) {
@@ -186,7 +191,7 @@ export class ProjectBrowserSession {
     this.observer?.state('loading');
     const response = await this.page.reload({ waitUntil: 'load' });
     if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
-    // Let the shared screencast paint the refreshed page before a run can close it.
+    // Let the real page settle before reporting the refreshed revision.
     await this.page.waitForTimeout(150);
     if (!this.closed) { this.observer?.action({ kind: 'auto-reload', at: Date.now() }); this.observer?.state('live', this.page.url()); }
   }
@@ -308,7 +313,7 @@ export class ProjectBrowserSession {
     const captureStarted = performance.now();
     if (this.captures >= 8) throw new Error('Screenshot limit reached (8 per run)');
     if (!this.page || signal.aborted || this.closed) throw new Error('Capture cancelled');
-    const page = this.page, viewport = page.viewportSize()!;
+    const page = this.page, viewport = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
     let region = { x: 0, y: 0, ...viewport };
     if (args.selector !== undefined) {
       if (typeof args.selector !== 'string' || args.selector.length > 500) throw new Error('Invalid screenshot selector');
@@ -316,7 +321,12 @@ export class ProjectBrowserSession {
     } else if (args.clip !== undefined) region = args.clip as typeof region;
     if (!region || ![region.x, region.y, region.width, region.height].every(Number.isFinite) || region.x < 0 || region.y < 0 || region.width < 1 || region.height < 1 || region.x + region.width > viewport.width || region.y + region.height > viewport.height) throw new Error('Screenshot region must fit the current viewport');
     this.captures++;
-    const bytes = await page.screenshot({ type: 'png', clip: region, timeout: 10000 });
+    let bytes = await page.screenshot({ type: 'png', clip: region, scale: 'css', timeout: 10000 });
+    if (this.native && region.width * region.height > 1280*900) {
+      const { nativeImage } = await import('electron');
+      const scale = Math.min(1280/region.width, 900/region.height);
+      bytes = nativeImage.createFromBuffer(bytes).resize({ width:Math.max(1,Math.floor(region.width*scale)), height:Math.max(1,Math.floor(region.height*scale)), quality:'good' }).toPNG();
+    }
     if (signal.aborted || this.closed) throw new Error('Capture cancelled');
     if (bytes.length > 2 * 1024 * 1024) throw new Error('Screenshot exceeds 2 MiB budget');
     await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });
@@ -325,11 +335,12 @@ export class ProjectBrowserSession {
     return { ...(this.qaOptions.runId ? {runId:this.qaOptions.runId} : {}), id, path, sha256: screenshotHash(bytes), width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20), viewport, region, ...(typeof args.selector === 'string' ? { selector: args.selector } : {}), url: page.url(), capturedAt: new Date().toISOString(), captureMs: performance.now()-captureStarted, bytes: bytes.length };
   }
   private async start() {
-    this.browser = await this.launch();
+    this.native = await this.observer?.createPage?.(this.origin!);
+    this.browser = this.native?.browser ?? await this.launch();
     if (this.closed) { await this.browser.close(); throw new Error('Project browser cancelled during launch'); }
-    this.context = await this.browser.newContext({ acceptDownloads: false, serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
+    this.context = this.native?.context ?? await this.browser.newContext({ acceptDownloads: false, serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
     await this.context.clearPermissions();
-    await this.context.addInitScript(() => { Object.defineProperty(window, 'RTCPeerConnection', { value: undefined, configurable: false }); });
+    await this.context.addInitScript(() => { Object.defineProperty(window, 'RTCPeerConnection', { value: undefined, configurable: false }); Object.defineProperty(navigator, 'serviceWorker', {value:undefined,configurable:false}); });
     await this.context.routeWebSocket('**/*', socket => socket.close());
     let requests = 0; let totalBytes = 0;
     await this.context.route('**/*', async route => {
@@ -339,11 +350,11 @@ export class ProjectBrowserSession {
         if (url.origin !== this.origin || url.username || url.password || req.method() !== 'GET' || ++requests > 256 || totalBytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or budget');
         if (this.origin === staticOrigin) {
           const asset = await readPreviewAsset(this.root, url.pathname); totalBytes += asset.body.length;
-          await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff', 'content-security-policy': previewCsp } });
+          await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff', 'x-dns-prefetch-control':'off', 'content-security-policy': previewCsp } });
         } else {
           const response = await fetchLoopback(url, this.abort.signal); totalBytes += response.body.length;
           this.detectServerReload(url.pathname, response.body, Boolean(response.headers['content-type']?.includes('text/html')));
-          await route.fulfill({ ...response, headers: { ...response.headers, 'content-security-policy': [response.headers['content-security-policy'], previewCsp].filter(Boolean).join(', ') } });
+          await route.fulfill({ ...response, headers: { ...response.headers, 'x-dns-prefetch-control':'off', 'content-security-policy': [response.headers['content-security-policy'], previewCsp].filter(Boolean).join(', ') } });
         }
       } catch (error) {
         try { if (req.isNavigationRequest() && req.frame() === this.page?.mainFrame()) this.blockedNavigation = true; } catch { /* Popup requests may precede frame creation; they are still blocked. */ }
@@ -352,9 +363,10 @@ export class ProjectBrowserSession {
       }
     });
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
-    this.page = await this.context.newPage();
+    this.page = this.native?.page ?? await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     await installQaInstrumentation(this.page);
+    this.page.on('crash', () => { this.observer?.state('error', undefined, 'Browser renderer crashed'); void this.close(); });
     this.page.on('close', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
     this.bindObserver();
     this.browser.on('disconnected', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
@@ -388,13 +400,11 @@ export class ProjectBrowserSession {
     if (refresh && !this.closed) {
       await this.watcher?.flush();
       await this.exclusive(async () => {
-        const hiddenEdits = this.dirty && !this.previewVisible;
         await this.refresh(true);
-        if (hiddenEdits && !this.closed) await this.observer?.captureFinal?.();
       }).catch(error => { if (!this.closed) this.observer?.state('error', undefined, `Auto-reload failed: ${String(error).slice(0, 200)}`); });
     }
     this.closed = true; this.stopWatching(); this.abort.abort(); this.observer?.closed();
-    await this.context?.close().catch(() => undefined);
-    await this.browser?.close().catch(() => undefined);
+    if (this.native) await this.native.close();
+    else { await this.context?.close().catch(() => undefined); await this.browser?.close().catch(() => undefined); }
   }
 }

@@ -891,7 +891,7 @@ export function registerIpc(): void {
   ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
   ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));
   ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => liveBrowsers.watch(event.sender, conversationId, visible));
-  ipcMain.handle('live-browser:ack', (event, sessionId: unknown, sequence: unknown) => liveBrowsers.acknowledge(event.sender, sessionId, sequence));
+  ipcMain.handle('live-browser:layout', (event, sessionId: unknown, bounds: unknown) => liveBrowsers.layout(event.sender, sessionId, bounds));
   ipcMain.handle('chat:send', async (event, request: ChatRequest) => {
     const requestStarted = performance.now();
     log('rich.request.lifecycle', { generationId: request.generationId, stage: 'submitted', monotonicMs: requestStarted });

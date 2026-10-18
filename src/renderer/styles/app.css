@@ -554,3 +554,7 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 @media (max-width:700px) { .panel-model { max-width:100%; }.compact-context { flex-basis:100%; }.panel-mode-toggle { margin-left:0; }.compact-indicators { flex:1; }.control-panel.toolbar { padding:8px 12px; } }
 @media (prefers-reduced-motion:reduce) { .panel-expansion { transition:none; } }
 .control-panel[data-panel-mode=compact] .context-estimate-details { visibility:hidden!important; }
+
+/* The native Chromium surface occupies this measured region; no Canvas video. */
+.native-browser-surface { padding:0; }
+.native-browser-surface:focus-visible { outline:2px solid var(--text); outline-offset:-2px; }

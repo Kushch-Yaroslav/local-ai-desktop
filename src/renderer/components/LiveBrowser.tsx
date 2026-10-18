@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
-import type { BrowserFrame, LiveBrowserState, BrowserInput } from '../../shared/live-browser';
+import type { LiveBrowserState, BrowserInput } from '../../shared/live-browser';
 import { t } from '../../shared/locale';
 import { useLocale } from '../use-locale';
 import { ControlHelp } from './ControlHelp';
@@ -13,53 +13,26 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const [browser, setBrowser] = useState<LiveBrowserState | null>(null);
   const [ratio, setRatio] = useState(50);
   const [narrow, setNarrow] = useState(false);
-  const [fps, setFps] = useState(0);
-  const [screenWidth, setScreenWidth] = useState(1280);
   const screen = useRef<HTMLDivElement>(null);
-  const root = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(null), session = useRef<string | null>(null);
-  const paintEpoch = useRef(0), painted = useRef(0), decoding = useRef(false);
   const visible = useRef(false);
   const changeMode = (next: Mode) => { if (conversationId) choices.current.set(conversationId, next); setMode(next); };
   // Reset before paint so a chat switch can never flash the other chat's frame.
   useLayoutEffect(() => {
-    current.current = conversationId; session.current = null; paintEpoch.current++;
+    current.current = conversationId; session.current = null;
     setBrowser(null); setMode(conversationId ? choices.current.get(conversationId) ?? 'chat' : 'chat');
-    const context = canvas.current?.getContext('2d'); context?.clearRect(0, 0, 1280, 900);
   }, [conversationId]);
   useEffect(() => {
     const api = window.localAi.liveBrowser;
     if (!api) return;
-    let mounted = true;
-    const draw = async (frame: BrowserFrame) => {
-      if (frame.conversationId !== current.current || frame.sessionId !== session.current || !visible.current || decoding.current) { api.acknowledge(frame.sessionId, frame.sequence); return; }
-      const epoch = paintEpoch.current;
-      decoding.current = true;
-      let bitmap: ImageBitmap | undefined;
-      try {
-        // No data-URL image cache; release the decoded bitmap immediately after paint.
-        const bytes = Uint8Array.from(atob(frame.data), character => character.charCodeAt(0));
-        bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
-        if (mounted && epoch === paintEpoch.current && frame.sessionId === session.current && visible.current && canvas.current) {
-          if (canvas.current.width !== bitmap.width) canvas.current.width = bitmap.width;
-          if (canvas.current.height !== bitmap.height) canvas.current.height = bitmap.height;
-          canvas.current.getContext('2d')?.drawImage(bitmap, 0, 0); painted.current++;
-        }
-      } catch { /* A damaged frame is dropped; the next CDP frame can recover. */ }
-      finally { bitmap?.close(); decoding.current = false; api.acknowledge(frame.sessionId, frame.sequence); }
-    };
     const unsubscribe = api.onEvent(event => {
-      if (event.type === 'frame') void draw(event.frame);
-      else if (event.state.conversationId === current.current) {
-        if (session.current !== event.state.sessionId) {
-          paintEpoch.current++; session.current = event.state.sessionId;
-          canvas.current?.getContext('2d')?.clearRect(0, 0, 1280, 900);
-        }
-        setBrowser(event.state);
-        if (!choices.current.has(event.state.conversationId)) setMode('split');
-      }
+      if (event.state.conversationId !== current.current) return;
+      session.current = event.state.sessionId;
+      setBrowser(event.state);
+      if (!choices.current.has(event.state.conversationId)) setMode('split');
     });
-    return () => { mounted = false; unsubscribe(); void api.watch(null, false).catch(() => undefined); };
+    return () => { unsubscribe(); void api.watch(null, false).catch(() => undefined); };
   }, []);
   useEffect(() => {
     visible.current = mode !== 'chat' && !document.hidden;
@@ -70,22 +43,45 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   }, [conversationId, mode]);
   useEffect(() => {
     const element = root.current; if (!element) return;
-    const observer = new ResizeObserver(entries => { for (const entry of entries) { if (entry.target === element) setNarrow(entry.contentRect.width < 680); else setScreenWidth(Math.max(1, Math.min(entry.contentRect.width - 20, entry.contentRect.height * 1280 / 900))); } }); observer.observe(element); if (screen.current) observer.observe(screen.current);
-    const interval = window.setInterval(() => { setFps(painted.current); painted.current = 0; }, 1000);
-    return () => { observer.disconnect(); window.clearInterval(interval); };
+    const observer = new ResizeObserver(entries => { for (const entry of entries) setNarrow(entry.contentRect.width < 680); });
+    observer.observe(element); return () => observer.disconnect();
   }, []);
+  const browserSessionId = browser?.sessionId;
+  useLayoutEffect(() => {
+    if (!browserSessionId || mode === 'chat') return;
+    let scheduled = 0, last = '';
+    const overlays = '[aria-modal="true"],dialog[open],[role="menu"],[role="tooltip"],[role="dialog"],[role="listbox"]';
+    const update = () => {
+      scheduled = 0;
+      const rect = screen.current?.getBoundingClientRect();
+      const obscured = [...document.querySelectorAll(overlays)].some(element => {
+        const box = element.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && (element.getAttribute('aria-modal') === 'true' || rect && box.left < rect.right && box.right > rect.left && box.top < rect.bottom && box.bottom > rect.top);
+      });
+      const bounds = rect && !document.hidden && !obscured ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
+      const key = JSON.stringify(bounds);
+      if (last === key) return;
+      last = key;
+      void window.localAi.liveBrowser?.layout(browserSessionId, bounds).catch(() => undefined);
+    };
+    const schedule = () => { if (!scheduled) scheduled = requestAnimationFrame(update); };
+    const resize = new ResizeObserver(schedule); if (screen.current) resize.observe(screen.current);
+    const mutation = new MutationObserver(records => {
+      const overlay = (node: Node) => node instanceof Element && (node.matches(overlays) || Boolean(node.querySelector(overlays)));
+      if (records.some(record => record.type === 'attributes' ? record.target instanceof Element && (record.target.matches(overlays) || record.target instanceof HTMLDialogElement) : [...record.addedNodes,...record.removedNodes].some(overlay))) schedule();
+    }); mutation.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'aria-modal', 'class'] });
+    window.addEventListener('resize', schedule); document.addEventListener('visibilitychange', schedule);
+    document.addEventListener('scroll', schedule, true); update();
+    return () => { cancelAnimationFrame(scheduled); resize.disconnect(); mutation.disconnect(); window.removeEventListener('resize', schedule); document.removeEventListener('scroll', schedule, true); document.removeEventListener('visibilitychange', schedule); void window.localAi.liveBrowser?.layout(browserSessionId, null).catch(() => undefined); };
+  }, [browserSessionId, mode, conversationId]);
   const interactive = browser?.ownership === 'user' && browser.status === 'live';
   const [inputError, setInputError] = useState<string | null>(null);
   const input = (event: BrowserInput) => {
     if (!interactive || !browser) return;
     void window.localAi.liveBrowser?.input(browser.sessionId, event).then(() => setInputError(null)).catch(error => setInputError(String(error).slice(0, 180)));
   };
-  const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1280, (event.clientX - rect.left) * 1280 / rect.width)), y: Math.max(0, Math.min(900, (event.clientY - rect.top) * 900 / rect.height)) };
-  };
   const status = browser?.status;
-  const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Последний кадр');
+  const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Браузер закрыт');
   const action = browser?.action;
   return <div ref={root} className={`live-workspace mode-${mode} ${narrow ? 'is-narrow' : ''}`} style={{ '--chat-share': `${ratio}%` } as CSSProperties}>
     <div className="live-chat">{browser && mode === 'chat' && <button className="live-reopen" onClick={() => changeMode('split')}><Globe size={15} />{t('Живой браузер')}<span>{statusText}</span></button>}{children}</div>
@@ -102,20 +98,10 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
         <button title={t('Закрыть браузер')} aria-label={t('Закрыть браузер')} onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
       </div></header>
       <div className="live-address"><button disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title={t('Обновить')} aria-label={t('Обновить')} onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || t('Ожидание страницы')}</span></div>
-      <div ref={screen} className="live-screen"><div className="live-viewport" style={{ width: screenWidth }}><canvas ref={canvas} width={1280} height={900} tabIndex={interactive ? 0 : -1} style={{ cursor: interactive ? 'auto' : 'default', touchAction: 'none' }}
-          onPointerDown={event => { if (!interactive) return; event.preventDefault(); event.currentTarget.focus(); event.currentTarget.setPointerCapture(event.pointerId); input({ kind: 'pointer', phase: 'down', ...point(event) }); }}
-          onPointerUp={event => { if (!interactive) return; input({ kind: 'pointer', phase: 'up', ...point(event) }); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
-          onPointerCancel={() => input({ kind: 'release' })}
-          onBlur={() => input({ kind: 'release' })}
-          onPointerMove={event => { if (interactive && event.currentTarget.hasPointerCapture(event.pointerId)) input({ kind: 'pointer', phase: 'move', ...point(event) }); }}
-          onWheel={event => { if (interactive) { event.preventDefault(); input({ kind: 'wheel', dx: Math.max(-2000, Math.min(2000, event.deltaX)), dy: Math.max(-2000, Math.min(2000, event.deltaY)) }); } }}
-          onKeyDown={event => { if (interactive && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); input({ kind: 'key', phase: 'down', key: event.key }); } }}
-          onKeyUp={event => { if (interactive) { event.preventDefault(); input({ kind: 'key', phase: 'up', key: event.key }); } }}
-          onPaste={event => { if (interactive) { event.preventDefault(); input({ kind: 'text', text: event.clipboardData.getData('text').slice(0, 4000) }); } }}
-          aria-label={t('Страница браузера агента')} />
-        {action && action.x !== undefined && action.y !== undefined && <span key={`${browser?.sessionId}:${action.at}`} className={`live-action action-${action.kind}`} style={{ left: `${100 * action.x / 1280}%`, top: `${100 * action.y / 900}%` }} />}
-      </div>{!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}</div>
-      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? `${fps} fps` : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
+      <div ref={screen} className="live-screen native-browser-surface" tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
+        {!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}
+      </div>
+      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
         <ControlHelp label={t('Состояние браузера')}>{interactive ? t('Страница передана вам: можно нажимать, прокручивать и вводить текст.') : browser?.ownership === 'agent' ? t('Агент сейчас управляет этой страницей. После завершения задачи управление перейдёт вам.') : status === 'error' ? t('Браузер недоступен; проверьте сообщение об ошибке и повторно откройте страницу, если это безопасно.') : t('Браузер ожидает действий агента или открытия страницы.')}</ControlHelp>
         <button title={t('Переподключить просмотр')} aria-label={t('Переподключить просмотр')} onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
         {mode === 'expanded' && <button aria-label={t('Показать чат')} title={t('Показать чат')} onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}
