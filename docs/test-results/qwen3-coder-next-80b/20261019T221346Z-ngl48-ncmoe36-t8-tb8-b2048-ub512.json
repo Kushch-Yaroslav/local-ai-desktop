@@ -1,0 +1,578 @@
+{
+  "started_utc": "2026-10-19T22:13:46.779019+00:00",
+  "baseline": {
+    "system": {
+      "MemTotal": 62.69833755493164,
+      "MemAvailable": 46.99249267578125
+    },
+    "gpu": {
+      "used_mib": 1158,
+      "total_mib": 24576,
+      "free_mib": 23418,
+      "utilization_percent": 24
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/test-results/qwen3-coder-next-80b",
+    "ngl": 48,
+    "cpu_moe_layers": 36,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 2048,
+    "ubatch": 512,
+    "ctx": 65536,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "load_mode": "mmap",
+    "tokens": 96,
+    "prompt_tokens": 4096,
+    "mtp_draft": null,
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "repeats": 1,
+    "startup_timeout": 1200,
+    "request_timeout": 600,
+    "min_available_gib": 8.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "36379",
+    "--ctx-size",
+    "65536",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "36",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "2048",
+    "--ubatch-size",
+    "512",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "mmap",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--spec-type",
+    "none"
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "content": " explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 96,
+      "tokens_evaluated": 4096,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 96,
+        "n_predict": 96,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Context note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases explicitly, avoid mutating caller-owned input, and explain complexity with evidence.\nContext note: A reliable code review should preserve the public contract, handle edge cases",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 4191,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 4096,
+        "prompt_ms": 10782.889,
+        "prompt_per_token_ms": 2.632541259765625,
+        "prompt_per_second": 379.86109288521845,
+        "predicted_n": 96,
+        "predicted_ms": 3504.916,
+        "predicted_per_token_ms": 36.89385263157895,
+        "predicted_per_second": 27.104786534113796
+      },
+      "_wall_seconds": 14.393991702003404,
+      "_ttft_seconds": 10.8883077520004,
+      "repeat": 1
+    }
+  ],
+  "status": "passed",
+  "ready_utc": "2026-10-19T22:14:09.808303+00:00",
+  "requested_prompt_tokens": 4096,
+  "summary": {
+    "prompt_per_second": {
+      "median": 379.86109288521845,
+      "min": 379.86109288521845,
+      "max": 379.86109288521845
+    },
+    "predicted_per_second": {
+      "median": 27.104786534113796,
+      "min": 27.104786534113796,
+      "max": 27.104786534113796
+    },
+    "ttft_seconds": {
+      "median": 10.8883077520004,
+      "min": 10.8883077520004,
+      "max": 10.8883077520004
+    }
+  },
+  "metrics_before": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 6\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 1.04026\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 4\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 0.162435\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 5\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 9\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 5.76779\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 18.4689\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n",
+  "metrics_after": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 4102\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 11.8152\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 100\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 3.66735\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 104\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 4191\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 380.14\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 27.1048\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n",
+  "server_exit_code": 0,
+  "resources": {
+    "peak_used_mib": 16396,
+    "peak_utilization_percent": 88,
+    "peak_process_rss_gib": 45.33930969238281,
+    "peak_process_cpu_percent": 811.5,
+    "peak_system_cpu_percent": 78.43198016733808,
+    "min_available_gib": 45.97471618652344,
+    "min_free_vram_mib": 8180,
+    "swap_in_pages": 0,
+    "swap_out_pages": 0,
+    "samples": 18
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-19T22:13:48.802398+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.65382385253906
+      },
+      "gpu": {
+        "used_mib": 1433,
+        "total_mib": 24576,
+        "free_mib": 23143,
+        "utilization_percent": 24
+      },
+      "process_rss_gib": 1.7619132995605469,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:13:50.859335+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.61357116699219
+      },
+      "gpu": {
+        "used_mib": 1416,
+        "total_mib": 24576,
+        "free_mib": 23160,
+        "utilization_percent": 29
+      },
+      "process_rss_gib": 7.829578399658203,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 23.498614105327995,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:13:52.883827+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.55888748168945
+      },
+      "gpu": {
+        "used_mib": 1416,
+        "total_mib": 24576,
+        "free_mib": 23160,
+        "utilization_percent": 31
+      },
+      "process_rss_gib": 20.58456039428711,
+      "process_cpu_percent_of_one_core": 84.5,
+      "system_cpu_percent": 24.773224898342196,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:13:54.908735+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.47890090942383
+      },
+      "gpu": {
+        "used_mib": 1397,
+        "total_mib": 24576,
+        "free_mib": 23179,
+        "utilization_percent": 48
+      },
+      "process_rss_gib": 29.46538543701172,
+      "process_cpu_percent_of_one_core": 58.5,
+      "system_cpu_percent": 20.841180163214062,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:13:56.933558+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.53084945678711
+      },
+      "gpu": {
+        "used_mib": 1414,
+        "total_mib": 24576,
+        "free_mib": 23162,
+        "utilization_percent": 30
+      },
+      "process_rss_gib": 31.263843536376953,
+      "process_cpu_percent_of_one_core": 40.5,
+      "system_cpu_percent": 22.22222222222222,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:13:58.958052+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.5023078918457
+      },
+      "gpu": {
+        "used_mib": 1418,
+        "total_mib": 24576,
+        "free_mib": 23158,
+        "utilization_percent": 32
+      },
+      "process_rss_gib": 40.28538131713867,
+      "process_cpu_percent_of_one_core": 59.5,
+      "system_cpu_percent": 18.546365914786968,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:01.302355+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.50115203857422
+      },
+      "gpu": {
+        "used_mib": 1409,
+        "total_mib": 24576,
+        "free_mib": 23167,
+        "utilization_percent": 26
+      },
+      "process_rss_gib": 44.617122650146484,
+      "process_cpu_percent_of_one_core": 109.0,
+      "system_cpu_percent": 29.86767485822306,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:04.928275+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.53166961669922
+      },
+      "gpu": {
+        "used_mib": 14463,
+        "total_mib": 24576,
+        "free_mib": 10113,
+        "utilization_percent": 28
+      },
+      "process_rss_gib": 45.33930969238281,
+      "process_cpu_percent_of_one_core": 317.5,
+      "system_cpu_percent": 46.50118827567996,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:07.761938+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.558441162109375
+      },
+      "gpu": {
+        "used_mib": 16314,
+        "total_mib": 24576,
+        "free_mib": 8262,
+        "utilization_percent": 25
+      },
+      "process_rss_gib": 33.672725677490234,
+      "process_cpu_percent_of_one_core": 219.5,
+      "system_cpu_percent": 45.22978475858057,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:09.807086+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.3990592956543
+      },
+      "gpu": {
+        "used_mib": 16368,
+        "total_mib": 24576,
+        "free_mib": 8208,
+        "utilization_percent": 30
+      },
+      "process_rss_gib": 33.788856506347656,
+      "process_cpu_percent_of_one_core": 70.0,
+      "system_cpu_percent": 20.722668313773934,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:11.834977+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.134944915771484
+      },
+      "gpu": {
+        "used_mib": 16386,
+        "total_mib": 24576,
+        "free_mib": 8190,
+        "utilization_percent": 38
+      },
+      "process_rss_gib": 34.36601257324219,
+      "process_cpu_percent_of_one_core": 165.0,
+      "system_cpu_percent": 29.236499068901303,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:13.865759+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.13355255126953
+      },
+      "gpu": {
+        "used_mib": 16392,
+        "total_mib": 24576,
+        "free_mib": 8184,
+        "utilization_percent": 71
+      },
+      "process_rss_gib": 34.37521743774414,
+      "process_cpu_percent_of_one_core": 102.5,
+      "system_cpu_percent": 27.275551413482447,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:15.893547+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.135887145996094
+      },
+      "gpu": {
+        "used_mib": 16392,
+        "total_mib": 24576,
+        "free_mib": 8184,
+        "utilization_percent": 72
+      },
+      "process_rss_gib": 34.37995529174805,
+      "process_cpu_percent_of_one_core": 106.5,
+      "system_cpu_percent": 24.751243781094526,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:17.923095+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.11868667602539
+      },
+      "gpu": {
+        "used_mib": 16392,
+        "total_mib": 24576,
+        "free_mib": 8184,
+        "utilization_percent": 88
+      },
+      "process_rss_gib": 34.38658905029297,
+      "process_cpu_percent_of_one_core": 105.0,
+      "system_cpu_percent": 25.31094527363184,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:19.952438+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.13147735595703
+      },
+      "gpu": {
+        "used_mib": 16392,
+        "total_mib": 24576,
+        "free_mib": 8184,
+        "utilization_percent": 73
+      },
+      "process_rss_gib": 34.386600494384766,
+      "process_cpu_percent_of_one_core": 107.5,
+      "system_cpu_percent": 27.45098039215686,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:21.975617+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 45.9959716796875
+      },
+      "gpu": {
+        "used_mib": 16392,
+        "total_mib": 24576,
+        "free_mib": 8184,
+        "utilization_percent": 73
+      },
+      "process_rss_gib": 34.44107437133789,
+      "process_cpu_percent_of_one_core": 133.5,
+      "system_cpu_percent": 33.904643191025244,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:24.010269+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 45.97471618652344
+      },
+      "gpu": {
+        "used_mib": 16396,
+        "total_mib": 24576,
+        "free_mib": 8180,
+        "utilization_percent": 41
+      },
+      "process_rss_gib": 34.44327163696289,
+      "process_cpu_percent_of_one_core": 811.5,
+      "system_cpu_percent": 78.43198016733808,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:14:26.034882+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.12446975708008
+      },
+      "gpu": {
+        "used_mib": 1480,
+        "total_mib": 24576,
+        "free_mib": 23096,
+        "utilization_percent": 48
+      },
+      "process_rss_gib": 23.224285125732422,
+      "process_cpu_percent_of_one_core": 593.0,
+      "system_cpu_percent": 62.632233976353454,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    }
+  ],
+  "ended_utc": "2026-10-19T22:14:27.411590+00:00",
+  "server_log": "docs/test-results/qwen3-coder-next-80b/20261019T221346Z-ngl48-ncmoe36-t8-tb8-b2048-ub512.server.log"
+}

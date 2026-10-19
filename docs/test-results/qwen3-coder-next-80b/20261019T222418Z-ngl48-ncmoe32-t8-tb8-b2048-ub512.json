@@ -1,0 +1,965 @@
+{
+  "started_utc": "2026-10-19T22:24:18.843263+00:00",
+  "baseline": {
+    "system": {
+      "MemTotal": 62.69833755493164,
+      "MemAvailable": 47.53374481201172
+    },
+    "gpu": {
+      "used_mib": 1090,
+      "total_mib": 24576,
+      "free_mib": 23486,
+      "utilization_percent": 22
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/test-results/qwen3-coder-next-80b",
+    "ngl": 48,
+    "cpu_moe_layers": 32,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 2048,
+    "ubatch": 512,
+    "ctx": 65536,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "load_mode": "mmap",
+    "tokens": 512,
+    "prompt_tokens": 0,
+    "mtp_draft": "/tmp/qwen3next-mtp-sidecar/Qwen3-Next-80B-A3B-Instruct-MTP-ONLY-Q4_K_M.gguf",
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "verbosity": 3,
+    "repeats": 3,
+    "startup_timeout": 1200,
+    "request_timeout": 600,
+    "min_available_gib": 8.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "38091",
+    "--ctx-size",
+    "65536",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "32",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "2048",
+    "--ubatch-size",
+    "512",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "mmap",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--verbosity",
+    "3",
+    "--spec-type",
+    "draft-mtp",
+    "--spec-draft-model",
+    "/tmp/qwen3next-mtp-sidecar/Qwen3-Next-80B-A3B-Instruct-MTP-ONLY-Q4_K_M.gguf",
+    "--spec-draft-n-max",
+    "2",
+    "--gpu-layers-draft",
+    "auto"
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "content": " Input: [[1, 3], [2, 6], [8, 10], [15, 18]] Output: [[1, 6], [8, 10], [15, 18]]\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals and return sorted merged intervals.\n    \n    Args:\n        intervals: List of [start, end] integer pairs\n        \n    Returns:\n        List of merged [start, end] pairs, sorted by start value\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals by start time\n    sorted_intervals = sorted(intervals)\n    merged = [list(sorted_intervals[0])]\n    \n    for start, end in sorted_intervals[1:]:\n        # If current interval overlaps or touches the last merged interval\n        if start <= merged[-1][1]:\n            # Merge by updating the end time\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            # Add new interval\n            merged.append([start, end])\n    \n    return [tuple(interval) for interval in merged]\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 263,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 512,
+        "n_predict": 512,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,draft-mtp",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 320,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 1288.277,
+        "prompt_per_token_ms": 22.211672413793103,
+        "prompt_per_second": 45.02137350895809,
+        "predicted_n": 263,
+        "predicted_ms": 7866.988,
+        "predicted_per_token_ms": 30.026671755725193,
+        "predicted_per_second": 33.303724373292546,
+        "draft_n": 180,
+        "draft_n_accepted": 150
+      },
+      "_wall_seconds": 9.249497115997656,
+      "_ttft_seconds": 1.38210787299613,
+      "repeat": 1
+    },
+    {
+      "index": 0,
+      "content": " Input: [[1, 3], [2, 6], [8, 10], [15, 18]] Output: [[1, 6], [8, 10], [15, 18]]\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals and return sorted merged intervals.\n    \n    Args:\n        intervals: List of [start, end] integer pairs\n        \n    Returns:\n        List of merged [start, end] pairs, sorted by start value\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals by start time\n    sorted_intervals = sorted(intervals)\n    merged = [list(sorted_intervals[0])]\n    \n    for start, end in sorted_intervals[1:]:\n        # If current interval overlaps or touches the last merged interval\n        if start <= merged[-1][1]:\n            # Merge by updating the end time\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            # Add new interval\n            merged.append([start, end])\n    \n    return [tuple(interval) for interval in merged]\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 263,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 512,
+        "n_predict": 512,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,draft-mtp",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 320,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 1020.618,
+        "prompt_per_token_ms": 17.596862068965518,
+        "prompt_per_second": 56.82831382554491,
+        "predicted_n": 263,
+        "predicted_ms": 8218.146,
+        "predicted_per_token_ms": 31.366969465648857,
+        "predicted_per_second": 31.88066992238882,
+        "draft_n": 180,
+        "draft_n_accepted": 150
+      },
+      "_wall_seconds": 9.33297843499895,
+      "_ttft_seconds": 1.1144956610005465,
+      "repeat": 2
+    },
+    {
+      "index": 0,
+      "content": " Input: [[1, 3], [2, 6], [8, 10], [15, 18]] Output: [[1, 6], [8, 10], [15, 18]]\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals and return sorted merged intervals.\n    \n    Args:\n        intervals: List of [start, end] integer pairs\n        \n    Returns:\n        List of merged [start, end] pairs, sorted by start value\n    \"\"\"\n    if not intervals:\n        return []\n    \n    # Sort intervals by start time\n    sorted_intervals = sorted(intervals)\n    merged = [list(sorted_intervals[0])]\n    \n    for start, end in sorted_intervals[1:]:\n        # If current interval overlaps or touches the last merged interval\n        if start <= merged[-1][1]:\n            # Merge by updating the end time\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            # Add new interval\n            merged.append([start, end])\n    \n    return [tuple(interval) for interval in merged]\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 263,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 512,
+        "n_predict": 512,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,draft-mtp",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 320,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 1000.479,
+        "prompt_per_token_ms": 17.249637931034485,
+        "prompt_per_second": 57.97223130120672,
+        "predicted_n": 263,
+        "predicted_ms": 8007.341,
+        "predicted_per_token_ms": 30.562370229007634,
+        "predicted_per_second": 32.71997533263539,
+        "draft_n": 180,
+        "draft_n_accepted": 150
+      },
+      "_wall_seconds": 9.009270941998693,
+      "_ttft_seconds": 1.0015581599946017,
+      "repeat": 3
+    }
+  ],
+  "status": "passed",
+  "ready_utc": "2026-10-19T22:24:43.645959+00:00",
+  "requested_prompt_tokens": 0,
+  "summary": {
+    "prompt_per_second": {
+      "median": 56.82831382554491,
+      "min": 45.02137350895809,
+      "max": 57.97223130120672
+    },
+    "predicted_per_second": {
+      "median": 32.71997533263539,
+      "min": 31.88066992238882,
+      "max": 33.303724373292546
+    },
+    "ttft_seconds": {
+      "median": 1.1144956610005465,
+      "min": 1.0015581599946017,
+      "max": 1.38210787299613
+    }
+  },
+  "metrics_before": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 6\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 0.414829\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 4\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 0.24282\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 5\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 9\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 2\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 1\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 14.4638\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 12.3548\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n# HELP llamacpp:spec_decode_num_accepted_tokens_per_pos_total Accepted tokens per draft position\n# TYPE llamacpp:spec_decode_num_accepted_tokens_per_pos_total counter\nllamacpp:spec_decode_num_accepted_tokens_per_pos_total{position=\"0\"} 0\nllamacpp:spec_decode_num_accepted_tokens_per_pos_total{position=\"1\"} 0\n",
+  "metrics_after": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 180\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 3.70174\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 793\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 24.3353\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 347\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 320\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 542\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 450\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 271\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 52.9373\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 32.6243\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n# HELP llamacpp:spec_decode_num_accepted_tokens_per_pos_total Accepted tokens per draft position\n# TYPE llamacpp:spec_decode_num_accepted_tokens_per_pos_total counter\nllamacpp:spec_decode_num_accepted_tokens_per_pos_total{position=\"0\"} 246\nllamacpp:spec_decode_num_accepted_tokens_per_pos_total{position=\"1\"} 204\n",
+  "server_exit_code": 0,
+  "resources": {
+    "peak_used_mib": 21601,
+    "peak_utilization_percent": 72,
+    "peak_process_rss_gib": 44.550437927246094,
+    "peak_process_cpu_percent": 699.5,
+    "peak_system_cpu_percent": 75.4494730316181,
+    "min_available_gib": 46.316650390625,
+    "min_free_vram_mib": 2975,
+    "swap_in_pages": 0,
+    "swap_out_pages": 0,
+    "samples": 27
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-19T22:24:20.867069+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.299232482910156
+      },
+      "gpu": {
+        "used_mib": 1358,
+        "total_mib": 24576,
+        "free_mib": 23218,
+        "utilization_percent": 21
+      },
+      "process_rss_gib": 9.27779769897461,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:22.891350+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.29390335083008
+      },
+      "gpu": {
+        "used_mib": 1355,
+        "total_mib": 24576,
+        "free_mib": 23221,
+        "utilization_percent": 21
+      },
+      "process_rss_gib": 11.741050720214844,
+      "process_cpu_percent_of_one_core": 41.5,
+      "system_cpu_percent": 21.305302792594915,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:24.914393+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.30818557739258
+      },
+      "gpu": {
+        "used_mib": 1354,
+        "total_mib": 24576,
+        "free_mib": 23222,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 15.617084503173828,
+      "process_cpu_percent_of_one_core": 48.5,
+      "system_cpu_percent": 18.96822900283108,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:26.936861+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.2332763671875
+      },
+      "gpu": {
+        "used_mib": 1358,
+        "total_mib": 24576,
+        "free_mib": 23218,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 31.441131591796875,
+      "process_cpu_percent_of_one_core": 79.0,
+      "system_cpu_percent": 20.868478600437363,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:28.960610+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.24999237060547
+      },
+      "gpu": {
+        "used_mib": 1354,
+        "total_mib": 24576,
+        "free_mib": 23222,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 36.10452651977539,
+      "process_cpu_percent_of_one_core": 48.0,
+      "system_cpu_percent": 18.298807281858128,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:31.002543+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.2540283203125
+      },
+      "gpu": {
+        "used_mib": 1358,
+        "total_mib": 24576,
+        "free_mib": 23218,
+        "utilization_percent": 21
+      },
+      "process_rss_gib": 44.550437927246094,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 21.047737135771854,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:33.047067+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.25566101074219
+      },
+      "gpu": {
+        "used_mib": 18126,
+        "total_mib": 24576,
+        "free_mib": 6450,
+        "utilization_percent": 72
+      },
+      "process_rss_gib": 38.44873046875,
+      "process_cpu_percent_of_one_core": 100.0,
+      "system_cpu_percent": 28.7211093990755,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:35.095333+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.09098815917969
+      },
+      "gpu": {
+        "used_mib": 20010,
+        "total_mib": 24576,
+        "free_mib": 4566,
+        "utilization_percent": 18
+      },
+      "process_rss_gib": 30.516437530517578,
+      "process_cpu_percent_of_one_core": 83.5,
+      "system_cpu_percent": 24.8769987699877,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:37.274588+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.09150314331055
+      },
+      "gpu": {
+        "used_mib": 20010,
+        "total_mib": 24576,
+        "free_mib": 4566,
+        "utilization_percent": 18
+      },
+      "process_rss_gib": 30.915695190429688,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 26.142278773857722,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:39.353159+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.11178207397461
+      },
+      "gpu": {
+        "used_mib": 20011,
+        "total_mib": 24576,
+        "free_mib": 4565,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 31.160003662109375,
+      "process_cpu_percent_of_one_core": 70.5,
+      "system_cpu_percent": 26.12776264002422,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:41.377723+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.109642028808594
+      },
+      "gpu": {
+        "used_mib": 21510,
+        "total_mib": 24576,
+        "free_mib": 3066,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 30.562164306640625,
+      "process_cpu_percent_of_one_core": 23.5,
+      "system_cpu_percent": 18.62348178137652,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:43.401017+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.95732498168945
+      },
+      "gpu": {
+        "used_mib": 21534,
+        "total_mib": 24576,
+        "free_mib": 3042,
+        "utilization_percent": 19
+      },
+      "process_rss_gib": 30.63372039794922,
+      "process_cpu_percent_of_one_core": 34.5,
+      "system_cpu_percent": 17.969479912799752,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:45.429186+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.549678802490234
+      },
+      "gpu": {
+        "used_mib": 21554,
+        "total_mib": 24576,
+        "free_mib": 3022,
+        "utilization_percent": 58
+      },
+      "process_rss_gib": 31.00830841064453,
+      "process_cpu_percent_of_one_core": 174.0,
+      "system_cpu_percent": 28.194789081885855,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:47.462320+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.51918411254883
+      },
+      "gpu": {
+        "used_mib": 21558,
+        "total_mib": 24576,
+        "free_mib": 3018,
+        "utilization_percent": 47
+      },
+      "process_rss_gib": 31.094898223876953,
+      "process_cpu_percent_of_one_core": 641.5,
+      "system_cpu_percent": 61.140378060117754,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:49.495351+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.507694244384766
+      },
+      "gpu": {
+        "used_mib": 21562,
+        "total_mib": 24576,
+        "free_mib": 3014,
+        "utilization_percent": 41
+      },
+      "process_rss_gib": 31.09722900390625,
+      "process_cpu_percent_of_one_core": 695.5,
+      "system_cpu_percent": 64.19294990723562,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:51.524476+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.51663589477539
+      },
+      "gpu": {
+        "used_mib": 21558,
+        "total_mib": 24576,
+        "free_mib": 3018,
+        "utilization_percent": 39
+      },
+      "process_rss_gib": 31.098575592041016,
+      "process_cpu_percent_of_one_core": 690.0,
+      "system_cpu_percent": 63.76901583359205,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:53.556074+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.51133728027344
+      },
+      "gpu": {
+        "used_mib": 21562,
+        "total_mib": 24576,
+        "free_mib": 3014,
+        "utilization_percent": 43
+      },
+      "process_rss_gib": 31.100231170654297,
+      "process_cpu_percent_of_one_core": 699.5,
+      "system_cpu_percent": 66.29526462395543,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:55.597594+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.33238220214844
+      },
+      "gpu": {
+        "used_mib": 21597,
+        "total_mib": 24576,
+        "free_mib": 2979,
+        "utilization_percent": 45
+      },
+      "process_rss_gib": 31.276683807373047,
+      "process_cpu_percent_of_one_core": 391.5,
+      "system_cpu_percent": 44.95837187789084,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:57.628081+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.321739196777344
+      },
+      "gpu": {
+        "used_mib": 21592,
+        "total_mib": 24576,
+        "free_mib": 2984,
+        "utilization_percent": 48
+      },
+      "process_rss_gib": 31.276695251464844,
+      "process_cpu_percent_of_one_core": 693.0,
+      "system_cpu_percent": 74.8682987294701,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:24:59.658923+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.32746124267578
+      },
+      "gpu": {
+        "used_mib": 21596,
+        "total_mib": 24576,
+        "free_mib": 2980,
+        "utilization_percent": 43
+      },
+      "process_rss_gib": 31.27674102783203,
+      "process_cpu_percent_of_one_core": 693.0,
+      "system_cpu_percent": 66.37744034707158,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:01.692601+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.354095458984375
+      },
+      "gpu": {
+        "used_mib": 21596,
+        "total_mib": 24576,
+        "free_mib": 2980,
+        "utilization_percent": 40
+      },
+      "process_rss_gib": 31.276805877685547,
+      "process_cpu_percent_of_one_core": 693.0,
+      "system_cpu_percent": 75.4494730316181,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:03.721526+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.401737213134766
+      },
+      "gpu": {
+        "used_mib": 21592,
+        "total_mib": 24576,
+        "free_mib": 2984,
+        "utilization_percent": 70
+      },
+      "process_rss_gib": 31.203323364257812,
+      "process_cpu_percent_of_one_core": 462.0,
+      "system_cpu_percent": 51.31782945736434,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:05.749606+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.316650390625
+      },
+      "gpu": {
+        "used_mib": 21596,
+        "total_mib": 24576,
+        "free_mib": 2980,
+        "utilization_percent": 43
+      },
+      "process_rss_gib": 31.278610229492188,
+      "process_cpu_percent_of_one_core": 650.5,
+      "system_cpu_percent": 63.805392004958165,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:07.784868+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.331382751464844
+      },
+      "gpu": {
+        "used_mib": 21600,
+        "total_mib": 24576,
+        "free_mib": 2976,
+        "utilization_percent": 44
+      },
+      "process_rss_gib": 31.278621673583984,
+      "process_cpu_percent_of_one_core": 696.5,
+      "system_cpu_percent": 67.82178217821782,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:09.821386+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.32621383666992
+      },
+      "gpu": {
+        "used_mib": 21600,
+        "total_mib": 24576,
+        "free_mib": 2976,
+        "utilization_percent": 51
+      },
+      "process_rss_gib": 31.278667449951172,
+      "process_cpu_percent_of_one_core": 692.0,
+      "system_cpu_percent": 67.56172839506173,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:11.858634+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 46.31678771972656
+      },
+      "gpu": {
+        "used_mib": 21601,
+        "total_mib": 24576,
+        "free_mib": 2975,
+        "utilization_percent": 49
+      },
+      "process_rss_gib": 31.27873992919922,
+      "process_cpu_percent_of_one_core": 695.5,
+      "system_cpu_percent": 67.6780185758514,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-19T22:25:13.882285+00:00",
+      "system": {
+        "MemTotal": 62.69833755493164,
+        "MemAvailable": 47.552459716796875
+      },
+      "gpu": {
+        "used_mib": 1094,
+        "total_mib": 24576,
+        "free_mib": 23482,
+        "utilization_percent": 23
+      },
+      "process_rss_gib": 0,
+      "process_cpu_percent_of_one_core": -9311.0,
+      "system_cpu_percent": 24.820928059794458,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    }
+  ],
+  "ended_utc": "2026-10-19T22:25:13.885845+00:00",
+  "server_log": "docs/test-results/qwen3-coder-next-80b/20261019T222418Z-ngl48-ncmoe32-t8-tb8-b2048-ub512.server.log"
+}
