@@ -1,8 +1,13 @@
 {
   "result": "PASS",
-  "root": "/tmp/lad-profile-ui-FilrpZ",
+  "root": "/tmp/lad-profile-ui-6STF8N",
   "scope": "Real Electron/SQLite/UI; controlled backend, simulated CUDA failure",
   "checks": [
+    "compact/expanded panel controls",
+    "compact hardware monitoring",
+    "simple/advanced profile controls",
+    "advanced values survive mode switching",
+    "tool detection mode persistence",
     "Strategy",
     "GPT efforts",
     "manual override cannot invent Thinking",

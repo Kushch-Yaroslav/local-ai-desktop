@@ -258,6 +258,8 @@ export interface RuntimeModelConfiguration {
   projectorDevice?: 'auto' | 'gpu' | 'cpu';
   gpuLayers: number | null;
   supportsTools: boolean;
+  /** Auto follows GGUF template inspection; old profiles without this field keep their stored boolean. */
+  toolCallingMode?: 'auto' | 'manual';
   mtpMode?: MtpMode;
   speculative: 'mtp' | 'none';
   /** Null inherits the global GPU layer count; a number overrides it for this model. */

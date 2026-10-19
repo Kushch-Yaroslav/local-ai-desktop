@@ -46,6 +46,8 @@ function normalizeModel(raw: unknown, modelsPath: string): RuntimeModelConfigura
   const projectorDevice = value.projectorDevice ?? 'auto';
   if (!['auto', 'gpu', 'cpu'].includes(String(projectorDevice))) throw new Error('Некорректное устройство projector.');
   const supportsTools = typeof value.supportsTools==='boolean'?value.supportsTools:builtin?.supportsTools??false;
+  const toolCallingMode = value.toolCallingMode === undefined ? undefined : value.toolCallingMode;
+  if (toolCallingMode !== undefined && toolCallingMode !== 'auto' && toolCallingMode !== 'manual') throw new Error(`Некорректный режим определения вызова инструментов для «${displayName}».`);
   const speculative = value.speculative === 'none' ? 'none' : builtin || value.speculative === 'mtp' ? 'mtp' : 'none';
   if (value.speculative !== undefined && value.speculative !== 'none' && value.speculative !== 'mtp') throw new Error(`Некорректный режим MTP для «${displayName}».`);
   const mtpMode = value.mtpMode ?? (speculative === 'none' ? 'off' : 'auto');
@@ -54,7 +56,7 @@ function normalizeModel(raw: unknown, modelsPath: string): RuntimeModelConfigura
   const advanced=normalizeAdvanced(value.advanced),defaults=normalizeModelDefaults(value.defaults);
   return { id, displayName,...(value.family?{family:value.family as typeof modelFamilies[number]}:{}),...(advanced?{advanced}:{}),...(defaults?{defaults}:{}), mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
     mmprojPath: value.mmprojPath ? expandPath(String(value.mmprojPath), modelsPath) : '',
-    gpuLayers, projectorDevice: projectorDevice as 'auto' | 'gpu' | 'cpu', supportsTools, speculative, builtin: Boolean(builtin) };
+    gpuLayers, projectorDevice: projectorDevice as 'auto' | 'gpu' | 'cpu', supportsTools,...(toolCallingMode?{toolCallingMode}:{}), speculative, builtin: Boolean(builtin) };
 }
 
 function normalizeModels(raw: unknown, modelsPath: string): RuntimeModelConfiguration[] {

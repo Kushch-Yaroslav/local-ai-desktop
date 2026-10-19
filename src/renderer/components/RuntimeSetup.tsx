@@ -1,6 +1,5 @@
 import {ModelLaunchDiff} from './ModelLaunchDiff';
 import { ModelProfileEditor } from './ModelProfileEditor';
-import { AuthorConfigurations } from './AuthorConfigurations';
 import { ReloadDialog } from './ReloadDialog';
 import { useLocale } from '../use-locale';
 import { t, tr, localizeMessage, getLanguage } from '../../shared/locale';
@@ -17,6 +16,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   const configRef = useRef(config);
   configRef.current = config;
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [profileAdvanced, setProfileAdvanced] = useState(false);
   const [message, setMessage] = useState('');
   const [languageError, setLanguageError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -93,6 +93,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   const invalidDraft = executableTone === 'danger' || draftModels?.folderExists === false && config.modelsPath !== savedConfig.modelsPath;
   const readinessState = invalidDraft ? 'invalid' : dirty ? 'unsaved' : draftReady ? 'ready' : 'incomplete';
   const selected = config.models.find((model) => model.id === editingId) ?? null;
+  useEffect(() => { setProfileAdvanced(false); }, [editingId]);
   const updateModel = (id: string, patch: Partial<RuntimeModelConfiguration>) => setConfig((current) => ({
     ...current, models: current.models.map((model) => model.id === id ? { ...model, ...patch } : model),
   }));
@@ -104,7 +105,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
     const filename = path.split(/[\\/]/).at(-1) ?? path;
     const displayName = filename.replace(/\.gguf$/i, '') || t("Новая модель");
     const model: RuntimeModelConfiguration = { id: `custom:${globalThis.crypto.randomUUID()}`, displayName,
-      modelPath: path, mmprojPath: '', gpuLayers: null, supportsTools: false, speculative: 'none', builtin: false };
+      modelPath: path, mmprojPath: '', gpuLayers: 999, supportsTools: false, toolCallingMode: 'auto', speculative: 'none', builtin: false };
     setConfig((current) => ({ ...current, models: [...current.models, model] }));
     setEditingId(model.id); setMessage('');
   }); };
@@ -199,14 +200,14 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
       <label>{t("Название в приложении")}<input aria-label={t("Название модели")} maxLength={80} value={selected.displayName} onChange={(event) => updateModel(selected.id, { displayName: event.target.value })} /></label>
       <label>{t("Файл модели GGUF")}<div className="setup-path"><input aria-label={t("Файл модели GGUF")} value={selected.modelPath} onChange={(event) => updateModel(selected.id, { modelPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { modelPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Выберите первый файл модели. Части split GGUF должны лежать рядом.")}</small></label>
       <label>{t("Projector для изображений — необязательно")}<div className="setup-path"><input aria-label={t("Проектор GGUF")} value={selected.mmprojPath} onChange={(event) => updateModel(selected.id, { mmprojPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { mmprojPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Нужен, чтобы эта модель понимала изображения. Без него остаётся текстовый чат.")}</small></label>
-      <ModelProfileEditor profile={selected} inspection={draftModels?.models.find(m=>m.id===selected.id)?.inspection??setup.models.find(m=>m.id===selected.id)?.inspection} features={setup.backendFeatures} onChange={patch=>updateModel(selected.id,patch)}/>
-      <AuthorConfigurations profile={selected} inspection={draftModels?.models.find(m=>m.id===selected.id)?.inspection??setup.models.find(m=>m.id===selected.id)?.inspection} onChange={patch=>updateModel(selected.id,patch)}/>
-      <details className="profile-section"><summary>{ru?'Управление моделью':'Model management'}</summary><p>{ru?'Сохранение не останавливает backend. Применение выполняет отдельную безопасную перезагрузку llama-server.':'Saving leaves the backend running. Apply performs a separate safe llama-server restart.'}</p><button disabled={!activeId||saving||applying} onClick={()=>{setApplyError('');setApplyDialog(true);}}>{ru?'Применить и перезагрузить':'Apply and restart'}</button>{activeRuntime?.rolledBack&&activeRuntime.profileConfiguration?.id===selected.id&&<button onClick={()=>updateModel(selected.id,activeRuntime.profileConfiguration!)}>{ru?'Восстановить рабочую конфигурацию в черновике':'Restore working configuration to draft'}</button>}<details><summary>{ru?'Активная конфигурация и диагностика':'Active configuration and diagnostics'}</summary><pre>{JSON.stringify({status:activeRuntime?.status,activeProfile:activeRuntime?.profileConfiguration,arguments:activeRuntime?.launchArguments,observedPlacement:activeRuntime?.placement},null,2)}</pre>{activeRuntime?.diagnosticsHistory?.map((entry,i)=><p key={i}>{entry.at} · {entry.message}</p>)}</details></details>
-      <small>{t('MTP Auto/On/Off: используйте переключатель MTP рядом с контекстом. Применение требует отдельного подтверждения перезагрузки.')}</small>
+      <ModelProfileEditor key={selected.id} profile={selected} inspection={draftModels?.models.find(m=>m.id===selected.id)?.inspection??setup.models.find(m=>m.id===selected.id)?.inspection} features={setup.backendFeatures} inheritedGpuLayers={config.gpuLayers} onAdvancedModeChange={setProfileAdvanced} onChange={patch=>updateModel(selected.id,patch)}/>
+      {profileAdvanced&&<><details className="profile-section"><summary>{ru?'Управление моделью':'Model management'}</summary><p>{ru?'Сохранение не останавливает backend. Применение выполняет отдельную безопасную перезагрузку llama-server.':'Saving leaves the backend running. Apply performs a separate safe llama-server restart.'}</p><button disabled={!activeId||saving||applying} onClick={()=>{setApplyError('');setApplyDialog(true);}}>{ru?'Применить и перезагрузить':'Apply and restart'}</button>{activeRuntime?.rolledBack&&activeRuntime.profileConfiguration?.id===selected.id&&<button onClick={()=>updateModel(selected.id,activeRuntime.profileConfiguration!)}>{ru?'Восстановить рабочую конфигурацию в черновике':'Restore working configuration to draft'}</button>}<details><summary>{ru?'Активная конфигурация и диагностика':'Active configuration and diagnostics'}</summary><pre>{JSON.stringify({status:activeRuntime?.status,activeProfile:activeRuntime?.profileConfiguration,arguments:activeRuntime?.launchArguments,observedPlacement:activeRuntime?.placement},null,2)}</pre>{activeRuntime?.diagnosticsHistory?.map((entry,i)=><p key={i}>{entry.at} · {entry.message}</p>)}</details></details>
+      <small>{t('MTP Auto/On/Off: используйте переключатель MTP рядом с контекстом. Применение требует отдельного подтверждения перезагрузки.')}</small></>}
+      <button className="profile-save-button" disabled={saving || (Boolean(inputPath.trim()) && executableStatus !== 'valid')} onClick={() => void save()}>{saving ? t("Сохранение…") : t("Сохранить изменения")}</button>
     </fieldset>}
     <small>{t("Настройки: ")}{setup.configPath}<br />{t("Данные приложения: ")}{setup.dataDirectory}{t(". Пути с пробелами и ~/ поддерживаются.")}</small>
     {message && <p role="status" className="runtime-setup-message">{localizeMessage(message)}</p>}
     {applyDialog&&selected&&<ReloadDialog title={ru?'Настройки модели':'Model settings'} busy={applying||saving} error={applyError} onCancel={()=>setApplyDialog(false)} onApply={()=>{void(async()=>{setApplying(true);setApplyError('');try{const saved=await save(true);if(!saved||!activeId)return;const result=await window.localAi.runtime.control({action:'restart',conversationId:activeId,modelId:selected.id});useAppStore.setState({settings:result,conversations:await window.localAi.conversations.list()});await useAppStore.getState().refreshRuntime();setApplyDialog(false);}catch(e){setApplyError(localizeMessage(String(e).replace(/^Error: Error invoking remote method '[^']+': (Error: )?/,'')));await useAppStore.getState().refreshRuntimeStatus().catch(()=>undefined);}finally{setApplying(false);}})();}}><p>{ru?'Активная модель':'Active model'}: {activeRuntime?.profileConfiguration?.displayName??activeRuntime?.modelId??'—'}<br/>{ru?'Целевая модель':'Target model'}: {selected.displayName}</p><p>GPU layers: {activeRuntime?.profileConfiguration?.gpuLayers??'—'} → {selected.advanced?.mode==='automatic'?'auto':selected.gpuLayers??config.gpuLayers}<br/>{ru?'Контекст':'Context'}: {activeRuntime?.contextWindow?`${activeRuntime.contextWindow/1024}K`:'—'} {activeRuntime?.kvCacheType??''} → {(selected.defaults?.contextWindow??(activeRuntime?.modelId===selected.id?activeRuntime?.contextWindow:undefined)??conversation?.contextWindow??32768)/1024}K {selected.defaults?.kvCacheType??(activeRuntime?.modelId===selected.id?activeRuntime?.kvCacheType:undefined)??conversation?.llamaKvCacheType??'f16'}</p><ModelLaunchDiff active={activeRuntime?.profileConfiguration} pending={selected}/><p>{ru?'GGUF и backend проверяются до остановки предыдущей модели.':'GGUF and backend are checked before stopping the previous model.'}</p></ReloadDialog>}
-    <footer><button disabled={saving || (Boolean(inputPath.trim()) && executableStatus !== 'valid')} onClick={() => void save()}>{saving ? t("Сохранение…") : t("Сохранить изменения")}</button></footer>
+    {!selected&&<footer><button disabled={saving || (Boolean(inputPath.trim()) && executableStatus !== 'valid')} onClick={() => void save()}>{saving ? t("Сохранение…") : t("Сохранить изменения")}</button></footer>}
   </section></div>;
 }

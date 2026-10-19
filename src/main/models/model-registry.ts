@@ -18,9 +18,10 @@ export function registeredModelProfiles(config = effectiveRuntimeConfiguration()
   return config.models.map((configured) => {
     const builtin = known.get(configured.id);
     const inspection=inspectModel(configured.modelPath,configured.family);
-    if (builtin) return { ...builtin,...(inspection.status==='inspected'?{supportsReasoning:inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0}:{}), displayName: configured.displayName, shortName: configured.displayName,supportsTools:configured.supportsTools };
+    const supportsTools=configured.toolCallingMode==='auto'&&inspection.status==='inspected'?inspection.toolTemplate:configured.supportsTools;
+    if (builtin) return { ...builtin,...(inspection.status==='inspected'?{supportsReasoning:inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0}:{}), displayName: configured.displayName, shortName: configured.displayName,supportsTools };
     return { id: configured.id, displayName: configured.displayName, shortName: configured.displayName,
-      quantization: inspection.quantization??'GGUF', maxContext: inspection.trainedContext??32_768, supportsTools: configured.supportsTools, supportsReasoning: inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0 };
+      quantization: inspection.quantization??'GGUF', maxContext: inspection.trainedContext??32_768, supportsTools, supportsReasoning: inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0 };
   });
 }
 
