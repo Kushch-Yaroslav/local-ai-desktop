@@ -1,0 +1,146 @@
+{
+  "note": "Resume did execute the requested hold with an actual changed-state assertion. The harness incorrectly demanded the whole report be Verified despite an extra click without an expectation; the runtime and model honestly reported partial scope. No source write occurred.",
+  "report": [
+    {
+      "scope": "interaction",
+      "functionalStatus": "Partially Verified",
+      "id": "0fc0bdbb-3204-4b48-9087-4e9c71cbac64",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-19T00:26:37.664Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document loaded and rendered body exists",
+          "actual": "Camera fixture",
+          "status": "Verified"
+        },
+        {
+          "action": "layout",
+          "expected": "Interactive controls are not entirely outside horizontal viewport",
+          "actual": "No offscreen controls observed",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas input delivery",
+          "expected": "Real keyboard and pointer events arrive",
+          "actual": "{\"pointermove\":10,\"click\":2,\"keydown\":4,\"keyup\":4}",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Previously active RAF callbacks continue after camera/keyboard actions",
+          "actual": "113 → 145",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Previously active draw calls continue after interaction",
+          "actual": "114 → 146",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas finite values",
+          "expected": "No observed NaN/Infinity canvas draw arguments",
+          "actual": "0",
+          "status": "Verified"
+        },
+        {
+          "action": "click",
+          "expected": "Application-specific expectation not supplied",
+          "actual": "Action delivered; handling not established",
+          "status": "Partially Verified"
+        },
+        {
+          "action": "hold w",
+          "expected": "Application state changes after input",
+          "actual": "12 → 13",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in optional window.__qaDiagnostics (bounded depth)",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No uncaught errors, console errors or unhandled rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "frame comparison",
+          "expected": "Record pixel change without inferring correctness",
+          "actual": "Captured pixels differ after interaction",
+          "status": "Verified"
+        }
+      ],
+      "errors": [],
+      "captures": [
+        {
+          "runId": "native-real-1792369575399",
+          "id": "fc8c39d3-5db0-4f00-91f9-2ba3f36c7cb7",
+          "path": "/tmp/lad-native-qwen-bNdBdk/cache/browser-captures/native-real-1792369487947/fc8c39d3-5db0-4f00-91f9-2ba3f36c7cb7.png",
+          "sha256": "e03ccf9068a6e95dc5136f4b6984add5e9db51a9be714e13db8a38bbf40bc3a4",
+          "width": 554,
+          "height": 703,
+          "viewport": {
+            "width": 554,
+            "height": 703
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 554,
+            "height": 703
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T00:26:24.437Z",
+          "captureMs": 66.26142999999865,
+          "bytes": 3162
+        },
+        {
+          "runId": "native-real-1792369575399",
+          "id": "119e4cf8-9832-49d3-b479-2e8d41990692",
+          "path": "/tmp/lad-native-qwen-bNdBdk/cache/browser-captures/native-real-1792369487947/119e4cf8-9832-49d3-b479-2e8d41990692.png",
+          "sha256": "5c11a32cd1edb29ee424af1d77a5e4d36bb225438bd1120fb22940caec549605",
+          "width": 554,
+          "height": 703,
+          "viewport": {
+            "width": 554,
+            "height": 703
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 554,
+            "height": 703
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T00:26:26.138Z",
+          "captureMs": 48.301585999986855,
+          "bytes": 3281
+        }
+      ],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from reddish-brown to purple, updated the numeric label from 0 to 13, and added a thin orange border around the top panel. The bottom area and slider remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 11525.608191000007,
+        "promptTokens": 918,
+        "completionTokens": 65
+      },
+      "elapsedMs": 13293.645808000001,
+      "status": "Partially Verified",
+      "runId": "native-real-1792369575399",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "evidencePath": "/tmp/lad-native-qwen-bNdBdk/cache/browser-captures/native-real-1792369487947/0fc0bdbb-3204-4b48-9087-4e9c71cbac64.json"
+    }
+  ],
+  "final": "Retest complete. The `hold w` check passed.\n\n**Result: `hold w` on the Canvas → `#camera` changed `true` — Verified.**\n\nFrom the real-browser QA run (web_project result), the targeted check:\n- `hold w` — expected \"Application state changes after input\" — actual `12 → 13` — **Verified**\n- Visual confirmation (model analyzed, 0.95 confidence): \"updated the numeric label from 0 to 13\"\n\nSupporting context, all clean: canvas input delivery Verified (4 keydown/keyup events received), canvas animation/render continued, no NaN/Infinity in diagnostics, no uncaught/console errors, and a frame comparison confirmed pixels changed after interaction.\n\nOne caveat on scope, stated plainly: the overall run is marked **Partially Verified** only because the generic `click canvas` step reported \"Action delivered; handling not established\" — it had no application-specific expectation attached, so the harness couldn't confirm click handling. That step isn't part of your requested assertion. The specific behaviour you asked to verify — `hold w` changing `#camera` — is verified.\n\nNo source was modified; I only read `index.html` and ran the browser QA.\n\n**Agent V2 status:** Browser QA: Partially Verified. Visual analysis: Verified."
+}

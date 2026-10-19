@@ -1,0 +1,37 @@
+{
+  "tests": [
+    "external JavaScript/CSS loads on one native Page without a global debug port",
+    "file watcher automatically reloads external HTML/CSS/JS",
+    "actual Canvas remains animated after external JS reload"
+  ],
+  "noGlobalDebugPort": true,
+  "projectPageCount": 1,
+  "result": "PASS",
+  "ownedProcesses": [
+    {
+      "pid": 32814,
+      "startTime": "280590"
+    },
+    {
+      "pid": 32856,
+      "startTime": "280610"
+    },
+    {
+      "pid": 32885,
+      "startTime": "280611"
+    },
+    {
+      "pid": 32889,
+      "startTime": "280613"
+    },
+    {
+      "pid": 32978,
+      "startTime": "280677"
+    },
+    {
+      "pid": 32966,
+      "startTime": "280674"
+    }
+  ],
+  "liveOwnedProcessesAfterQuit": []
+}

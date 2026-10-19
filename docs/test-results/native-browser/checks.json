@@ -1,0 +1,166 @@
+{
+  "status": "PASS",
+  "build": "npm run build: PASS (Rust + typecheck + Vite + Electron TypeScript); existing bundle-size warning only",
+  "lint": "npm run lint: PASS",
+  "rust": {
+    "passed": 386,
+    "ignored": 1,
+    "reason": "default-ignored Chrome/desktop dependency case; separate real Chromium/Electron/Qwen tests executed"
+  },
+  "qaGuardUnit": "PASS including identical, alternating and three-status outcomes",
+  "realQwen": "qwen-native-result.json",
+  "nativeAssetsNoInspector": "native-assets-result.json",
+  "tests": [
+    {
+      "test": "dist/main/services/browser-vision.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/mtp-capability.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/llama-runtime-controller.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/runtime-settings.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/shared/context-options.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/shared/reasoning-controls.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/rust-agent-runtime.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/approval-broker.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/tools/tool-security.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/services/protected-runtime.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "dist/main/web/public-network.test.js",
+      "exitCode": 0
+    },
+    {
+      "test": "scripts/native-browser.test.mjs",
+      "exitCode": 0,
+      "via": "scripts/runtime-controls-electron.test.mjs",
+      "checks": 19
+    },
+    {
+      "test": "scripts/live-browser.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 1786
+    },
+    {
+      "test": "scripts/project-browser.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 4001
+    },
+    {
+      "test": "scripts/live-browser-autoreload.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 21475
+    },
+    {
+      "test": "scripts/p2-browser-qa.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 10421
+    },
+    {
+      "test": "scripts/p2-gate-runtime.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 5662
+    },
+    {
+      "test": "scripts/qa-loop-runtime.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 7325
+    },
+    {
+      "test": "scripts/control-panel-modes-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 8622
+    },
+    {
+      "test": "scripts/runtime-controls-ui.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 5025
+    },
+    {
+      "test": "scripts/live-browser-autoreload-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 6756
+    },
+    {
+      "test": "scripts/p2-controls-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 3228
+    },
+    {
+      "test": "scripts/p2-qa-panel-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 6373
+    },
+    {
+      "test": "scripts/control-tooltips-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 2510
+    },
+    {
+      "test": "scripts/browser-vision-config-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 5586
+    },
+    {
+      "test": "scripts/mtp-ui.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 8702
+    },
+    {
+      "test": "scripts/context-profiles-electron.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 40919
+    },
+    {
+      "test": "scripts/runtime-controls-browser.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 2890
+    },
+    {
+      "test": "scripts/runtime-controls-electron.test.mjs",
+      "exitCode": 0,
+      "delegatesTo": "scripts/native-browser.test.mjs",
+      "evidence": "native-result.json; final native-browser-final-security.log",
+      "checks": 19
+    },
+    {
+      "test": "scripts/native-browser-assets.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 3675
+    },
+    {
+      "test": "scripts/native-browser-lineage.test.mjs",
+      "exitCode": 0,
+      "elapsedMs": 8666
+    }
+  ],
+  "notes": [
+    "Earlier failures are retained in negative evidence and described in the verification report; current entries use the successful affected reruns.",
+    "Scripted-provider and mocked-hardware UI tests are distinct from actual Qwen/MTP/Vision acceptance."
+  ]
+}

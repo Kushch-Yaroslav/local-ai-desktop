@@ -1,0 +1,157 @@
+{
+  "root": "/tmp/lad-native-e2e-y9Omho",
+  "tests": [
+    "one native project Page; no canvas/frame IPC or privileged preload",
+    "Node/preload isolation; popup, foreign fetch, service worker and WebRTC restrictions",
+    "real WebGL context and rendered pixel readback",
+    "agent input exclusion; CDP mouse; native user click/WASD hold; state retained",
+    "native user wheel scrolling; physical wheel shield while agent controls",
+    "Paused ownership; repeat run permission; same page",
+    "real keyboard hold/combination/down/up/repeat QA; PNG capture",
+    "six fresh edited revisions accepted beyond old QA/screenshot budgets",
+    "no-progress QA blocked with prior evidence; unrelated tools remain available",
+    "real pointer-triggered Canvas failure detected and retested after repair",
+    "native internal navigation, chrome Back/Forward and Refresh on same Page",
+    "native viewport resize; hidden view; reopen",
+    "modal/keyboard focus arbitration and narrow native layout",
+    "explicit screenshot limit independent of native surface and QA captures",
+    "explicit native webContents teardown",
+    "five open/close cycles without residual native views/webContents",
+    "independent Main origin/network enforcement",
+    "CDP loss fails closed, reports Error and disposes native resources",
+    "native loopback external JS/204; POST/file/permission/origin/redirect denial and upstream CSP"
+  ],
+  "metrics": {
+    "before": {
+      "webContents": 1,
+      "processes": [
+        {
+          "pid": 28995,
+          "type": "Browser",
+          "rssKiB": 238168,
+          "cpu": 0
+        },
+        {
+          "pid": 29034,
+          "type": "GPU",
+          "rssKiB": 158444,
+          "cpu": 0
+        },
+        {
+          "pid": 29108,
+          "type": "Utility",
+          "rssKiB": 78348,
+          "cpu": 0
+        },
+        {
+          "pid": 29135,
+          "type": "Tab",
+          "rssKiB": 120356,
+          "cpu": 0
+        }
+      ]
+    },
+    "webgl": {
+      "supported": true,
+      "pixel": [
+        255,
+        0,
+        0,
+        255
+      ],
+      "renderer": "ANGLE (NVIDIA Corporation, NVIDIA GeForce RTX 3090/PCIe/SSE2, OpenGL 4.5.0)"
+    },
+    "final": {
+      "frameIpc": 0,
+      "approvals": 2,
+      "nativeId": 2,
+      "pageCount": 1,
+      "views": [
+        {
+          "bounds": {
+            "x": 220,
+            "y": 600,
+            "width": 640,
+            "height": 244
+          },
+          "visible": true
+        },
+        {
+          "bounds": {
+            "x": 220,
+            "y": 600,
+            "width": 640,
+            "height": 244
+          },
+          "visible": true
+        }
+      ],
+      "bounds": {
+        "x": 1020,
+        "y": 274,
+        "width": 860,
+        "height": 900
+      },
+      "snapshot": {
+        "url": "https://project-preview.invalid/index.html",
+        "identity": 0.4374611801998197,
+        "camera": {
+          "camera": 58,
+          "held": 1,
+          "pointer": 1
+        },
+        "keys": [
+          "down:KeyW",
+          "up:KeyW",
+          "down:KeyA",
+          "up:KeyA",
+          "down:KeyS",
+          "up:KeyS",
+          "down:KeyD",
+          "up:KeyD"
+        ],
+        "clicks": 0,
+        "input": "",
+        "viewport": {
+          "width": 640,
+          "height": 244
+        },
+        "frames": 149,
+        "scrollY": 0,
+        "available": {
+          "require": "undefined",
+          "localAi": "undefined"
+        }
+      }
+    },
+    "afterFiveCloses": {
+      "processes": [
+        {
+          "pid": 28995,
+          "type": "Browser",
+          "rssKiB": 290936,
+          "cpu": 0.707226182531683
+        },
+        {
+          "pid": 29034,
+          "type": "GPU",
+          "rssKiB": 191336,
+          "cpu": 0.8420414117822784
+        },
+        {
+          "pid": 29108,
+          "type": "Utility",
+          "rssKiB": 80808,
+          "cpu": 0.017680647685972745
+        },
+        {
+          "pid": 29135,
+          "type": "Tab",
+          "rssKiB": 149452,
+          "cpu": 0.13481486232989148
+        }
+      ]
+    }
+  },
+  "result": "PASS"
+}

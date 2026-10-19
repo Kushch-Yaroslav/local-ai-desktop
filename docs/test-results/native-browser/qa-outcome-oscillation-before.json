@@ -1,0 +1,311 @@
+{
+  "source": "Real Qwen3.8 + native Page test before returning-outcome protection",
+  "root": "/tmp/lad-native-qwen-ayCLNX",
+  "terminatedOwnedFixture": true,
+  "reports": [
+    {
+      "capturedAt": "2026-10-18T19:00:57.833Z",
+      "status": "Failed",
+      "functionalStatus": "Failed",
+      "revisionFingerprint": "35bcf7471580104c49500e98d044ed0d401448df1f8a1ffde01e0fb979e63560",
+      "sourceFingerprint": "3beef30660ec7b927270afa81879be9387909d9f9c7c45ccd9cae6ff63aa79fd",
+      "failedChecks": [
+        {
+          "action": "canvas animation",
+          "expected": "Previously active RAF callbacks continue after camera/keyboard actions",
+          "actual": "47 → 47",
+          "status": "Failed"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Previously active draw calls continue after interaction",
+          "actual": "47 → 47",
+          "status": "Failed"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No uncaught errors, console errors or unhandled rejections",
+          "actual": "camera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect\ncamera rotation defect",
+          "status": "Failed"
+        }
+      ],
+      "errors": [
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect",
+        "camera rotation defect"
+      ],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The top panel color changed from reddish-brown to olive-green, and the numeric label on the left changed from '0' to '13'. The bottom panel remains blank white in both frames. No clipping, overlap, or contrast defects are visible in either frame.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 9674.25245,
+        "promptTokens": 918,
+        "completionTokens": 74
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/159f3234-5702-47e8-b528-74151b99b35a.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:01:24.076Z",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from red to blue, updated the numeric label from 0 to 13, and added a yellow border around the top panel. The bottom panel and scrollbar remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 10368.618910000005,
+        "promptTokens": 918,
+        "completionTokens": 61
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/32e05f97-2ab8-432a-ac29-5f87131a9771.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:01:54.874Z",
+      "status": "Failed",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Failed",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interface state changed from a red header with value '0' to a blue header with value '13'. The blue header in the 'after' frame exhibits a rendering defect where a thin orange border is visible on the left and bottom edges, and the top edge is obscured by a black bar.",
+        "confidence": 0.95,
+        "issues": [
+          {
+            "severity": "high",
+            "description": "Rendering artifact or layout defect in the 'after' frame: The blue header block has a visible orange border on the left and bottom edges, and the top edge is obscured by a black bar, indicating a mismatch between the container and content or a styling error.",
+            "evidence": "In the 'after' image, a distinct orange line is visible along the left edge (x=0) and bottom edge (y~300) of the blue rectangle, and a black bar covers the top edge (y=0).",
+            "confidence": 0.95
+          },
+          {
+            "severity": "low",
+            "description": "The value indicator changed from '0' to '13' and the header color changed from red to blue, which are grounded changes but the specific defect is the border artifact.",
+            "evidence": "Text '0' in 'before' vs '13' in 'after'; Red background in 'before' vs Blue background in 'after'.",
+            "confidence": 1
+          }
+        ],
+        "latencyMs": 14875.287100000001,
+        "promptTokens": 918,
+        "completionTokens": 296
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/6975b48d-561a-4184-9054-621ddc09490d.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:02:36.791Z",
+      "status": "Partially Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Partially Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interface state changed from a red header with value '0' to a blue header with value '13'. The header in the 'after' frame exhibits a rendering defect where a thin yellow border is visible on the top, left, and bottom edges, which is absent in the 'before' frame.",
+        "confidence": 0.95,
+        "issues": [
+          {
+            "severity": "medium",
+            "description": "Rendering artifact or unintended border style applied to the header element.",
+            "evidence": "In the 'after' frame, a distinct 1-2px yellow line is visible along the top edge (y=0), left edge (x=0), and bottom edge (y=310) of the blue header block. This border is not present in the 'before' frame's red header.",
+            "confidence": 0.95
+          }
+        ],
+        "latencyMs": 14324.468695999996,
+        "promptTokens": 918,
+        "completionTokens": 181
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/2f248859-3a5a-4ffe-abfa-86ca181c01a3.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:03:08.587Z",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from reddish-brown to blue, updated the numeric label from 0 to 13, and added a yellow border around the top panel. The bottom panel and scrollbar remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 10013.323391999991,
+        "promptTokens": 918,
+        "completionTokens": 64
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/871f36fd-bb8a-434c-83f2-3442a4dc859f.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:03:47.639Z",
+      "status": "Partially Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Partially Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interface state changed from a red header with value '0' to a blue header with value '13'. The blue header in the 'after' frame exhibits a rendering defect where the top and left borders are missing or transparent, revealing the underlying orange background, unlike the solid black borders in the 'before' frame.",
+        "confidence": 0.95,
+        "issues": [
+          {
+            "severity": "medium",
+            "description": "Rendering artifact or missing border on the header element in the 'after' state. The top and left edges of the blue header block are not rendered with the solid black border seen in the 'before' state, instead showing a thin orange line (likely the container background) and a gap.",
+            "evidence": "In the 'after' image, the top edge of the blue rectangle (y=0) and left edge (x=0) show orange pixels and lack the solid black border present in the 'before' image.",
+            "confidence": 0.9
+          }
+        ],
+        "latencyMs": 12958.080434000003,
+        "promptTokens": 918,
+        "completionTokens": 208
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/ffec2ee8-5b51-4781-b787-9cc5771fa2db.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:04:22.870Z",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "79be14c66d02b7f1a645ca5ebe0518ab1651ee067dd86d226bfcaca1c8a8f8ca",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from reddish-brown to blue, updated the numeric label from 0 to 13, and added a yellow border around the top panel. The bottom panel and scrollbar remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 10013.323391999991,
+        "promptTokens": 918,
+        "completionTokens": 64
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/41d089ac-21cf-4b66-ab4b-cf2550d36dfe.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:04:53.049Z",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "79be14c66d02b7f1a645ca5ebe0518ab1651ee067dd86d226bfcaca1c8a8f8ca",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from red to blue, updated the numeric label from 0 to 13, and added a yellow border around the top panel. The bottom panel and slider remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 10622.380527000001,
+        "promptTokens": 918,
+        "completionTokens": 61
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/c13790ea-bb70-40f5-a24d-1b85aea0ac30.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:04:59.474Z",
+      "status": "Blocked",
+      "revisionFingerprint": "79be14c66d02b7f1a645ca5ebe0518ab1651ee067dd86d226bfcaca1c8a8f8ca",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "No new image analysis; previous evidence retained"
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/1a8c14e3-edac-4fd1-9550-9653378c47f0.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:05:56.387Z",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The interaction changed the top panel color from red to blue, updated the numeric label from 0 to 13, and added a yellow border around the top panel. The bottom panel and slider remain unchanged.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 10622.380527000001,
+        "promptTokens": 918,
+        "completionTokens": 61
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/a7242ec8-f468-4565-a2ce-c5bf874b6ff8.json"
+    },
+    {
+      "capturedAt": "2026-10-18T19:06:27.297Z",
+      "status": "Failed",
+      "functionalStatus": "Verified",
+      "revisionFingerprint": "af1993046d8996c1043e9b2bd9c2b12948965575af4fced7518302471289e640",
+      "sourceFingerprint": "fdf0a3a6fb38da3822d030f55ee921acf36330e1998539bbbb7f0b4cbe8a7f94",
+      "failedChecks": [],
+      "errors": [],
+      "visual": {
+        "analyzed": true,
+        "status": "Failed",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 2,
+        "summary": "The top panel changed from a solid reddish-brown color to a solid blue color. The numeric label on the left changed from '0' to '13'. In the 'After' frame, a thin yellow border appears around the top panel, and the top edge of the viewport is obscured by a black bar, whereas the 'Before' frame shows a thin black line at the very top.",
+        "confidence": 0.95,
+        "issues": [
+          {
+            "severity": "high",
+            "description": "The top edge of the application window is clipped or obscured by a black bar in the 'After' frame, which is not present in the 'Before' frame.",
+            "evidence": "In the 'After' frame, a solid black bar covers the top ~10 pixels of the image, hiding the top border of the blue panel. In the 'Before' frame, the top edge is visible as a thin black line against the white background.",
+            "confidence": 0.95
+          },
+          {
+            "severity": "medium",
+            "description": "A yellow border appears around the top panel in the 'After' frame, which was not present in the 'Before' frame. This could indicate a focus state or a rendering artifact.",
+            "evidence": "The 'After' frame shows a distinct yellow outline around the blue rectangle (top, left, right, and bottom edges). The 'Before' frame shows the reddish-brown rectangle with no such outline.",
+            "confidence": 0.9
+          }
+        ],
+        "latencyMs": 15305.069957000029,
+        "promptTokens": 918,
+        "completionTokens": 311
+      },
+      "evidencePath": "/tmp/lad-native-qwen-ayCLNX/cache/browser-captures/native-real-1792350023806/f9ab0e87-7de3-4da9-ba1a-f5d6d63fd989.json"
+    }
+  ]
+}

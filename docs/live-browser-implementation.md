@@ -1,5 +1,7 @@
 # Live Browser
 
+> Historical screencast implementation. The current P2 development branch replaces it with a native WebContentsView. See [native architecture](native-browser-qa-architecture.md) and [verification/results](native-browser-qa-verification.md). The frame limits and ownership described below are historical, not the current native implementation.
+
 Реализовано в `feature/live-browser` от `main` (`a39870c`). Версия приложения остаётся 0.2.1. Это разработка функции, без публикации релиза.
 
 ## Как пользоваться

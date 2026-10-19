@@ -1,0 +1,150 @@
+{
+  "scope": "Actual native Electron before resource-delivery fix. External CSS and inline JS pass; external JS crashes. The no-global-debug-port reproduction also fails. Both software and hardware runs failed; cache/V8-cache experiments did not fix it.",
+  "matrix": [
+    {
+      "case": "css",
+      "opened": {
+        "title": "",
+        "url": "https://project-preview.invalid/index.html",
+        "content": "CSS",
+        "links": [],
+        "source_path": "/tmp/lad-native-assets-matrix-EuLmNr/project/index.html",
+        "javascript_errors": [],
+        "blocked_requests": [],
+        "browser_check": "DOM and runtime diagnostics only; screenshots require separate visual analysis"
+      },
+      "info": {
+        "frameIpc": 0,
+        "approvals": 1,
+        "nativeId": 2,
+        "pageCount": 1,
+        "views": [
+          {
+            "bounds": {
+              "x": 846,
+              "y": 161,
+              "width": 554,
+              "height": 703
+            },
+            "visible": true
+          },
+          {
+            "bounds": {
+              "x": 846,
+              "y": 161,
+              "width": 554,
+              "height": 703
+            },
+            "visible": true
+          }
+        ],
+        "bounds": {
+          "x": 1020,
+          "y": 274,
+          "width": 1400,
+          "height": 921
+        },
+        "snapshot": {
+          "url": "https://project-preview.invalid/index.html",
+          "viewport": {
+            "width": 554,
+            "height": 703
+          },
+          "scrollY": 0,
+          "available": {
+            "require": "undefined",
+            "localAi": "undefined"
+          }
+        }
+      }
+    },
+    {
+      "case": "js",
+      "opened": {
+        "error": "page.goto: Page crashed\nCall log:\n\u001b[2m  - navigating to \"https://project-preview.invalid/index.html\", waiting until \"load\"\u001b[22m\n",
+        "code": "BROWSER_CLOSED_OR_CANCELLED",
+        "retrySameArguments": false
+      },
+      "info": {
+        "frameIpc": 0,
+        "approvals": 2,
+        "nativeId": 4,
+        "pageCount": 0,
+        "views": [],
+        "bounds": {
+          "x": 1020,
+          "y": 274,
+          "width": 1400,
+          "height": 921
+        },
+        "snapshot": null
+      }
+    },
+    {
+      "case": "inline",
+      "opened": {
+        "title": "",
+        "url": "https://project-preview.invalid/index.html",
+        "content": "Inline\n\nJS loaded",
+        "links": [],
+        "source_path": "/tmp/lad-native-assets-matrix-EuLmNr/project/index.html",
+        "javascript_errors": [],
+        "blocked_requests": [],
+        "browser_check": "DOM and runtime diagnostics only; screenshots require separate visual analysis"
+      },
+      "info": {
+        "frameIpc": 0,
+        "approvals": 3,
+        "nativeId": 6,
+        "pageCount": 1,
+        "views": [
+          {
+            "bounds": {
+              "x": 846,
+              "y": 161,
+              "width": 554,
+              "height": 703
+            },
+            "visible": true
+          },
+          {
+            "bounds": {
+              "x": 846,
+              "y": 161,
+              "width": 554,
+              "height": 703
+            },
+            "visible": true
+          }
+        ],
+        "bounds": {
+          "x": 1020,
+          "y": 274,
+          "width": 1400,
+          "height": 921
+        },
+        "snapshot": {
+          "url": "https://project-preview.invalid/index.html",
+          "viewport": {
+            "width": 554,
+            "height": 703
+          },
+          "scrollY": 0,
+          "available": {
+            "require": "undefined",
+            "localAi": "undefined"
+          }
+        }
+      }
+    }
+  ],
+  "withoutInspector": {
+    "tests": [],
+    "noGlobalDebugPort": true,
+    "error": {
+      "message": "AssertionError [ERR_ASSERTION]: {\"error\":\"page.goto: Page crashed\\nCall log:\\n\\u001b[2m  - navigating to \\\"https://project-preview.invalid/index.html\\\", waiting until \\\"load\\\"\\u001b[22m\\n\",\"code\":\"BROWSER_CLOSED_OR_CANCELLED\",\"retrySameArguments\":false}",
+      "stack": "AssertionError [ERR_ASSERTION]: {\"error\":\"page.goto: Page crashed\\nCall log:\\n\\u001b[2m  - navigating to \\\"https://project-preview.invalid/index.html\\\", waiting until \\\"load\\\"\\u001b[22m\\n\",\"code\":\"BROWSER_CLOSED_OR_CANCELLED\",\"retrySameArguments\":false}\n    at /media/yaroslav/DATA/local-ai-desktop/test-fixtures/native-browser/assets-main.cjs:19:111"
+    },
+    "result": "FAIL"
+  }
+}
