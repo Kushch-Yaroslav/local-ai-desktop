@@ -160,7 +160,7 @@ const AGENT_GUIDANCE: &str = r#"
 - Task Memory = durable semantic continuity for this task. Record meaningful findings, decisions, blockers, and next actions, and cite the observation IDs (obs-…) a finding rests on in its evidence field. After compaction, trust a precise Task Memory finding from an unchanged inspected file; reread only for a missing fact, ambiguity, possible change, exact detail, or targeted verification.
 - Set Task Memory status and evidence as JSON fields, not prose inside finding. Confirmed entries require evidence containing an observation ID or exact inspected source path from this transcript. A valid reference does not prove the claim; use inferred or unknown for unverified conclusions.
 - Investigation state = a mechanical inventory the runtime keeps of this run's tool observations: files read with their observation IDs, listed entries and local files referenced by sources you read that were not opened yet, failed operations, and commands run. It is not a task list and nothing in it is required. Use it to avoid rereading and to notice code you have not seen; follow a reference only when what you are about to claim depends on it. Recover an exact stored body with observation_read.
-- Deliverables: when the request has two or more separate things to produce or change, or one result that must work end to end, record each requested one with the deliverables tool before you start. Mark an item implemented when you built it; that is your claim. It becomes verified only when the runtime has recorded a passing check of it made after your last change (action verify), and any later change takes the verification back. Block an item with a concrete reason if it cannot be completed. Record only what the user asked for, never your own ideas. Do not use it for a single-step or analysis-only request. Produce what the user will see or use first and refine afterwards: a part is not finished until it is reachable the way the user will use it, not merely implemented. Files you create only to diagnose something are not part of the result; delete them before you finish.
+- Deliverables: when the request has two or more separate things to produce or change, or one result that must work end to end, record each requested one with the deliverables tool before you start. Mark an item implemented when you built it; that is your claim. It becomes verified only when the runtime has recorded a passing check of it made after your last change (action verify), and any later change takes the verification back. Block an item with a concrete reason if it cannot be completed. Record only what the user asked for, never your own ideas. Do not use it for a single-step or analysis-only request. For browser requirements declare immutable acceptance criteria (id, description, kind: load/runtime/interaction/temporal/visual) before checks. Register the executable scenario in each criterion (target, preconditions, required_state, steps, assertion, timeout_ms), then execute web_project action=qa scenario_refs=[{deliverable_id,criterion_id}]. The runtime reuses the immutable specification; do not redefine it to weaken an assertion. Bind each scenario to deliverable_id and criterion_id. Browser open proves load only; WASD needs a declared route/state and stable camera observation after hold. Motion needs at least three timed scalar observations. Pixels or source code alone do not prove behaviour. Rejected stale verify calls need a new check, never repeated metadata. Produce what the user will see or use first and refine afterwards: a part is not finished until it is reachable the way the user will use it, not merely implemented. Files you create only to diagnose something are not part of the result; delete them before you finish.
 - If a GPU check cannot fit alongside active local inference, report the resource conflict and offer explicit user-controlled next steps (CPU checks, defer GPU validation, or manual model unload). Never terminate the active inference server or arbitrary Python processes to free memory.
 - For a replacement/migration, preserve working functionality while preparing the replacement. Inspect the existing integration, verify the actual replacement source, license/access and installation requirements, obtain and install it separately, integrate reversibly, validate, then remove the old implementation. If access/download/installation fails, retain the working implementation and report the blocker. Explicit deletion requests may proceed under ordinary safety permissions; do not infer a deletion prohibition from keywords. When execution is prohibited, verify installation only and clearly state that inference/runtime behavior remains untested. File tools retain recovery preimages; approved terminal scripts need an explicit backup/staging plan for destructive multi-step migrations.
 - A permission denial is a security decision. Do not retry equivalent operations through other tools, interpreters, Git metadata writes or alternate download methods. Ask for the missing authorization or report the blocker.
@@ -802,7 +802,7 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
     // Action-specific requirements are enforced transactionally at dispatch.
     let mut tools = vec![
         json!({"type":"function","function":{"name":"task_memory","description":"Durable semantic memory for the current task across compaction. Record/update meaningful findings, decisions, blockers, or unresolved questions; view reads it; invalidate needs id. Record requires finding; update needs the id of an existing entry and changes only the fields you pass (an empty string clears one). Both may include evidence, implication, next, supersedes, status. Cite observations by exact id (obs-00000012), one per item in observations or comma-separated in evidence. Trust precise unchanged-file memory; reread only for a concrete missing, ambiguous, changed, exact-detail, or verification need.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["record","update","invalidate","view"]},"id":{"type":"string"},"finding":{"type":"string"},"evidence":{"type":"string"},"implication":{"type":"string"},"next":{"type":"string"},"supersedes":{"type":"string"},"status":{"type":"string","enum":["confirmed","inferred","unknown","contradicted"],"description":"How well established the finding is: confirmed (observed, cited), inferred (reasoned, not observed), unknown (open; put the resolving step in next), contradicted (evidence disagrees)."},"observations":{"type":"array","items":{"type":"string"},"description":"Observation IDs (obs-…) that support the finding; same as evidence, one id per item."}},"required":["action"]}}}),
-        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
+        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. criteria: define immutable acceptance criteria before checking; every browser deliverable requires them. Each scenario must bind the criterion. Never weaken a criterion after recording. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","criteria","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"criteria":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"id":{"type":"string"},"description":{"type":"string"},"kind":{"type":"string","enum":["load","runtime","interaction","temporal","visual","implementation"]},"scenario":{"type":"object","description":"Immutable executable specification: target, preconditions [], required_state [], steps [], assertion {source, operator, expected/path/selector/sample_ms}, timeout_ms. Execute with web_project scenario_refs to avoid redefining it."}},"required":["id","description","kind"],"additionalProperties":false}},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"plan","description":"Your own short execution plan: how you will get the work done. Optional: skip it for a trivial or single-step request. set: replace the unfinished steps with a short ordered list of one-line steps (steps); the first becomes active. update: change a step (id; status pending|in_progress|completed|blocked, optional text or note; blocked needs a note); completing the active step activates the next. add: insert a step (text, optional after). view: list. Update at meaningful milestones or when your approach changes; do not narrate it or update it after every call. A plan is not proof: finishing steps does not complete the user's deliverables.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["set","update","add","view"]},"steps":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed","blocked"]},"text":{"type":"string"},"note":{"type":"string"},"after":{"type":"string"}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"observation_index","description":"List historical tool observations by stable ID, with source path and outcome metadata. Use source to select the raw observation for the needed file. If more=true, continue at the returned next_offset. Observation IDs start with obs-.","parameters":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":50}}}}}),
         json!({"type":"function","function":{"name":"observation_read","description":"Recover a bounded exact slice of a stored historical tool result by observation ID. The response distinguishes historical evidence from current source and reports whether the source changed.","parameters":{"type":"object","properties":{"id":{"type":"string"},"offset_chars":{"type":"integer","minimum":0},"max_chars":{"type":"integer","minimum":1,"maximum":16000}},"required":["id"]}}}),
@@ -1449,6 +1449,13 @@ fn apply_deliverables(
                     if paths != existing.paths { return Err("A recorded deliverable's path scope is immutable; keep its targets or add a new deliverable. Existing check relationships cannot be narrowed.".into()); }
                 } else { item.paths = paths; }
             }
+            if let Some(criteria)=arguments.get("criteria") {
+                candidate.set_criteria(&added,serde_json::from_value(criteria.clone()).map_err(|error|format!("Invalid acceptance criteria: {error}"))?)?;
+            }
+        }
+        "criteria" => {
+            let criteria=serde_json::from_value(arguments.get("criteria").cloned().ok_or("criteria array is required")?).map_err(|error|format!("Invalid acceptance criteria: {error}"))?;
+            candidate.set_criteria(&id()?,criteria)?;
         }
         "implemented" | "done" => {
             let id = id()?;
@@ -1781,7 +1788,7 @@ fn record_terminal_effect(
         changed = true;
     }
     if changed {
-        state.task_memory.deliverables.demote_verified();
+        state.task_memory.deliverables.demote_stale(&state.task_memory.verification);
         sync_verification_failure(state);
     }
     changed
@@ -1890,6 +1897,10 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
     }
     // Explicit screenshot limits do not exhaust interaction QA or invalidate its evidence.
     if result.get("code").and_then(Value::as_str) == Some("SCREENSHOT_LIMIT") { return; }
+    if result.get("code").and_then(Value::as_str) == Some("AUTH_REQUIRED") {
+        state.browser_qa_denied=true;state.browser_qa_at_epoch=Some(state.task_memory.verification.epoch);
+        state.task_memory.browser_qa=Some(json!({"status":"Blocked","reasonCode":"AUTH_REQUIRED","reason":"The page requires authentication. No authorization bypass was attempted.","checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));return;
+    }
     if result.get("code").and_then(Value::as_str) == Some("PERMISSION_DENIED") {
         state.browser_qa_denied = true;
         state.task_memory.browser_qa = Some(json!({"status":"Blocked", "reasonCode":"PERMISSION_REQUIRED", "reason":"Explicit browser security decision; no automatic retry", "detail":result}));
@@ -1901,23 +1912,111 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
     }
 
-    if !matches!(args.get("action").and_then(Value::as_str), Some("open" | "read" | "click" | "back" | "qa"))
-        || result.get("error").is_some() { return; }
-    if result.get("qa").is_some_and(|qa| qa.get("functionalStatus").unwrap_or(&qa["status"]) != "Verified" && qa.get("functionalStatus").unwrap_or(&qa["status"]) != "Failed") { return; }
-    let Some(source) = result.get("source_path").and_then(Value::as_str) else { return; };
-    let Ok(base) = std::fs::canonicalize(root) else { return; };
-    let Ok(path) = std::fs::canonicalize(source) else { return; };
-    if !path.starts_with(&base) { return; }
-    let Some(errors) = result.get("javascript_errors").and_then(Value::as_array) else { return; };
-    let Some(blocked) = result.get("blocked_requests").and_then(Value::as_array) else { return; };
-    let pass = errors.is_empty() && blocked.is_empty() && result.get("qa").map(|qa| qa.get("functionalStatus").unwrap_or(&qa["status"]) == "Verified").unwrap_or(true);
-    let subject = format!("web_project {} {}", args["action"].as_str().unwrap_or(""), result["url"].as_str().unwrap_or(""));
-    state.task_memory.verification.record_outcome(verification::Kind::Browser, &subject, pass,
-        if args["action"] == "qa" { "Bounded browser QA with explicit per-action expectations; consult qa.visual for actual image analysis" } else { "Real browser DOM/runtime snapshot; observed errors only, no visual or exhaustive behavioural assertion" }, state.turn, &result.to_string());
-    if let Some(record) = state.task_memory.verification.records.last_mut() {
-        record.checked_paths = vec![path.to_string_lossy().into_owned()];
+    if result.get("error").is_some() || result.pointer("/qa/reasonCode").and_then(Value::as_str)==Some("EVIDENCE_STALE") {return;}
+    let Some(source)=result.get("source_path").and_then(Value::as_str) else {return;};
+    let Ok(base)=std::fs::canonicalize(root) else {return;};
+    let Ok(path)=std::fs::canonicalize(source) else {return;};
+    if !path.starts_with(&base) {return;}
+    let source_revisions=result.pointer("/qa/sourceRevisions").or_else(||result.get("source_revisions")).and_then(Value::as_object);
+    let mut snapshots=std::collections::BTreeMap::new();
+    let scope=crate::tools::filesystem::Scope{root:&base,grants:&[]};
+    if let Some(revisions)=source_revisions.filter(|revisions|revisions.len()<=64) {
+        for (file,hash) in revisions {
+            let Some(hash)=hash.as_str().filter(|hash|hash.len()==64 && hash.bytes().all(|c|c.is_ascii_hexdigit())) else {continue;};
+            if let Some((actual,current))=crate::tools::filesystem::file_revision(&scope,file) {
+                let actual=actual.to_string_lossy().into_owned();
+                state.task_memory.verification.revisions.insert(actual.clone(),current);
+                snapshots.insert(actual,hash.to_owned());
+            }
+        }
+    }
+    let mut observed=Vec::new();
+    if args["action"]=="qa" {
+        for scenario in result.pointer("/qa/scenarios").and_then(Value::as_array).into_iter().flatten() {
+            let status=scenario["status"].as_str().unwrap_or("Not Verified");
+            let Some(id)=scenario["deliverableId"].as_str() else {continue;};
+            let Some(criterion_id)=scenario["criterionId"].as_str() else {continue;};
+            let kind=scenario["evidenceKind"].as_str().unwrap_or("");
+            let contract=state.task_memory.deliverables.items.iter().find(|item|item.id==id).and_then(|item|item.criteria.iter().find(|criterion|criterion.id==criterion_id && criterion.kind==kind));
+            if contract.is_none() {continue;}
+            let temporal_valid=kind!="temporal" || scenario["observations"].as_array().is_some_and(|values|values.len()>=3 && values.windows(2).all(|pair|pair[0]["atMs"].as_f64().zip(pair[1]["atMs"].as_f64()).is_some_and(|(a,b)|b>a)));
+            let pass=status=="Verified" && temporal_valid && kind!="visual";
+            let outcome=if pass {"passed"} else if status=="Failed" {"failed"} else {"inconclusive"};
+            observed.push((format!("web_project scenario {} criterion {id}:{criterion_id} {}",scenario["id"].as_str().unwrap_or("unknown"),scenario["target"]),pass,outcome.to_owned(),Some(verification::CriterionEvidence{deliverable_id:id.to_owned(),criterion_id:criterion_id.to_owned(),kind:kind.to_owned(),qualified:kind=="visual" && scenario.pointer("/visual/analyzed").and_then(Value::as_bool)==Some(true)}),scenario.to_string()));
+        }
+    }
+    // A generic open/read is load/runtime observation only. It has no implicit
+    // relationship to the visual or interactive criteria of arbitrary items.
+    if observed.is_empty() && matches!(args["action"].as_str(),Some("open"|"read"|"click"|"back"|"qa")) {
+        let errors=result["javascript_errors"].as_array();let blocked=result["blocked_requests"].as_array();
+        if let (Some(errors),Some(blocked))=(errors,blocked) {
+            let pass=errors.is_empty()&&blocked.is_empty()&&result.get("qa").is_none_or(|qa|qa["functionalStatus"]!="Failed");
+            let coverage=if args["action"]=="open" {args["deliverable_id"].as_str().zip(args["criterion_id"].as_str()).map(|(id,criterion)|verification::CriterionEvidence{deliverable_id:id.into(),criterion_id:criterion.into(),kind:"load".into(),qualified:false})} else {None};
+            observed.push((format!("web_project {} {}",args["action"].as_str().unwrap_or(""),result["url"].as_str().unwrap_or("")),pass,if pass {"passed"} else {"failed"}.into(),coverage,result.to_string()));
+        }
+    }
+    for (subject,pass,outcome,coverage,detail) in observed {
+        state.task_memory.verification.record_outcome(verification::Kind::Browser,&subject,pass,"Scoped browser observation; consult scenario assertions and uncertainty",state.turn,&detail);
+        if let Some(record)=state.task_memory.verification.records.last_mut() {
+            record.checked_paths=if snapshots.is_empty(){vec![path.to_string_lossy().into_owned()]}else{snapshots.keys().cloned().collect()};
+            record.source_revisions=snapshots.clone();record.outcome=Some(outcome);
+            if let Some(coverage)=coverage {record.deliverable_ids.push(coverage.deliverable_id.clone());record.coverage.push(coverage);}
+        }
     }
     sync_verification_failure(state);
+}
+
+fn prepare_browser_contracts(state:&AgentState,args:&Value)->Result<Value,String> {
+    let mut prepared=args.clone();
+    if let Some(refs)=args["scenario_refs"].as_array() {
+        if args.get("scenarios").is_some() || refs.len()>6 {return Err("Choose up to six scenario_refs or explicit scenarios".into());}
+        let mut scenarios=Vec::new();
+        for reference in refs {
+            let id=reference["deliverable_id"].as_str().ok_or("scenario reference requires deliverable_id")?;
+            let criterion_id=reference["criterion_id"].as_str().ok_or("scenario reference requires criterion_id")?;
+            let criterion=state.task_memory.deliverables.items.iter().find(|item|item.id==id).and_then(|item|item.criteria.iter().find(|c|c.id==criterion_id)).ok_or("Unknown acceptance criterion; register it before checking")?;
+            let mut spec=criterion.scenario.clone().ok_or("This criterion has no executable scenario; load criteria use action=open with their registered scenario.target")?;
+            spec["id"]=json!(format!("criterion-{}",scenarios.len()+1));spec["goal"]=json!(criterion.description);spec["deliverable_id"]=json!(id);spec["criterion_id"]=json!(criterion_id);scenarios.push(spec);
+        }
+        prepared["scenarios"]=json!(scenarios);
+    }
+    let mut bindings=Vec::new();
+    if args["action"]=="open" && (args.get("deliverable_id").is_some()||args.get("criterion_id").is_some()) {bindings.push((&args["deliverable_id"],&args["criterion_id"],None));}
+    for scenario in prepared["scenarios"].as_array().into_iter().flatten() {
+        if scenario.get("deliverable_id").is_some()||scenario.get("criterion_id").is_some() {bindings.push((&scenario["deliverable_id"],&scenario["criterion_id"],Some(scenario)));}
+    }
+    for (id,criterion,scenario) in bindings {
+        let (Some(id),Some(criterion))=(id.as_str(),criterion.as_str()) else {return Err("Declare both deliverable_id and criterion_id".into());};
+        let registered=state.task_memory.deliverables.items.iter().find(|item|item.id==id).and_then(|item|item.criteria.iter().find(|c|c.id==criterion));
+        let registered=registered.ok_or("ACCEPTANCE_CRITERIA_REQUIRED: register the exact criterion before checking")?;
+        if scenario.is_none() && registered.kind!="load" {return Err("Browser open can prove only load, never interaction, temporal or visual requirements".into());}
+        if scenario.is_none() {
+            let target=registered.scenario.as_ref().and_then(|spec|spec["target"].as_str()).ok_or("Load criterion requires a registered target")?;
+            let actual=args["path"].as_str().or_else(||args["url"].as_str()).ok_or("Load verification requires an explicit path or URL matching the criterion target")?;
+            if actual.trim_start_matches('/')!=target.trim_start_matches('/') {return Err("ACCEPTANCE_SCENARIO_MISMATCH: browser open target differs from the registered load criterion".into());}
+        }
+        if let Some(scenario)=scenario {
+            let mut spec=scenario.clone();for field in ["id","goal","deliverable_id","criterion_id"]{spec.as_object_mut().unwrap().remove(field);}
+            if registered.scenario.as_ref()!=Some(&spec) {return Err("ACCEPTANCE_SCENARIO_MISMATCH: the assertion, target, preconditions, input and timeout must match the immutable criterion. Use scenario_refs to execute its registered specification; weakening a test cannot verify the original requirement.".into());}
+        }
+    }
+    Ok(prepared)
+}
+
+fn refresh_evidence_revisions(config:&Config,state:&mut AgentState) {
+    let Some(root)=config.work_root() else {return;};let grants=config.grants();let scope=crate::tools::filesystem::Scope{root:Path::new(root),grants:&grants};
+    let paths=state.task_memory.verification.records.iter().flat_map(|record|record.source_revisions.keys().cloned()).collect::<std::collections::BTreeSet<_>>();
+    let mut bytes=0;let mut changed=false;
+    for (i,path) in paths.into_iter().enumerate() {
+        let within=crate::tools::filesystem::scoped(&scope,&path).ok();
+        let size=within.as_ref().and_then(|file|std::fs::metadata(file).ok()).map_or(0,|meta|meta.len());bytes+=size;
+        let revision=if i<64 && bytes<=32*1024*1024 {crate::tools::filesystem::file_revision(&scope,&path).map(|(_,hash)|hash)}else{None};
+        if revision.as_ref()!=state.task_memory.verification.revisions.get(&path) {
+            state.task_memory.verification.note_change(Some(&path));changed=true;
+            if let Some(hash)=revision {state.task_memory.verification.revisions.insert(path,hash);}else{state.task_memory.verification.revisions.remove(&path);}
+        }
+    }
+    if changed {state.task_memory.deliverables.demote_stale(&state.task_memory.verification);sync_verification_failure(state);}
 }
 
 /// Execution success and accepted verification evidence are different facts.
@@ -2073,6 +2172,7 @@ fn record_project_change(
                 .verification
                 .revisions
                 .insert(path.clone(), revision.clone());
+            state.task_memory.verification.revisions.insert(file.to_string_lossy().into_owned(),revision.clone());
             state.work_budget.changed_file(path, &revision);
             let size = std::fs::metadata(&file).map(|meta| meta.len()).unwrap_or(0);
             let id = state.task_memory.verification.record(
@@ -2090,7 +2190,7 @@ fn record_project_change(
     if paths.is_empty() {
         state.task_memory.verification.note_change(None);
     }
-    state.task_memory.deliverables.demote_verified();
+    state.task_memory.deliverables.demote_stale(&state.task_memory.verification);
     sync_verification_failure(state);
 }
 
@@ -3914,9 +4014,11 @@ fn run_scoped_tool_authorized(
     }
     if crate::tools::web::is_web_tool(&tool.name) {
         if !config.web_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Web tool is unavailable".into()); }
-        let result = config.host_tools.as_ref().ok_or("Web host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
+        let browser_args=if tool.name=="web_project" {Some(prepare_browser_contracts(state,&tool.arguments)?)}else{None};
+        let actual_args=browser_args.as_ref().unwrap_or(&tool.arguments);
+        let result = config.host_tools.as_ref().ok_or("Web host is unavailable")?.execute(&config.run_id, &tool.name, actual_args, &config.cancelled)?;
         if tool.name == "web_project" {
-            if let Some(root) = config.work_root() { record_project_browser_evidence(state, Path::new(root), &tool.arguments, &result); emit_task_memory(config, state); }
+            if let Some(root) = config.work_root() { record_project_browser_evidence(state, Path::new(root), actual_args, &result); emit_task_memory(config, state); }
         }
         return if result.get("error").is_some() || result.get("blocked_reason").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
@@ -4002,6 +4104,7 @@ fn run_scoped_tool_authorized(
             Ok((value, None))
         }
         "deliverables" => {
+            refresh_evidence_revisions(config,state);
             let mut arguments = tool.arguments.clone();
             if arguments["action"] == "add" && (arguments.get("paths").is_none() || arguments["paths"].is_array()) {
                 // Explicit project identities in the claim constrain proof,
@@ -4024,8 +4127,21 @@ fn run_scoped_tool_authorized(
                     arguments["paths"] = json!(targets);
                 }
             }
+            let verify_key=if arguments["action"]=="verify" {
+                let mut ids=evidence_ids(&arguments);ids.sort();ids.dedup();
+                let item=state.task_memory.deliverables.items.iter().find(|item|Some(item.id.as_str())==arguments["id"].as_str());
+                let relevant=state.task_memory.verification.records.iter().filter(|record|item.is_some_and(|item|state.task_memory.verification.relevant(record,item) && (record.coverage.iter().any(|c|c.deliverable_id==item.id) || item.criteria.is_empty() && state.task_memory.verification.effective_need(item.required_check()).accepts(record.kind) || record.kind==verification::Kind::Readback && item.criteria.iter().any(|c|c.kind=="implementation")))).map(|record|record.id.as_str()).collect::<Vec<_>>();
+                Some(format!("{}:{:?}:{}:{:?}:{:?}",arguments["id"],ids,state.task_memory.verification.epoch,relevant,state.task_memory.verification.revisions))
+            }else{None};
+            if verify_key.as_ref().is_some_and(|key|state.verify_failures.get(key).copied().unwrap_or(0)>=2) {
+                return Err(json!({"error":"This identical verify already failed twice without new evidence or source progress. It was not executed again. Run the missing criterion scenario, use its fresh evidence IDs, or continue other work; metadata changes cannot make old proof fresh.","code":"VERIFY_NO_PROGRESS","retrySameArguments":false,"deliverables":state.task_memory.deliverables}).to_string());
+            }
             let result = apply_deliverables(state, &arguments, transcript)
                 .map_err(|message| crate::tools::failure::deliverables(&message));
+            if let Some(key)=verify_key {
+                if result.is_err(){*state.verify_failures.entry(key).or_default()+=1;}else{state.verify_failures.remove(&key);}
+                while state.verify_failures.len()>64 {if let Some(key)=state.verify_failures.keys().next().cloned(){state.verify_failures.remove(&key);}}
+            }
             // Failed verify citations also change the durable evidence state.
             if result.is_err() {
                 emit_task_memory(config, state);
@@ -5593,6 +5709,7 @@ pub fn run(mut config: Config) {
                 );
                 continue;
             }
+            refresh_evidence_revisions(&config, &mut state);
             match review_tool_free_final(&mut state, &mut transcript, &ledger) {
                 FinalCandidateReview::VerificationPending(nudge) => {
                     trace_forensics(
@@ -6877,6 +6994,40 @@ mod tests {
         let second=execution_process_context(&config);
         assert_ne!(first,second);
         assert!(second.contains("generation=fresh-generation-b"));
+    }
+
+    #[test]
+    fn scenario_contract_refs_are_durable_and_cannot_weaken_assertions() {
+        let mut state=AgentState::default();
+        let spec=json!({"target":"/index.html#play","preconditions":[],"required_state":[],"steps":[{"action":"hold","key":"w","duration_ms":500}],"assertion":{"source":"diagnostic","path":"camera.x","operator":"increased"},"timeout_ms":3000});
+        let mut transcript=Transcript::default();
+        apply_deliverables(&mut state,&json!({"action":"add","id":"camera","text":"Forward moves the camera","check":"browser","criteria":[{"id":"forward","description":"Camera changes after a hold","kind":"interaction","scenario":spec}]}),&transcript).unwrap();
+        apply_deliverables(&mut state,&json!({"action":"add","id":"load-page","text":"The exact page opens","check":"browser","criteria":[{"id":"load","description":"The target page opens","kind":"load","scenario":{"target":"/index.html"}}]}),&transcript).unwrap();
+        assert!(prepare_browser_contracts(&state,&json!({"action":"open","path":"index.html","deliverable_id":"load-page","criterion_id":"load"})).is_ok());
+        assert!(prepare_browser_contracts(&state,&json!({"action":"open","path":"other.html","deliverable_id":"load-page","criterion_id":"load"})).unwrap_err().contains("ACCEPTANCE_SCENARIO_MISMATCH"));
+        let checkpoint=serde_json::to_value(&state.task_memory).unwrap();
+        let mut restored=AgentState::default();restored.task_memory=serde_json::from_value(checkpoint).unwrap();
+        let args=json!({"action":"qa","scenario_refs":[{"deliverable_id":"camera","criterion_id":"forward"}]});
+        let expanded=prepare_browser_contracts(&restored,&args).unwrap();
+        assert_eq!(expanded["scenarios"][0]["assertion"],spec["assertion"]);
+        let mut weakened=expanded.clone();weakened.as_object_mut().unwrap().remove("scenario_refs");weakened["scenarios"][0]["assertion"]=json!({"source":"visible","selector":"body","operator":"equals","expected":true});
+        assert!(prepare_browser_contracts(&restored,&weakened).unwrap_err().contains("ACCEPTANCE_SCENARIO_MISMATCH"));
+        assert!(prepare_browser_contracts(&restored,&json!({"action":"open","deliverable_id":"camera","criterion_id":"forward"})).is_err());
+        let config=test_config(32768);
+        let verify=ValidatedCall{id:"v".into(),name:"deliverables".into(),arguments:json!({"action":"verify","id":"camera"})};
+        for _ in 0..2 {assert!(run_scoped_tool_authorized(&config,&mut restored,&verify,&transcript,false).is_err());}
+        let blocked=run_scoped_tool_authorized(&config,&mut restored,&verify,&transcript,false).unwrap_err();
+        assert!(blocked.contains("VERIFY_NO_PROGRESS"));
+        restored.task_memory.verification.record(verification::Kind::Readback,"unrelated.txt",true,"Metadata cannot replace relevant proof",1);
+        assert!(run_scoped_tool_authorized(&config,&mut restored,&verify,&transcript,false).unwrap_err().contains("VERIFY_NO_PROGRESS"));
+        assert!(apply_plan(&mut restored,&json!({"action":"add","text":"Continue unrelated work"})).is_ok());
+        apply_deliverables(&mut restored,&json!({"action":"implemented","id":"camera","evidence":"Implemented"}),&transcript).unwrap();
+        let evidence=restored.task_memory.verification.record(verification::Kind::Browser,"camera scenario",true,"Observed actual hold response",1);
+        let record=restored.task_memory.verification.records.last_mut().unwrap();record.deliverable_ids.push("camera".into());record.coverage.push(verification::CriterionEvidence{deliverable_id:"camera".into(),criterion_id:"forward".into(),kind:"interaction".into(),qualified:false});
+        let fresh=ValidatedCall{arguments:json!({"action":"verify","id":"camera","evidence_ids":[evidence]}),..verify};
+        assert!(run_scoped_tool_authorized(&config,&mut restored,&fresh,&transcript,false).is_ok());
+        assert_eq!(restored.task_memory.deliverables.items[0].status,deliverables::DeliverableStatus::Verified);
+        transcript.remind("checkpoint retains criteria and observations".into());
     }
 
     fn test_config(window: usize) -> Config {
@@ -8333,4 +8484,5 @@ mod multimodal_regressions {
         assert!(estimate_tokens(&wire[0]) < 5000);
         assert!(estimate_tokens(&wire[0]) >= 4096);
     }
+
 }

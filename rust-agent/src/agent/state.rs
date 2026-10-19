@@ -75,6 +75,7 @@ pub struct AgentState {
     /// unchanged failures are allowed; another identical request closes the
     /// tool loop instead of redoing work with the same known-bad input.
     pub failed_tool_calls: BTreeMap<String, usize>,
+    pub verify_failures: BTreeMap<String, usize>,
     /// Observability for optional `.ai-framework` virtual context access.
     pub knowledge_reads: usize,
     pub knowledge_writes: usize,

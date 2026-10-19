@@ -359,10 +359,11 @@ export interface ModelTodoPhase { name: string; items: ModelTodoItem[]; }
 export interface ModelTodo { phases: ModelTodoPhase[]; revision?: number; }
 /** `done` is the legacy spelling of `implemented`; only `verified` means a runtime-recorded check passed. */
 export type DeliverableStatus = 'pending' | 'implemented' | 'verified' | 'done' | 'blocked' | 'dropped';
-export interface DeliverableItem { id: string; text: string; status: DeliverableStatus; task?: string; evidence?: string; reason?: string; check?: 'integrity' | 'readback' | 'static' | 'build' | 'test' | 'runtime' | 'browser'; proof?: string[]; failing?: string; verification_scope?: 'project' | 'acceptance'; paths?: string[]; }
+export interface AcceptanceCriterion { id: string; description: string; kind: import('./browser-qa').QaEvidenceKind; scenario?: Omit<import('./browser-qa').QaScenario,'id'|'goal'|'deliverable_id'|'criterion_id'>; }
+export interface DeliverableItem { criteria?: AcceptanceCriterion[]; id: string; text: string; status: DeliverableStatus; task?: string; evidence?: string; reason?: string; check?: 'integrity' | 'readback' | 'static' | 'build' | 'test' | 'runtime' | 'browser'; proof?: string[]; failing?: string; verification_scope?: 'project' | 'acceptance'; paths?: string[]; }
 export interface PlanStepItem { id: string; text: string; status: 'pending' | 'in_progress' | 'completed' | 'blocked'; note?: string; }
-export interface VerificationRecord { id: string; kind: string; class: 'readback' | 'static' | 'functional'; subject: string; pass: boolean; epoch: number; turn: number; detail?: string; check_key?: string; deliverable_ids?: string[]; baseline?: boolean; outcome_hash?: string; baseline_failure?: string; checked_paths?: string[]; }
-export interface VerificationState {
+export interface VerificationRecord { coverage?: Array<{deliverable_id:string;criterion_id:string;kind:import('./browser-qa').QaEvidenceKind;qualified?:boolean}>; source_revisions?: Record<string,string>; run_serial?: number; unknown_epoch?: number; outcome?: 'passed'|'failed'|'inconclusive'; id: string; kind: string; class: 'readback' | 'static' | 'functional'; subject: string; pass: boolean; epoch: number; turn: number; detail?: string; check_key?: string; deliverable_ids?: string[]; baseline?: boolean; outcome_hash?: string; baseline_failure?: string; checked_paths?: string[]; }
+export interface VerificationState { run_serial?: number; unknown_epoch?: number;
   epoch?: number;
   next?: number;
   records: VerificationRecord[];

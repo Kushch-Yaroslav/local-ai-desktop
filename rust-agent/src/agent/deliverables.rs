@@ -57,7 +57,18 @@ impl DeliverableStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AcceptanceCriterion {
+    pub id: String,
+    pub description: String,
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scenario: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deliverable {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub criteria: Vec<AcceptanceCriterion>,
     pub id: String,
     /// The user's task this belongs to, when the request has several.
     #[serde(default)]
@@ -239,6 +250,7 @@ impl Deliverables {
             .filter(|id| !id.is_empty())
             .map_or_else(|| self.next_id(), str::to_owned);
         self.items.push(Deliverable {
+            criteria: Vec::new(),
             id: id.clone(),
             task,
             text,
@@ -257,6 +269,48 @@ impl Deliverables {
         });
         self.revision = self.revision.saturating_add(1);
         Ok(id)
+    }
+
+    pub fn set_criteria(&mut self, id: &str, criteria: Vec<AcceptanceCriterion>) -> Result<(), String> {
+        if criteria.is_empty() || criteria.len()>8 { return Err("Acceptance criteria must contain 1..8 concrete requirements".into()); }
+        let mut ids=std::collections::BTreeSet::new();
+        for criterion in &criteria {
+            if criterion.id.trim().is_empty() || criterion.id.len()>80 || criterion.description.trim().is_empty() || criterion.description.chars().count()>240 || !ids.insert(&criterion.id)
+                || !["load","runtime","interaction","temporal","visual","implementation"].contains(&criterion.kind.as_str()) {
+                return Err("Each acceptance criterion requires a unique id, concrete description, and load/runtime/interaction/temporal/visual/implementation kind".into());
+            }
+        }
+        for criterion in &criteria {
+            if criterion.kind=="load" && criterion.scenario.as_ref().and_then(|spec|spec["target"].as_str()).is_none_or(|target|target.trim().is_empty()) {return Err("Load criteria require scenario.target naming the exact page to open".into());}
+            if ["runtime","interaction","temporal","visual"].contains(&criterion.kind.as_str()) {
+                let spec=criterion.scenario.as_ref().ok_or("Browser criteria require an immutable scenario specification (target, preconditions, required_state, steps, assertion, timeout_ms). Use scenario_refs to execute it without redefining it.")?;
+                if !spec.is_object() || !spec["target"].is_string() || !spec["preconditions"].is_array() || !spec["required_state"].is_array() || !spec["steps"].is_array() || !spec["assertion"].is_object() || !spec["timeout_ms"].is_u64() {
+                    return Err("Incomplete acceptance scenario specification".into());
+                }
+                if criterion.kind=="interaction" && spec["steps"].as_array().is_none_or(|steps|steps.is_empty()) {return Err("Interaction criteria require actual input steps".into());}
+                if criterion.kind=="temporal" && (!spec["assertion"]["sample_ms"].as_array().is_some_and(|samples|samples.len()>=3) || ["pixels","raf","draws"].contains(&spec["assertion"]["source"].as_str().unwrap_or(""))) {return Err("Temporal functional criteria require at least three application-state observations; pixels/RAF/draw counters do not prove object motion".into());}
+                if criterion.kind=="visual" && spec["assertion"]["source"]!="pixels" {return Err("Visual criteria require actual image observations".into());}
+            }
+        }
+        let item=self.find_mut(id)?;
+        if !item.criteria.is_empty() && item.criteria!=criteria { return Err("Acceptance criteria are immutable. Metadata edits cannot weaken the contract or reuse old evidence.".into()); }
+        if item.criteria==criteria { return Ok(()); }
+        item.criteria=criteria;
+        if item.status==DeliverableStatus::Verified { item.status=DeliverableStatus::Implemented; }
+        item.proof.clear();
+        self.revision=self.revision.saturating_add(1);
+        Ok(())
+    }
+
+    pub fn demote_stale(&mut self, ledger: &Verification) -> bool {
+        let mut changed=false;
+        for item in &mut self.items {
+            if item.status==DeliverableStatus::Verified && (item.proof.is_empty() || item.proof.iter().any(|id| ledger.get(id).is_none_or(|record|!ledger.fresh(record)))) {
+                item.status=DeliverableStatus::Implemented;item.proof.clear();changed=true;
+            }
+        }
+        if changed {self.revision=self.revision.saturating_add(1);}
+        changed
     }
 
     /// The model says the item is built. This is a claim, not a check.

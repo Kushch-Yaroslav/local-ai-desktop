@@ -94,6 +94,10 @@ pub fn deliverables(message: &str) -> String {
         Some("Finish the implementation, call action=implemented for this id, then verify with fresh evidence.")
     } else if message.starts_with("ev-") && message.contains("is stale:") {
         Some("Finish changes and rerun the relevant check with deliverable_ids. Then verify using its new evidence ID.")
+    } else if message.starts_with("ACCEPTANCE_CRITERIA_REQUIRED:") {
+        Some("Declare immutable acceptance criteria with action=criteria before checking, then run matching scenario(s). Generic page load does not prove visual, interaction or temporal requirements.")
+    } else if message.starts_with("EVIDENCE_STALE:") || message.starts_with("VERIFICATION_INCOMPLETE:") || message.starts_with("PARTIAL_VISUAL_EVIDENCE:") {
+        Some("Read the named missing criterion. Rerun its scenario under the declared route/state and cite the new runtime evidence IDs. Do not repeat the same verify or weaken metadata; partial visual evidence is not absolute proof.")
     } else if message.starts_with("INTEGRITY_EVIDENCE_UNAVAILABLE:") {
         Some("Leave the non-modification claim implemented but unverified and report the missing trusted baseline/journal. Do not substitute tests, readback, or a retroactive baseline.")
     } else if message.starts_with("unsupported deliverables action:") {
@@ -104,7 +108,7 @@ pub fn deliverables(message: &str) -> String {
         Some("View the recorded deliverables and verification_state. Correct the arguments or complete the missing prerequisite before retrying; an identical metadata call cannot fix this refusal.")
     };
     match next {
-        Some(next) => json!({"error":message,"code":if message.starts_with("INTEGRITY_EVIDENCE_UNAVAILABLE:") { "INTEGRITY_EVIDENCE_UNAVAILABLE" } else { "TOOL_ERROR" },"retrySameArguments":false,"next":next}).to_string(),
+        Some(next) => json!({"error":message,"code":if ["ACCEPTANCE_CRITERIA_REQUIRED","EVIDENCE_STALE","VERIFICATION_INCOMPLETE","PARTIAL_VISUAL_EVIDENCE","INTEGRITY_EVIDENCE_UNAVAILABLE"].iter().any(|prefix|message.starts_with(&format!("{prefix}:"))) {message.split(':').next().unwrap_or("TOOL_ERROR")} else { "TOOL_ERROR" },"retrySameArguments":false,"next":next}).to_string(),
         None => concise(message),
     }
 }

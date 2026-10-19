@@ -3090,7 +3090,7 @@ fn with_a_browser_available_a_stand_in_is_refused_and_the_gate_asks_for_a_browse
 }
 
 #[test]
-fn a_real_headless_browser_run_verifies_a_page_claim() {
+fn a_headless_browser_exit_without_acceptance_assertions_cannot_verify_a_page_claim() {
     let (journal, requests) = page_run(Some(true), true, |n| match n {
         0 => page_edit(),
         1 => Reply::Tools(vec![(
@@ -3101,10 +3101,11 @@ fn a_real_headless_browser_run_verifies_a_page_claim() {
         _ => Reply::Text("Verified in a headless browser.".into()),
     });
     assert!(completed(&journal));
-    assert_eq!(withheld_drafts(&journal), 0);
+    assert!(withheld_drafts(&journal)>0);
     let tail = requests.last().unwrap().to_string();
-    assert!(tail.contains("[verified] d-001"), "{tail}");
+    assert!(!tail.contains("[verified] d-001"), "{tail}");
     assert!(tail.contains("[browser pass]"), "{tail}");
+    assert!(last_tool_result(&requests[3]).contains("ACCEPTANCE_CRITERIA_REQUIRED"));
 }
 
 /// A deliverable can name what it needs; a passing test run does not satisfy a

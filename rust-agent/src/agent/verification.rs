@@ -160,7 +160,26 @@ impl Kind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CriterionEvidence {
+    pub deliverable_id: String,
+    pub criterion_id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub qualified: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evidence {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub coverage: Vec<CriterionEvidence>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub source_revisions: BTreeMap<String,String>,
+    #[serde(default)]
+    pub run_serial: u64,
+    #[serde(default)]
+    pub unknown_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
     pub id: String,
     pub kind: Kind,
     pub class: Class,
@@ -203,6 +222,10 @@ impl Evidence {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Verification {
+    #[serde(default)]
+    pub run_serial: u64,
+    #[serde(default)]
+    pub unknown_epoch: u64,
     /// Increases on every project change.
     #[serde(default)]
     pub epoch: u64,
@@ -281,6 +304,7 @@ impl Verification {
     /// A new run starts against a project that may have changed in between, so
     /// earlier functional records can no longer vouch for it.
     pub fn start_run(&mut self) {
+        self.run_serial=self.run_serial.saturating_add(1);
         if !self.is_empty() {
             self.epoch = self.epoch.saturating_add(1);
         }
@@ -289,6 +313,7 @@ impl Verification {
     /// The project changed. `path` is `None` when it is unknown.
     pub fn note_change(&mut self, path: Option<&str>) {
         self.epoch = self.epoch.saturating_add(1);
+        if path.is_none() {self.unknown_epoch=self.epoch;}
         if let Some(path) = path.filter(|path| !path.is_empty()) {
             if is_code_path(path) {
                 self.code_changed = true;
@@ -313,14 +338,13 @@ impl Verification {
 
     /// A deleted file has nothing to read back.
     pub fn note_deletion(&mut self, path: &str) {
-        self.note_change(None);
+        self.note_change(Some(path));
         if is_code_path(path) {
             self.code_changed = true;
         }
         if is_page_path(path) {
             self.page_changed = true;
         }
-        self.changed.remove(path);
         self.revisions.remove(path);
     }
 
@@ -364,6 +388,7 @@ impl Verification {
             })
             .flatten();
         self.records.push(Evidence {
+            coverage:Vec::new(),source_revisions:BTreeMap::new(),run_serial:self.run_serial,unknown_epoch:self.unknown_epoch,outcome:None,
             id: id.clone(),
             kind,
             class: kind.class(),
@@ -465,6 +490,8 @@ impl Verification {
             Path::new(checked).starts_with(target) || Path::new(target).starts_with(checked))) {
             return false;
         }
+        if record.kind==Kind::Browser && !item.criteria.is_empty() && record.coverage.is_empty() {return false;}
+        if record.kind==Kind::Browser && !record.coverage.is_empty() && !record.coverage.iter().any(|coverage|coverage.deliverable_id==item.id) {return false;}
         // Full-test requirements cannot be narrowed by selecting one pass.
         // Legacy items retain their previous project-wide scope. A named build
         // requirement structurally covers build checks, not unrelated tests.
@@ -519,12 +546,28 @@ impl Verification {
         if need == Need::Integrity {
             return Err(INTEGRITY_UNAVAILABLE.into());
         }
-        if cited.iter().filter_map(|id| self.get(id)).any(|record| !self.relevant(record, item)) {
-            return Err(format!("Evidence scope does not cover deliverable '{}'. Selected IDs do not prove unrelated file/project claims. Run a relevant scoped check; missing scope in old evidence cannot be inferred retroactively.", item.id));
-        }
         if let Some(failure) = self.failure_for(item) {
             return Err(format!("{} is a relevant failed check for {} ({}): {}. Run this check successfully before verifying the item.", failure.id, item.id, failure.subject, failure.detail));
         }
+        if !self.reachable(need,browser_available) { return self.proof_for(cited,need,deep,browser_available); }
+        if cited.iter().filter_map(|id| self.get(id)).any(|record| !self.relevant(record, item)) {
+            return Err(format!("Evidence scope does not cover deliverable '{}'. Selected IDs do not prove unrelated file/project claims. Run a relevant scoped check; missing scope in old evidence cannot be inferred retroactively.", item.id));
+        }
+        if !item.criteria.is_empty() {
+            let mut proof=Vec::new();
+            for criterion in &item.criteria {
+                let candidates=self.records.iter().filter(|record|self.relevant(record,item) && (cited.is_empty()&&!deep || cited.contains(&record.id)));
+                let found=candidates.clone().find(|record|record.pass && self.fresh(record) && (criterion.kind=="implementation" && record.kind==Kind::Readback || record.coverage.iter().any(|coverage|coverage.deliverable_id==item.id && coverage.criterion_id==criterion.id && coverage.kind==criterion.kind && !coverage.qualified)));
+                if let Some(record)=found {if !proof.contains(&record.id){proof.push(record.id.clone());}continue;}
+                let stale=candidates.clone().any(|record|!self.fresh(record) && record.coverage.iter().any(|coverage|coverage.deliverable_id==item.id && coverage.criterion_id==criterion.id));
+                let partial=candidates.clone().any(|record|self.fresh(record) && record.coverage.iter().any(|coverage|coverage.deliverable_id==item.id && coverage.criterion_id==criterion.id && coverage.qualified));
+                return Err(format!("{}: criterion '{}' for '{}' is not proven ({}: {}). Run its relevant {} scenario against the current route and source revision, then cite the new evidence. Do not repeat verify with the same IDs; browser open proves only load, and a static image cannot prove motion.",if stale {"EVIDENCE_STALE"} else if partial {"PARTIAL_VISUAL_EVIDENCE"} else {"VERIFICATION_INCOMPLETE"},criterion.id,item.id,criterion.kind,criterion.description,criterion.kind));
+            }
+            return Ok(proof);
+        }
+        let browser_selected=cited.iter().filter_map(|id|self.get(id)).any(|record|record.kind==Kind::Browser)
+            || cited.is_empty() && self.records.iter().any(|record|self.relevant(record,item)&&record.pass&&self.fresh(record)&&record.kind==Kind::Browser&&need.accepts(record.kind)) && !self.records.iter().any(|record|self.relevant(record,item)&&record.pass&&self.fresh(record)&&record.kind!=Kind::Browser&&need.accepts(record.kind));
+        if need==Need::Browser || browser_selected {return Err(format!("ACCEPTANCE_CRITERIA_REQUIRED: '{}' needs explicit acceptance criteria before checking. Use deliverables action=criteria with concrete load/runtime/interaction/temporal/visual requirements, then run mapped scenarios. Generic browser open cannot prove an unspecified browser requirement. Use a real browser with relevant assertions; a stand-in is not a browser.",item.id));}
         let mut scoped = self.clone();
         scoped.records.retain(|record| self.relevant(record, item));
         scoped.proof_for(cited, need, deep, browser_available)
@@ -534,6 +577,9 @@ impl Verification {
     /// and static records die with any change; a read-back only with a change
     /// to that very file.
     pub fn fresh(&self, record: &Evidence) -> bool {
+        if !record.source_revisions.is_empty() {
+            return record.run_serial==self.run_serial && record.unknown_epoch==self.unknown_epoch && record.source_revisions.iter().all(|(path,revision)|self.revisions.get(path)==Some(revision));
+        }
         if record.kind == Kind::Readback {
             return self
                 .changed
@@ -556,6 +602,7 @@ impl Verification {
             .enumerate()
             .filter(|(index, record)| {
                 !record.pass
+                    && record.outcome.as_deref().is_none_or(|outcome|outcome=="failed")
                     && self.fresh(record)
                     && !self.records[index + 1..].iter().any(|later| {
                         later.pass
@@ -1695,6 +1742,7 @@ mod tests {
                 Some(Need::Browser),
             )
             .unwrap();
+        items.set_criteria(&id,vec![super::super::deliverables::AcceptanceCriterion{id:"turns".into(),description:"Several turns continue".into(),kind:"interaction".into(),scenario:Some(serde_json::json!({"target":"/index.html","preconditions":[],"required_state":[],"steps":[{"action":"click","selector":"#play"}],"assertion":{"source":"text","selector":"#count","operator":"equals","expected":"3"},"timeout_ms":1000}))}]).unwrap();
         items.implement(&id, "built").unwrap();
         let mut ledger = Verification::default();
         ledger.note_change(Some("app.js"));
@@ -1708,6 +1756,7 @@ mod tests {
             "several turns continued",
             1,
         );
+        ledger.records.last_mut().unwrap().coverage.push(CriterionEvidence{deliverable_id:id.clone(),criterion_id:"turns".into(),kind:"interaction".into(),qualified:false});
         let failure = ledger.record(Kind::Test, "project suite", false, "strategy assertion", 2);
         for deep in [false, true] {
             let cited = if deep { vec![pass.clone()] } else { vec![] };
@@ -2123,4 +2172,45 @@ mod tests {
         );
         assert!(mentioned_code_paths("npm install").is_empty());
     }
+    #[test]
+    fn browser_open_cannot_verify_six_complex_items_or_a_temporal_requirement() {
+        let mut items=Deliverables::default();let mut ledger=Verification::default();
+        for n in 0..6 {let id=items.add_checked(None,"",&format!("Requirement {n} behaves correctly"),Some(Need::Browser)).unwrap();items.implement(&id,"built").unwrap();}
+        let open=ledger.record(Kind::Browser,"web_project open",true,"Page loaded; no JS errors",1);
+        for item in &items.items {ledger.attach(&item.id,std::slice::from_ref(&open)).unwrap();assert!(ledger.proof_for_item(item,std::slice::from_ref(&open),false,true).unwrap_err().contains("ACCEPTANCE_CRITERIA_REQUIRED"));}
+        items.items[0].check=Some(Need::Runtime);assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&open),false,true).unwrap_err().contains("ACCEPTANCE_CRITERIA_REQUIRED"),"A weaker check label cannot turn generic open into interaction proof");
+    }
+
+    #[test]
+    fn criterion_proof_tracks_relevant_bytes_not_independent_edits_or_metadata() {
+        use super::super::deliverables::AcceptanceCriterion;
+        let mut items=Deliverables::default();let id=items.add_checked(None,"","Camera moves",Some(Need::Browser)).unwrap();
+        let spec=serde_json::json!({"target":"/scene","preconditions":[],"required_state":[],"steps":[{"action":"hold","key":"w","duration_ms":500}],"assertion":{"source":"diagnostic","path":"camera.x","operator":"increased"},"timeout_ms":2000});
+        items.set_criteria(&id,vec![AcceptanceCriterion{id:"movement".into(),description:"Camera changes after held input".into(),kind:"interaction".into(),scenario:Some(spec)}]).unwrap();items.implement(&id,"built").unwrap();
+        let mut ledger=Verification::default();ledger.revisions.insert("/project/controller.js".into(),"v1".into());
+        let proof=ledger.record(Kind::Browser,"camera movement scenario",true,"Observed x changes after held w",1);
+        let record=ledger.records.last_mut().unwrap();record.coverage.push(CriterionEvidence{deliverable_id:id.clone(),criterion_id:"movement".into(),kind:"interaction".into(),qualified:false});record.deliverable_ids.push(id.clone());record.source_revisions.insert("/project/controller.js".into(),"v1".into());
+        assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&proof),true,true).is_ok());
+        ledger.note_change(Some("unrelated.css"));assert!(ledger.fresh(ledger.get(&proof).unwrap()),"independent file does not stale scoped evidence");
+        ledger.note_change(Some("/project/controller.js"));ledger.revisions.insert("/project/controller.js".into(),"v2".into());
+        assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&proof),true,true).unwrap_err().contains("EVIDENCE_STALE"));
+        assert!(items.set_criteria(&id,vec![AcceptanceCriterion{id:"movement".into(),description:"Weakened".into(),kind:"load".into(),scenario:None}]).is_err());
+        let new=ledger.record(Kind::Browser,"camera movement scenario",true,"Fresh execution",2);let record=ledger.records.last_mut().unwrap();record.coverage.push(CriterionEvidence{deliverable_id:id.clone(),criterion_id:"movement".into(),kind:"interaction".into(),qualified:false});record.deliverable_ids.push(id.clone());record.source_revisions.insert("/project/controller.js".into(),"v2".into());
+        assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&new),true,true).is_ok());ledger.start_run();assert!(!ledger.fresh(ledger.get(&new).unwrap()),"new run must re-establish transient browser state");
+    }
+
+    #[test]
+    fn static_images_and_qualified_vision_never_prove_dynamic_criteria() {
+        use super::super::deliverables::AcceptanceCriterion;
+        let mut items=Deliverables::default();let id=items.add_checked(Some("visual"),"","Declared visual appearance",Some(Need::Browser)).unwrap();
+        let spec=serde_json::json!({"target":"/index.html","preconditions":[],"required_state":[],"steps":[],"assertion":{"source":"pixels","operator":"changed"},"timeout_ms":2000});
+        assert!(items.set_criteria(&id,vec![AcceptanceCriterion{id:"motion".into(),description:"Object moves".into(),kind:"temporal".into(),scenario:Some(spec.clone())}]).is_err(),"A static screenshot cannot define a temporal functional proof");
+        items.set_criteria(&id,vec![AcceptanceCriterion{id:"appearance".into(),description:"Qualified image assessment".into(),kind:"visual".into(),scenario:Some(spec)}]).unwrap();items.implement(&id,"built").unwrap();
+        let mut ledger=Verification::default();let evidence=ledger.record(Kind::Browser,"visual scenario",false,"Probabilistic visual opinion",1);
+        let record=ledger.records.last_mut().unwrap();record.outcome=Some("inconclusive".into());record.deliverable_ids.push(id.clone());record.coverage.push(CriterionEvidence{deliverable_id:id.clone(),criterion_id:"appearance".into(),kind:"visual".into(),qualified:true});
+        assert!(ledger.active_failures().is_empty());assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&evidence),false,true).unwrap_err().contains("PARTIAL_VISUAL_EVIDENCE"));
+        ledger.records.last_mut().unwrap().pass=true;
+        assert!(ledger.proof_for_item(&items.items[0],std::slice::from_ref(&evidence),false,true).is_err(),"A passing visual opinion remains qualified");
+    }
+
 }
