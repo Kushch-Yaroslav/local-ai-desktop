@@ -1,4 +1,20 @@
-import type { AgentPlan, DeliverableItem, PlanStepItem, ToolActivity, VerificationRecord } from './types';
+import type { VerificationState, AgentPlan, DeliverableItem, PlanStepItem, ToolActivity, VerificationRecord } from './types';
+
+export function evidenceFresh(record:VerificationRecord, ledger:VerificationState):boolean {
+  if(record.source_revisions && Object.keys(record.source_revisions).length)return record.run_serial===ledger.run_serial && record.unknown_epoch===ledger.unknown_epoch && Object.entries(record.source_revisions).every(([path,hash])=>ledger.revisions?.[path]===hash);
+  return record.kind==='readback'?(ledger.changed?.[record.check_key||record.subject]??0)<=record.epoch:record.epoch===ledger.epoch;
+}
+export function criterionStatus(item:DeliverableItem,criterion:NonNullable<DeliverableItem['criteria']>[number],ledger?:VerificationState):'Verified'|'Failed'|'Partially Verified'|'Not Verified'|'Stale' {
+  if(!ledger)return 'Not Verified';
+  const coverage=(record:VerificationRecord)=>record.coverage?.filter(c=>c.deliverable_id===item.id&&c.criterion_id===criterion.id&&c.kind===criterion.kind)??[];
+  const implementation=(record:VerificationRecord)=>criterion.kind==='implementation'&&record.kind==='readback'&&Boolean(item.proof?.includes(record.id));
+  const relevant=ledger.records.filter(record=>coverage(record).length||implementation(record));
+  const fresh=relevant.filter(record=>evidenceFresh(record,ledger));
+  if(fresh.some((record,index)=>!record.pass&&(!record.outcome||record.outcome==='failed')&&!fresh.slice(index+1).some(later=>later.pass&&later.kind===record.kind&&(later.check_key||later.subject)===(record.check_key||record.subject))))return 'Failed';
+  if(fresh.some(record=>record.pass&&(implementation(record)||coverage(record).some(c=>!c.qualified))))return 'Verified';
+  if(fresh.some(record=>coverage(record).some(c=>c.qualified)))return 'Partially Verified';
+  return relevant.length&&!fresh.length?'Stale':'Not Verified';
+}
 
 /** Presentation only: the task-memory ledger is authoritative, including empty lists.
  * Older saved chats can still display their legacy model-todo/milestone plan. */
@@ -8,9 +24,8 @@ export function agentStatus(plan: AgentPlan | null): { steps: AgentStatusStep[];
     ?? plan?.milestones?.flatMap((milestone) => milestone.workPlan.tasks.map((task) => ({ id: task.id, content: task.label, status: task.status })))
     ?? plan?.steps?.map((step) => ({ id: step.id, content: step.label, status: step.status })) ?? [];
   const ledger = plan?.taskMemory?.verification;
-  const checks = ledger?.records.filter((record) => record.kind === 'readback'
-    ? (ledger.changed?.[record.check_key || record.subject] ?? 0) <= record.epoch : record.epoch === ledger.epoch) ?? [];
-  const warnings = checks.filter((record, index) => !record.pass && !checks.slice(index + 1).some((later) => later.pass && later.kind === record.kind && (later.check_key || later.subject) === (record.check_key || record.subject)));
+  const checks = ledger?.records.filter(record=>evidenceFresh(record,ledger)) ?? [];
+  const warnings = checks.filter((record, index) => !record.pass && (!record.outcome||record.outcome==='failed') && !checks.slice(index + 1).some((later) => later.pass && later.kind === record.kind && (later.check_key || later.subject) === (record.check_key || record.subject)));
   return {
     steps: plan?.taskMemory?.plan?.steps ?? legacy.map((step) => ({ id: step.id, text: step.content, status: step.status })),
     deliverables: plan?.taskMemory?.deliverables?.items ?? [],

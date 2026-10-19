@@ -4,7 +4,7 @@ import { memo, useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import type { AgentPlan } from '../../shared/types';
-import { agentStatus, showAgentStatus } from '../../shared/agent-status';
+import { agentStatus, showAgentStatus, criterionStatus } from '../../shared/agent-status';
 import { agentStatusText, deliverableStatusLabel, planStatusLabel } from '../../shared/localization';
 import { useAppStore } from '../store/app-store';
 
@@ -19,7 +19,7 @@ export function CurrentAgentStatus() {
 }
 
 export const AgentStatusPanel = memo(function AgentStatusPanel({ plan, running = false, recovery = false, initialExpanded = false }: { plan: AgentPlan | null; running?: boolean; recovery?: boolean; initialExpanded?: boolean }) {
-  useLocale();
+  const ru=useLocale()==='ru';
   const [expanded, setExpanded] = useState(initialExpanded);
   const contentId = useId();
   const { steps, deliverables, checks, warnings } = agentStatus(plan);
@@ -38,6 +38,7 @@ export const AgentStatusPanel = memo(function AgentStatusPanel({ plan, running =
       {warnings.length > 0 && <span>{agentStatusText.warnings}: {warnings.length}</span>}
     </button>
     {expanded && <div id={contentId} className="agent-status-content">
+      <p className="agent-status-explanation">{ru?'План отражает выполненные действия. Качество результата подтверждают критерии и относящиеся к ним проверки. Статусы функционального QA и Vision независимы.':'The plan tracks completed actions. Acceptance criteria and their relevant checks establish result quality. Functional QA and Vision are independent.'}</p>
       {steps.length > 0 && <section aria-label={agentStatusText.plan}><h3>{agentStatusText.plan}<small>{completed}/{steps.length}</small></h3>
         <ol>{steps.map((step) => <li key={step.id} className={step.status} aria-current={running && step.status === 'in_progress' ? 'step' : undefined}>
           <i aria-hidden="true">{planMarker[step.status]}</i><span>{step.text}{step.note && <small>{step.note}</small>}</span><small className="agent-status-label">{!running && step.status === 'in_progress' ? agentStatusText.unfinishedStep : planStatusLabel[step.status]}</small>
@@ -45,7 +46,7 @@ export const AgentStatusPanel = memo(function AgentStatusPanel({ plan, running =
       </section>}
       {deliverables.length > 0 && <section aria-label={agentStatusText.deliverables}><h3>{agentStatusText.deliverables}<small>{verified}/{total}</small></h3>
         <ul>{deliverables.map((item) => <li key={item.id} className={item.status}>
-          <i aria-hidden="true">{resultMarker[item.status]}</i><span>{item.text}{(item.reason || item.failing) && <small>{item.reason || item.failing}</small>}{item.status === 'verified' && checks.filter((record) => record.pass && item.proof?.includes(record.id)).map((record) => <small key={record.id}>{record.subject} — {agentStatusText.passed}</small>)}</span><small className="agent-status-label">{(item.status === 'implemented' || item.status === 'done') && checks.some(record => record.pass && record.deliverable_ids?.includes(item.id)) ? t('Частично проверено') : deliverableStatusLabel[item.status]}</small>
+          <i aria-hidden="true">{resultMarker[item.status]}</i><span>{item.text}{item.criteria?.map(criterion=><small key={criterion.id}>{criterion.description} — {({Verified:ru?'Проверено':'Verified',Failed:ru?'Не пройдено':'Failed','Partially Verified':ru?'Частично проверено':'Partially verified','Not Verified':ru?'Нет доказательств':'No evidence',Stale:ru?'Устарело':'Stale'})[criterionStatus(item,criterion,plan?.taskMemory?.verification)]}</small>)}{(item.reason || item.failing) && <small>{item.reason || item.failing}</small>}{item.status === 'verified' && checks.filter((record) => record.pass && item.proof?.includes(record.id)).map((record) => <small key={record.id}>{record.subject} — {agentStatusText.passed}</small>)}</span><small className="agent-status-label">{(item.status === 'implemented' || item.status === 'done') && checks.some(record => record.pass && record.deliverable_ids?.includes(item.id)) ? t('Частично проверено') : deliverableStatusLabel[item.status]}</small>
         </li>)}</ul>
       </section>}
       {warnings.length > 0 && <section aria-label={agentStatusText.warnings}><h3>{agentStatusText.warnings}<small>{warnings.length}</small></h3><ul>{warnings.map((record) => <li key={record.id} className="implemented"><i aria-hidden="true">!</i><span>{record.subject}<small>{record.baseline_failure ? agentStatusText.preExisting : record.baseline ? agentStatusText.baseline : agentStatusText.failed}{record.deliverable_ids?.length ? ` · ${record.deliverable_ids.join(', ')}` : ''}{record.detail ? ` · ${record.detail}` : ''}</small></span><small className="agent-status-label">{record.id}</small></li>)}</ul></section>}

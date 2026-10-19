@@ -171,6 +171,7 @@ export function Toolbar() {
       </div>
       {notice && <div className="runtime-notice" role="status">{notice}</div>}
       {!expanded && (contextLoadError || llama?.error || llama?.activation?.error) && <div className="runtime-notice" role="alert">{localizeMessage(contextLoadError ?? llama?.activation?.error ?? llama?.error ?? '')}</div>}
+      <BrowserQaPanel/>
       <div id={panelId} className="panel-expansion" inert={!expanded} aria-hidden={!expanded}><div className="panel-details">
       <div className="monitoring-row" aria-label={t("Мониторинг llama.cpp")}>
         <Hardware value={hardware} />
@@ -194,7 +195,6 @@ export function Toolbar() {
         </details>}
         {discoveryError && <span role="alert">{t('Поиск не завершён: ')}{localizeMessage(discoveryError)}</span>}
       </div>
-      <BrowserQaPanel/>
       <div className="toolbar-controls">
         <section className="control-group inference-group" aria-label={ru?'Модель и инференс':'Model & Inference'}><div className="control-group-heading"><strong>{ru?'МОДЕЛЬ И ИНФЕРЕНС':'MODEL & INFERENCE'}</strong><span>{ru?'Модель, контекст, MTP':'Model, context, MTP'}</span><ControlHelp label={ru?'Модель и контекст':'Model & context'}>{ru?'Модель, контекст и MTP изменяются после ответа. Перезагрузка пересоздаёт KV-cache, сохраняя чат и checkpoint. Выберите конфигурацию, затем примените её кнопкой загрузки.':'Model, context and MTP change after response. Reload recreates KV cache while preserving chat and checkpoints. Select a configuration, then apply it with the load button.'}</ControlHelp></div><div className="control-group-fields">
         <div className="control-help-field"><label className="control"><span>{t("Модель")}</span><select aria-label={t('Модель')} disabled={discoveryLoading || inferenceBusy} value={selectedModelId ?? ''} onChange={(event) => { const id = event.target.value; setModelDraft(id === chat.modelId ? undefined : id); setContextDraft(null); setContextLoadError(null); }}><option value="" disabled>{t("Выберите модель")}</option>{models.map((model) => <option value={model.id} key={model.id} disabled={!model.installed}>{model.name}{model.installed ? '' : t(" · не установлена")}</option>)}</select></label><ControlHelp label={t('Модель')}>{inferenceBusy ? t('Пока модель генерирует, дождитесь ответа или остановите задачу.') : t('Выбор модели задаёт, какая локальная LLM отвечает и выполняет задачи. Смена модели пересоздаёт её вычислительный контекст; история чата сохраняется.')}</ControlHelp></div>
