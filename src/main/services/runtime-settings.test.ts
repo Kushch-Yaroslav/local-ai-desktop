@@ -89,12 +89,12 @@ try {
   assert.equal(getModelProfile(customId, added)?.displayName, 'My Local Model');
   assert.equal(getModelProfile(customId, added)?.supportsTools, false, 'unknown profile defaults to no tool-call assumptions');
   assert.equal(getModelProfile(customId, added)?.supportsReasoning, false, 'unknown profile does not inherit Qwen reasoning behavior');
-  assert.equal(getModelProfile(customId, added)?.maxContext, 32_768, 'unknown models start with a conservative context ceiling');
+  assert.equal(getModelProfile(customId, added)?.maxContext, 65_536, 'inspected GGUF context replaces the generic custom-model ceiling');
   const localRegistry = registeredModelProfiles(added);
   assert.equal(localRegistry.length, 4); assert.equal(llamaRuntimeProfilesList(added).length, 4);
   const customRuntime = llamaRuntimeProfilesList(added).find((profile) => profile.id === customId);
   assert.equal(customRuntime?.speculative, 'none', 'runtime profile defaults to no MTP');
-  assert.equal(customRuntime?.maxContext, 32_768, 'unknown runtime starts with a conservative context ceiling');
+  assert.equal(customRuntime?.maxContext, 65_536, 'runtime uses the inspected GGUF context');
   assert.equal(modelPaths(customId, added).modelPath, original);
 
   const edited = { ...custom, displayName: 'Edited Local Model', supportsTools: true, gpuLayers: null };
@@ -183,7 +183,10 @@ try {
   const otherBase = saveRuntimeConfiguration({ ...relative, modelsPath: root }, legacyFile);
   assert.equal(otherBase.models[0].modelPath, original, 'changing the base folder preserves absolute model paths');
   const draft = { modelsPath: weights, models: [{ id: customId, modelPath: 'chosen model.gguf', mmprojPath: '' }] };
-  assert.deepEqual(runtimeDraftAvailability(draft), { folderExists: true, models: [{ id: customId, installed: true, projectorMissing: false }] });
+  const availability=runtimeDraftAvailability(draft);
+  assert.equal(availability.folderExists,true);
+  assert.deepEqual(availability.models.map(({id,installed,projectorMissing})=>({id,installed,projectorMissing})),[{id:customId,installed:true,projectorMissing:false}]);
+  assert.equal(availability.models[0]?.inspection?.trainedContext,65536,'draft inspection reports confirmed metadata without persisting it');
   assert.equal(runtimeDraftAvailability({ ...draft, models: [{ id: customId, modelPath: 'absent.gguf' }] }).models[0].installed, false);
   assert.equal(runtimeDraftAvailability({ modelsPath: '', models: [{ id: customId, modelPath: original }] }).models[0].installed, true, 'absolute GGUF is available even with incomplete base');
   assert.equal(runtimeDraftAvailability({ ...draft, modelsPath: root }).models[0].installed, false, 'relative draft paths follow changed base');

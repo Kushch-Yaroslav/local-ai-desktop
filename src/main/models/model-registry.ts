@@ -1,3 +1,4 @@
+import { inspectModel } from './gguf-profile';
 import type { ModelInfo } from '../../shared/types';
 import { builtinModelCatalog, contextPresets } from './model-catalog';
 import { effectiveRuntimeConfiguration } from '../services/runtime-settings';
@@ -16,9 +17,10 @@ export function registeredModelProfiles(config = effectiveRuntimeConfiguration()
   const known = new Map(modelRegistry.map((profile) => [profile.id, profile]));
   return config.models.map((configured) => {
     const builtin = known.get(configured.id);
-    if (builtin) return { ...builtin, displayName: configured.displayName, shortName: configured.displayName };
+    const inspection=inspectModel(configured.modelPath,configured.family);
+    if (builtin) return { ...builtin,...(inspection.status==='inspected'?{supportsReasoning:inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0}:{}), displayName: configured.displayName, shortName: configured.displayName,supportsTools:configured.supportsTools };
     return { id: configured.id, displayName: configured.displayName, shortName: configured.displayName,
-      quantization: 'GGUF', maxContext: 32_768, supportsTools: configured.supportsTools, supportsReasoning: false };
+      quantization: inspection.quantization??'GGUF', maxContext: inspection.trainedContext??32_768, supportsTools: configured.supportsTools, supportsReasoning: inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length>0 };
   });
 }
 

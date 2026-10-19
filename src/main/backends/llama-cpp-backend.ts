@@ -152,7 +152,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       const capability = Math.min(installed ? await llamaCapabilityLimit(runtime.id) : runtime.maxContext, trainedLimit ?? runtime.maxContext);
       result.push({
         ...modelInfo(profile, active && (data.data ?? []).length > 0 ? true : installed, active ? data.data?.[0]?.meta?.size : undefined, capability, profile.supportsReasoning),
-        backend: 'llama-cpp',
+        backend: 'llama-cpp',inspection:runtime.inspection,profileDefaults:runtime.defaults,
         supportedContextPresets: llamaContextPresets(runtime.id, capability),
         supportedKvCacheTypes: ['f16', 'q8_0'],
         ...(runtime.normalContext ? { normalContext: runtime.normalContext } : {}),

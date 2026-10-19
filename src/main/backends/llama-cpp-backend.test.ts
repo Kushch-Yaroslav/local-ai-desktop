@@ -80,7 +80,8 @@ export async function runLlamaCppBackendRegression(): Promise<void> {
   const text = (s: string) => Buffer.concat([u64(Buffer.byteLength(s)), Buffer.from(s)]);
   for (const [index, profile] of llamaRuntimeProfiles.entries()) {
     const path = join(fixture, `model${index}.gguf`);
-    const contents = Buffer.concat([Buffer.from('GGUF'), u32(3), u64(0), u64(2), text('general.architecture'), u32(8), text('fixture'), text('fixture.context_length'), u32(4), u32(262_144)]);
+    const architecture=profile.id.startsWith('qwen3.6:')?'qwen35moe':'qwen35',template='{% if enable_thinking %}thinking{% endif %}'+(profile.id.startsWith('qwen3.6:')?'':'{{ reasoning_effort }} xhigh');
+    const contents = Buffer.concat([Buffer.from('GGUF'), u32(3), u64(0), u64(3), text('general.architecture'), u32(8), text(architecture), text(architecture+'.context_length'), u32(4), u32(262_144),text('tokenizer.chat_template'),u32(8),text(template)]);
     writeFileSync(path, contents);
     const projector = join(fixture, `projector${index}.gguf`); writeFileSync(projector, contents);
     Object.defineProperty(profile, 'modelPath', { get: () => path, configurable: true });
@@ -108,7 +109,7 @@ export async function runLlamaCppBackendRegression(): Promise<void> {
       backend.updateRuntimeSelection(model, 32_768);
       assert.equal(await backend.supportsVision(model), true);
       backend.updateRuntimeSelection('qwen3.6:35b-a3b-ud-q4_k_m', 65_536, 'q8_0', true);
-      assert.equal(await backend.supportsVision('qwen3.6:35b-a3b-ud-q4_k_m'), false, 'MTP-active Qwen3.6 runtime does not load its unsupported projector');
+      assert.equal(await backend.supportsVision('qwen3.6:35b-a3b-ud-q4_k_m'), true, 'P3 verified Qwen3.6 supports its projector with MTP; activation remains explicit');
       backend.updateRuntimeSelection('qwen3.6:35b-a3b-ud-q4_k_m', 65_536, 'q8_0', true, true);
       assert.equal(await backend.supportsVision('qwen3.6:35b-a3b-ud-q4_k_m'), true, 'MTP-off runtime may expose its verified projector');
       backend.clearRuntimeSelection();

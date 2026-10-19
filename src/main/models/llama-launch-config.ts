@@ -1,3 +1,7 @@
+import { runtimeProfileFingerprint } from '../services/runtime-profile-identity';
+import type { BackendFeatureProbe } from '../../shared/model-profiles';
+import { advancedPlacementArguments } from './advanced-placement';
+import { probeBackendFeatures } from '../services/backend-capabilities';
 import { createHash } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import { getModelProfile } from './model-registry';
@@ -56,7 +60,8 @@ export async function verifyDraftFile(profile: LlamaRuntimeProfile): Promise<voi
 }
 
 const quote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
-export function placementArguments(profile: LlamaRuntimeProfile): string[] {
+export function placementArguments(profile: LlamaRuntimeProfile,backend?:BackendFeatureProbe): string[] {
+  if(profile.advanced)return advancedPlacementArguments(profile.advanced,profile.inspection,backend);
   const placement = profile.placement;
   if (!placement) return [];
   if (!Number.isInteger(placement.cpuMoeLayers) || placement.cpuMoeLayers < 0 || placement.cpuMoeLayers > 1_024
@@ -66,20 +71,23 @@ export function placementArguments(profile: LlamaRuntimeProfile): string[] {
     '--batch-size', String(placement.batchSize), '--ubatch-size', String(placement.ubatchSize), '--load-mode', placement.loadMode];
 }
 /** One source of model paths/capabilities for Electron and the shell launcher. */
-export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?: string): string {
+export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?: string,backend?:BackendFeatureProbe): string {
   if (!profile.modelPath) throw new Error(`Не настроен llama.cpp GGUF: ${profile.id}.`);
   const mode = effectiveSpeculativeMode(profile, enabled);
   const draft = mode !== 'none' ? profile.draft : undefined;
   const mmproj = profile.mmprojPath && (mode !== 'mtp' || profile.visionWithMtp !== false) ? profile.mmprojPath : '';
   if (profile.speculativeDraftTokens !== undefined && (!Number.isInteger(profile.speculativeDraftTokens) || profile.speculativeDraftTokens < 1)) throw new Error('Некорректное число токенов embedded MTP.');
+  const runtimeConfig=effectiveRuntimeConfiguration(),configured=runtimeConfig.models.find(model=>model.id===profile.id);
+  const snapshot=configured?{...configured,gpuLayers:profile.gpuLayers??runtimeConfig.gpuLayers,mtpMode:profile.mtpMode??configured.mtpMode,projectorDevice:profile.projectorDevice??configured.projectorDevice}:null;
   const values = {
+    PROFILE_VISION_REQUIRED: effectiveRuntimeConfiguration().browserVision==='on'?'1':'0', PROFILE_FINGERPRINT: runtimeProfileFingerprint(profile.id), PROFILE_MODEL_CONFIG: Buffer.from(JSON.stringify(snapshot)).toString('base64'),
     PROJECTOR_PREFERENCE: profile.projectorPreference ?? '', PROJECTOR_DEVICE: profile.projectorDevice ?? 'auto', VARIANT: profile.id, MODEL: profile.modelPath, MMPROJ: mmproj, RUNTIME_MODEL_ID: profile.id,
     RUNTIME_LABEL: getModelProfile(profile.id)?.displayName ?? profile.id, DEFAULT_LLAMA_CONTEXT: String(profile.normalContext?.initialContextWindow ?? 32_768), MAX_LLAMA_CONTEXT: String(profile.maxContext),
     SPECULATIVE_MODE: mode, DRAFT_MODEL: draft?.path ?? '', DRAFT_KV_SHARED: draft?.kvCache === 'shared' ? '1' : '0',
     DRAFT_N_MAX: draft ? String(draft.maxDraftTokens) : mode === 'mtp' && profile.speculativeDraftTokens ? String(profile.speculativeDraftTokens) : '',
-    MODEL_GPU_LAYERS: profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
+    MODEL_GPU_LAYERS: profile.advanced?.mode==='automatic'?'auto':profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
   };
-  return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${placementArguments(profile).map(quote).join(' ')})`].join('\n');
+  return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${placementArguments(profile,backend).map(quote).join(' ')})`].join('\n');
 }
 
 if (require.main === module) {
@@ -88,11 +96,12 @@ if (require.main === module) {
     if (!profile) throw new Error(`Unknown Local AI llama.cpp model: ${process.argv[2]}`);
     const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
     if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
-    profile = { ...profile, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
+    profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
     if (effectiveRuntimeConfiguration().browserVision === 'on' && (!profile.vision || !profile.mmprojPath)) {
       throw new Error('Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.');
     }
-    const environment = launchProfileEnvironment(profile);
+    const backendFeatures=profile.advanced?await probeBackendFeatures(effectiveRuntimeConfiguration().llamaServerPath):undefined;
+    const environment = launchProfileEnvironment(profile,undefined,backendFeatures);
 
     if (process.argv[3] === '--verify' || process.argv[3] === '--preflight') {
       verifyGgufArtifacts(profile.modelPath!);

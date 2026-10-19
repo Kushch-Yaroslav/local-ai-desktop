@@ -13,7 +13,7 @@ const ids = [qwen, qwen36, huihui];
 assert.deepEqual(modelRegistry.map((profile) => profile.id), ids);
 assert.deepEqual(llamaRuntimeProfiles.map((profile) => profile.id), ids);
 assert.notEqual(llamaRuntimeProfile(qwen)?.modelPath, llamaRuntimeProfile(huihui)?.modelPath);
-assert.equal(llamaRuntimeProfile(qwen)?.reasoning, llamaRuntimeProfile(huihui)?.reasoning, 'reuse verified family capabilities');
+assert.deepEqual(llamaRuntimeProfile(qwen)?.reasoning, llamaRuntimeProfile(huihui)?.reasoning, 'reuse verified family capabilities');
 const configured = llamaRuntimeProfile(qwen36);
 const qwen36Profile = configured && { ...configured, mmprojPath: '/models/mmproj-BF16.gguf' };
 assert(qwen36Profile);

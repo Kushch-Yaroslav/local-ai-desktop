@@ -29,7 +29,7 @@ const api: LocalAiApi = {
   models: { list: () => ipcRenderer.invoke('models:list') },
   browserQa: { status: () => ipcRenderer.invoke('browser-qa:status'), configure: (mode, autonomous, confirmed) => ipcRenderer.invoke('browser-qa:configure', mode, autonomous, confirmed) },
   mtp: { status: model => ipcRenderer.invoke('mtp:status', model), apply: (model, mode, confirmed) => ipcRenderer.invoke('mtp:apply', model, mode, confirmed) },
-  runtime: { state: () => ipcRenderer.invoke('runtime:state') },
+  runtime: { state: () => ipcRenderer.invoke('runtime:state'), control: request => ipcRenderer.invoke('runtime:control',request) },
   settings: { setLanguage: (language) => ipcRenderer.invoke('settings:setLanguage', language), validateDraft: (config) => ipcRenderer.invoke('settings:validateDraft', config), resolveExecutable: (path, selected) => ipcRenderer.invoke('settings:resolveExecutable', path, selected), cancelResolution: () => ipcRenderer.invoke('settings:cancelResolution'), onLanguageChanged: (listener) => { const callback = (_: unknown, language: 'ru' | 'en') => listener(language); ipcRenderer.on('settings:language', callback); return () => ipcRenderer.removeListener('settings:language', callback); }, get: () => ipcRenderer.invoke('settings:get'), save: (config) => ipcRenderer.invoke('settings:save', config), dismissSetup: () => ipcRenderer.invoke('settings:dismissSetup') },
   hardware: { get: () => ipcRenderer.invoke('hardware:get') },
   contextEstimate: (modelId) => ipcRenderer.invoke('context:estimate', modelId),

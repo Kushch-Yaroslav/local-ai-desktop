@@ -123,6 +123,8 @@ export interface AgentTelemetry {
 }
 
 export interface ModelInfo {
+  inspection?: import('./model-profiles').ModelInspection;
+  profileDefaults?: import('./model-profiles').ModelProfileDefaults;
   supportedKvCacheTypes?: LlamaKvCacheType[];
   /** Validated normal startup configuration, independent of measured/manual Max options. */
   normalContext?: { initialContextWindow: number; kvCacheType: LlamaKvCacheType };
@@ -225,7 +227,7 @@ export interface HardwareStats {
 }
 
 export type ExecutableValidation = { status: 'not-configured' | 'valid' | 'missing' | 'not-executable' | 'unsupported' | 'failed'; path?: string };
-export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; projectorMissing: boolean }> };
+export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; projectorMissing: boolean; inspection?:import('./model-profiles').ModelInspection }> };
 export type ExecutableResolution = { status: ExecutableValidation['status'] | 'multiple' | 'not-found' | 'incomplete' | 'cancelled'; path?: string; candidates: string[]; kind?: 'file' | 'directory'; incomplete?: boolean; selectedMissing?: boolean; reasons?: string[] };
 
 export interface RuntimeConfiguration {
@@ -246,6 +248,9 @@ export interface RuntimeConfiguration {
   models: RuntimeModelConfiguration[];
 }
 export interface RuntimeModelConfiguration {
+  family?: import('./model-profiles').ModelFamily;
+  advanced?: import('./model-profiles').AdvancedModelParameters;
+  defaults?: import('./model-profiles').ModelProfileDefaults;
   id: string;
   displayName: string;
   modelPath: string;
@@ -260,11 +265,11 @@ export interface RuntimeModelConfiguration {
 }
 export type RuntimeActivation = { conversationId: string; modelId: string; contextWindow: number; kvCacheType: LlamaKvCacheType; kvOffload: boolean; phase: 'validating' | 'failed'; warning?: string; error?: string };
 export interface AppSettings {
-  setup?: { config: RuntimeConfiguration; server: string | null; ready: boolean; autoOpen: boolean; models: Array<{ id: string; name: string; modelPath: string; mmprojPath?: string; installed: boolean; status: 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector'; issue?: string; builtin: boolean }>; issues: string[]; configPath: string; dataDirectory: string };
+  setup?: { backendFeatures?:import('./model-profiles').BackendFeatureProbe; config: RuntimeConfiguration; server: string | null; ready: boolean; autoOpen: boolean; models: Array<{ id: string; name: string; modelPath: string; mmprojPath?: string; installed: boolean; status: 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector'; issue?: string; builtin: boolean; inspection?:import('./model-profiles').ModelInspection }>; issues: string[]; configPath: string; dataDirectory: string };
   llamaServerPath: string | null;
   llamaRuntimeModelId?: string;
   /** Live state of the launcher-managed llama-server; the authority on what is running. */
-  llamaRuntime?: { status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped'; modelId: string | null; contextWindow: number | null; kvCacheType?: LlamaKvCacheType; kvOffload?: boolean; speculativeMode?: 'mtp' | 'eagle3' | 'none'; mtpMode?: MtpMode; mtpFallbackReason?: string; projectorDevice?: 'cpu' | 'gpu'; pendingProjectorDevice?: 'cpu' | 'gpu'; deviceError?: string; activation?: RuntimeActivation; error?: string; rolledBack?: boolean };
+  llamaRuntime?: { placement?:{offloadedLayers?:number;reportedLayers?:number;modelMiB:Record<string,number>;kvMiB:Record<string,number>;computeMiB:Record<string,number>;source:'owned-server-log';observedAt:string}; profileFingerprint?:string; desiredProfileFingerprint?:string; profileConfiguration?:RuntimeModelConfiguration; launchArguments?:string[]; diagnosticsHistory?:Array<{at:string;message:string}>; status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped'; modelId: string | null; contextWindow: number | null; kvCacheType?: LlamaKvCacheType; kvOffload?: boolean; speculativeMode?: 'mtp' | 'eagle3' | 'none'; mtpMode?: MtpMode; mtpFallbackReason?: string; projectorDevice?: 'cpu' | 'gpu'; pendingProjectorDevice?: 'cpu' | 'gpu'; deviceError?: string; activation?: RuntimeActivation; error?: string; rolledBack?: boolean };
   modelsPath: string;
 }
 
@@ -480,7 +485,7 @@ export interface LocalAiApi {
   models: { list(): Promise<ModelInfo[]> };
   browserQa: { status(): Promise<{ mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; pending?: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean): Promise<void> };
   mtp: { status(modelId: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean): Promise<MtpStatus> };
-  runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>> };
+  runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>>; control(request:{action:'unload'|'restart';conversationId:string;modelId?:string}):Promise<AppSettings> };
   settings: { setLanguage(language: 'en' | 'ru'): Promise<void>; validateDraft(config: Pick<RuntimeConfiguration, 'modelsPath' | 'models'>): Promise<RuntimeDraftAvailability>; resolveExecutable(path: string, selected?: string): Promise<ExecutableResolution>; cancelResolution(): Promise<void>; onLanguageChanged(listener: (language: 'ru' | 'en') => void): () => void; get(): Promise<AppSettings>; save(config: RuntimeConfiguration): Promise<AppSettings>; dismissSetup(): Promise<AppSettings> };
   hardware: { get(): Promise<HardwareStats> };
   contextEstimate(modelId: string): Promise<RuntimeContextEstimate>;

@@ -29,12 +29,22 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     const gguf = Buffer.concat([header, text('general.architecture'), type, text('fixture')]);
     const server = join(root, 'fixture-llama-server'); writeFileSync(server, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
     const models = config.models.map((model, index) => {
-      const modelPath = join(modelsPath, `model-${index}.gguf`); writeFileSync(modelPath, gguf);
+      const modelPath = join(modelsPath, `model-${index}.gguf`);
+      const modelHeader=Buffer.from(header);modelHeader.writeBigUInt64LE(2n,16);const architecture=model.id.startsWith('qwen3.6:')?'qwen35moe':'qwen35';const template='{% if enable_thinking %}thinking{% endif %}'+(model.id.startsWith('qwen3.6:')?'':'{{ reasoning_effort }} xhigh');
+      writeFileSync(modelPath,Buffer.concat([modelHeader,text('general.architecture'),type,text(architecture),text('tokenizer.chat_template'),type,text(template)]));
       const mmprojPath = model.mmprojPath ? join(modelsPath, `projector-${index}.gguf`) : '';
       if (mmprojPath) writeFileSync(mmprojPath, gguf);
       return { ...model, modelPath, mmprojPath };
     });
     writeFileSync(runtimeSettings.settingsFile, JSON.stringify({ ...config, modelsPath, models, llamaServerPath: server, setupDismissed: true, language: 'en' }));
+  }
+  const v2=process.env.LOCAL_AI_TEST_PROFILES_V2==='1';
+  if(v2){
+    const config=runtimeSettings.loadRuntimeConfiguration();writeFileSync(config.llamaServerPath!, '#!/bin/sh\necho "--model --ctx-size --port --fit --fit-target --load-mode --n-cpu-moe --cpu-moe --threads --threads-batch --batch-size --ubatch-size --flash-attn --override-tensor"\n', {mode:0o755});const modelPath=join(config.modelsPath,'harmony.gguf');
+    const u32=(n:number)=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;},u64=(n:number)=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;},str=(s:string)=>Buffer.concat([u64(Buffer.byteLength(s)),Buffer.from(s)]);
+    const metadata={'general.architecture':'gpt-oss','general.file_type':15,'gpt-oss.block_count':36,'gpt-oss.expert_count':128,'gpt-oss.context_length':131072,'tokenizer.chat_template':'<|start|>assistant<|message|>{{ reasoning_effort }} {% if tools %}tools{% endif %}'};
+    const entries=Object.entries(metadata);writeFileSync(modelPath,Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(entries.length),...entries.flatMap(([k,v])=>[str(k),u32(typeof v==='string'?8:4),typeof v==='string'?str(v):u32(v)])]));
+    runtimeSettings.saveRuntimeConfiguration({...config,models:[...config.models.filter(m=>m.id!==fixtureModel),{id:fixtureModel,displayName:'GPT-OSS fixture',modelPath,mmprojPath:'',gpuLayers:12,supportsTools:true,speculative:'none',mtpMode:'off',builtin:false}]});
   }
   const { Database } = await import('../services/database');
   const { LlamaRuntimeController } = await import('../services/llama-runtime-controller');
@@ -92,12 +102,15 @@ export async function contextProfileFixture(root: string, realElectron = false, 
   LlamaRuntimeController.prototype.state = async () => state;
   LlamaRuntimeController.prototype.switchTo = async (id, contextWindow, kvCacheType = 'f16', kvOffload = true, _projectorDevice, mtpMode) => {
     launches.push({ contextWindow, kvCacheType });
+    const configured=runtimeSettings.effectiveRuntimeConfiguration().models.find(m=>m.id===id);
+    if(v2&&configured?.gpuLayers===20){state={...state,rolledBack:true,error:'fixture CUDA out of memory (controlled failure)'};return {ok:false,state,error:state.error!};}
     if (loadDelayMs) await new Promise(resolve=>setTimeout(resolve,loadDelayMs));
     if (mismatch) return { ok: false, state, error: 'fixture configuration mismatch' };
     if (startupFailure && contextWindow !== 16384) { state = { ...state, rolledBack: true, error: 'fixture CUDA out of memory' }; return { ok: false, state, error: state.error! }; }
-    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'off' ? 'none' : 'mtp', ...(mtpMode ? { mtpMode } : {}) };
+    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'off' ? 'none' : 'mtp', ...(mtpMode ? { mtpMode } : {}),...(v2?{profileFingerprint:(await import('../services/runtime-profile-identity')).runtimeProfileFingerprint(id),profileConfiguration:configured,launchArguments:['/fixture/llama-server','--gpu-layers',String(configured?.gpuLayers)]}:{}) };
     return { ok: true, state };
   };
+  if(v2)LlamaRuntimeController.prototype.unload=async()=>{state={status:'stopped',modelId:null,contextWindow:null};return {ok:true,state};};
   const db = new Database(); const existing = db.listConversations()[0]; const chat = existing ?? db.createConversation(modelId);
   if (!existing) {
     db.updateConversation(chat.id, { contextWindow: fp16, llamaKvCacheType: 'f16' });

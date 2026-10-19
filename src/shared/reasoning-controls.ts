@@ -84,3 +84,8 @@ export function reasoningPatchError(patch: { thinkingEnabled?: unknown; reasonin
   }
   return null;
 }
+
+/** Profile defaults apply only when a conversation has no explicit model-specific selection. */
+export function applyReasoningDefaults(stored:Partial<StoredReasoningControls>,defaults:Partial<StoredReasoningControls>={}):Partial<StoredReasoningControls>{
+ return {thinkingEnabled:stored.thinkingEnabled??defaults.thinkingEnabled,reasoningEffort:stored.reasoningEffort??defaults.reasoningEffort};
+}

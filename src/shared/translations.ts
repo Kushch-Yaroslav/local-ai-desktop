@@ -1,5 +1,12 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Сначала поставьте активного агента на паузу и дождитесь checkpoint либо отмените смену модели.': 'Pause the active agent and wait for its checkpoint, or cancel this action, before changing the model runtime.',
+  'Выгрузите активную модель перед удалением её профиля.': 'Unload the active model before deleting its profile.',
+  'Изменения профиля сохранены, но ещё не активны. Примените их с перезагрузкой модели перед новым запуском задачи.': 'Model profile changes are saved but not active. Apply and restart the model before starting a new run.',
+  'Обнаруженный шаблон не поддерживает переключатель Thinking.': 'The inspected template does not support a Thinking toggle',
+  'Обнаруженный шаблон не поддерживает выбранный reasoning effort.': 'The inspected template does not support this reasoning effort',
+  'Контекст профиля превышает обучающий контекст GGUF.': 'Profile context exceeds GGUF training context',
+
   "Зрение браузера выключено или недоступно; есть только функциональные доказательства": "Browser Vision Off or unavailable; functional evidence only",
   "Встроенные MTP-тензоры Qwen проверены. Для активации ещё требуется успешная инициализация backend.": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
   "llama-server {0} объявляет --spec-type draft-mtp.": "llama-server {0} advertises --spec-type draft-mtp.",

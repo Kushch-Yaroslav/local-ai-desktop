@@ -4,6 +4,9 @@ import type { RuntimeConfiguration, RuntimeModelConfiguration, RuntimeDraftAvail
 import { searchPreference } from '../../shared/search-settings';
 import { expandPath, paths } from './paths';
 import { builtinModelCatalog } from '../models/model-catalog';
+import { inspectModel } from '../models/gguf-profile';
+import { modelFamilies } from '../../shared/model-profiles';
+import { normalizeAdvanced,normalizeModelDefaults } from '../../shared/model-configuration';
 import { verifyGgufArtifacts } from './gguf-artifacts';
 import { readGgufSpeculativeMetadata } from './gguf-speculative';
 
@@ -42,12 +45,14 @@ function normalizeModel(raw: unknown, modelsPath: string): RuntimeModelConfigura
   if (gpuLayers !== null && (!Number.isInteger(gpuLayers) || gpuLayers < 0 || gpuLayers > 999)) throw new Error(`Число GPU-слоёв для «${displayName}» должно быть от 0 до 999.`);
   const projectorDevice = value.projectorDevice ?? 'auto';
   if (!['auto', 'gpu', 'cpu'].includes(String(projectorDevice))) throw new Error('Некорректное устройство projector.');
-  const supportsTools = builtin ? builtin.supportsTools : value.supportsTools === true;
+  const supportsTools = typeof value.supportsTools==='boolean'?value.supportsTools:builtin?.supportsTools??false;
   const speculative = value.speculative === 'none' ? 'none' : builtin || value.speculative === 'mtp' ? 'mtp' : 'none';
   if (value.speculative !== undefined && value.speculative !== 'none' && value.speculative !== 'mtp') throw new Error(`Некорректный режим MTP для «${displayName}».`);
   const mtpMode = value.mtpMode ?? (speculative === 'none' ? 'off' : 'auto');
   if (!['auto', 'on', 'off'].includes(String(mtpMode))) throw new Error('Некорректный режим MTP.');
-  return { id, displayName, mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
+  if(value.family!==undefined&&!modelFamilies.includes(value.family as typeof modelFamilies[number]))throw Error('Unknown model family');
+  const advanced=normalizeAdvanced(value.advanced),defaults=normalizeModelDefaults(value.defaults);
+  return { id, displayName,...(value.family?{family:value.family as typeof modelFamilies[number]}:{}),...(advanced?{advanced}:{}),...(defaults?{defaults}:{}), mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
     mmprojPath: value.mmprojPath ? expandPath(String(value.mmprojPath), modelsPath) : '',
     gpuLayers, projectorDevice: projectorDevice as 'auto' | 'gpu' | 'cpu', supportsTools, speculative, builtin: Boolean(builtin) };
 }
@@ -150,7 +155,7 @@ export function runtimeDraftAvailability(raw: unknown): RuntimeDraftAvailability
   try { folderExists = Boolean(base && statSync(base, { throwIfNoEntry: false })?.isDirectory()); } catch { /* Unreadable folder. */ }
   return { folderExists, models: value.models.map((entry) => {
     if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') throw new Error('Некорректные настройки моделей.');
-    return { id: entry.id, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)) };
+    return { id: entry.id,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)) };
   }) };
 }
 
@@ -169,7 +174,7 @@ export function runtimeSetup(file = settingsFile) {
     const issue = [modelIssue, !server ? 'Сначала выберите исполняемый llama-server.' : undefined,
       projectorMissing ? 'Projector не найден; модель сможет работать без изображений, если очистить это поле.' : undefined].filter(Boolean).join(' ');
     const status = !installed ? 'missing-model' : !server ? 'missing-server' : projectorMissing ? 'invalid-projector' : 'ready';
-    return { id: model.id, name: model.displayName, modelPath: model.modelPath, ...(model.mmprojPath ? { mmprojPath: model.mmprojPath } : {}), installed,
+    return { id: model.id,inspection:inspectModel(model.modelPath,model.family), name: model.displayName, modelPath: model.modelPath, ...(model.mmprojPath ? { mmprojPath: model.mmprojPath } : {}), installed,
       status: status as 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector', issue: issue || undefined, builtin: model.builtin };
   });
   const ready = Boolean(server && models.some((model) => model.installed));

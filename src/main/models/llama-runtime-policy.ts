@@ -1,3 +1,4 @@
+import { inspectModel } from './gguf-profile';
 import { existsSync } from 'node:fs';
 import { effectiveRuntimeConfiguration, isValidGgufModel, modelPaths } from '../services/runtime-settings';
 import { ggufArtifactPaths } from '../services/gguf-artifacts';
@@ -30,6 +31,9 @@ export type LlamaReasoningProfile = {
 
 export type LlamaRuntimeProfile = {
   id: string;
+  inspection?: import('../../shared/model-profiles').ModelInspection;
+  advanced?: import('../../shared/model-profiles').AdvancedModelParameters;
+  defaults?: import('../../shared/model-profiles').ModelProfileDefaults;
   maxContext: number;
   modelPath?: string;
   mmprojPath?: string;
@@ -94,9 +98,12 @@ export function llamaRuntimeProfilesList(config = effectiveRuntimeConfiguration(
   const known = new Map(llamaRuntimeProfiles.map((profile) => [profile.id, profile]));
   return config.models.map((model) => {
     const builtin = known.get(model.id);
-    if (builtin) return { ...builtin, speculative: model.speculative, mtpMode: model.mtpMode, ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
-    return { id: model.id, maxContext: 32_768, ...modelPaths(model.id, config), speculative: model.speculative, mtpMode: model.mtpMode,
-      vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), visionWithMtp: false,
+    const inspection=inspectModel(model.modelPath,model.family);
+    const detectedReasoning:LlamaReasoningProfile|undefined=inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length?{...(inspection.reasoning.thinkingToggle?{thinkingKwarg:'enable_thinking' as const}:{}),efforts:Object.fromEntries(inspection.reasoning.efforts.map(effort=>[effort,effort==='max'?'xhigh':effort])),final:inspection.template==='harmony'?{reasoning_effort:'low'}:inspection.reasoning.thinkingToggle?{chat_template_kwargs:{enable_thinking:false}}:{}}:undefined;
+    const additions={inspection,advanced:model.advanced,defaults:inspection.template==='harmony'?{reasoningEffort:'medium' as const,...model.defaults}:model.defaults,...(model.defaults?.contextWindow||model.defaults?.kvCacheType?{normalContext:{initialContextWindow:model.defaults.contextWindow??builtin?.normalContext?.initialContextWindow??32768,kvCacheType:model.defaults.kvCacheType??builtin?.normalContext?.kvCacheType??'f16' as const}}:{})};
+    if (builtin) return { ...builtin,...additions,...(inspection.status==='inspected'?{reasoning:detectedReasoning}:{}), speculative: model.speculative, mtpMode: model.mtpMode, ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
+    return { id: model.id,...additions,reasoning:detectedReasoning, maxContext: inspection.trainedContext??32_768, ...modelPaths(model.id, config), speculative: model.speculative, mtpMode: model.mtpMode,
+      vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)),
       gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
   });
 }
@@ -106,7 +113,7 @@ export function llamaRuntimeProfile(id: string): LlamaRuntimeProfile | undefined
 export function llamaRuntimeInstalled(profile: LlamaRuntimeProfile): boolean { return Boolean(profile.modelPath && isValidGgufModel(profile.modelPath) && ggufArtifactPaths(profile.modelPath).every((path) => existsSync(path))); }
 export function llamaContextPresets(id: string, trainedContext?: number): number[] {
   const profile = llamaRuntimeProfile(id);
-  return profile ? contextPresetsFor(Math.min(profile.maxContext, trainedContext ?? profile.maxContext)) : [];
+  if(!profile)return [];const limit=Math.min(profile.maxContext,trainedContext??profile.maxContext),preferred=profile.defaults?.contextWindow;return [...new Set([...contextPresetsFor(limit),...(preferred&&preferred<=limit?[preferred]:[])])].sort((a,b)=>a-b);
 }
 
 export function reasoningCapability(profile: LlamaRuntimeProfile | undefined): ReasoningCapability | undefined {
@@ -134,10 +141,11 @@ export function llamaReasoningForInput(model: string, input: ReasoningInput): Re
   const capability = reasoningCapability(profile);
   if (!capability) return {};
   if (typeof input === 'string') {
+    if(profile?.defaults&&(profile.defaults.reasoningEffort!=null||profile.defaults.thinkingEnabled!=null))return llamaReasoningFragment(model,resolveReasoningSelection(capability,input,profile.defaults));
     if (input === 'auto') return {};
     return llamaReasoningFragment(model, legacyReasoningSelection(capability, input));
   }
-  return llamaReasoningFragment(model, resolveReasoningSelection(capability, input.mode, { thinkingEnabled: input.selection.thinking, reasoningEffort: input.selection.effort }));
+  return llamaReasoningFragment(model, resolveReasoningSelection(capability, input.mode, { thinkingEnabled: input.selection.thinking??profile?.defaults?.thinkingEnabled, reasoningEffort: input.selection.effort??profile?.defaults?.reasoningEffort }));
 }
 
 /** The Agent runtime picks `main` for working turns and `final` for the tool-free closing turn. */

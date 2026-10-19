@@ -1,3 +1,4 @@
+import { applyReasoningDefaults } from '../../shared/reasoning-controls';
 import { liveMultimodal } from '../services/browser-vision';
 import type { BrowserVisionMode } from '../../shared/browser-qa';
 import { mtpCapability, resolveMtpMode } from '../services/mtp-capability';
@@ -23,6 +24,11 @@ import { buildContextDiscoveryIdentity, contextDiscoveryKey, mergeSavedDiscovery
 import { DiscoveryConditionTracker, discoveryConditionSample } from '../services/context-discovery-conditions';
 import { vramBudgetStillFits, vramProbeGuardBytes } from '../../shared/vram-budget';
 import { LlamaCppBackend } from '../backends/llama-cpp-backend';
+import { ownedPlacementReport } from '../services/llama-placement';
+import { runtimeProfileFingerprint } from '../services/runtime-profile-identity';
+import { probeBackendFeatures } from '../services/backend-capabilities';
+import { advancedPlacementArguments } from '../models/advanced-placement';
+import { inspectModel } from '../models/gguf-profile';
 import { LlamaRuntimeController, type LlamaRuntimeState } from '../services/llama-runtime-controller';
 import { RustAgentRuntime, taskPlan, type AgentProject } from '../services/rust-agent-runtime';
 import { paths } from '../services/paths';
@@ -105,6 +111,7 @@ let savedDiscoveryAttempted: string | null = null;
 let runtimeSelectionBusy = false;
 let runtimeActivation: LlamaRuntimeState['activation'];
 let runtimeShuttingDown = false;
+const runtimeDiagnosticsHistory:Array<{at:string;message:string}>=[];
 let deviceChanged = () => {};
 export function onImageProcessingDeviceChanged(listener: () => void): void { deviceChanged = listener; }
 const visionDevice = new VisionDeviceController({
@@ -217,7 +224,7 @@ async function currentLlamaRuntime(): Promise<LlamaRuntimeState> {
     const health = await llamaCpp.getStatus();
     if (!health.available) return { status: 'offline', modelId: null, contextWindow: null, error: `llama-server не отвечает: ${health.message ?? 'health check failed'}` };
   }
-  return { ...state, ...(visionDevice.pending ? { pendingProjectorDevice: visionDevice.pending } : {}), ...(visionDevice.error ? { deviceError: visionDevice.error } : {}) };
+  return { ...state,...(state.status==='ready'&&state.serverPid?{placement:await ownedPlacementReport(`${paths.logs}/llama-cpp-mtp-server.log`,state.serverPid,state.serverStartTime??'')}:{}),...(state.modelId?{desiredProfileFingerprint:runtimeProfileFingerprint(state.modelId)}:{}),diagnosticsHistory:runtimeDiagnosticsHistory, ...(visionDevice.pending ? { pendingProjectorDevice: visionDevice.pending } : {}), ...(visionDevice.error ? { deviceError: visionDevice.error } : {}) };
 }
 async function syncLlamaBackend(): Promise<LlamaRuntimeState> {
   const state = await currentLlamaRuntime();
@@ -524,13 +531,14 @@ export function registerIpc(): void {
       const reasoningError = reasoningPatchError(patch, reasoningCapability(llamaRuntimeProfile(existing.modelId ?? '')));
       if (reasoningError) throw new Error(reasoningError);
       const capability = reasoningCapability(llamaRuntimeProfile(existing.modelId ?? ''));
-      const pinned = pinLegacyReasoning(existing, capability, patch);
+      const modelDefaults=llamaRuntimeProfile(existing.modelId??'')?.defaults;
+      const pinned = pinLegacyReasoning({...existing,...applyReasoningDefaults(existing,modelDefaults)}, capability, patch);
       const active = activeGenerations.get(id);
       if (activeGenerations.size && Object.keys(patch).some(key => key !== 'title')) {
         const next = { ...existing, ...pinned };
-        const unchangedThinking = pinned.thinkingEnabled === undefined || pinned.thinkingEnabled === resolveReasoningSelection(capability, existing.reasoningMode, existing).thinking;
+        const unchangedThinking = pinned.thinkingEnabled === undefined || pinned.thinkingEnabled === resolveReasoningSelection(capability, existing.reasoningMode, applyReasoningDefaults(existing,modelDefaults)).thinking;
         if (!active || !rustAgent.hasRun(active.id) || existing.mode !== 'agent' || !unchangedThinking || Object.keys(pinned).some(key => !['title', 'reasoningMode', 'reasoningEffort', 'thinkingEnabled'].includes(key))) throw new Error('Дождитесь завершения ответа или остановите задачу.');
-        const selection = resolveReasoningSelection(capability, next.reasoningMode, next);
+        const selection = resolveReasoningSelection(capability, next.reasoningMode, applyReasoningDefaults(next,modelDefaults));
         await rustAgent.control(active.id, { reasoning: { mode: next.reasoningMode, options: agentReasoningOptions(existing.modelId ?? '', selection) ?? {}, selection: { mode: 'agent', reasoningMode: next.reasoningMode === 'deep' ? 'deep' : 'fast', reasoningEffort: selection.effort, thinkingEnabled: selection.thinking } } });
       }
       if (patch.webMode === 'off' || patch.workingDirectory !== undefined || patch.secondaryWorkingDirectory !== undefined) await liveBrowsers.closeConversation(_event.sender, id);
@@ -557,7 +565,8 @@ export function registerIpc(): void {
     const firstSelection = patch.modelId !== undefined && !activeConversationModel(current, runtime);
     const runtimeConfig = effectiveRuntimeConfiguration();
     const normalConfiguration = llamaRuntimeProfile(nextModelId ?? '')?.normalContext;
-    const initial = initialModelContext(allowed, normalConfiguration);
+    const defaults=llamaRuntimeProfile(nextModelId??'')?.defaults;
+    const initial = {...initialModelContext(allowed, normalConfiguration),...(defaults?.kvOffload!==undefined?{llamaKvOffload:defaults.kvOffload}:{})};
     const contextWindow = (modelChanged && (firstSelection || normalConfiguration)) && patch.contextWindow === undefined ? initial.contextWindow : modelChanged && patch.contextWindow === undefined && allowed.length ? normalContextForModel(requestedContext, allowed) : requestedContext;
     if (profile) {
       if (!Number.isSafeInteger(contextWindow) || contextWindow % 4_096 !== 0 || contextWindow > Math.min(capability, 262144) || contextWindow <= 0) {
@@ -618,7 +627,7 @@ export function registerIpc(): void {
         contextDiscoveryProgress = { busy: false, modelId: nextModelId, stage: '', probeCount: 0 };
       }
     }
-    const updated = database.updateConversation(id, { ...patch, contextWindow });
+    const updated = database.updateConversation(id, { ...patch,...(modelChanged?{thinkingEnabled:llamaRuntimeProfile(nextModelId??'')?.defaults?.thinkingEnabled??null,reasoningEffort:llamaRuntimeProfile(nextModelId??'')?.defaults?.reasoningEffort??null}:{}), contextWindow });
     if ((patch.workingDirectory !== undefined && patch.workingDirectory !== current.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== current.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
     if (patch.modelId !== undefined && patch.modelId !== current.modelId) database.setContextUsage(id, null, null);
     runtimeActivation = undefined;
@@ -774,9 +783,33 @@ export function registerIpc(): void {
   ipcMain.handle('runtime:state', currentLlamaRuntime);
   const getSettings = async () => {
     const llama = await syncLlamaBackend();
-    const setup = runtimeSetup();
+    const setup = {...runtimeSetup(),backendFeatures:await probeBackendFeatures(effectiveRuntimeConfiguration().llamaServerPath)};
     return { llamaServerPath: setup.server, llamaRuntimeModelId: llama.modelId ?? undefined, llamaRuntime: llama, modelsPath: setup.config.modelsPath, setup };
   };
+  ipcMain.handle('runtime:control',async (_event,request:unknown)=>{
+    if(!request||typeof request!=='object')throw Error('Invalid runtime command');
+    const command=request as {action:string;conversationId:string;modelId?:string};
+    if(!['unload','restart'].includes(command.action)||typeof command.conversationId!=='string')throw Error('Invalid runtime command');
+    if(activeGenerations.size)throw Error('Pause the active agent and wait for its checkpoint, or cancel this action, before changing the model runtime.');
+    if(runtimeSelectionBusy||contextDiscoveryBusy)throw Error('Wait for the current runtime operation');
+    const conversation=database.getConversation(command.conversationId);if(!conversation)throw Error('Conversation not found');
+    runtimeSelectionBusy=true;runtimeActivation=undefined;
+    try{
+      const current=await llamaRuntime.state();
+      if(command.action==='unload'){const result=await llamaRuntime.unload();if(!result.ok)throw Error(result.error);await syncLlamaBackend();return getSettings();}
+      const modelId=command.modelId??current.modelId??conversation.modelId;if(!modelId)throw Error('Select a model first');
+      const profile=llamaRuntimeProfile(modelId);if(!profile)throw Error('Unknown model profile');
+      const context=profile.defaults?.contextWindow??(current.modelId===modelId?current.contextWindow:null)??conversation.contextWindow;
+      const kv=profile.defaults?.kvCacheType??(current.modelId===modelId?current.kvCacheType:undefined)??conversation.llamaKvCacheType??'f16';
+      const offload=profile.defaults?.kvOffload??(current.modelId===modelId?current.kvOffload:undefined)??conversation.llamaKvOffload??true;
+      runtimeActivation={conversationId:conversation.id,modelId,contextWindow:context,kvCacheType:kv,kvOffload:offload,phase:'validating'};
+      const result=await llamaRuntime.switchTo(modelId,context,kv,offload,profile.projectorDevice==='auto'?undefined:profile.projectorDevice,profile.mtpMode,true);
+      if(!result.ok){runtimeDiagnosticsHistory.unshift({at:new Date().toISOString(),message:result.error});runtimeDiagnosticsHistory.splice(10);runtimeActivation={...runtimeActivation,phase:'failed',error:result.error};throw Error(result.error);}
+      modelSelectedThisProcess=true;runtimeActivation=undefined;
+      database.updateConversation(conversation.id,{modelId,contextWindow:context,llamaKvCacheType:kv,llamaKvOffload:offload,...(modelId!==conversation.modelId?{thinkingEnabled:profile.defaults?.thinkingEnabled??null,reasoningEffort:profile.defaults?.reasoningEffort??null}:{})});
+      await syncLlamaBackend();return getSettings();
+    }finally{runtimeSelectionBusy=false;void visionDevice.flush();}
+  });
   ipcMain.handle('settings:get', getSettings);
   ipcMain.handle('settings:validateDraft', (_event, config: unknown) => runtimeDraftAvailability(config));
   const resolutionJobs = new Map<number, AbortController>();
@@ -799,6 +832,8 @@ export function registerIpc(): void {
     const existingConfig = effectiveRuntimeConfiguration();
     next.imageProcessingDevice = existingConfig.imageProcessingDevice;
     next.browserVision = existingConfig.browserVision; next.autonomousBrowserQa = existingConfig.autonomousBrowserQa;
+    const running=await llamaRuntime.state();
+    if(running.status==='ready'&&running.modelId&&!next.models.some(model=>model.id===running.modelId))throw Error('Unload the active model before deleting its profile.');
     next.models = next.models.map(model => ({ ...model, mtpMode: existingConfig.models.find(current => current.id === model.id)?.mtpMode ?? model.mtpMode }));
     const input = next.llamaServerInput ?? next.llamaServerPath ?? '';
     if (input.trim()) {
@@ -806,15 +841,14 @@ export function registerIpc(): void {
       if (resolution.status !== 'valid' || !resolution.path) throw new Error(t('Выберите корректный исполняемый файл llama-server.'));
       next.llamaServerPath = resolution.path;
     } else next.llamaServerPath = null;
-    const active = await llamaRuntime.state();
-    if (active.status === 'ready' && active.modelId) {
-      const prior = runtimeSetup().config;
-      const before = prior.models.find((model) => model.id === active.modelId);
-      const after = next.models.find((model) => model.id === active.modelId);
-      const sameActive = before && after && before.modelPath === after.modelPath && before.mmprojPath === after.mmprojPath
-        && before.gpuLayers === after.gpuLayers && before.speculative === after.speculative && (before.projectorDevice ?? 'auto') === (after.projectorDevice ?? 'auto');
-      if (!sameActive || prior.llamaServerPath !== next.llamaServerPath || prior.gpuLayers !== next.gpuLayers) {
-        throw new Error('Сначала выберите другую модель или перезапустите приложение, чтобы изменить настройки активной модели/runtime.');
+    const features=next.models.some(model=>model.advanced)?await probeBackendFeatures(next.llamaServerPath):undefined;
+    for(const model of next.models){
+      const inspection=inspectModel(model.modelPath,model.family);
+      if(model.advanced)advancedPlacementArguments(model.advanced,inspection,features);
+      if(inspection.status==='inspected'){
+        if(model.defaults?.thinkingEnabled!==undefined&&model.defaults.thinkingEnabled!==null&&!inspection.reasoning.thinkingToggle)throw Error('The inspected template does not support a Thinking toggle');
+        if(model.defaults?.reasoningEffort&&!inspection.reasoning.efforts.includes(model.defaults.reasoningEffort))throw Error('The inspected template does not support this reasoning effort');
+        if(model.defaults?.contextWindow&&inspection.trainedContext&&model.defaults.contextWindow>inspection.trainedContext)throw Error('Profile context exceeds GGUF training context');
       }
     }
     saveRuntimeConfiguration(next);
@@ -926,6 +960,7 @@ export function registerIpc(): void {
     const conversation = database.getConversation(request.conversationId);
     if (!conversation) throw new Error('Чат не найден');
     const runtime = await syncLlamaBackend();
+    if(runtime.status==='ready'&&runtime.modelId===request.model&&runtime.profileFingerprint&&runtime.profileFingerprint!==runtimeProfileFingerprint(request.model))throw Error('Model profile changes are saved but not active. Apply and restart the model before starting a new run.');
     const activation = runtime.activation;
     if (activation?.phase === 'failed' && (activation.conversationId === conversation.id || activation.modelId === request.model)) {
       const expected = activation.conversationId === conversation.id ? activation : { modelId: request.model, contextWindow: conversation.contextWindow, kvCacheType: conversation.llamaKvCacheType ?? 'f16', kvOffload: conversation.llamaKvOffload ?? true };
@@ -1008,7 +1043,7 @@ export function registerIpc(): void {
       if (persistedTaskMemory && current()) event.sender.send('chat:stream', { type: 'task-memory', memory: structuredClone(persistedTaskMemory), conversationId: request.conversationId, generationId: generation.id });
       const agentSupportsReasoning = mode === 'agent' && llamaCpp.supportsReasoning(request.model);
       const reasoningCapabilityForModel = reasoningCapability(llamaRuntimeProfile(request.model));
-      const reasoningSelection = resolveReasoningSelection(reasoningCapabilityForModel, conversation.reasoningMode, conversation);
+      const reasoningSelection = resolveReasoningSelection(reasoningCapabilityForModel, conversation.reasoningMode, applyReasoningDefaults(conversation,llamaRuntimeProfile(request.model)?.defaults));
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'

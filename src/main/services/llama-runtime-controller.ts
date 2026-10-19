@@ -1,3 +1,5 @@
+import { runtimeProfileFingerprint } from './runtime-profile-identity';
+import type { RuntimeModelConfiguration } from '../../shared/types';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +12,9 @@ import { llamaCapabilityLimit } from './gguf-context';
  * server that answers on the port right now, never a requested value.
  */
 export type LlamaRuntimeState = {
+  placement?:import('./llama-placement').LlamaPlacementReport;
+  desiredProfileFingerprint?:string; diagnosticsHistory?:Array<{at:string;message:string}>;
+  profileFingerprint?:string; profileConfiguration?:RuntimeModelConfiguration; launchArguments?:string[];
   /** Explicit activation diagnostics, attached by the coordinator; not effective settings. */
   activation?: RuntimeActivation;
   status: 'idle' | 'starting' | 'ready' | 'switching' | 'offline' | 'stopped';
@@ -74,6 +79,8 @@ export function parseLlamaRuntimeState(raw: string): LlamaRuntimeState | null {
     const contextWindow = typeof value.contextWindow === 'number' && value.contextWindow > 0 ? value.contextWindow : null;
     return {
       status, modelId, contextWindow,
+      ...(typeof value.profileFingerprint==='string'&&/^[a-f0-9]{64}$/.test(value.profileFingerprint)?{profileFingerprint:value.profileFingerprint}:{}),
+      ...(()=>{try{const profile=JSON.parse(Buffer.from(String(value.profileConfiguration??''),'base64').toString('utf8'));return profile&&typeof profile==='object'&&typeof profile.modelPath==='string'&&profile.id===modelId?{profileConfiguration:profile as RuntimeModelConfiguration}:{};}catch{return {};}})(),
       ...(['auto', 'on', 'off'].includes(String(value.mtpMode)) ? { mtpMode: value.mtpMode as MtpMode } : {}),
       ...(typeof value.mtpFallbackReason === 'string' && value.mtpFallbackReason ? { mtpFallbackReason: value.mtpFallbackReason } : {}),
       ...(value.kvCacheType === 'f16' || value.kvCacheType === 'q8_0' ? { kvCacheType: value.kvCacheType } : {}),
@@ -133,17 +140,34 @@ export class LlamaRuntimeController {
       const args = (await this.deps.readText(`/proc/${parsed.serverPid}/cmdline`).catch(() => '')).split('\0');
       if (args.includes('--mmproj')) parsed.projectorDevice = args.includes('--no-mmproj-offload') ? 'cpu' : 'gpu';
     }
+    if(parsed.status==='ready'&&parsed.serverPid)parsed.launchArguments=(await this.deps.readText(`/proc/${parsed.serverPid}/cmdline`).catch(()=>'' )).split('\0').filter(Boolean);
     return parsed;
   }
 
   /** Switches are serialized: two concurrent requests would otherwise race on one request file. */
-  switchTo(modelId: string, contextWindow: number, kvCacheType: LlamaKvCacheType = 'f16', kvOffload = true, projectorDevice?: 'cpu' | 'gpu', mtpMode?: MtpMode): Promise<LlamaSwitchResult> {
-    const run = this.chain.then(() => this.perform(modelId, contextWindow, kvCacheType, kvOffload, projectorDevice, mtpMode));
+  switchTo(modelId: string, contextWindow: number, kvCacheType: LlamaKvCacheType = 'f16', kvOffload = true, projectorDevice?: 'cpu' | 'gpu', mtpMode?: MtpMode, force=false): Promise<LlamaSwitchResult> {
+    const run = this.chain.then(() => this.perform(modelId, contextWindow, kvCacheType, kvOffload, projectorDevice, mtpMode,force));
     this.chain = run.catch(() => undefined);
     return run;
   }
 
-  private async perform(modelId: string, contextWindow: number, kvCacheType: LlamaKvCacheType, kvOffload: boolean, projectorDevice?: 'cpu' | 'gpu', mtpMode?: MtpMode): Promise<LlamaSwitchResult> {
+
+  unload():Promise<LlamaSwitchResult>{
+    const run=this.chain.then(()=>this.performUnload());this.chain=run.catch(()=>undefined);return run;
+  }
+  private async performUnload():Promise<LlamaSwitchResult>{
+    const state=await this.state();
+    const pid=Number((await this.deps.readText(this.files.launcherPidFile).catch(()=>'' )).trim());
+    if(!Number.isSafeInteger(pid)||pid<=0||!(await this.deps.readText(`/proc/${pid}/cmdline`).catch(()=>'' )).includes('run-local-ai-desktop-llama-cpp-mtp.sh'))return {ok:false,state,error:LAUNCHER_ABSENT};
+    const requestId=randomUUID(),temporary=`${this.files.requestFile}.${process.pid}.tmp`;
+    await mkdir(dirname(this.files.requestFile),{recursive:true});await writeFile(temporary,`REQUEST_ID=${requestId}\nACTION=unload\n`,'utf8');await rename(temporary,this.files.requestFile);
+    try{this.deps.signal(pid);}catch(error){await rm(this.files.requestFile,{force:true});return {ok:false,state,error:String(error)};}
+    const deadline=this.deps.now()+this.timeoutMs;
+    while(this.deps.now()<deadline){const actual=await this.state();if(actual.requestId===requestId&&(actual.status==='stopped'||actual.status==='idle')&&!actual.modelId&&!actual.serverPid)return {ok:true,state:actual};if(actual.requestId===requestId&&actual.error)return {ok:false,state:actual,error:actual.error};await this.deps.sleep(250);}
+    return {ok:false,state:await this.state(),error:'Timed out waiting for the owned llama-server to unload'};
+  }
+
+  private async perform(modelId: string, contextWindow: number, kvCacheType: LlamaKvCacheType, kvOffload: boolean, projectorDevice?: 'cpu' | 'gpu', mtpMode?: MtpMode, force=false): Promise<LlamaSwitchResult> {
     if (mtpMode !== undefined && !['auto', 'on', 'off'].includes(mtpMode)) return { ok: false, state: await this.state(), error: 'Invalid MTP mode' };
     const profile = llamaRuntimeProfile(modelId);
     if (!profile) return { ok: false, state: await this.state(), error: `Модель ${modelId} не поддерживается llama.cpp runtime` };
@@ -157,7 +181,7 @@ export class LlamaRuntimeController {
     const requestId = randomUUID();
     await mkdir(dirname(this.files.requestFile), { recursive: true });
     const temporary = `${this.files.requestFile}.${process.pid}.tmp`;
-    await writeFile(temporary, `REQUEST_ID=${requestId}\nMODEL_ID=${modelId}\nCONTEXT=${contextWindow}\nKV_TYPE=${kvCacheType}\nKV_OFFLOAD=${kvOffload ? 1 : 0}\n${projectorDevice ? `PROJECTOR_DEVICE=${projectorDevice}\n` : ''}${mtpMode ? `MTP_MODE=${mtpMode}\n` : ''}`, 'utf8');
+    await writeFile(temporary, `REQUEST_ID=${requestId}\nACTION=switch\nFORCE=${force?1:0}\nPROFILE_FINGERPRINT=${runtimeProfileFingerprint(modelId)}\nMODEL_ID=${modelId}\nCONTEXT=${contextWindow}\nKV_TYPE=${kvCacheType}\nKV_OFFLOAD=${kvOffload ? 1 : 0}\n${projectorDevice ? `PROJECTOR_DEVICE=${projectorDevice}\n` : ''}${mtpMode ? `MTP_MODE=${mtpMode}\n` : ''}`, 'utf8');
     await rename(temporary, this.files.requestFile);
     try { this.deps.signal(launcherPid); }
     catch (error) {
@@ -169,7 +193,7 @@ export class LlamaRuntimeController {
     while (this.deps.now() < deadline) {
       const state = await this.state();
       if (state.requestId === requestId && (state.status === 'ready' || state.status === 'offline')) {
-        if (state.status === 'ready' && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || state.projectorDevice === projectorDevice) && (!mtpMode || state.mtpMode === mtpMode && (mtpMode !== 'on' || state.speculativeMode === 'mtp') && (mtpMode !== 'off' || state.speculativeMode === 'none'))) return { ok: true, state };
+        if (state.status === 'ready' && (state.profileFingerprint?state.profileFingerprint===runtimeProfileFingerprint(modelId):!force&&!profile.advanced) && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || state.projectorDevice === projectorDevice) && (!mtpMode || state.mtpMode === mtpMode && (mtpMode !== 'on' || state.speculativeMode === 'mtp') && (mtpMode !== 'off' || state.speculativeMode === 'none'))) return { ok: true, state };
         return { ok: false, state, error: state.error ?? `llama.cpp не подтвердил запрошенную конфигурацию: ${modelId}, ${contextWindow / 1024}K ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}; активно ${state.modelId ?? 'none'}, ${(state.contextWindow ?? 0) / 1024}K ${state.kvCacheType ?? '?'}, KV ${state.kvOffload ? 'GPU' : 'RAM'}.` };
       }
       await this.deps.sleep(500);
