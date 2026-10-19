@@ -14,11 +14,13 @@ import type { BrowserInput } from '../../shared/live-browser';
 import type { ProjectBrowserObserver } from './live-browser';
 import type { NativeProjectPage } from './native-project-page';
 import { QaLoopGuard, projectRevision } from './qa-loop-guard';
+import { qaScenarios, assertionSchema } from './browser-scenarios';
 import { paths } from '../services/paths';
 
+const qaStepSchema = {type:'object',properties:{action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll','focus','mousemove','drag','wait','pointer-lock']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},x:{type:'number'},y:{type:'number'},to_x:{type:'number'},to_y:{type:'number'},delta_y:{type:'number'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false};
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Supply checks with explicit expected text/value to establish handling, not just input delivery. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: {
     action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
@@ -31,7 +33,10 @@ export const projectBrowserTool: ProjectToolDefinition = { type: 'function', fun
     value: { type: 'string', maxLength: 4000, description: 'Text for fill; never a file upload.' },
     delta_y: { type: 'integer', minimum: -2000, maximum: 2000, description: 'Vertical wheel distance for scroll.' },
     clip: { type: 'object', properties: { x: {type:'number'}, y:{type:'number'}, width:{type:'number'}, height:{type:'number'} }, required:['x','y','width','height'], additionalProperties:false },
-    checks: { type:'array', maxItems:8, items:{type:'object',properties:{ action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean',description:'Expected text state changes after the action; true proves handling, not just delivery.'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false} },
+    checks: {type:'array',maxItems:8,items:qaStepSchema},
+    scenario_refs:{type:'array',maxItems:6,items:{type:'object',properties:{deliverable_id:{type:'string'},criterion_id:{type:'string'}},required:['deliverable_id','criterion_id'],additionalProperties:false},description:'Execute immutable scenario specifications registered in deliverables criteria. The Rust runtime resolves references before calling the browser.'},
+    scenarios: {type:'array',maxItems:6,items:{type:'object',properties:{id:{type:'string',maxLength:80},goal:{type:'string',maxLength:1000},target:{type:'string',description:'Project path or same-origin route including hash. Always specify the mode where the claimed behaviour is defined.'},deliverable_id:{type:'string'},criterion_id:{type:'string'},preconditions:{type:'array',maxItems:6,items:assertionSchema},required_state:{type:'array',maxItems:6,items:assertionSchema},steps:{type:'array',maxItems:8,items:qaStepSchema},assertion:assertionSchema,timeout_ms:{type:'integer',minimum:500,maximum:15000}},required:['id','goal','target','preconditions','required_state','steps','assertion','timeout_ms'],additionalProperties:false}},
+    deliverable_id:{type:'string',description:'For action=open, only an explicitly declared load criterion can be proven.'},criterion_id:{type:'string'},
     project: { type: 'integer', enum: [1, 2] },
   }, required: ['action'], additionalProperties: false },
 } };
@@ -91,7 +96,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: {goal:string;temporal:boolean}) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
@@ -107,6 +112,7 @@ export class ProjectBrowserSession {
   private readonly blocked: string[] = [];
   private networkBudget = { requests:0, bytes:0, started:Date.now() };
   private captures = 0;
+  private readonly servedRevisions = new Map<string,string>();
   private readonly fallbackGuard = new QaLoopGuard();
   private get qaGuard() { return this.qaOptions.guard ?? this.fallbackGuard; }
   private ownership: 'agent' | 'user' | 'paused' = 'agent';
@@ -224,7 +230,7 @@ export class ProjectBrowserSession {
       this.networkBudget = { requests:0, bytes:0, started:Date.now() };
       if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
       if (!keyboardActions.has(String(args.action))) await this.releaseInput();
-      if (args.action === 'qa' && !this.page && !this.denied) {
+      if (args.action === 'qa' && (!this.page || args.path !== undefined || args.url !== undefined) && !this.denied) {
         const opened = await this.executePage({action:'open', ...(args.path ? {path:args.path} : {}), ...(args.url ? {url:args.url} : {})}, signal, confirm, actionId);
         if (opened && typeof opened === 'object' && 'error' in opened) return opened;
       }
@@ -254,9 +260,10 @@ export class ProjectBrowserSession {
           this.observer?.state('loading', url.href);
           await this.start();
         }
-        this.errors.length = 0; this.blocked.length = 0;
+        this.errors.length = 0; this.blocked.length = 0; this.servedRevisions.clear();
         this.observer?.state('loading', url.href);
         const response = await this.page!.goto(url.href, { waitUntil: 'load' });
+        if(response && [401,403].includes(response.status()))return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
         if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
         if (newPage) this.qaGuard.reopened(await this.qaState());
         this.observer?.action({ kind: 'navigate', at: Date.now() });
@@ -289,24 +296,29 @@ export class ProjectBrowserSession {
           const [step] = qaSteps([{action:args.action,key:args.key,duration_ms:args.duration_ms,repeat:args.repeat}]);
           await keyboardStep(this.page, step, this.heldKeys);
         } else if (args.action === 'qa') {
-          let steps; try { steps=qaSteps(args.checks); } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
+          let steps, scenarios; try { steps=qaSteps(args.checks); scenarios=qaScenarios(args.scenarios); } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
           const revision = await projectRevision(this.root, [this.captureDirectory, paths.userData, paths.configDirectory, paths.cache, paths.logs, paths.attachments, join(paths.dataRoot,'sqlite'), join(paths.dataRoot,'protected-runtime.json'), join(paths.dataRoot,'llama-cpp-runtime-state.json')]);
-          const key = this.qaGuard.key(revision, this.page.url(), steps, await this.qaState(), this.qaOptions.runtimeIdentity);
+          const key = this.qaGuard.key(revision, this.page.url(), {steps,scenarios}, await this.qaState(scenarios), this.qaOptions.runtimeIdentity);
           const blocked = this.qaGuard.before(key);
           if (blocked) {
             const qa: BrowserQaReport = { scope:'interaction', id:randomUUID(), runId:this.qaOptions.runId, status:'Blocked', reasonCode:'QA_NO_PROGRESS', url:this.page.url(), capturedAt:new Date().toISOString(), checks:[], errors:[], captures:[], visual:{analyzed:false,status:'Not Verified',reason:'No new image analysis; previous evidence retained'}, elapsedMs:0, reason:blocked.error, revisionFingerprint:revision, loop:blocked.loop };
             await this.saveQa(qa); this.qaOptions.status?.({phase:'complete',report:qa});
             return { ...blocked, qa };
           }
-          this.errors.length = 0; this.blocked.length = 0;
-          await this.page.reload({ waitUntil: 'load' });
+          const reloadNeeded=!scenarios.length || await this.sourcesChanged();
+          if(reloadNeeded){this.errors.length=0;this.blocked.length=0;this.servedRevisions.clear();}
+          const reloaded = reloadNeeded ? await this.page.reload({ waitUntil: 'load' }) : null;
+          if(reloaded && [401,403].includes(reloaded.status()))return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
           const qaSignal = AbortSignal.any([signal, AbortSignal.timeout(90000), ...(this.qaOptions.signal ? [this.qaOptions.signal] : [])]);
-          const qa = await runBrowserQa({ page: this.page, signal: qaSignal, steps, errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, qaSignal), analyze: this.qaOptions.analyze ? (capture, before) => this.qaOptions.analyze!(capture, qaSignal, before) : undefined, status: this.qaOptions.status });
+          const qa = await runBrowserQa({ page: this.page, signal: qaSignal, steps, scenarios, navigate:async target=>{const url=new URL(target,this.page!.url());if(url.origin!==this.origin)throw new Error('Scenario target outside approved origin');const response=await this.page!.goto(url.href,{waitUntil:'load',timeout:10000});if(response&&[401,403].includes(response.status()))return {authRequired:true};if(response&&!response.ok())throw new Error(`Preview HTTP ${response.status()}`);return {};}, errors: () => [...this.errors, ...this.blocked], capture: () => this.capture({}, qaSignal), analyze: this.qaOptions.analyze ? (capture, before, scenario) => this.qaOptions.analyze!(capture, qaSignal, before, scenario) : undefined, status: this.qaOptions.status });
           qa.runId = this.qaOptions.runId; qa.revisionFingerprint = revision;
+          qa.sourceRevisions = Object.fromEntries(this.servedRevisions);
+          const afterRevision=await projectRevision(this.root,[this.captureDirectory,paths.userData,paths.configDirectory,paths.cache,paths.logs,paths.attachments,join(paths.dataRoot,'sqlite'),join(paths.dataRoot,'protected-runtime.json'),join(paths.dataRoot,'llama-cpp-runtime-state.json')]);
+          if(afterRevision!==revision){qa.status='Not Verified';qa.functionalStatus='Not Verified';qa.reasonCode='EVIDENCE_STALE';qa.reason='Project changed during QA; retain observations and rerun the affected scenarios.';for(const result of qa.scenarios??[])result.status='Not Verified';}
           const source = await this.read();
           if (source.source_path) { const bytes = await readPreviewAsset(this.root, new URL(this.page.url()).pathname); qa.sourceFingerprint = screenshotHash(bytes.body); }
           await this.saveQa(qa);
-          this.qaGuard.record(key, qa, await this.qaState());
+          this.qaGuard.record(key, qa, await this.qaState(scenarios));
           return { ...source, qa, visual_analysis: qa.visual.analyzed };
         } else if (args.action === 'screenshot') {
           if (this.captures >= 8) throw new Error('Screenshot limit reached (8 explicit screenshots per run; QA captures are independent)');
@@ -362,8 +374,23 @@ export class ProjectBrowserSession {
     qa.evidencePath = join(this.captureDirectory, `${qa.id}.json`);
     await writeFile(qa.evidencePath, JSON.stringify(qa, null, 2), { flag:'wx', mode:0o600 });
   }
-  private async qaState() {
-    return this.page!.evaluate(() => ({ url:location.href, viewport:{width:innerWidth,height:innerHeight}, scroll:{x:scrollX,y:scrollY}, focus:document.activeElement?.id || document.activeElement?.tagName, text:document.body.innerText.slice(0,8000), fields:Array.from(document.querySelectorAll('input:not([type=file]),textarea,select')).slice(0,40).map(element => ({ id:element.id, value:(element as HTMLInputElement).value })), diagnostics:JSON.stringify((window as unknown as {__qaDiagnostics?:unknown}).__qaDiagnostics)?.slice(0,4000) }));
+  private async sourcesChanged() {
+    let bytes=0;
+    for(const [path,hash] of this.servedRevisions){
+      try{const asset=await readPreviewAsset(this.root,'/'+relative(this.root,path));bytes+=asset.body.length;if(bytes>32*1024*1024||screenshotHash(asset.body)!==hash)return true;}catch{return true;}
+    }
+    return false;
+  }
+  private async qaState(scenarios:import('../../shared/browser-qa').QaScenario[] = []) {
+    const conditions=scenarios.flatMap(scenario=>[...scenario.preconditions,...scenario.required_state]);
+    return this.page!.evaluate(conditions=>({url:location.href,viewport:{width:innerWidth,height:innerHeight},scroll:{x:scrollX,y:scrollY},focus:document.activeElement?.id||document.activeElement?.tagName,
+      fields:Array.from(document.querySelectorAll('input:not([type=file]),textarea,select')).slice(0,40).map(element=>({id:element.id,value:(element as HTMLInputElement).value})),
+      conditions:conditions.map(condition=>{try{
+        const element=condition.selector?document.querySelector(condition.selector):undefined;
+        const actual=condition.source==='visible'?Boolean(element&&(element as HTMLElement).getBoundingClientRect().width):condition.source==='value'?(element as HTMLInputElement)?.value:condition.source==='text'?(element as HTMLElement)?.innerText?.trim():undefined;
+        return actual===condition.expected;
+      }catch{return false;}})
+    }),conditions);
   }
   /** One security/asset implementation for native session delivery and CLI CDP routing. */
   private async resource(raw: string, method: string, signal: AbortSignal) {
@@ -373,7 +400,7 @@ export class ProjectBrowserSession {
     if (url.origin !== this.origin || url.username || url.password || method !== 'GET' || ++this.networkBudget.requests > 256 || this.networkBudget.bytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or per-operation/30-second request budget');
     const safetyHeaders = {'x-content-type-options':'nosniff','x-dns-prefetch-control':'off'};
     if (this.origin === staticOrigin) {
-      const asset = await readPreviewAsset(this.root,url.pathname); this.networkBudget.bytes += asset.body.length;
+      const asset = await readPreviewAsset(this.root,url.pathname); this.servedRevisions.set(await projectPath(this.root,decodeURIComponent(url.pathname).replace(/^\//,'')),screenshotHash(asset.body)); this.networkBudget.bytes += asset.body.length;
       return {status:200,body:asset.body,headers:{...safetyHeaders,'content-type':asset.contentType,'content-security-policy':previewCsp}};
     }
     const response = await fetchLoopback(url,AbortSignal.any([signal,this.abort.signal])); this.networkBudget.bytes += response.body.length;
@@ -433,7 +460,7 @@ export class ProjectBrowserSession {
     const page = this.page!;
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
-    return { ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

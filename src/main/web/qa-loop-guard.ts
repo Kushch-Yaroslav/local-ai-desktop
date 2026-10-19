@@ -63,8 +63,13 @@ export class QaLoopGuard {
     // Known initial/post-QA states retain their identity across reload/reopen.
     // Only genuinely unseen state, not our own interaction effects, is novel.
     this.observeState(state);
+    const normalize=(value:unknown):unknown=>{
+      if(Array.isArray(value))return value.map(normalize);
+      if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!['id','goal'].includes(key)).map(([key,item])=>[key,normalize(item)]));
+      return value;
+    };
     const normalizedScenario = Array.isArray(scenario) ? scenario.map(step => ({...step, ...(step.selector ? {selector:step.selector.trim()} : {}), ...(step.action === 'hold' ? {duration_ms:Math.round((step.duration_ms ?? 300)/50)*50} : {}), ...(step.action === 'key' ? {repeat:step.repeat ?? 1} : {})})) : scenario;
-    return qaHash({ revision, url, scenario:normalizedScenario, stateEpoch: this.stateEpoch, authorization: this.authorizationEpoch, runtime, window:this.windowEpoch });
+    return qaHash({ revision, url, scenario:normalize(normalizedScenario), stateEpoch: this.stateEpoch, authorization: this.authorizationEpoch, runtime, window:this.windowEpoch });
   }
   before(key: string) {
     const old = this.observations.get(key);
@@ -74,7 +79,8 @@ export class QaLoopGuard {
       guidance: 'Keep the existing evidence. Fix the observed defect, change the expected behaviour or scenario meaningfully, or continue other task work. Do not use fill on body, add hidden inputs, relaunch the browser or invoke terminal browsers to bypass this blocker. Keyboard testing uses key/down/up/hold actions. An explicit user continuation can request a fresh observation window.' };
   }
   record(key: string, report: BrowserQaReport, state: unknown) {
-    const outcome = qaHash({ status: report.status, checks: report.checks.map(check => ({ action: check.action, expected: check.expected, status: check.status, ...(check.status === 'Failed' && !['canvas animation','canvas render','canvas input delivery'].includes(check.action) ? { actual: check.actual } : {}) })), errors: report.errors, visual: { status: report.visual.status, analyzed:report.visual.analyzed, severities:report.visual.issues?.map(issue=>issue.severity).sort() } });
+    const scenarioChecks=new Set(report.scenarios?.flatMap(scenario=>scenario.checks)??[]);
+    const outcome = qaHash({ scenarios:report.scenarios?.map(scenario=>({assertion:scenario.assertion,status:scenario.status,reasonCode:scenario.reasonCode})), status: report.status, checks: report.checks.filter(check=>!scenarioChecks.has(check)).map(check => ({ action: check.action, expected: check.expected, status: check.status, ...(check.status === 'Failed' && !['canvas animation','canvas render','canvas input delivery'].includes(check.action) ? { actual: check.actual } : {}) })), errors: report.errors, visual: { status: report.visual.status, analyzed:report.visual.analyzed, severities:report.visual.issues?.map(issue=>issue.severity).sort() } });
     const old = this.observations.get(key);
     const outcomes = old?.outcomes ?? new Map<string,number>();
     outcomes.set(outcome,(outcomes.get(outcome) ?? 0)+1);
