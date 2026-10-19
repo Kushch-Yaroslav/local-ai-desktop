@@ -387,7 +387,9 @@ export class ProjectBrowserSession {
       fields:Array.from(document.querySelectorAll('input:not([type=file]),textarea,select')).slice(0,40).map(element=>({id:element.id,value:(element as HTMLInputElement).value})),
       conditions:conditions.map(condition=>{try{
         const element=condition.selector?document.querySelector(condition.selector):undefined;
-        const actual=condition.source==='visible'?Boolean(element&&(element as HTMLElement).getBoundingClientRect().width):condition.source==='value'?(element as HTMLInputElement)?.value:condition.source==='text'?(element as HTMLElement)?.innerText?.trim():undefined;
+        let diagnostic:unknown=(window as unknown as {__qaDiagnostics?:unknown}).__qaDiagnostics;
+        if(condition.source==='diagnostic')for(const key of condition.path!.split('.')){diagnostic=diagnostic&&typeof diagnostic==='object'&&Object.prototype.hasOwnProperty.call(diagnostic,key)?(diagnostic as Record<string,unknown>)[key]:undefined;}
+        const actual=condition.source==='diagnostic'?diagnostic:condition.source==='url'?location.pathname+location.search+location.hash:condition.source==='visible'?Boolean(element&&(element as HTMLElement).getBoundingClientRect().width):condition.source==='value'?(element as HTMLInputElement)?.value:condition.source==='text'?(element as HTMLElement)?.innerText?.trim():undefined;
         return actual===condition.expected;
       }catch{return false;}})
     }),conditions);
