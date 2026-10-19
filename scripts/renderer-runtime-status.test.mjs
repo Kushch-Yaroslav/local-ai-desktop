@@ -51,6 +51,18 @@ try {
   assert.strictEqual(useAppStore.getState().agentPlan, agentPlan);
   assert.strictEqual(useAppStore.getState().conversations[0], conversation);
   assert.equal(settingsReads, 0); assert.equal(modelReads, 0);
+  const generationId = 'pause-regression';
+  useAppStore.setState({activeId:conversation.id,generationId,generationConversationId:conversation.id,isGenerating:true,pausePhase:'Paused'});
+  const emit = event => useAppStore.getState().handleStream({conversationId:conversation.id,generationId,...event});
+  emit({type:'model-state',state:'waiting'});
+  assert.equal(useAppStore.getState().pausePhase,null,'runtime turn clears a stale Paused without relying on text');
+  emit({type:'paused'});assert.equal(useAppStore.getState().pausePhase,'Paused');
+  emit({type:'done',paused:true});assert.equal(useAppStore.getState().pausePhase,'Paused','terminal event preserves confirmed checkpoint pause');
+  useAppStore.setState({generationId,isGenerating:true});emit({type:'model-state',state:'waiting'});
+  assert.equal(useAppStore.getState().pausePhase,null);
+  emit({type:'done'});assert.equal(useAppStore.getState().pausePhase,null);
+  useAppStore.setState({generationId,isGenerating:true,pausePhase:'Resuming'});emit({type:'cancelled'});
+  assert.equal(useAppStore.getState().pausePhase,null,'Stop clears resume phase');
   unsubscribe();
   console.log('Runtime health polling: no model/settings IPC or store update when unchanged; real runtime changes publish once; device restart preserves conversation, images/reasoning, projects and Agent state');
 } finally {

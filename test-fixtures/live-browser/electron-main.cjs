@@ -25,7 +25,10 @@ app.whenReady().then(async () => {
   const {ProjectBrowserSession}=require(resolve('dist/main/web/project-browser.js'));
   const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));
   const approve=async()=>({approved:true});
-  global.liveFixture={ chat:fixture.chat.id,second:second.id,project,model,
+  global.liveFixture={
+    seedQa(report){fixture.db.saveAgentPlan(fixture.chat.id,{milestones:[],taskMemory:{entries:[],browser_qa:report}});},
+    launches(){return fixture.launches.length;},
+    chat:fixture.chat.id,second:second.id,project,model,
     async open(id=fixture.chat.id){ const old=sessions.get(id);await old?.close();const session=new ProjectBrowserSession(project,join(root,'captures'),undefined,liveBrowsers.observer(window.webContents,id,'fixture-'+Date.now()));sessions.set(id,session);return session.execute({action:'open'},new AbortController().signal,approve); },
     async action(args,id=fixture.chat.id){return sessions.get(id).execute(args,new AbortController().signal,approve);},
     async edit(){await writeFile(join(project,'style.css'),'body{background:#345; color:white}');await writeFile(join(project,'edited.html'),'<title>Updated ORBIT</title><style>body{background:#473652;color:white;font:40px system-ui;padding:50px}</style><h1>Revision two</h1>');return sessions.get(fixture.chat.id).execute({action:'open',path:'edited.html'},new AbortController().signal,approve);},

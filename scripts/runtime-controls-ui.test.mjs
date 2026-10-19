@@ -57,5 +57,7 @@ try {
   assert.equal(runs.at(-1).status,'interrupted','Pause is not task completion');
   assert.equal(await page.locator('.task-selector select').inputValue(),runs.at(-1).logicalTaskId,'next message resumes the paused task');
   assert(!(await page.evaluate(()=>window.controlEvents.some(e=>e.type==='error'))));
+  await page.reload();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+  await page.waitForFunction(()=>document.querySelector('.runtime-state')?.textContent==='Paused');
   console.log('PASS actual Electron UI + Rust/scripted SSE: Effort and Strategy live, rapid composed updates, pending then applied, reverse switch, disabled mode/web/context, Pause and restored controls');
 } finally {await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

@@ -196,7 +196,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
     const conversation = get().conversations.find((item) => item.id === id);
     const cached = views.get(id);
-    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, pausePhase: null, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
+    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, pausePhase: analysisRuns.at(-1)?.status === 'interrupted' && analysisRuns.at(-1)?.timeline?.at(-1)?.kind === 'paused' ? 'Paused' : null, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
   },
   createConversation: async () => {
     const conversation = await window.localAi.conversations.create();
@@ -349,6 +349,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
     if (!isCurrentGenerationEvent(event.conversationId, event.generationId, get().activeId, get().generationId)) return;
     if (['done', 'error', 'cancelled'].includes(event.type)) {
+      set({ pausePhase: event.type === 'done' && event.paused ? 'Paused' : null });
       set(state => {
         if (!state.modeTransitions[event.conversationId]) return {};
         const transitions = { ...state.modeTransitions }; delete transitions[event.conversationId];
@@ -408,7 +409,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
         },
       } : {});
     }
-    if (event.type === 'model-state') set({ ...(get().pausePhase === 'Resuming' ? { pausePhase: null } : {}), generationState: event.state === 'waiting' ? 'thinking' : 'reasoning' });
+    if (event.type === 'model-state') set({ pausePhase: null, generationState: event.state === 'waiting' ? 'thinking' : 'reasoning' });
     if (event.type === 'thinking') {
       pendingThinking.set(event.generationId, [...(pendingThinking.get(event.generationId) ?? []), { content: event.content ?? '', timelinePosition: event.timelinePosition }]);
       if (animationFrame === null) animationFrame = window.requestAnimationFrame(() => drainStream());

@@ -38,7 +38,7 @@ export function ContextSelector({ options, selected, disabled, onChange }: {
   }, [open, active]);
   const choose = (index: number) => { if (options[index]) onChange(options[index]); setOpen(false); trigger.current?.focus(); };
   return <div className="context-selector" ref={container}>
-    <div className="control-help-field context-selector-label-row"><span className="context-selector-label" id={`${id}-label`}>{t('Контекст')} <span aria-hidden="true">⟳</span></span><ControlHelp label={t('Контекст')}>{help}</ControlHelp></div>
+    <div className="control-help-field context-selector-label-row"><span className="context-selector-label" id={`${id}-label`}>{t('Контекст')}</span><ControlHelp label={t('Контекст')}>{help}</ControlHelp></div>
     <button className="context-selector-trigger" ref={trigger} role="combobox" type="button" disabled={disabled || !options.length}
       aria-labelledby={`${id}-label`} aria-describedby={`${id}-value`} title={'Для изменения требуется перезагрузка модели или контекста. ' + localizeMessage(selected?.warning ?? selected?.explanation ?? 'Не оценено для этой конфигурации')} aria-expanded={open} aria-controls={`${id}-list`} aria-haspopup="listbox"
       aria-activedescendant={open ? `${id}-${active}` : undefined}

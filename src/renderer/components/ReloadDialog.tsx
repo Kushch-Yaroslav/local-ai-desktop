@@ -9,7 +9,7 @@ export function ReloadDialog({ title, busy, disabled, error, children, onCancel,
   return createPortal(<dialog ref={ref} className="reload-dialog" aria-label={title} aria-describedby={id} onCancel={event => { event.preventDefault(); if (!busy) onCancel(); }}>
     <div className="reload-heading"><span className="reload-symbol"><RefreshCw size={22} /></span><div><small>{title}</small><h2>{ru ? 'Перезагрузить модель?' : 'Reload model?'}</h2></div></div>
     <p id={id}>{ru ? 'Для применения параметров модель может быть загружена заново. История чата и checkpoint сохранятся. Вычислительный контекст и KV-cache при перезагрузке будут пересозданы.' : 'Applying these settings may reload the model. Chat history and checkpoints are preserved. Reloading recreates the inference context and KV cache.'}</p>
-    {children && <details><summary>{ru ? 'Подробности изменения' : 'Change details'}</summary><div className="reload-detail">{children}</div></details>}
+    {children && <details open><summary>{ru ? 'Подробности изменения' : 'Change details'}</summary><div className="reload-detail">{children}</div></details>}
     {error && <p role="alert" className="reload-error">{error}</p>}
     <footer><button ref={cancel} disabled={busy} className="secondary" onClick={onCancel}>{ru ? 'Отмена' : 'Cancel'}</button><button disabled={busy || disabled} className="primary" aria-busy={busy} onClick={onApply}>{busy ? (ru ? 'Применение…' : 'Applying…') : ru ? 'Применить и перезагрузить' : 'Apply and reload'}</button></footer>
   </dialog>, document.body);
