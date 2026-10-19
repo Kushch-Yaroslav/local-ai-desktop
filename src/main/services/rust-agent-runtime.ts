@@ -190,12 +190,20 @@ export class RustAgentRuntime {
       });
     });
     const controlPending = new Map<string, { resolve(): void; reject(error: Error): void; timer: ReturnType<typeof setTimeout> }>();
+    const permissionIdentity = (value: AgentPermissions) => JSON.stringify([value.mode, [...new Set(value.trusted_roots)].sort()]);
+    let qaPermissions = permissionIdentity(permissions);
     this.controls.set(runId, payload => new Promise<void>((resolve, reject) => {
       if (signal.aborted || !child.stdin.writable) { reject(new Error('Agent execution ended')); return; }
       const id = randomUUID();
       const timer = setTimeout(() => { controlPending.delete(id); reject(new Error('Runtime control processing timed out; Stop remains available')); }, payload.action ? 30_000 : 5_000);
       controlPending.set(id, { resolve, reject, timer });
       child.stdin.write(`${JSON.stringify(payload.reasoning ? { type: 'reasoning', run_id: runId, id, ...payload.reasoning } : { type: 'control', run_id: runId, id, ...payload })}\n`);
+    }).then(() => {
+      if (payload.permissions) {
+        const next = permissionIdentity(payload.permissions);
+        if (next !== qaPermissions) { qaPermissions = next; guard.authorized(); }
+      }
+      if (payload.action && payload.action !== 'pause') guard.rearm();
     }));
     // Permission dialogs can await for minutes. Consume steering/control acknowledgments
     // independently of the async generator's awaited host operation.
@@ -209,7 +217,7 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { runId, guard, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
+    const qaOptions = { runId, guard, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -280,7 +288,7 @@ export class RustAgentRuntime {
           if (pending) { clearTimeout(pending.timer); controlPending.delete(event.id!); if (event.type === 'control_accepted') pending.resolve(); else pending.reject(new Error(event.message)); }
           continue;
         }
-        if (event.type === 'reasoning_applied' && event.configuration) { yield { type: 'reasoning-applied', configuration: event.configuration }; continue; }
+        if (event.type === 'reasoning_applied' && event.configuration) { qaOptions.runtimeIdentity.reasoning = event.configuration; yield { type: 'reasoning-applied', configuration: event.configuration }; continue; }
         if (event.type === 'run_state' && ['pause_requested', 'saving_checkpoint'].includes(event.state ?? '')) { yield { type: 'pause-state', phase: event.state as 'pause_requested' | 'saving_checkpoint' }; continue; }
         if (event.type === 'loop_state') { yield { type: 'loop-state', notice: event.notice ?? null, paused: Boolean(event.paused) }; continue; }
         if (event.type === 'loop_lifecycle' && event.notice && event.stage) { yield { type: 'loop-event', lifecycle: { stage: event.stage, notice: event.notice, attempt: event.attempt ?? 0 } }; continue; }
