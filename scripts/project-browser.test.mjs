@@ -41,7 +41,7 @@ try {
   const staticPage = session();
   assert((await staticPage.execute({ action: 'read' }, signal)).error, 'read before open must fail recoverably');
   let result = await staticPage.execute({ action: 'open', path: 'index.html' }, signal, approve);
-  assert(!result.error, JSON.stringify(result)); assert.equal(result.title, 'Project test');
+  assert(!result.error, JSON.stringify(result)); assert.equal(result.title, 'Project test');assert.match(result.browser_check,/headless CLI Chromium/);
   assert.equal(result.links.length, 1, 'DOM read deleted nav');
   // Synchronize on actual browser data/events instead of treating an open as assertions.
   await staticPage.execute({ action: 'click', selector: '#next' }, signal);
@@ -65,7 +65,7 @@ try {
   const httpPage = session();
   let approvals = 0;
   result = await httpPage.execute({ action: 'open', url: `http://localhost:${port}/` }, signal, async () => { approvals++; return approve(); });
-  assert(!result.error, JSON.stringify(result)); assert.equal(approvals, 1); assert.equal(result.title, 'Project test');
+  assert(!result.error, JSON.stringify(result)); assert.equal(approvals, 1); assert.equal(result.title, 'Project test');assert.match(result.browser_check,/headless CLI Chromium/);
   result = await httpPage.execute({ action: 'open', url: `http://localhost:${port}/redirect` }, signal);
   assert(result.error); assert.deepEqual(requests, ['/', '/redirect']);
   assert((await httpPage.execute({ action: 'open', url: 'http://127.0.0.1:1/' }, signal)).error);
