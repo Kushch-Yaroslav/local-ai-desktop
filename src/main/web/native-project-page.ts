@@ -56,6 +56,7 @@ class ViewTransport implements ConnectOverCDPTransport {
 
 export interface NativeProjectPage {
   page: Page; context: BrowserContext; browser: Browser; contents: WebContents;
+  handleRequests(handler: (url: string, method: string, signal: AbortSignal) => Promise<{ status: number; headers: Record<string,string>; body: Buffer }>): void;
   layout(bounds: Rectangle | undefined): void;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
@@ -76,6 +77,19 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   const view = new WebContentsView({ webPreferences: { session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false, navigateOnDragDrop: false, spellcheck: false, backgroundThrottling: false } });
   const contents = view.webContents;
   let ownerState = 'agent', destroyed = false, visible = false;
+  let requestHandler: Parameters<NativeProjectPage['handleRequests']>[0] | undefined;
+  const networkAbort = new AbortController();
+  // Serving intercepted external scripts with CDP Fetch crashes this Electron
+  // renderer. Keep delivery in its isolated session, and CDP for automation only.
+  const protocols = new Set<string>();
+  const handleRequest: Parameters<typeof isolated.protocol.handle>[1] = async request => {
+    if (destroyed || !requestHandler || request.method !== 'GET' || !allowed(request.url)) return Response.error();
+    try {
+      const response = await requestHandler(request.url, request.method, AbortSignal.any([request.signal,networkAbort.signal]));
+      if (destroyed) return Response.error();
+      return new Response([204,205,304].includes(response.status) ? null : new Uint8Array(response.body), {status:response.status,headers:response.headers});
+    } catch { return Response.error(); }
+  };
   const pressed = new Map<string, { key:string; code:string }>();
   const buttons = new Map<string, { x:number; y:number; button:string }>();
   let release = Promise.resolve();
@@ -130,11 +144,14 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   const close = (): Promise<void> => {
     if (closing) return closing;
     destroyed = true;
+    isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
+    networkAbort.abort(); requestHandler = undefined;
     // Publish the shared promise before CDP/page-close callbacks can reenter.
     closing = Promise.resolve().then(async () => {
       if (!window.isDestroyed()) { window.contentView.removeChildView(shield); window.contentView.removeChildView(view); }
       transport?.close();
       await Promise.all([closeContents(shield.webContents),closeContents(contents),browser?.close().catch(() => undefined)]);
+      for (const scheme of protocols) isolated.protocol.unhandle(scheme); protocols.clear();
       await isolated.closeAllConnections().catch(() => undefined);
       await isolated.clearStorageData().catch(() => undefined);
       await shieldSession.clearStorageData().catch(() => undefined);
@@ -142,6 +159,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     return closing;
   };
   try {
+    for (const scheme of ['http','https']) { isolated.protocol.handle(scheme,handleRequest); protocols.add(scheme); }
     await shield.webContents.loadURL(shieldUrl);
     await contents.loadURL('about:blank');
     contents.debugger.attach('1.3');
@@ -155,6 +173,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
     return { browser, context, page, contents, close, releaseInput,
+      handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(bounds) {
         if (destroyed || window.isDestroyed()) return;

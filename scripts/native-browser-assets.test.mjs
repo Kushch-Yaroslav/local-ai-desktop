@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {spawn}from'node:child_process';
+import{mkdtemp,mkdir,writeFile,readFile}from'node:fs/promises';
+import{join,resolve}from'node:path';
+const root=await mkdtemp('/tmp/lad-native-assets-'),project=await mkdtemp('/tmp/lad-native-assets-project-');await mkdir(join(project,'assets'));
+await writeFile(join(project,'assets/style.css'),'body{margin:0;background:rgb(20,30,40);color:white;font:28px system-ui}h1{padding:30px}');
+await writeFile(join(project,'assets/app.js'),"document.querySelector('#js').textContent='JS v1';let n=0,c=document.querySelector('canvas').getContext('2d');function draw(){c.fillStyle='hsl('+(n++%360)+' 60% 50%)';c.fillRect(0,0,300,150);requestAnimationFrame(draw)}draw()");
+await writeFile(join(project,'index.html'),'<title>Automatic updates</title><link rel="stylesheet" href="assets/style.css"><h1>HTML v1</h1><p id="js"></p><canvas></canvas><script src="assets/app.js"></script>');
+const child=spawn(resolve('scripts/electron-unconfined-fixture.sh'),[resolve('test-fixtures/native-browser/assets-main.cjs')],{env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_PROJECT_ROOT:project},stdio:['ignore','pipe','pipe']});let logs='';child.stdout.on('data',b=>logs+=b);child.stderr.on('data',b=>logs+=b);
+const timer=setTimeout(()=>child.kill('SIGTERM'),30000);const code=await new Promise((r,reject)=>{child.once('error',reject);child.once('exit',r)});clearTimeout(timer);
+let result;try{result=JSON.parse(await readFile(join(root,'native-assets-result.json'),'utf8'))}catch{result={error:'No fixture result',root,code}}await mkdir('artifacts/native-browser/logs',{recursive:true});await writeFile('artifacts/native-browser/native-assets-result.json',JSON.stringify(result,null,2));await writeFile('artifacts/native-browser/logs/native-assets.log',logs);console.log(JSON.stringify(result));assert.equal(code,0,logs);assert.equal(result.result,'PASS');

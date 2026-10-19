@@ -365,6 +365,21 @@ export class ProjectBrowserSession {
   private async qaState() {
     return this.page!.evaluate(() => ({ url:location.href, viewport:{width:innerWidth,height:innerHeight}, scroll:{x:scrollX,y:scrollY}, focus:document.activeElement?.id || document.activeElement?.tagName, text:document.body.innerText.slice(0,8000), fields:Array.from(document.querySelectorAll('input:not([type=file]),textarea,select')).slice(0,40).map(element => ({ id:element.id, value:(element as HTMLInputElement).value })), diagnostics:JSON.stringify((window as unknown as {__qaDiagnostics?:unknown}).__qaDiagnostics)?.slice(0,4000) }));
   }
+  /** One security/asset implementation for native session delivery and CLI CDP routing. */
+  private async resource(raw: string, method: string, signal: AbortSignal) {
+    const url = new URL(raw);
+    if (this.closed || signal.aborted) throw new Error('Project browser cancelled or closed');
+    if (Date.now()-this.networkBudget.started > 30000) this.networkBudget = {requests:0,bytes:0,started:Date.now()};
+    if (url.origin !== this.origin || url.username || url.password || method !== 'GET' || ++this.networkBudget.requests > 256 || this.networkBudget.bytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or per-operation/30-second request budget');
+    const safetyHeaders = {'x-content-type-options':'nosniff','x-dns-prefetch-control':'off'};
+    if (this.origin === staticOrigin) {
+      const asset = await readPreviewAsset(this.root,url.pathname); this.networkBudget.bytes += asset.body.length;
+      return {status:200,body:asset.body,headers:{...safetyHeaders,'content-type':asset.contentType,'content-security-policy':previewCsp}};
+    }
+    const response = await fetchLoopback(url,AbortSignal.any([signal,this.abort.signal])); this.networkBudget.bytes += response.body.length;
+    this.detectServerReload(url.pathname,response.body,Boolean(response.headers['content-type']?.includes('text/html')));
+    return {...response,headers:{...response.headers,...safetyHeaders,'content-security-policy':[response.headers['content-security-policy'],previewCsp].filter(Boolean).join(', ')}};
+  }
   private async start() {
     this.native = await this.observer?.createPage?.(this.origin!);
     this.browser = this.native?.browser ?? await this.launch();
@@ -373,22 +388,15 @@ export class ProjectBrowserSession {
     await this.context.clearPermissions();
     await this.context.addInitScript(() => { Object.defineProperty(window, 'RTCPeerConnection', { value: undefined, configurable: false }); Object.defineProperty(navigator, 'serviceWorker', {value:undefined,configurable:false}); });
     await this.context.routeWebSocket('**/*', socket => socket.close());
-    await this.context.route('**/*', async route => {
+    if (this.native) this.native.handleRequests(async (url, method, signal) => {
+      try { return await this.resource(url, method, signal); }
+      catch (error) { this.blockedNavigation = true; this.note(this.blocked, `${method} ${url}: ${String(error)}`); throw error; }
+    });
+    else await this.context.route('**/*', async route => {
       const req = route.request();
-      try {
-        const url = new URL(req.url());
-        if (Date.now()-this.networkBudget.started > 30000) this.networkBudget = { requests:0, bytes:0, started:Date.now() };
-        if (url.origin !== this.origin || url.username || url.password || req.method() !== 'GET' || ++this.networkBudget.requests > 256 || this.networkBudget.bytes > 32 * maxBytes) throw new Error('Outside approved origin, request method or per-operation/30-second request budget');
-        if (this.origin === staticOrigin) {
-          const asset = await readPreviewAsset(this.root, url.pathname); this.networkBudget.bytes += asset.body.length;
-          await route.fulfill({ ...asset, headers: { 'x-content-type-options': 'nosniff', 'x-dns-prefetch-control':'off', 'content-security-policy': previewCsp } });
-        } else {
-          const response = await fetchLoopback(url, this.abort.signal); this.networkBudget.bytes += response.body.length;
-          this.detectServerReload(url.pathname, response.body, Boolean(response.headers['content-type']?.includes('text/html')));
-          await route.fulfill({ ...response, headers: { ...response.headers, 'x-dns-prefetch-control':'off', 'content-security-policy': [response.headers['content-security-policy'], previewCsp].filter(Boolean).join(', ') } });
-        }
-      } catch (error) {
-        try { if (req.isNavigationRequest() && req.frame() === this.page?.mainFrame()) this.blockedNavigation = true; } catch { /* Popup requests may precede frame creation; they are still blocked. */ }
+      try { await route.fulfill(await this.resource(req.url(), req.method(), this.abort.signal)); }
+      catch (error) {
+        try { if (req.isNavigationRequest() && req.frame() === this.page?.mainFrame()) this.blockedNavigation = true; } catch { /* A blocked popup can precede frame creation. */ }
         this.note(this.blocked, `${req.method()} ${req.url()}: ${String(error)}`);
         await route.abort('blockedbyclient').catch(() => undefined);
       }
