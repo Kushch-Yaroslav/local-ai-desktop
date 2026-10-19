@@ -37,3 +37,6 @@ rust-agent/target/
 
 # P2 screenshots and inference traces
 /artifacts/p2/
+
+# Native browser E2E captures and reproducible measurement traces
+/artifacts/native-browser/

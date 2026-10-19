@@ -33,7 +33,7 @@ try{
  await page.keyboard.press('Tab');assert(await page.evaluate(()=>!document.activeElement.closest('.panel-expansion')),'collapsed controls are excluded from keyboard focus');
  assert.deepEqual(await snapshot(),before,'display-only toggles do not modify settings or conversations');
  assert(!(await app.evaluate(()=>global.liveFixture.open())).error);await page.locator('.live-workspace.mode-split').waitFor();
- await page.waitForFunction(()=>document.querySelector('.live-footer')?.textContent.match(/[1-9]\d* fps/));
+ await page.waitForFunction(()=>document.querySelector('.live-footer')?.textContent.includes('Chromium'));
  for(const expanded of [true,false]){
   await mode(page,expanded);
   const bounds=await page.evaluate(()=>{const panel=document.querySelector('.control-panel').getBoundingClientRect(),work=document.querySelector('.live-workspace').getBoundingClientRect();return{panelBottom:panel.bottom,workTop:work.top,overflow:document.documentElement.scrollWidth>innerWidth};});

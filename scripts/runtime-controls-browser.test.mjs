@@ -16,7 +16,7 @@ const hub = new LiveBrowserHub(), events = [];
 class Owner extends EventEmitter {
   constructor(id) { super(); this.id = id; }
   isDestroyed() { return false; }
-  send(_channel, event) { events.push(event); if (event.type === 'frame') hub.acknowledge(this, event.frame.sessionId, event.frame.sequence); }
+  send(_channel, event) { events.push(event); }
 }
 const owner = new Owner(1), foreign = new Owner(2);
 let browser, strictSession, strictServer, approvals = 0;
@@ -37,13 +37,14 @@ try {
   await assert.rejects(input({ kind: 'text', text: 'forbidden during agent action' }));
   for (let i = 0; i < 8; i++) assert(!(await session.execute({ action: 'screenshot', wait_ms: 0 }, signal, approve)).error);
   assert.equal((await session.execute({ action: 'screenshot' }, signal, approve)).code, 'SCREENSHOT_LIMIT');
-  assert.equal(state().status, 'live', 'model screenshot budget does not poison stream');
+  assert.equal(state().status, 'live', 'model screenshot budget does not poison browser lifecycle');
   await session.finishRun();
   assert.equal(state().ownership, 'user');
   assert.equal(await page.evaluate(() => window.identity), identity, 'same Page preserved');
-  const frameCount = events.filter(e => e.type === 'frame').length;
-  await page.waitForTimeout(400);
-  assert(events.filter(e => e.type === 'frame').length > frameCount, 'stream continues after run');
+  const beforePixels = await page.screenshot();
+  await page.waitForTimeout(200);
+  assert(!(await page.screenshot()).equals(beforePixels), 'the actual Canvas continues after run');
+  assert.equal(events.filter(e => e.type === 'frame').length, 0, 'there is no frame transport');
   await assert.rejects(hub.input(foreign, state().sessionId, { kind: 'reload' }));
   await assert.rejects(input({ kind: 'pointer', phase: 'down', x: NaN, y: 0 }));
   await assert.rejects(input({ kind: 'key', phase: 'down', key: 'Control+L' }));
@@ -85,5 +86,5 @@ try {
   assert.equal(await browser.contexts()[0].pages()[0].evaluate(() => window.forbiddenExecuted), undefined, 'preview CSP must preserve stronger upstream CSP');
   const strictPage = browser.contexts()[0].pages()[0];
   for (const selector of ['#file', '#data']) { await strictPage.locator(selector).click().catch(() => undefined); await strictPage.waitForTimeout(100); assert.equal(new URL(strictPage.url()).origin, `http://127.0.0.1:${strictServer.address().port}`, 'non-HTTP scheme cannot escape the approved origin'); }
-  console.log('PASS actual Chromium: continued live frames, same Page, input/WASD/scroll/navigation, forbidden origin/popup, ownership exclusion, screenshot separation, repeat runs, fresh approvals, sticky denial and disposal');
+  console.log('PASS actual Chromium: continued real Canvas (zero frame IPC), same Page, input/WASD/scroll/navigation, forbidden origin/popup, ownership exclusion, screenshot separation, repeat runs, fresh approvals, sticky denial and disposal');
 } finally { await session.close(); await strictSession?.close(); if (strictServer) { strictServer.closeAllConnections(); await new Promise(resolve => strictServer.close(resolve)); } await rm(root, { recursive: true, force: true }); }

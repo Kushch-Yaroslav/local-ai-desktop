@@ -62,11 +62,11 @@ try {
   const { RustAgentRuntime } = require('../dist/main/services/rust-agent-runtime.js');
   const { LiveBrowserHub } = require('../dist/main/web/live-browser.js');
   const { ensureAppDirectories } = require('../dist/main/services/paths.js'); ensureAppDirectories();
-  const hub = new LiveBrowserHub(); let browserState; let frames = 0; let approvals = 0;
+  const hub = new LiveBrowserHub(); let browserState, projectPage; let frames = 0; let approvals = 0;
   class Owner extends EventEmitter {
     constructor() { super(); this.id = 901; }
     isDestroyed() { return false; }
-    send(_channel, event) { if (event.type === 'state') browserState = event.state; else { frames++; hub.acknowledge(this, event.frame.sessionId, event.frame.sequence); } }
+    send(_channel, event) { if (event.type === 'state') browserState = event.state; else if (event.type === 'frame') frames++; }
   }
   const owner = new Owner(); hub.watch(owner, 'qwen-chat', true);
   const runtime = new RustAgentRuntime(`http://127.0.0.1:${port}/v1/chat/completions`);
@@ -74,9 +74,10 @@ try {
   const seen = [];
   const browserRun = async (id, prompt) => {
     const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 150000);
+    const observer=hub.observer(owner,'qwen-chat',id),ready=observer.ready;observer.ready=(page,...args)=>{projectPage=page;ready(page,...args)};
     try {
       const history = [{ id: 'prompt', conversationId: 'qwen-chat', role: 'user', content: prompt, createdAt: new Date().toISOString() }];
-      for await (const event of runtime.stream('qwen3.8:27b-q4_K_M', history, [{id:'qwen-project',slot:1,root:project,label:'test'}], controller.signal, 32768, 'fast', 'auto', id, undefined, 'qwen-chat', true, options('medium'), [], undefined, async () => { approvals++; return { approved:true, reason:'once' }; }, undefined, {mode:'strict',trusted_roots:[]}, 'qwen-browser-task', hub.observer(owner,'qwen-chat',id))) {
+      for await (const event of runtime.stream('qwen3.8:27b-q4_K_M', history, [{id:'qwen-project',slot:1,root:project,label:'test'}], controller.signal, 32768, 'fast', 'auto', id, undefined, 'qwen-chat', true, options('medium'), [], undefined, async () => { approvals++; return { approved:true, reason:'once' }; }, undefined, {mode:'strict',trusted_roots:[]}, 'qwen-browser-task', observer)) {
         seen.push(event); if (event.type === 'error') throw Error(JSON.stringify(event));
       }
       assert(!controller.signal.aborted, 'Qwen browser run timeout');
@@ -85,10 +86,10 @@ try {
   };
   try {
     await browserRun('browser-real-1', 'Small browser acceptance task. Call web_project with action open and path index.html, then web_project with action read, then finish with the page title. Do not edit files, do not use other browser or terminal tools.');
-    const sessionId = browserState.sessionId; const initialFrames = frames;
+    const sessionId = browserState.sessionId; const beforePixels = await projectPage.screenshot();
     await hub.input(owner, sessionId, {kind:'pointer',phase:'down',x:30,y:20}); await hub.input(owner, sessionId, {kind:'pointer',phase:'up',x:30,y:20});
     await hub.input(owner, sessionId, {kind:'text',text:'User after Qwen'});
-    await delay(300); assert(frames > initialFrames, 'Qwen completion left a live interactive stream');
+    await delay(300); assert.equal(await projectPage.locator('input').inputValue(),'User after Qwen');assert(!(await projectPage.screenshot()).equals(beforePixels),'Qwen completion leaves the actual Canvas running');assert.equal(frames,0,'no frame IPC remains');
     await browserRun('browser-real-2', 'Use web_project action read on the existing project browser. Confirm the page title and finish. Do not reopen or edit files.');
     assert.equal(browserState.sessionId, sessionId, 'repeat real agent run retains the same browser session');
     assert.equal(approvals, 2, 'each real run obtained its own explicit browser approval');

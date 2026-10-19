@@ -24,6 +24,7 @@ try {
   await page.locator('.conversation').waitFor();
   const info=await application.evaluate(()=>global.liveFixture.prepareQwen());
   await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();
+  if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
   await page.getByRole('button',{name:/Load selected configuration/}).click();
   await page.waitForFunction(()=>document.querySelector('.context-active')?.textContent.includes('64K'));
   await page.evaluate(({conversationId})=>window.localAi.chat.setPermissions(conversationId,'absolute_autopilot',true),info);
@@ -38,7 +39,9 @@ try {
   while(Date.now()-started<300000){
     const approve=page.getByRole('button',{name:'Allow once',exact:true});if(await approve.count())await approve.click();
     const sample=await page.evaluate(()=>({events:window.liveTest.events.map(e=>({type:e.type,tool:e.activity?.toolName,state:e.activity?.state,message:e.message})),states:window.liveTest.states.length,frames:window.liveTest.frames}));
-    if(!hidden&&await page.locator('.mode-split .live-address').count()&&sample.frames>3){await page.screenshot({path:join(output,'qwen-live.png')});await page.getByRole('button',{name:'Chat Only',exact:true}).click();hidden=true;hiddenAt=Date.now();hiddenTools=sample.events.filter(e=>e.type==='tool').length;}
+    if(!hidden&&await page.locator('.mode-split .live-address').count()){const image=await application.evaluate(()=>global.liveFixture.nativePixels());if(image)await page.evaluate(hash=>{if(window.liveTest.frameHashes.length<3)window.liveTest.frameHashes.push(hash)},image.slice(-1000));}
+    const captures=await page.evaluate(()=>window.liveTest.frameHashes.length);
+    if(!hidden&&await page.locator('.mode-split .live-address').count()&&captures>=3){await page.screenshot({path:join(output,'qwen-live.png')});await page.getByRole('button',{name:'Chat Only',exact:true}).click();hidden=true;hiddenAt=Date.now();hiddenTools=sample.events.filter(e=>e.type==='tool').length;}
     if(hidden&&!reopened&&Date.now()-hiddenAt>1800&&(sample.events.filter(e=>e.type==='tool').length>hiddenTools||Date.now()-hiddenAt>8000)){observedDuringHidden=sample.events.filter(e=>e.type==='tool').length>hiddenTools;await page.locator('.live-reopen').click();reopened=true;}
     if(autoReload&&sample.events.filter(e=>e.state==='error').length>8){await page.locator('.send-button.stop').click();throw Error('INTERRUPTED: repeated model tool failures before completing auto-refresh task');}
     if(sample.events.some(e=>['done','error','cancelled'].includes(e.type)))break;
@@ -50,7 +53,7 @@ try {
   const toolMap=new Map();for(const event of trace.events)if(event.type==='tool')toolMap.set(event.activity.id,{...toolMap.get(event.activity.id),...event.activity});
   const tools=[...toolMap.values()].filter(t=>t.toolName&&t.state!=='running');
   assert(tools.some(t=>t.toolName==='web_project'));
-  assert(trace.frames>=5);assert(new Set(trace.frameHashes).size>=3);
+  assert.equal(trace.frames,0,'native display sends no frame IPC');assert(new Set(trace.frameHashes).size>=2,'explicit native test captures observe animation');
   const sessions=new Set(trace.states.map(s=>s.sessionId));assert.equal(sessions.size,1,'real agent and UI retain same session');
   const actions=trace.states.filter(s=>s.action).map(s=>s.action.kind);for(const action of ['click','fill',autoReload?'auto-reload':'reload'])assert(actions.includes(action),`Qwen missed ${action}`);
   if(autoReload){const browserTools=tools.filter(t=>t.toolName==='web_project');assert.equal(browserTools.filter(t=>t.arguments?.action==='open').length,1);assert(!browserTools.some(t=>t.arguments?.action==='reload'),'Qwen must not trigger reload');}

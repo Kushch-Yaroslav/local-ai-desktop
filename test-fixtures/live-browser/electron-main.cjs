@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { resolve, join } = require('node:path');
 const { mkdir, writeFile } = require('node:fs/promises');
-app.disableHardwareAcceleration();
+app.setPath('userData',join(process.env.LOCAL_AI_RUNTIME_ROOT,'electron-profile'));
+if(process.env.LOCAL_AI_TEST_SOFTWARE!=='0')app.disableHardwareAcceleration();
 const sessions = new Map();
 app.whenReady().then(async () => {
   const root = process.env.LOCAL_AI_RUNTIME_ROOT;
@@ -33,6 +34,7 @@ app.whenReady().then(async () => {
     async interactiveSetup(){const page=sessions.get(fixture.chat.id).page;await page.evaluate(()=>{globalThis.previewKeys=[];const canvas=globalThis.document.querySelector('canvas');canvas.tabIndex=0;canvas.addEventListener('keydown',event=>globalThis.previewKeys.push(event.key));});},
     async interactiveTargets(){return sessions.get(fixture.chat.id).page.evaluate(()=>Object.fromEntries(['canvas','#message','#explore'].map(selector=>{const rect=globalThis.document.querySelector(selector).getBoundingClientRect();return [selector,{x:rect.x+rect.width/2,y:rect.y+rect.height/2}];})));},
     async interactiveSnapshot(){return sessions.get(fixture.chat.id).page.evaluate(()=>({keys:globalThis.previewKeys,input:globalThis.document.querySelector('#message')?.value,url:globalThis.location.href,scroll:globalThis.scrollY,identity:globalThis.pageIdentity}));},
+    async nativePixels(){const native=[...liveBrowsers.entries.values()].find(entry=>entry.state.conversationId===fixture.chat.id&&!entry.ended)?.native;return native?native.contents.capturePage().then(image=>image.toPNG().toString('base64')):null;},
     async close(){await Promise.all([...sessions.values()].map(s=>s.close()));},
     async autoSetup(){
       await mkdir(join(project,'assets'),{recursive:true});
@@ -46,6 +48,7 @@ app.whenReady().then(async () => {
       else if(kind==='css')await writeFile(join(project,'assets/style.css'),'body{margin:0;background:rgb(90,40,120);color:white;font:28px system-ui}h1{padding:30px}');
       else if(kind==='js')await writeFile(join(project,'assets/app.js'),`globalThis.document.querySelector('#js').textContent='JS v2';let n=0,c=globalThis.document.querySelector('canvas').getContext('2d');function draw(){c.fillStyle='hsl('+(n++%360)+' 60% 50%)';c.fillRect(0,0,300,150);requestAnimationFrame(draw)}draw()`);
     },
+    autoDiagnostics(){const s=sessions.get(fixture.chat.id),entry=[...liveBrowsers.entries.values()].find(entry=>entry.state.conversationId===fixture.chat.id);return {dirty:s.dirty,closed:s.closed,previewVisible:s.previewVisible,autoReloadQueued:s.autoReloadQueued,watcher:s.watcher?{settled:s.watcher.settled,files:s.watcher.files.size,watches:s.watcher.watches.size}:null,state:entry?.state,viewer:liveBrowsers.viewers.get(window.webContents.id),bounds:window.contentView.children.map(v=>({visible:v.getVisible(),bounds:v.getBounds()}))}},
     async autoSnapshot(){const page=sessions.get(fixture.chat.id).page;return {loads:this.autoLoads(),...(await page.evaluate(()=>({heading:globalThis.document.querySelector('h1').textContent,js:globalThis.document.querySelector('#js').textContent,color:globalThis.getComputedStyle(globalThis.document.body).backgroundColor})))};},
     async prepareQwen(){await this.close();return {conversationId:fixture.chat.id,model};}
   };

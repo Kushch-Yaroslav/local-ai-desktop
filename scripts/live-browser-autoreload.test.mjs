@@ -11,7 +11,7 @@ const {LiveBrowserHub}=require('../dist/main/web/live-browser.js');
 const {launchWebBrowser}=require('../dist/main/web/web-tools.js');
 const root=await mkdtemp(join(tmpdir(),'lad-auto-project-')),outside=await mkdtemp(join(tmpdir(),'lad-auto-outside-'));
 const hub=new LiveBrowserHub();let frames=0,launches=0,page,browser,loads=0;const actions=[];
-class Owner extends EventEmitter {constructor(){super();this.id=123;}isDestroyed(){return false;}send(_channel,event){if(event.type==='frame'){frames++;hub.acknowledge(this,event.frame.sessionId,event.frame.sequence);}else if(event.state.action)actions.push(event.state.action);}}
+class Owner extends EventEmitter {constructor(){super();this.id=123;}isDestroyed(){return false;}send(_channel,event){if(event.type==='frame'){frames++;}else if(event.state.action)actions.push(event.state.action);}}
 const owner=new Owner(),observe=hub.observer(owner,'auto-chat','auto-run');
 const session=new ProjectBrowserSession(root,join(outside,'captures'),async()=>{launches++;browser=await launchWebBrowser();return browser;},{...observe,ready(p,visibility){page=p;observe.ready(p,visibility);}});
 const signal=new AbortController().signal,approve=async()=>({approved:true});
@@ -50,7 +50,7 @@ try {
   await sleep(600);hub.watch(owner,'auto-chat',false);const hidden=loads;await writeFile(join(root,'index.html'),html.replace('Old HTML','Hidden update'));await sleep(900);assert.equal(loads,hidden,'no hidden reload');
   hub.watch(owner,'other-chat',true);await sleep(500);assert.equal(loads,hidden,'other chat cannot refresh this Page');
   hub.watch(owner,'auto-chat',true);await wait(async()=>await page.locator('h1').textContent()==='Hidden update','reopen applies pending edits');
-  const animated=frames;await sleep(900);assert(frames>animated+3,'Canvas stream continues after auto reload');assert.equal(page,original);assert.equal(launches,1);
+  const animated=await page.screenshot();await sleep(200);assert(!animated.equals(await page.screenshot()),'real Canvas continues after reload without frame IPC');assert.equal(frames,0);assert.equal(page,original);assert.equal(launches,1);
   // Flush edits even if a task finishes before the 400 ms watcher debounce.
   let finalHeading;page.once('load',()=>{void page.locator('h1').textContent().then(text=>finalHeading=text).catch(()=>undefined);});
   await writeFile(join(root,'index.html'),html.replace('Old HTML','Final update'));const finalWatcher=session.watcher;await session.close(true);assert.equal(finalWatcher.watches.size,0);assert.equal(finalWatcher.timer,undefined);assert(!browser.isConnected());assert.equal(finalHeading,'Final update','task finish flushes the actual latest DOM');
@@ -67,10 +67,9 @@ try {
   // Stop disposes pending refresh and directory watches immediately.
   const stopped=make('stop');hub.watch(owner,'stop',true);managed=false;await stopped.execute({action:'open'},signal,approve);const stopWatcher=stopped.watcher;const cancel=new AbortController();const blocked=stopped.execute({action:'click',selector:'#missing'},cancel.signal,approve);await writeFile(join(root,'assets/site.css'),css+'/*stop*/');setTimeout(()=>cancel.abort(),100);assert((await blocked).error);assert.equal(stopWatcher.watches.size,0);await stopped.close();
   const hiddenFinish=make('hidden-finish');hub.watch(owner,'hidden-finish',true);await hiddenFinish.execute({action:'open'},signal,approve);
-  await wait(()=>[...hub.entries.values()].some(e=>e.state.conversationId==='hidden-finish'&&e.frame),'first frame before hiding');
-  const hiddenEntry=[...hub.entries.values()].find(e=>e.state.conversationId==='hidden-finish'),oldFrame=hiddenEntry.frame.data;
+  const hiddenEntry=[...hub.entries.values()].find(e=>e.state.conversationId==='hidden-finish');
   hub.watch(owner,'hidden-finish',false);let lastHeading;hiddenFinish.page.once('load',()=>{void hiddenFinish.page.locator('h1').textContent().then(text=>lastHeading=text).catch(()=>undefined);});
-  await writeFile(join(root,'index.html'),html.replace('Old HTML','Finished while hidden'));await hiddenFinish.close(true);assert.equal(lastHeading,'Finished while hidden');assert.notEqual(hiddenEntry.frame.data,oldFrame,'hidden finish retains current final frame');assert.equal(hiddenEntry.state.status,'ended');
+  await writeFile(join(root,'index.html'),html.replace('Old HTML','Finished while hidden'));await hiddenFinish.close(true);assert.equal(lastHeading,'Finished while hidden');assert.equal(frames,0,'no hidden final-frame transport');assert.equal(hiddenEntry.state.status,'ended');
   const withoutLive=new ProjectBrowserSession(root,join(outside,'captures'));await withoutLive.execute({action:'open'},signal,approve);assert.equal(withoutLive.watcher,undefined);await withoutLive.close();
   console.log(JSON.stringify({result:'PASS',html:true,css:true,javascript:true,burstSaves:12,burstReloads:1,nested:true,atomicSave:true,scope:true,irrelevantLogTraffic:true,symlinks:true,clickFillSerialized:true,hiddenAndChatSwitch:true,canvas:true,loopback:true,hmrSkipped:true,stop:true,finishFlush:true,hiddenFinish:true,stopDuringFinish:true,noLiveNoWatcher:true,loads,frames}));
 } finally {await session.close();await http?.close();await hmr?.close();await new Promise(resolve=>server?server.close(resolve):resolve());await rm(root,{recursive:true,force:true});await rm(outside,{recursive:true,force:true});}
