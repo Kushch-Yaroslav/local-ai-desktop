@@ -48,7 +48,8 @@ try {
   await page.waitForFunction(async()=>{const c=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');return c.reasoningEffort==='max'&&c.reasoningMode==='deep';});finish();
   await page.waitForFunction(()=>window.controlEvents.filter(e=>e.type==='reasoning-applied').some(e=>e.configuration.reasoningEffort==='max'));
   assert.equal(requests[2].reasoning_effort,'xhigh');
-  await page.locator('.pause-button').click();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='paused'));
+  const rejected=await page.evaluate(async()=>{const chat=(await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace');try{await window.localAi.runtime.control({action:'unload',conversationId:chat.id});return '';}catch(error){return String(error);}});assert.match(rejected,/Pause the active agent/,'IPC must preserve an active task');
+  await page.getByRole('button',{name:'Unload model',exact:true}).click();const unload=page.getByRole('dialog',{name:'Unload model',exact:true});assert(await unload.getByRole('button',{name:'Unload model',exact:true}).isDisabled());await unload.getByRole('button',{name:'Request safe Pause',exact:true}).click();await page.waitForFunction(()=>window.controlEvents.some(e=>e.type==='paused'));await unload.getByRole('button',{name:'Unload model',exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('dialog[aria-label="Unload model"] footer button:last-child').disabled);await unload.getByRole('button',{name:'Cancel',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.send-button:not(.stop)'));
   assert(await page.getByRole('status').filter({hasText:'Paused'}).count());
   await toggle.click();assert.match(await page.locator('.runtime-state').innerText(),/Paused/);await toggle.click();

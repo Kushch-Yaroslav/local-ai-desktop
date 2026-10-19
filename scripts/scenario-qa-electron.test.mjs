@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {_electron} from 'playwright-core';
-const root=await mkdtemp('/tmp/lad-scenario-ui-'),output=resolve('docs/test-results/scenario-qa');await mkdir(output,{recursive:true});let app;
+const root=await mkdtemp('/tmp/lad-scenario-ui-'),output=resolve(process.env.LOCAL_AI_TEST_RESULTS_DIR??'docs/test-results/scenario-qa');await mkdir(output,{recursive:true});let app;
 try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
  const page=await app.firstWindow();await page.locator('.conversation').waitFor();

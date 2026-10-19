@@ -1,0 +1,93 @@
+Read-only extract from runtime/logs/llama-cpp-mtp-launcher.log; original lines 550736–550780 and 550789–550833. User log remains unchanged.
+
+2026-10-19T18:21:56+03:00 context.policy variant=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=14
+2026-10-19T18:22:03+03:00 llama-server.start variant=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 runtime_model_id=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T18:22:03+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 --host 127.0.0.1 --port 8081 --ctx-size 32768 --gpu-layers 14 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --no-warmup --spec-type none
+2026-10-19T18:22:03+03:00 llama-server.pid=161467
+1.04.353.632 D llama_kv_cache: layer  24: dev = CUDA0
+1.04.353.633 D llama_kv_cache: layer  25: filtered
+1.04.353.634 D llama_kv_cache: layer  26: dev = CUDA0
+1.04.353.635 D llama_kv_cache: layer  27: filtered
+1.04.353.635 D llama_kv_cache: layer  28: dev = CUDA0
+1.04.353.636 D llama_kv_cache: layer  29: filtered
+1.04.353.636 D llama_kv_cache: layer  30: dev = CUDA0
+1.04.353.636 D llama_kv_cache: layer  31: filtered
+1.04.353.637 D llama_kv_cache: layer  32: dev = CUDA0
+1.04.353.638 D llama_kv_cache: layer  33: filtered
+1.04.353.638 D llama_kv_cache: layer  34: dev = CUDA0
+1.04.353.639 D llama_kv_cache: layer  35: filtered
+1.04.353.643 I llama_kv_cache:        CPU KV buffer size =     9.56 MiB
+1.04.354.224 I llama_kv_cache:      CUDA0 KV buffer size =     4.78 MiB
+1.04.354.340 I llama_kv_cache: size =   14.34 MiB (   768 cells,  18 layers,  1/1 seqs), K (q8_0):    7.17 MiB, V (q8_0):    7.17 MiB
+1.04.354.342 I llama_kv_cache: attn_rot_k = 1, n_embd_head_k_all = 64
+1.04.354.342 I llama_kv_cache: attn_rot_v = 1, n_embd_head_k_all = 64
+1.04.354.347 D llama_context: enumerating backends
+1.04.355.612 D llama_context: backend_ptrs.size() = 2
+1.04.355.614 I sched_reserve: reserving ...
+1.04.355.616 D sched_reserve: max_nodes = 5496
+1.04.356.076 D sched_reserve: reserving full memory module
+1.04.356.278 D sched_reserve: worst-case: n_tokens = 512, n_seqs = 1, n_outputs = 1
+1.04.356.280 I resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+1.04.356.281 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+1.04.357.402 I resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+1.04.357.404 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+1.04.357.998 I resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+1.04.358.000 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+1.04.358.525 I resolve_fused_ops: fused DeepSeek V4 HC post enabled
+1.04.358.527 D graph_reserve: reserving a graph for ubatch with n_tokens =  512, n_seqs =  1, n_outputs =    1
+1.04.361.226 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 651.30 MiB on device 0: cudaMalloc failed: out of memory
+1.04.361.231 E ggml_gallocr_reserve_n_impl: failed to allocate CUDA0 buffer of size 682937472
+1.04.361.232 E graph_reserve: failed to allocate compute buffers
+1.04.401.459 E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers
+1.04.401.464 E cmn  common_init_: failed to create context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+1.04.401.468 E cmn  common_init_: failed to create context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+1.04.401.471 E srv    load_model: failed to create_context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+1.04.401.473 I srv    operator(): operator(): cleaning up before exit...
+1.04.405.240 E srv  llama_server: exiting due to model loading error
+2026-10-19T18:23:11+03:00 runtime.switch request=6c475ea9-bdd8-482d-812b-df15cfa8248c result=failed error=llama-server завершился до health check: недостаточно видеопамяти (CUDA out of memory) для gpt-oss-120b-Q4 с контекстом 32768; закройте приложения, использующие GPU, или выберите меньший контекст
+
+2026-10-19T18:33:46+03:00 context.policy variant=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=14
+2026-10-19T18:33:53+03:00 llama-server.start variant=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 runtime_model_id=custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T18:33:53+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:3ae94365-3eeb-4f3a-af7c-e4e48d373381 --host 127.0.0.1 --port 8081 --ctx-size 32768 --gpu-layers 14 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --no-warmup --spec-type none
+2026-10-19T18:33:53+03:00 llama-server.pid=168155
+0.46.485.627 D llama_kv_cache: layer  24: dev = CUDA0
+0.46.485.628 D llama_kv_cache: layer  25: filtered
+0.46.485.629 D llama_kv_cache: layer  26: dev = CUDA0
+0.46.485.630 D llama_kv_cache: layer  27: filtered
+0.46.485.638 D llama_kv_cache: layer  28: dev = CUDA0
+0.46.485.639 D llama_kv_cache: layer  29: filtered
+0.46.485.639 D llama_kv_cache: layer  30: dev = CUDA0
+0.46.485.640 D llama_kv_cache: layer  31: filtered
+0.46.485.640 D llama_kv_cache: layer  32: dev = CUDA0
+0.46.485.641 D llama_kv_cache: layer  33: filtered
+0.46.485.641 D llama_kv_cache: layer  34: dev = CUDA0
+0.46.485.642 D llama_kv_cache: layer  35: filtered
+0.46.485.648 I llama_kv_cache:        CPU KV buffer size =     9.56 MiB
+0.46.486.170 I llama_kv_cache:      CUDA0 KV buffer size =     4.78 MiB
+0.46.486.268 I llama_kv_cache: size =   14.34 MiB (   768 cells,  18 layers,  1/1 seqs), K (q8_0):    7.17 MiB, V (q8_0):    7.17 MiB
+0.46.486.270 I llama_kv_cache: attn_rot_k = 1, n_embd_head_k_all = 64
+0.46.486.271 I llama_kv_cache: attn_rot_v = 1, n_embd_head_k_all = 64
+0.46.486.275 D llama_context: enumerating backends
+0.46.487.470 D llama_context: backend_ptrs.size() = 2
+0.46.487.472 I sched_reserve: reserving ...
+0.46.487.474 D sched_reserve: max_nodes = 5496
+0.46.487.922 D sched_reserve: reserving full memory module
+0.46.487.927 D sched_reserve: worst-case: n_tokens = 512, n_seqs = 1, n_outputs = 1
+0.46.487.928 I resolve_fused_ops: resolving fused DeepSeek V4 HC support:
+0.46.487.929 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+0.46.488.727 I resolve_fused_ops: fused DeepSeek V4 HC pre enabled
+0.46.488.729 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+0.46.489.740 I resolve_fused_ops: fused DeepSeek V4 HC comb enabled
+0.46.489.743 D graph_reserve: reserving a graph for ubatch with n_tokens =    1, n_seqs =  1, n_outputs =    1
+0.46.490.413 I resolve_fused_ops: fused DeepSeek V4 HC post enabled
+0.46.490.415 D graph_reserve: reserving a graph for ubatch with n_tokens =  512, n_seqs =  1, n_outputs =    1
+0.46.492.899 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 651.30 MiB on device 0: cudaMalloc failed: out of memory
+0.46.492.904 E ggml_gallocr_reserve_n_impl: failed to allocate CUDA0 buffer of size 682937472
+0.46.492.905 E graph_reserve: failed to allocate compute buffers
+0.46.524.173 E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers
+0.46.524.178 E cmn  common_init_: failed to create context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+0.46.524.182 E cmn  common_init_: failed to create context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+0.46.524.186 E srv    load_model: failed to create_context with model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+0.46.524.188 I srv    operator(): operator(): cleaning up before exit...
+0.46.524.863 E srv  llama_server: exiting due to model loading error
+2026-10-19T18:34:42+03:00 runtime.switch request=a0c39330-53ef-4248-a732-abb643872f82 result=failed error=llama-server завершился до health check: недостаточно видеопамяти (CUDA out of memory) для gpt-oss-120b-Q4 с контекстом 32768; закройте приложения, использующие GPU, или выберите меньший контекст

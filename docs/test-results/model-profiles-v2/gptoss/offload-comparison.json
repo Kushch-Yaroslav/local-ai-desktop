@@ -1,0 +1,84 @@
+{
+  "scope": "Real GPT-OSS-120B, same 79-token prompt, 112 generated tokens, temperature 0, Low effort, one bounded sample per placement; not a standardized benchmark",
+  "baseline": {
+    "modelMiB": {
+      "CPU_Mapped": 41317.509999999995,
+      "CUDA0": 18600.62
+    },
+    "kvMiB": {
+      "CPU": 411.45,
+      "CUDA0": 205.33
+    },
+    "computeMiB": {
+      "CUDA0": 588.14,
+      "CUDA_Host": 10.94
+    },
+    "source": "owned-server-log",
+    "observedAt": "2026-10-19T20:12:36.661Z",
+    "offloadedLayers": 12,
+    "reportedLayers": 37
+  },
+  "moe": {
+    "modelMiB": {
+      "CPU_Mapped": 46229.86,
+      "CUDA0": 13746.94
+    },
+    "kvMiB": {
+      "CPU": 411.45,
+      "CUDA0": 205.33
+    },
+    "computeMiB": {
+      "CUDA0": 588.14,
+      "CUDA_Host": 10.94
+    },
+    "source": "owned-server-log",
+    "observedAt": "2026-10-19T20:12:36.662Z",
+    "offloadedLayers": 12,
+    "reportedLayers": 37
+  },
+  "generation": [
+    {
+      "placement": "12 GPU layers",
+      "cache_n": 0,
+      "prompt_n": 79,
+      "prompt_ms": 11799.102,
+      "prompt_per_token_ms": 149.35572151898734,
+      "prompt_per_second": 6.695424787411787,
+      "predicted_n": 112,
+      "predicted_ms": 9061.314,
+      "predicted_per_token_ms": 81.63345945945946,
+      "predicted_per_second": 12.249878991060237
+    },
+    {
+      "placement": "12 GPU layers + first 28 expert layers CPU",
+      "cache_n": 0,
+      "prompt_n": 79,
+      "prompt_ms": 11562.318,
+      "prompt_per_token_ms": 146.35845569620253,
+      "prompt_per_second": 6.832539980304988,
+      "predicted_n": 112,
+      "predicted_ms": 9408.428,
+      "predicted_per_token_ms": 84.76061261261262,
+      "predicted_per_second": 11.797932662077024
+    }
+  ],
+  "peakCaveat": "attempt peakTotalGpuMiB includes the previous backend at the start of a restart; compare model buffer allocations rather than attributing that peak to the new placement",
+  "cleanup": [
+    {
+      "pid": 322128,
+      "alive": false
+    },
+    {
+      "pid": 324727,
+      "alive": false
+    },
+    {
+      "pid": 326255,
+      "alive": false
+    },
+    {
+      "pid": 329852,
+      "alive": false
+    }
+  ]
+}

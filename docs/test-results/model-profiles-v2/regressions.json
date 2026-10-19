@@ -1,0 +1,207 @@
+[
+  {
+    "test": "dist/main/services/database.test.js",
+    "code": 0,
+    "elapsedMs": 1393.000817
+  },
+  {
+    "test": "dist/main/services/gguf-artifacts.test.js",
+    "code": 0,
+    "elapsedMs": 32.71722700000009
+  },
+  {
+    "test": "dist/shared/reasoning-controls.test.js",
+    "code": 0,
+    "elapsedMs": 2465.7877419999995
+  },
+  {
+    "test": "scripts/scenario-qa.test.mjs",
+    "code": 0,
+    "elapsedMs": 22465.510951
+  },
+  {
+    "test": "scripts/scenario-qa-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 4446.563339
+  },
+  {
+    "test": "scripts/scenario-gate-runtime.test.mjs",
+    "code": 0,
+    "elapsedMs": 14110.620002999996
+  },
+  {
+    "test": "dist/main/services/mtp-capability.test.js",
+    "code": 0,
+    "elapsedMs": 116.32000100000005
+  },
+  {
+    "test": "dist/main/services/runtime-settings.test.js",
+    "code": 0,
+    "elapsedMs": 1913.657619000005
+  },
+  {
+    "test": "dist/main/models/llama-launch-config.test.js",
+    "code": 0,
+    "elapsedMs": 2746.827747999996
+  },
+  {
+    "test": "dist/main/services/browser-vision.test.js",
+    "code": 0,
+    "elapsedMs": 165.20937299999787
+  },
+  {
+    "test": "dist/main/web/qa-loop-guard.test.js",
+    "code": 0,
+    "elapsedMs": 118.50623799999448
+  },
+  {
+    "test": "dist/main/tools/tool-security.test.js",
+    "code": 0,
+    "elapsedMs": 127.47818299999926
+  },
+  {
+    "test": "dist/main/services/protected-runtime.test.js",
+    "code": 0,
+    "elapsedMs": 1400.4977289999952
+  },
+  {
+    "test": "dist/main/services/rust-agent-runtime.test.js",
+    "code": 0,
+    "elapsedMs": 3860.4888520000095
+  },
+  {
+    "test": "dist/main/ipc/logical-task-runtime.test.js",
+    "code": 0,
+    "elapsedMs": 29745.975479999994
+  },
+  {
+    "test": "dist/main/ipc/context-profiles.test.js",
+    "code": 0,
+    "elapsedMs": 6406.989170999994
+  },
+  {
+    "test": "scripts/p3-qa-semantics.test.mjs",
+    "code": 0,
+    "elapsedMs": 15023.59506800001
+  },
+  {
+    "test": "scripts/renderer-runtime-status.test.mjs",
+    "code": 0,
+    "elapsedMs": 380.3205200000084
+  },
+  {
+    "test": "scripts/p2-browser-qa.test.mjs",
+    "code": 0,
+    "elapsedMs": 9145.656214999995
+  },
+  {
+    "test": "scripts/p2-gate-runtime.test.mjs",
+    "code": 0,
+    "elapsedMs": 6671.982635000022
+  },
+  {
+    "test": "scripts/p2-controls-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 6488.061172000016
+  },
+  {
+    "test": "scripts/p2-qa-panel-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 8627.490412999992
+  },
+  {
+    "test": "scripts/mtp-ui.test.mjs",
+    "code": 0,
+    "elapsedMs": 12658.908540000004
+  },
+  {
+    "test": "scripts/runtime-controls-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 27599.08473199999
+  },
+  {
+    "test": "scripts/native-browser-assets.test.mjs",
+    "code": 0,
+    "elapsedMs": 3723.506911000004
+  },
+  {
+    "test": "scripts/native-browser-lineage.test.mjs",
+    "code": 0,
+    "elapsedMs": 11080.16175900001
+  },
+  {
+    "test": "scripts/native-browser.test.mjs",
+    "code": 0,
+    "elapsedMs": 30439.840702000016
+  },
+  {
+    "test": "scripts/llama-launch-config.test.sh",
+    "code": 0,
+    "elapsedMs": 1061.7682720000157
+  },
+  {
+    "test": "scripts/electron-sandbox.test.sh",
+    "code": 0,
+    "elapsedMs": 34.49507699999958
+  },
+  {
+    "test": "scripts/llama-launcher-idle.test.sh",
+    "code": 0,
+    "elapsedMs": 1214.5115840000217
+  },
+  {
+    "test": "scripts/live-browser-autoreload.test.mjs",
+    "code": 0,
+    "elapsedMs": 28242.60962599999
+  },
+  {
+    "test": "scripts/live-browser-autoreload-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 7152.722486000042
+  },
+  {
+    "test": "dist/main/backends/llama-cpp-backend.test.js",
+    "code": 0,
+    "elapsedMs": 390.94892000000004
+  },
+  {
+    "test": "scripts/qa-loop-runtime.test.mjs",
+    "code": 0,
+    "elapsedMs": 12255.034619
+  },
+  {
+    "test": "scripts/llama-launcher-failure.test.sh",
+    "code": 0,
+    "elapsedMs": 198.59134399999857
+  },
+  {
+    "test": "dist/main/services/llama-runtime-controller.test.js",
+    "code": 0,
+    "elapsedMs": 2553.198055
+  },
+  {
+    "test": "scripts/p3-panel-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 5306.912535000001
+  },
+  {
+    "test": "scripts/runtime-controls-ui.test.mjs",
+    "code": 0,
+    "elapsedMs": 7149.440262
+  },
+  {
+    "test": "scripts/model-profiles-v2.test.mjs",
+    "code": 0,
+    "elapsedMs": 52.249465
+  },
+  {
+    "test": "scripts/model-profiles-electron.test.mjs",
+    "code": 0,
+    "elapsedMs": 5211.1108859999995
+  },
+  {
+    "test": "dist/main/models/model-capabilities.test.js",
+    "code": 0,
+    "elapsedMs": 2460.146622
+  }
+]

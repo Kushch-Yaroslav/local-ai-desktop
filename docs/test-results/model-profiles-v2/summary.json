@@ -1,0 +1,47 @@
+{
+  "result": "PASS",
+  "at": "2026-10-19T20:19:10.697829+00:00",
+  "branch": "feature/v0.3-model-profiles-v2",
+  "recoveryCommit": "1856bf6",
+  "implementationCommits": [
+    "0e4e28b",
+    "b6a50a6"
+  ],
+  "build": "PASS",
+  "typescript": "PASS (renderer and main/preload)",
+  "eslint": "PASS",
+  "rust": {
+    "passed": 390,
+    "ignored": 1,
+    "failed": 0
+  },
+  "automatedSuites": {
+    "passed": 41,
+    "failed": 0,
+    "manifest": "regressions.json",
+    "scope": "Real Electron/Chromium/IPC/SQLite with synthetic metadata or scripted inference as labelled"
+  },
+  "realInference": {
+    "gptoss": "gptoss/result.json; recorded real lifecycle in gptoss/result-before-tool-event-merge-assertion.json, replay-validated by tool ID",
+    "offload": "gptoss/offload-comparison.json",
+    "qwenReload": "qwen-reload.json",
+    "customQwenAutomaticMtpVision": "qwen-custom.json"
+  },
+  "historicalOom": "gptoss/historical-14-layer-compute-oom.txt",
+  "preservation": {
+    "userRuntime": "untouched by tests; all tests use own /tmp roots",
+    "NEXUS": "unchanged",
+    "GGUF": "read only",
+    "deb": "unchanged",
+    "appVersion": "unchanged",
+    "mainMerge": false,
+    "release": false
+  },
+  "limitations": [
+    "No new real runs for every Gemma/GLM/Devstral/Llama weight family",
+    "GPT-OSS Agent reliability tested only on bounded safe read-only scenario",
+    "13 layers remain experimental; historical 14-layer attempt not rerun",
+    "Not all tensor/device combinations executed",
+    "One initial QA Blocked outcome under concurrent load was not raw-captured; exact cause unconfirmed, final guard reruns passed; test now preserves reports before assertion"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-profiles-v2-tklDNv",
+  "scope": "Synthetic GGUF metadata, real persistence/request builders; no inference",
+  "checks": [
+    "families",
+    "manual override cannot grant capability",
+    "Harmony effort and channels",
+    "Qwen toggle",
+    "Strategy independence",
+    "profile isolation",
+    "GGUF context",
+    "persisted advanced settings",
+    "CLI validation",
+    "preset architecture/quant/shape matching",
+    "no reload from effort/name/security flags"
+  ],
+  "args": [
+    "--fit",
+    "off",
+    "--n-cpu-moe",
+    "4",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "512",
+    "--ubatch-size",
+    "128",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "mmap",
+    "--override-tensor",
+    "blk\\.0\\.ffn_.*=CPU"
+  ],
+  "gpt": {
+    "status": "inspected",
+    "detectedFamily": "gpt-oss",
+    "selectedFamily": "auto",
+    "effectiveFamily": "gpt-oss",
+    "architecture": "gpt-oss",
+    "template": "harmony",
+    "fileType": 15,
+    "quantization": "Q4_K_M",
+    "trainedContext": 131072,
+    "layers": 36,
+    "experts": 128,
+    "activeExperts": 4,
+    "reasoning": {
+      "thinkingToggle": false,
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "toolTemplate": true
+  }
+}

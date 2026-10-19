@@ -1,0 +1,21 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-profile-ui-FilrpZ",
+  "scope": "Real Electron/SQLite/UI; controlled backend, simulated CUDA failure",
+  "checks": [
+    "Strategy",
+    "GPT efforts",
+    "manual override cannot invent Thinking",
+    "save without restart",
+    "old/new GPU dialog",
+    "apply",
+    "rollback",
+    "no stale error",
+    "diagnostics history",
+    "profile persistence",
+    "no false reload",
+    "unload/reload",
+    "same Electron PID",
+    "RU/EN"
+  ]
+}

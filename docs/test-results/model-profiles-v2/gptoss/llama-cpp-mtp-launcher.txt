@@ -1,0 +1,93 @@
+2026-10-19T23:06:36+03:00 ===== launcher.started pid=321841 =====
+2026-10-19T23:06:36+03:00 cwd=/media/yaroslav/DATA/local-ai-desktop project_root=/media/yaroslav/DATA/local-ai-desktop initial_path=/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/yaroslav/.local/bin:/home/yaroslav/bin:/home/yaroslav/.codex/tmp/arg0/codex-arg0EQYohA:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/node_modules/.bin:/home/yaroslav/.cache/JetBrains/node_modules/.bin:/home/yaroslav/.cache/node_modules/.bin:/home/yaroslav/node_modules/.bin:/home/node_modules/.bin:/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/.runtimes/node/24.19.0/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/.runtimes/node/24.19.0/bin:/home/yaroslav/.local/bin:/home/yaroslav/bin:/media/yaroslav/DATA/Apps/jan:/home/yaroslav/.local/share/pnpm:/usr/local/cuda-12.6/bin:/home/yaroslav/.nvm/versions/node/v22.22.3/bin:/home/yaroslav/.cargo/bin:/home/yaroslav/.local/bin:/home/yaroslav/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin effective_path=/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/yaroslav/.local/bin:/home/yaroslav/bin:/home/yaroslav/.codex/tmp/arg0/codex-arg0EQYohA:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/2.2.2/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/codex-acp/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/node_modules/.bin:/home/yaroslav/.cache/JetBrains/node_modules/.bin:/home/yaroslav/.cache/node_modules/.bin:/home/yaroslav/node_modules/.bin:/home/node_modules/.bin:/node_modules/.bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/.runtimes/node/24.19.0/lib/node_modules/npm/node_modules/@npmcli/run-script/lib/node-gyp-bin:/home/yaroslav/.cache/JetBrains/WebStorm2026.2/acp-agents/.runtimes/node/24.19.0/bin:/home/yaroslav/.local/bin:/home/yaroslav/bin:/media/yaroslav/DATA/Apps/jan:/home/yaroslav/.local/share/pnpm:/usr/local/cuda-12.6/bin:/home/yaroslav/.nvm/versions/node/v22.22.3/bin:/home/yaroslav/.cargo/bin:/home/yaroslav/.local/bin:/home/yaroslav/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin:/home/yaroslav/.local/bin display=:0 wayland_display= xdg_runtime_dir=/run/user/1000
+2026-10-19T23:06:36+03:00 electron=/media/yaroslav/DATA/local-ai-desktop/node_modules/electron/dist/electron llama_server=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server port=40151 startup_selection=none
+2026-10-19T23:06:36+03:00 headless=true state=idle electron=skipped
+2026-10-19T23:06:36+03:00 runtime.switch request=c782c4d6-40d6-4463-8bb6-b77e9bee836a from=none/0/f16/1 to=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 electron_pid=none
+2026-10-19T23:06:39+03:00 context.policy variant=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=12
+2026-10-19T23:06:40+03:00 llama-server.start variant=custom:123e4567-e89b-42d3-a456-426614174120 runtime_model_id=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T23:06:40+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:123e4567-e89b-42d3-a456-426614174120 --host 127.0.0.1 --port 40151 --ctx-size 32768 --gpu-layers 12 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --fit off --threads 8 --threads-batch 8 --batch-size 512 --ubatch-size 128 --flash-attn on --load-mode mmap --no-warmup --spec-type none
+2026-10-19T23:06:40+03:00 llama-server.pid=322128
+2026-10-19T23:07:11+03:00 health.result=ok seconds=30
+2026-10-19T23:07:11+03:00 kv.effective type=q8_0 cache_lines=2 offload=1
+2026-10-19T23:07:11+03:00 runtime.ready model=custom:123e4567-e89b-42d3-a456-426614174120 context=32768 kv_type=q8_0 kv_offload=1 pid=322128
+2026-10-19T23:07:11+03:00 runtime.switch request=c782c4d6-40d6-4463-8bb6-b77e9bee836a result=ready
+2026-10-19T23:07:12+03:00 runtime.switch request=98bafb0a-300d-409e-bd15-ce3c957edafb from=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 to=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 electron_pid=none
+2026-10-19T23:07:14+03:00 llama-server.stop pid=322128 signal=TERM
+2026-10-19T23:07:17+03:00 context.policy variant=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=20
+2026-10-19T23:07:17+03:00 llama-server.start variant=custom:123e4567-e89b-42d3-a456-426614174120 runtime_model_id=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T23:07:17+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:123e4567-e89b-42d3-a456-426614174120 --host 127.0.0.1 --port 40151 --ctx-size 32768 --gpu-layers 20 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --fit off --threads 8 --threads-batch 8 --batch-size 512 --ubatch-size 128 --flash-attn on --load-mode mmap --no-warmup --spec-type none
+2026-10-19T23:07:17+03:00 llama-server.pid=323380
+0.01.013.534 D create_tensor: loading tensor blk.33.ffn_gate_exps.input_scale
+0.01.013.537 D create_tensor: loading tensor blk.33.ffn_down_exps.input_scale
+0.01.013.540 D create_tensor: loading tensor blk.33.ffn_up_exps.input_scale
+0.01.013.542 D create_tensor: loading tensor blk.34.attn_q.scale
+0.01.013.545 D create_tensor: loading tensor blk.34.attn_k.scale
+0.01.013.547 D create_tensor: loading tensor blk.34.attn_v.scale
+0.01.013.550 D create_tensor: loading tensor blk.34.attn_output.scale
+0.01.013.553 D create_tensor: loading tensor blk.34.ffn_gate_exps.scale
+0.01.013.555 D create_tensor: loading tensor blk.34.ffn_down_exps.scale
+0.01.013.558 D create_tensor: loading tensor blk.34.ffn_up_exps.scale
+0.01.013.561 D create_tensor: loading tensor blk.34.attn_q.input_scale
+0.01.013.563 D create_tensor: loading tensor blk.34.attn_k.input_scale
+0.01.013.566 D create_tensor: loading tensor blk.34.attn_v.input_scale
+0.01.013.568 D create_tensor: loading tensor blk.34.attn_output.input_scale
+0.01.013.571 D create_tensor: loading tensor blk.34.ffn_gate_exps.input_scale
+0.01.013.574 D create_tensor: loading tensor blk.34.ffn_down_exps.input_scale
+0.01.013.576 D create_tensor: loading tensor blk.34.ffn_up_exps.input_scale
+0.01.013.579 D create_tensor: loading tensor blk.35.attn_q.scale
+0.01.013.582 D create_tensor: loading tensor blk.35.attn_k.scale
+0.01.013.584 D create_tensor: loading tensor blk.35.attn_v.scale
+0.01.013.587 D create_tensor: loading tensor blk.35.attn_output.scale
+0.01.013.590 D create_tensor: loading tensor blk.35.ffn_gate_exps.scale
+0.01.013.593 D create_tensor: loading tensor blk.35.ffn_down_exps.scale
+0.01.013.596 D create_tensor: loading tensor blk.35.ffn_up_exps.scale
+0.01.013.599 D create_tensor: loading tensor blk.35.attn_q.input_scale
+0.01.013.602 D create_tensor: loading tensor blk.35.attn_k.input_scale
+0.01.013.604 D create_tensor: loading tensor blk.35.attn_v.input_scale
+0.01.013.607 D create_tensor: loading tensor blk.35.attn_output.input_scale
+0.01.013.610 D create_tensor: loading tensor blk.35.ffn_gate_exps.input_scale
+0.01.013.613 D create_tensor: loading tensor blk.35.ffn_down_exps.input_scale
+0.01.013.616 D create_tensor: loading tensor blk.35.ffn_up_exps.input_scale
+0.01.013.623 D done_getting_tensors: tensor 'token_embd.weight' (q5_0) (and 323 others) cannot be used with preferred buffer type CUDA_Host, using CPU instead
+0.42.224.450 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 31700.45 MiB on device 0: cudaMalloc failed: out of memory
+0.42.227.420 E alloc_tensor_range: failed to allocate CUDA0 buffer of size 33240326016
+0.44.253.469 E llama_model_load: error loading model: unable to allocate CUDA0 buffer
+0.44.253.479 E llama_model_load_from_file_impl: failed to load model
+0.44.266.170 E cmn  common_init_: failed to load model '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+0.44.267.687 E srv    load_model: failed to load model, '/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf'
+0.44.268.294 I srv    operator(): operator(): cleaning up before exit...
+0.44.272.906 E srv  llama_server: exiting due to model loading error
+2026-10-19T23:08:03+03:00 runtime.switch request=98bafb0a-300d-409e-bd15-ce3c957edafb result=failed error=llama-server завершился до health check: недостаточно видеопамяти (CUDA out of memory) для Owned GPT-OSS-120B fixture с контекстом 32768; закройте приложения, использующие GPU, или выберите меньший контекст
+2026-10-19T23:08:03+03:00 runtime.switch request=98bafb0a-300d-409e-bd15-ce3c957edafb rollback=custom:123e4567-e89b-42d3-a456-426614174120/32768
+2026-10-19T23:08:03+03:00 context.policy variant=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=12
+2026-10-19T23:08:05+03:00 llama-server.start variant=custom:123e4567-e89b-42d3-a456-426614174120 runtime_model_id=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T23:08:05+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:123e4567-e89b-42d3-a456-426614174120 --host 127.0.0.1 --port 40151 --ctx-size 32768 --gpu-layers 12 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --fit off --threads 8 --threads-batch 8 --batch-size 512 --ubatch-size 128 --flash-attn on --load-mode mmap --no-warmup --spec-type none
+2026-10-19T23:08:05+03:00 llama-server.pid=324727
+2026-10-19T23:08:48+03:00 health.result=ok seconds=41
+2026-10-19T23:08:48+03:00 kv.effective type=q8_0 cache_lines=2 offload=1
+2026-10-19T23:08:48+03:00 runtime.ready model=custom:123e4567-e89b-42d3-a456-426614174120 context=32768 kv_type=q8_0 kv_offload=1 pid=324727
+2026-10-19T23:08:48+03:00 runtime.switch request=98bafb0a-300d-409e-bd15-ce3c957edafb rollback=ready
+2026-10-19T23:08:48+03:00 runtime.switch request=885d38e2-3a91-46b6-9f74-5dbcac53c2e7 from=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 to=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 electron_pid=none
+2026-10-19T23:08:54+03:00 llama-server.stop pid=324727 signal=TERM
+2026-10-19T23:08:57+03:00 context.policy variant=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=12
+2026-10-19T23:08:57+03:00 llama-server.start variant=custom:123e4567-e89b-42d3-a456-426614174120 runtime_model_id=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T23:08:57+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:123e4567-e89b-42d3-a456-426614174120 --host 127.0.0.1 --port 40151 --ctx-size 32768 --gpu-layers 12 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --fit off --threads 8 --threads-batch 8 --batch-size 512 --ubatch-size 128 --flash-attn on --load-mode mmap --no-warmup --spec-type none
+2026-10-19T23:08:57+03:00 llama-server.pid=326255
+2026-10-19T23:09:41+03:00 health.result=ok seconds=42
+2026-10-19T23:09:41+03:00 kv.effective type=q8_0 cache_lines=2 offload=1
+2026-10-19T23:09:41+03:00 runtime.ready model=custom:123e4567-e89b-42d3-a456-426614174120 context=32768 kv_type=q8_0 kv_offload=1 pid=326255
+2026-10-19T23:09:41+03:00 runtime.switch request=885d38e2-3a91-46b6-9f74-5dbcac53c2e7 result=ready
+2026-10-19T23:10:02+03:00 runtime.switch request=41847623-214d-41de-a453-bf2d55747379 from=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 to=custom:123e4567-e89b-42d3-a456-426614174120/32768/q8_0/1 electron_pid=none
+2026-10-19T23:10:04+03:00 llama-server.stop pid=326255 signal=TERM
+2026-10-19T23:10:07+03:00 context.policy variant=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 gpu_layers=12
+2026-10-19T23:10:20+03:00 llama-server.start variant=custom:123e4567-e89b-42d3-a456-426614174120 runtime_model_id=custom:123e4567-e89b-42d3-a456-426614174120 ctx_size=32768 kv_type=q8_0 kv_offload=1 model=/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf mmproj=none
+2026-10-19T23:10:20+03:00 llama-server.command=/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server --log-verbosity 5 -m /media/yaroslav/01D9B3596C5596B0/LINUX-LLM/gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M/openai_gpt-oss-120b-Q4_K_M-00001-of-00002.gguf --alias custom:123e4567-e89b-42d3-a456-426614174120 --host 127.0.0.1 --port 40151 --ctx-size 32768 --gpu-layers 12 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload --parallel 1 --jinja --reasoning on --reasoning-format auto --fit off --n-cpu-moe 28 --threads 8 --threads-batch 8 --batch-size 512 --ubatch-size 128 --flash-attn on --load-mode mmap --no-warmup --spec-type none
+2026-10-19T23:10:20+03:00 llama-server.pid=329852
+2026-10-19T23:10:55+03:00 health.result=ok seconds=33
+2026-10-19T23:10:55+03:00 kv.effective type=q8_0 cache_lines=2 offload=1
+2026-10-19T23:10:55+03:00 runtime.ready model=custom:123e4567-e89b-42d3-a456-426614174120 context=32768 kv_type=q8_0 kv_offload=1 pid=329852
+2026-10-19T23:10:55+03:00 runtime.switch request=41847623-214d-41de-a453-bf2d55747379 result=ready
+2026-10-19T23:11:17+03:00 llama-server.stop pid=329852 signal=TERM
+2026-10-19T23:11:19+03:00 runtime.unload request=10f7fb76-357f-4068-8001-1f1e334e6523 result=stopped
+2026-10-19T23:11:19+03:00 launcher.cleanup reason=SIGTERM status=143 launcher_pid=321841 electron_pid=none server_pid=none
+2026-10-19T23:11:19+03:00 launcher.exit status=143
