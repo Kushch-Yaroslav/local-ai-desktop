@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { statSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 import type { MtpCapability, MtpMode } from '../../shared/types';
 import { readGgufSpeculativeMetadata } from './gguf-speculative';
 import { ggufArtifactPaths } from './gguf-artifacts';
@@ -24,24 +24,47 @@ export function embeddedMtpCapability(path: string): MtpCapability {
     return { supported: true, status: 'available', architecture, heads, reason: 'Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.' };
   } catch (error) { return { supported: false, status: 'error', reason: `Cannot inspect MTP weights: ${error instanceof Error ? error.message : String(error)}` }; }
 }
-const probes = new Map<string, Promise<boolean>>();
-export function backendMtpCapability(input: string | null): Promise<boolean> {
-  if (!input) return Promise.resolve(false);
+export type BackendMtpProbe = { status: 'supported' | 'unsupported' | 'error'; path?: string; reason: string };
+const probes = new Map<string, Promise<BackendMtpProbe>>();
+/** Read the option's entire help block, including wrapped enum values. */
+export function advertisesMtp(help: string): boolean {
+  const block = /(?:^|\s)--spec-type\b([\s\S]*?)(?=\n\S|$)/.exec(help);
+  return Boolean(block && /\bdraft-mtp\b/.test(block[1]));
+}
+export async function probeBackendMtp(input: string | null): Promise<BackendMtpProbe> {
   try {
-    const path = executablePath(input), file = statSync(path);
-    const key = `${path}:${file.size}:${file.mtimeMs}:${file.ctimeMs}`;
+    // Match runtimeSetup's PATH fallback rather than treating an unset override
+    // as proof that the launcher cannot support MTP.
+    const path = realpathSync(executablePath(input ?? 'llama-server')), file = statSync(path);
+    const key = `${path}:${file.dev}:${file.ino}:${file.size}:${file.mtimeMs}:${file.ctimeMs}:${Math.floor(Date.now() / 60_000)}`;
     let result = probes.get(key);
     if (!result) {
-      result = new Promise<boolean>(resolve => execFile(path, ['--help'], { timeout: 3000, maxBuffer: 256 * 1024, env: { ...process.env, LC_ALL: 'C' } }, (error, stdout, stderr) => resolve(!error && /--spec-type\s[^\n]*\bdraft-mtp\b/.test(stdout + stderr))));
-      probes.set(key, result); if (probes.size > 16) probes.delete(probes.keys().next().value!);
+      result = new Promise<BackendMtpProbe>(resolve => execFile(path, ['--help'], { timeout: 10_000, maxBuffer: 1024 * 1024, env: { ...process.env, LC_ALL: 'C' } }, (error, stdout, stderr) => {
+        if (error) {
+          resolve({ status: 'error', path, reason: `Cannot probe llama-server ${path}: ${error.message}. ${stderr.trim().slice(-1500)}` });
+        } else {
+          const supported = advertisesMtp(stdout + '\n' + stderr);
+          resolve({ status: supported ? 'supported' : 'unsupported', path, reason: supported ? `llama-server ${path} advertises --spec-type draft-mtp.` : `llama-server ${path} --help does not advertise --spec-type draft-mtp.` });
+        }
+      }));
+      probes.set(key, result);
+      if (probes.size > 16) probes.delete(probes.keys().next().value!);
+      // A transient timeout/exec failure is unknown capability, never a cached
+      // negative. Share concurrent probes, allow the next request to recover.
+      void result.then(value => { if (value.status === 'error' && probes.get(key) === result) probes.delete(key); });
     }
-    return result;
-  } catch { return Promise.resolve(false); }
+    return await result;
+  } catch (error) { return { status: 'error', reason: `Cannot resolve llama-server: ${error instanceof Error ? error.message : String(error)}` }; }
+}
+export async function backendMtpCapability(input: string | null): Promise<boolean> {
+  return (await probeBackendMtp(input)).status === 'supported';
 }
 export async function mtpCapability(path: string, server: string | null): Promise<MtpCapability> {
-  const model = embeddedMtpCapability(path), backendSupported = await backendMtpCapability(server);
+  const model = embeddedMtpCapability(path), backend = await probeBackendMtp(server);
+  const backendSupported = backend.status === 'error' ? undefined : backend.status === 'supported';
   if (!model.supported) return { ...model, backendSupported };
-  return backendSupported ? { ...model, backendSupported } : { ...model, supported: false, backendSupported, status: 'unsupported', reason: 'Configured llama-server does not advertise draft-mtp support.' };
+  return backend.status === 'supported' ? { ...model, backendSupported }
+    : { ...model, supported: false, backendSupported, status: backend.status === 'error' ? 'error' : 'unsupported', reason: backend.reason };
 }
 export async function resolveMtpMode(mode: MtpMode, path: string, server: string | null): Promise<'mtp' | 'none'> {
   if (mode === 'off') return 'none';

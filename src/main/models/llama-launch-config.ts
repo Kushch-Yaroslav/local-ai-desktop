@@ -89,11 +89,14 @@ if (require.main === module) {
     const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
     if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
     profile = { ...profile, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
+    if (effectiveRuntimeConfiguration().browserVision === 'on' && (!profile.vision || !profile.mmprojPath)) {
+      throw new Error('Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.');
+    }
     const environment = launchProfileEnvironment(profile);
 
-    if (process.argv[3] === '--verify') {
+    if (process.argv[3] === '--verify' || process.argv[3] === '--preflight') {
       verifyGgufArtifacts(profile.modelPath!);
-      if (profile.hostResidentBudgetBytes !== undefined) verifyHostMemory(profile.hostResidentBudgetBytes);
+      if (process.argv[3] === '--verify' && profile.hostResidentBudgetBytes !== undefined) verifyHostMemory(profile.hostResidentBudgetBytes);
       const mode = effectiveSpeculativeMode(profile, undefined);
       if (mode === 'mtp' && !profile.draft) verifyEmbeddedMtp(profile);
       if (mode !== 'none' && profile.draft) await verifyDraftFile(profile);

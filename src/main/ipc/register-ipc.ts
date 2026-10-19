@@ -591,7 +591,7 @@ export function registerIpc(): void {
           log('context.activation.warning', { ...runtimeActivation });
         }
       }
-      patch = { ...patch, llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload };
+      if (isRuntimeRequest) patch = { ...patch, llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload };
       const runtimeDiffers = runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload;
       // Re-selecting the stored model is a retry when the server is not running it.
       if (runtimeDiffers && (patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined)) {
@@ -609,8 +609,7 @@ export function registerIpc(): void {
           }
           throw new Error(t('После загрузки llama-server не подтвердил поддержку изображений. Запрошенный выбор чата не применён; Browser Vision остаётся ожидающей проверку.'));
         }
-        // A failed switch preserves the requested conversation configuration.
-        // The runtime separately reports the active/rolled-back configuration.
+        // Commit conversation settings only after the backend confirms the switch.
         if (!result.ok) throw new Error(`Не удалось переключить llama.cpp на ${profile.displayName} (${Math.round(contextWindow / 1024)}K, ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}): ${result.error}${result.state.rolledBack ? ` Продолжает работать ${result.state.modelId}.` : result.state.status === 'offline' ? ' llama.cpp сейчас не запущен.' : ''}`);
       }
       if (modelChanged) {
@@ -629,7 +628,6 @@ export function registerIpc(): void {
         const actual = await llamaRuntime.state();
         const reason = error instanceof Error ? error.message : String(error);
         const message = `Не загружено: ${runtimeActivation.contextWindow / 1024}K ${runtimeActivation.kvCacheType}, KV ${runtimeActivation.kvOffload ? 'GPU' : 'RAM'}. ${reason} Активно: ${actual.status === 'ready' ? `${(actual.contextWindow ?? 0) / 1024}K ${actual.kvCacheType ?? '?'}, KV ${actual.kvOffload ? 'GPU' : 'RAM'}` : actual.status}.`;
-        database.updateConversation(id, { modelId: runtimeActivation.modelId, contextWindow: runtimeActivation.contextWindow, llamaKvCacheType: runtimeActivation.kvCacheType, llamaKvOffload: runtimeActivation.kvOffload });
         runtimeActivation = { ...runtimeActivation, phase: 'failed', error: message };
         log('context.activation.failed', { requested: runtimeActivation, actual, reason });
         throw new Error(message);
@@ -711,7 +709,7 @@ export function registerIpc(): void {
     const state = await currentLlamaRuntime();
     const requested = model.mtpMode ?? (model.speculative === 'none' ? 'off' : 'auto');
     const active = state.status === 'ready' && state.modelId === modelId;
-    const effective = active && state.speculativeMode === 'mtp' ? 'active' : active && state.mtpFallbackReason ? 'error' : requested === 'off' ? 'disabled' : !capability.supported ? capability.status === 'requires-weights' ? 'requires-weights' : capability.status === 'error' ? 'error' : 'unsupported' : 'reload-required';
+    const effective = active && state.speculativeMode === 'mtp' ? 'active' : active && state.mtpFallbackReason ? 'disabled' : requested === 'off' ? 'disabled' : !capability.supported ? capability.status === 'requires-weights' ? 'requires-weights' : capability.status === 'error' ? 'error' : 'unsupported' : !active ? 'unloaded' : state.mtpMode !== requested ? 'reload-required' : 'available';
     let diagnostics;
     if (active && state.speculativeMode === 'mtp') {
       try { const response = await fetch(`${llamaCppUrl.replace(/\/$/, '')}/metrics`, { signal: AbortSignal.timeout(1500) }); if (response.ok) diagnostics = parseMtpMetrics((await response.text()).slice(0, 128 * 1024)); } catch { /* Unavailable is not a fabricated zero. */ }
@@ -1145,7 +1143,7 @@ export function registerIpc(): void {
       const response = { ...(thinking.trim() ? { thinking } : {}), ...(thinkingTimeline.length ? { thinkingTimeline } : {}), ...(generationStats ? { generationStats } : {}), ...(generation.richArtifacts.length ? { richArtifacts: generation.richArtifacts } : {}) };
       if (paused && run) {
         sendRun(finishRun('interrupted'));
-        event.sender.send('chat:stream', { type: 'done', conversationId: request.conversationId, generationId: generation.id, assistant: null, finishReason });
+        event.sender.send('chat:stream', { type: 'done', conversationId: request.conversationId, generationId: generation.id, assistant: null, finishReason, paused: true });
         return;
       }
       const result = run ? database.completeAnalysisRun(run.id, output, response) : null;

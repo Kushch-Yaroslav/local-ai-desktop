@@ -9,7 +9,17 @@ node - "$fixture" <<'NODE'
 const fs = require('node:fs'), path = require('node:path');
 const root = process.argv[2], modelsPath = path.join(root, 'models');
 fs.writeFileSync(path.join(modelsPath, 'mmproj-BF16.gguf'), 'GGUF');
-fs.writeFileSync(path.join(root, 'app-data/runtime-settings.json'), JSON.stringify({ modelsPath, models: { 'qwen3.6:35b-a3b-ud-q4_k_m': { mmprojPath: 'mmproj-BF16.gguf' } } }));
+const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;},u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;},text=s=>Buffer.concat([u64(Buffer.byteLength(s)),Buffer.from(s)]);
+function model(file,arch){
+  const metadata=[['general.architecture',arch],[arch+'.block_count',2],[arch+'.embedding_length',4],[arch+'.nextn_predict_layers',1]];
+  const tensors=[['blk.0.attn_norm.weight',[4],0],['blk.1.nextn.eh_proj.weight',[8,4],32],['blk.1.nextn.enorm.weight',[4],160],['blk.1.nextn.hnorm.weight',[4],192]];
+  const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(tensors.length),u64(metadata.length),...metadata.flatMap(([k,v])=>[text(k),u32(typeof v==='string'?8:4),typeof v==='string'?text(v):u32(v)]),...tensors.flatMap(([k,d,o])=>[text(k),u32(d.length),...d.map(u64),u32(0),u64(o)])]);
+  fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,Buffer.concat([header,Buffer.alloc((32-header.length%32)%32),Buffer.alloc(224)]));
+}
+model(path.join(modelsPath,'qwen3.8-27b-q4_K_M.gguf'),'qwen35');
+model(path.join(modelsPath,'Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf'),'qwen35moe');
+const server=path.join(root,'fixture-llama-server');fs.writeFileSync(server,"#!/bin/sh\nprintf '%s\\n' '--spec-type none,draft-mtp'\n",{mode:0o700});
+fs.writeFileSync(path.join(root, 'app-data/runtime-settings.json'), JSON.stringify({ llamaServerPath:server, modelsPath, models: { 'qwen3.6:35b-a3b-ud-q4_k_m': { mmprojPath: 'mmproj-BF16.gguf' } } }));
 NODE
 # Evaluate only pure configuration functions, never launcher lifecycle/inference.
 eval "$(sed -n '/^select_variant() {/,/^}/p' "$root/run-local-ai-desktop-llama-cpp-mtp.sh")"
@@ -68,7 +78,7 @@ select_variant qwen3.6:35b-a3b-ud-q4_k_m
 build_server_args 65536 999
 [[ " ${server_args[*]} " == *" --ubatch-size 128 "* && " ${server_args[*]} " == *" --batch-size 1024 "* ]]
 [[ " ${server_args[*]} " == *" --cache-type-k q8_0 "* && " ${server_args[*]} " == *" --cache-type-v q8_0 "* ]]
-[[ " ${server_args[*]} " == *" --spec-type draft-mtp "* && " ${server_args[*]} " == *" --spec-draft-n-max 2 "* && " ${server_args[*]} " == *" --no-warmup "* ]]
+[[ " ${server_args[*]} " == *" --spec-type draft-mtp "* && " ${server_args[*]} " == *" --spec-draft-n-max 2 "* && " ${server_args[*]} " == *" --mmproj $MMPROJ "* && " ${server_args[*]} " != *" --no-warmup "* ]]
 select_variant qwen3.8:27b-q4_K_M
 build_server_args 32768 999
 [[ " ${server_args[*]} " != *" --n-cpu-moe "* && " ${server_args[*]} " == *" --spec-type draft-mtp "* ]]

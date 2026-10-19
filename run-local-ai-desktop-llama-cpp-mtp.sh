@@ -334,6 +334,15 @@ switch_runtime() {
     log "runtime.switch request=$REQUEST_ID result=already-active"
     return 0
   fi
+  # Validate model tensors, backend flags and required Vision before stopping a
+  # healthy process. Keep the command in a subshell: target profile variables
+  # must not overwrite the active identity on a rejected request.
+  local preflight
+  if ! preflight="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_MTP_MODE="$REQUEST_MTP_MODE" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$MODEL_ID" --preflight 2>&1)"; then
+    log "runtime.switch request=$REQUEST_ID preflight=failed error=$preflight"
+    if [[ -n "$previous_model" ]]; then write_state ready "$REQUEST_ID" "$preflight"; else write_state offline "$REQUEST_ID" "$preflight"; fi
+    return 0
+  fi
   MTP_FALLBACK_REASON=""
   write_state switching "$REQUEST_ID"
   stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"

@@ -226,7 +226,7 @@ async function run() {
     await f.invoke('conversations:update', f.chat.id, { contextWindow: q8, llamaKvCacheType: 'q8_0' });
     f.set({ pressure: false, startupFailure: true });
     await assert.rejects(f.invoke('conversations:update', f.chat.id, { contextWindow: fp16, llamaKvCacheType: 'f16' }), /fixture CUDA out of memory/);
-    assert.equal(f.db.getConversation(f.chat.id)?.contextWindow, fp16, 'failed load preserves request separately from active Q8'); assert.equal(f.state().contextWindow, q8);
+    assert.equal(f.db.getConversation(f.chat.id)?.contextWindow, q8, 'failed load preserves the last committed conversation configuration'); assert.equal(f.state().contextWindow, q8);
     f.set({ startupFailure: false });
     const fresh = await f.invoke<ContextDiscoveryResult>('context:discover', f.modelId); assert.equal(fresh.options.length, 2);
     f.set({ pressure: true }); assert.equal((await f.invoke<ContextDiscoveryProgress>('context:discovery-status', f.modelId)).result?.options.length, 2, 'fresh discovery cannot disappear during polling');
@@ -241,6 +241,12 @@ async function run() {
     assert.equal(f.db.getConversation(freshChat.id)?.contextWindow, fp16, 'saved option can load in a new chat');
     await f.invoke('conversations:update', freshChat.id, { contextWindow: 102400, llamaKvCacheType: 'q8_0' });
     assert.equal(f.state().contextWindow, 102400, 'manual unmeasured context can load');
+    const launchCount = f.launches.length;
+    // Another chat has changed the active context. Strategy/effort must not
+    // implicitly acquire KV launch fields and reload the old chat's context.
+    await f.invoke('conversations:update', f.chat.id, { reasoningMode: 'deep' });
+    assert.equal(f.launches.length, launchCount, 'reasoning-only updates never restart a differing runtime');
+    assert.equal(f.state().contextWindow, 102400);
     f.set({ mismatch: true });
     assert((await f.invoke<ContextDiscoveryProgress>('context:discovery-status', f.modelId)).result?.options.every(o => o.conditions === 'changed'), 'runtime identity changes warn immediately');
     await assert.rejects(f.invoke('conversations:update', f.chat.id, { contextWindow: fp16, llamaKvCacheType: 'f16' }), /mismatch|Конфигурация/i);

@@ -19,7 +19,7 @@ const qwen36Profile = configured && { ...configured, mmprojPath: '/models/mmproj
 assert(qwen36Profile);
 assert.equal(qwen36Profile.maxContext, 262_144);
 assert.equal(qwen36Profile.vision, true, 'the base model has an official vision encoder and projector');
-assert.equal(qwen36Profile.visionWithMtp, false, 'the installed llama.cpp MTP path does not support --mmproj');
+assert.equal(qwen36Profile.visionWithMtp, true, 'the pinned backend is verified with embedded MTP and --mmproj together');
 assert.equal(qwen36Profile.speculative, 'mtp', 'use the model-specific trained MTP GGUF');
 assert.equal(qwen36Profile.speculativeDraftTokens, 2);
 assert.deepEqual(qwen36Profile.reasoning, { thinkingKwarg: 'enable_thinking', efforts: {}, final: { chat_template_kwargs: { enable_thinking: false } } });
@@ -33,7 +33,7 @@ assert.deepEqual(llamaReasoningForInput(qwen36, 'deep'), { chat_template_kwargs:
 assert.match(launchProfileEnvironment(qwen36Profile), /SPECULATIVE_MODE='mtp'/);
 assert.match(launchProfileEnvironment(qwen36Profile), /DRAFT_N_MAX='2'/);
 assert.match(launchProfileEnvironment(qwen36Profile), /DEFAULT_LLAMA_CONTEXT='65536'/);
-assert.match(launchProfileEnvironment(qwen36Profile), /MMPROJ=''/);
+assert.match(launchProfileEnvironment(qwen36Profile), /MMPROJ='[^']*mmproj-BF16\.gguf'/, 'MTP On preserves the compatible projector');
 assert.match(launchProfileEnvironment(qwen36Profile, '0'), /SPECULATIVE_MODE='none'/);
 assert.match(launchProfileEnvironment(qwen36Profile, '0'), /DRAFT_N_MAX=''/);
 assert.match(launchProfileEnvironment(qwen36Profile, '0'), /MMPROJ='[^']*mmproj-BF16\.gguf'/, 'MTP OFF must enable native vision');

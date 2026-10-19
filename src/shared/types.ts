@@ -6,7 +6,7 @@ export type WebMode = 'off' | 'auto';
 export type MtpMode = 'auto' | 'on' | 'off';
 export type MtpCapability = { supported: boolean; status: 'available' | 'unsupported' | 'requires-weights' | 'error'; reason: string; architecture?: string; heads?: number; backendSupported?: boolean };
 export type MtpDiagnostics = { drafted: number; accepted: number; acceptanceRate?: number; source: 'llama-server metrics'; scope: 'server lifetime' };
-export type MtpStatus = { modelId: string; requested: MtpMode; activeMode?: MtpMode; effective: 'active' | 'disabled' | 'unsupported' | 'requires-weights' | 'reload-required' | 'error'; capability: MtpCapability; diagnostics?: MtpDiagnostics; error?: string };
+export type MtpStatus = { modelId: string; requested: MtpMode; activeMode?: MtpMode; effective: 'unloaded' | 'available' | 'active' | 'disabled' | 'unsupported' | 'requires-weights' | 'reload-required' | 'error'; capability: MtpCapability; diagnostics?: MtpDiagnostics; error?: string };
 export type BackendId = 'llama-cpp';
 export type LlamaKvCacheType = 'f16' | 'q8_0';
 /** A backend-native reasoning control. It never changes the output token budget. */
@@ -453,7 +453,7 @@ export type StreamEvent =
   | { type: 'context-usage'; used: number; maximum: number }
   | { type: 'agent-telemetry'; telemetry: Partial<AgentTelemetry> }
   | { type: 'diagnostics'; diagnostics: Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt'> }
-  | { type: 'done'; assistant?: ChatMessage | null; finishReason?: FinishReason }
+  | { type: 'done'; assistant?: ChatMessage | null; finishReason?: FinishReason; paused?: boolean }
   | { type: 'cancelled' }
   | { type: 'error'; message: string; details?: string };
 
