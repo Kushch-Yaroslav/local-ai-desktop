@@ -1,0 +1,6 @@
+Extra normally ignored Rust browser-in-terminal acceptance was attempted.
+Chrome launched inside the terminal sandbox and failed:
+FATAL:chrome/browser/process_singleton_posix.cc:297 Check failed: . socket() failed: Operation not permitted (1)
+Crash report settings also reside on a read-only host path.
+The runtime correctly rejected verification evidence from this failed command.
+No protection was weakened; actual host/Native Browser acceptance passed independently.

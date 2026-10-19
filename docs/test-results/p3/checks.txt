@@ -1,0 +1,10 @@
+TypeScript: PASS
+ESLint: PASS
+Electron build: PASS (existing Vite chunk-size warning)
+Renderer localization coverage: PASS
+Rust: 386 passed, 0 failed, 1 normally ignored
+Controlled/Chromium/Electron/security regression suites: 32 PASS
+Real Qwen model/Vision/MTP matrix: 10 rows PASS, preflight/rollback/recovery PASS
+Real Qwen checkpoint/reload: PASS
+Real Qwen Native Browser/Pause/Resume/Stop/image inference: PASS
+Additional normally ignored terminal-browser test: blocked by socket EPERM (not counted as passing).

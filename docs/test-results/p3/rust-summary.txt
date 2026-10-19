@@ -1,0 +1,7 @@
+test result: ok. 284 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.20s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test live_scoped_browser_acceptance_with_project_warning_and_inverse ... ignored, requires installed Chrome and the desktop project's playwright-core
+test result: ok. 94 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 123.10s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

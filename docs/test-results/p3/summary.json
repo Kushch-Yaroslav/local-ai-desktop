@@ -1,0 +1,73 @@
+{
+  "baseline": "e03527d",
+  "branch": "fix/v0.3-p3-stabilization",
+  "checks": {
+    "typescript": "PASS",
+    "eslint": "PASS",
+    "electronBuild": "PASS (existing Vite chunk size warning)",
+    "localizationCoverage": "PASS",
+    "rust": {
+      "passed": 386,
+      "failed": 0,
+      "ignored": 1,
+      "extraIgnoredAttempt": "Chrome terminal socket() EPERM; current host/native browser tests pass"
+    },
+    "regressions": {
+      "passed": 32,
+      "failed": 0
+    },
+    "realElectronCapabilityProbe": {
+      "old": {
+        "bytes": 58136,
+        "support": true
+      },
+      "updated": {
+        "status": "supported",
+        "path": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+        "reason": "llama-server /media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server advertises --spec-type draft-mtp."
+      }
+    }
+  },
+  "realRuns": {
+    "qwenMatrix": {
+      "result": "PASS",
+      "rows": 10,
+      "models": [
+        "qwen3.8:27b-q4_K_M",
+        "qwen3.6:35b-a3b-ud-q4_k_m"
+      ],
+      "preflightPreservesPID": true,
+      "rollback": true,
+      "retry": true,
+      "allOwnedPIDsExited": true
+    },
+    "qwenReloadCheckpoint": {
+      "result": "PASS",
+      "pauseMs": 388.9885710000017,
+      "resumed": true
+    },
+    "qwenNative": {
+      "result": "PASS",
+      "pauseMs": 1204.5377090000038,
+      "stop": {
+        "ms": 503.7247149999894,
+        "sameNativeView": true
+      },
+      "resume": {
+        "sameNativeView": true,
+        "sourcePreserved": true,
+        "status": "Verified",
+        "functionalStatus": "Verified"
+      },
+      "serverStopped": true
+    }
+  },
+  "controlledTests": "32 suites include actual Rust, Chromium, Electron/preload/SQLite with scripted SSE providers and controlled launchers; scripted Vision opinions are not real image-inference results.",
+  "limits": [
+    "Original failed MTP probe exception was discarded by old code; its exact OS/timeout trigger cannot be recovered.",
+    "The extra legacy ignored Rust terminal-browser acceptance fails under the active terminal socket security policy. Protection was preserved.",
+    "No certification for arbitrary external GGUFs, other backend builds, or all maximum-context memory envelopes.",
+    "Native OS input tests must run sequentially.",
+    "Installed .deb, user runtime, main and releases were not modified."
+  ]
+}

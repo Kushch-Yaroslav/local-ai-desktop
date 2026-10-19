@@ -1,0 +1,372 @@
+{
+  "root": "/tmp/lad-p3-matrix-vvrJvs",
+  "binary": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+  "rows": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 11837.818743,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "39e1cdf4-a4be-440c-960f-628c7191b4d7",
+        "launcherPid": 24389,
+        "serverPid": 24712,
+        "serverStartTime": "153487",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      },
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 1,
+        "summary": "The image displays a dark background with a large white heading 'Browser QA' at the top and a small white button labeled 'Ready' on the left side. The text is legible, and there are no visible rendering artifacts, clipping, or overlapping elements.",
+        "confidence": 1,
+        "issues": [],
+        "latencyMs": 2600.6449440000015,
+        "promptTokens": 249,
+        "completionTokens": 70
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "auto",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 10191.929729999998,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "auto",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "37ab7895-f50f-4d71-8e8e-8fb44e21d9e4",
+        "launcherPid": 24389,
+        "serverPid": 25285,
+        "serverStartTime": "154764",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 11135.160633999996,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "b36c26d7-7b06-40a4-9250-532d2331b2ac",
+        "launcherPid": 24389,
+        "serverPid": 25771,
+        "serverStartTime": "155921",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "off",
+      "context": 16384,
+      "elapsedMs": 18239.414809,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "97edabbe-c964-4a9f-83fb-c43d1873dff9",
+        "launcherPid": 24389,
+        "serverPid": 26191,
+        "serverStartTime": "157687",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "off",
+      "context": 12288,
+      "elapsedMs": 6071.795265000001,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 12288,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "8d0a77d4-8988-4bf9-88ad-cb510bb1bd02",
+        "launcherPid": 24389,
+        "serverPid": 26391,
+        "serverStartTime": "158441",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "on",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 12412.031305000004,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "97b35828-691e-4f13-ad9b-66ef52e736bb",
+        "launcherPid": 24389,
+        "serverPid": 26926,
+        "serverStartTime": "159174",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      },
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "imageCount": 1,
+        "summary": "The image shows a dark-themed browser interface with the title 'Browser QA' in large white text at the top left and a single button labeled 'Ready' below it. The layout is minimal, with no visible navigation, content, or interactive elements beyond the button. No rendering artifacts, clipping, or overlapping controls are evident.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 1945.682335000005,
+        "promptTokens": 249,
+        "completionTokens": 92
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "auto",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 8953.462112000008,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "auto",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "467a5a26-a35d-42c6-ad7a-90f47f14f414",
+        "launcherPid": 24389,
+        "serverPid": 27095,
+        "serverStartTime": "160414",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "off",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 8513.201474000001,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "b9ae69b0-db0b-4233-966d-968c57aed134",
+        "launcherPid": 24389,
+        "serverPid": 28280,
+        "serverStartTime": "161234",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "on",
+      "vision": "off",
+      "context": 16384,
+      "elapsedMs": 8934.195153000008,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "c4146b18-0022-4d62-93d1-536faf938a1d",
+        "launcherPid": 24389,
+        "serverPid": 28637,
+        "serverStartTime": "162133",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "off",
+      "vision": "off",
+      "context": 12288,
+      "elapsedMs": 7974.388412999993,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 12288,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "6f75f635-80b7-41df-805c-d48e7c0fc0fe",
+        "launcherPid": 24389,
+        "serverPid": 28798,
+        "serverStartTime": "163059",
+        "launcherStartTime": "153052"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    }
+  ],
+  "capabilities": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35moe",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    }
+  ],
+  "errors": [
+    "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ 'qwen3.8:27b-q4_K_M'\n- 'qwen3.6:35b-a3b-ud-q4_k_m'\n         ^\n"
+  ],
+  "backend": {
+    "status": "supported",
+    "path": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "reason": "llama-server /media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server advertises --spec-type draft-mtp."
+  },
+  "cleanup": [
+    {
+      "pid": 24712,
+      "alive": false
+    },
+    {
+      "pid": 25285,
+      "alive": false
+    },
+    {
+      "pid": 25771,
+      "alive": false
+    },
+    {
+      "pid": 26191,
+      "alive": false
+    },
+    {
+      "pid": 26391,
+      "alive": false
+    },
+    {
+      "pid": 26926,
+      "alive": false
+    },
+    {
+      "pid": 27095,
+      "alive": false
+    },
+    {
+      "pid": 28280,
+      "alive": false
+    },
+    {
+      "pid": 28637,
+      "alive": false
+    },
+    {
+      "pid": 28798,
+      "alive": false
+    }
+  ]
+}

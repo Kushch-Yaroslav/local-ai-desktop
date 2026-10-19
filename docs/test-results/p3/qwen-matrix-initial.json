@@ -1,0 +1,208 @@
+{
+  "root": "/tmp/lad-p3-matrix-XaJ9pJ",
+  "binary": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+  "rows": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 27385.765461000003,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "146ca8da-85d7-412c-a706-908b03853b96",
+        "launcherPid": 15850,
+        "serverPid": 17082,
+        "serverStartTime": "137751",
+        "launcherStartTime": "137156"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      },
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 1,
+        "summary": "The image displays a dark background with a large white heading 'Browser QA' at the top and a small white button labeled 'Ready' on the left side. The text is legible, and there are no visible rendering artifacts, clipping, or overlapping elements.",
+        "confidence": 1,
+        "issues": [],
+        "latencyMs": 2533.871199000001,
+        "promptTokens": 249,
+        "completionTokens": 70
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "auto",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 10209.962226,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "auto",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "bf6610cf-397e-4f73-94d8-8f80c1bd6141",
+        "launcherPid": 15850,
+        "serverPid": 17842,
+        "serverStartTime": "140405",
+        "launcherStartTime": "137156"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 10539.916147999997,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "e188cf30-6ec2-45c8-9647-8fc857e2a20d",
+        "launcherPid": 15850,
+        "serverPid": 19777,
+        "serverStartTime": "141531",
+        "launcherStartTime": "137156"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "off",
+      "context": 16384,
+      "elapsedMs": 9690.756275,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "fcdacc22-337d-4a15-989a-05d8f971a2c9",
+        "launcherPid": 15850,
+        "serverPid": 20136,
+        "serverStartTime": "142452",
+        "launcherStartTime": "137156"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "off",
+      "context": 12288,
+      "elapsedMs": 7557.2693750000035,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 12288,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "0b418d89-62bd-48fa-b2d9-ed669971f400",
+        "launcherPid": 15850,
+        "serverPid": 20591,
+        "serverStartTime": "143190",
+        "launcherStartTime": "137156"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    }
+  ],
+  "capabilities": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35moe",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    }
+  ],
+  "errors": [
+    "AssertionError [ERR_ASSERTION]: {\"analyzed\":false,\"status\":\"Not Verified\",\"reason\":\"Error: Invalid visual analysis schema\",\"latencyMs\":2044.0135319999972}"
+  ],
+  "backend": {
+    "status": "supported",
+    "path": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "reason": "llama-server /media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server advertises --spec-type draft-mtp."
+  },
+  "cleanup": [
+    {
+      "pid": 17082,
+      "alive": false
+    },
+    {
+      "pid": 17842,
+      "alive": false
+    },
+    {
+      "pid": 19777,
+      "alive": false
+    },
+    {
+      "pid": 20136,
+      "alive": false
+    },
+    {
+      "pid": 20591,
+      "alive": false
+    },
+    {
+      "pid": 20883,
+      "alive": false
+    }
+  ]
+}

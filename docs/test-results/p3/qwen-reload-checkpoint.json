@@ -1,0 +1,111 @@
+{
+  "root": "/tmp/lad-p2-reload-tSBTV2",
+  "project": "/tmp/lad-p2-reload-workspace-Fz3iEh",
+  "switches": [
+    {
+      "mode": "on",
+      "visionPolicy": "on",
+      "imageAnalyzed": true,
+      "effective": "mtp",
+      "pid": 34943,
+      "reloadMs": 8020.942466999999,
+      "modeValidationMs": 26846.772912,
+      "imageAnalysisMs": 2866.0121519999993,
+      "imageCount": 1,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17769, 6350",
+        "rssKiB": 4449164
+      }
+    },
+    {
+      "mode": "off",
+      "visionPolicy": "on",
+      "imageAnalyzed": true,
+      "effective": "none",
+      "pid": 35711,
+      "reloadMs": 6016.532787999997,
+      "modeValidationMs": 27374.592938999995,
+      "imageAnalysisMs": 3677.574419000004,
+      "imageCount": 1,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17007, 7112",
+        "rssKiB": 4057952
+      }
+    },
+    {
+      "mode": "auto",
+      "visionPolicy": "auto",
+      "imageAnalyzed": true,
+      "effective": "mtp",
+      "pid": 36263,
+      "reloadMs": 9523.307215000008,
+      "modeValidationMs": 26776.33326500001,
+      "imageAnalysisMs": 3141.9525460000004,
+      "imageCount": 1,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17761, 6358",
+        "rssKiB": 4449116
+      }
+    },
+    {
+      "mode": "off",
+      "visionPolicy": "off",
+      "imageAnalyzed": false,
+      "effective": "none",
+      "pid": 36749,
+      "reloadMs": 6517.225355000002,
+      "modeValidationMs": 21839.956003,
+      "projector": "cpu",
+      "memory": {
+        "gpu": "17003, 7116",
+        "rssKiB": 3526288
+      }
+    }
+  ],
+  "errors": [],
+  "pauseMs": 388.9885710000017,
+  "loadedVisionTransitions": [
+    {
+      "policy": "on",
+      "analyzed": true,
+      "latencyMs": 3624.4051860000036,
+      "imageCount": 1,
+      "effectiveMtp": "none"
+    },
+    {
+      "policy": "auto",
+      "analyzed": true,
+      "latencyMs": 3584.2104710000276,
+      "imageCount": 1,
+      "effectiveMtp": "none"
+    },
+    {
+      "policy": "off",
+      "analyzed": false,
+      "effectiveMtp": "none"
+    }
+  ],
+  "resumed": true,
+  "result": "PASS",
+  "cleanup": [
+    {
+      "pid": 34943,
+      "alive": false
+    },
+    {
+      "pid": 35711,
+      "alive": false
+    },
+    {
+      "pid": 36263,
+      "alive": false
+    },
+    {
+      "pid": 36749,
+      "alive": false
+    }
+  ]
+}

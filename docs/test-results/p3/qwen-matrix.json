@@ -1,0 +1,434 @@
+{
+  "root": "/tmp/lad-p3-matrix-XrAvKj",
+  "binary": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+  "rows": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 12840.995971,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "d6c436b1-51cb-4a6f-8791-c53268bc5a0a",
+        "launcherPid": 30425,
+        "serverPid": 30931,
+        "serverStartTime": "176093",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      },
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.8:27b-q4_K_M",
+        "imageCount": 1,
+        "summary": "The image displays a dark background with a large white heading 'Browser QA' at the top and a small white button labeled 'Ready' on the left side. The text is legible, and there are no visible rendering artifacts, clipping, or overlapping elements.",
+        "confidence": 1,
+        "issues": [],
+        "latencyMs": 2622.072859,
+        "promptTokens": 249,
+        "completionTokens": 70
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "auto",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 11690.322211,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "auto",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "0ffb6b6a-fd68-49c9-8060-8df245a3692b",
+        "launcherPid": 30425,
+        "serverPid": 31220,
+        "serverStartTime": "177491",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 7540.012108999999,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "3cdfa806-3777-45ad-9652-c3b5bf04da36",
+        "launcherPid": 30425,
+        "serverPid": 31388,
+        "serverStartTime": "178362",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "on",
+      "vision": "off",
+      "context": 16384,
+      "elapsedMs": 8177.092491999996,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "4982a75e-1bb7-43b8-a6b0-55b10719c51f",
+        "launcherPid": 30425,
+        "serverPid": 31581,
+        "serverStartTime": "179201",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "mode": "off",
+      "vision": "off",
+      "context": 12288,
+      "elapsedMs": 6465.953860000001,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "contextWindow": 12288,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "2427ab83-700b-4d1e-8350-f53a2335a4f5",
+        "launcherPid": 30425,
+        "serverPid": 31878,
+        "serverStartTime": "179830",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "on",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 14361.557349000002,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "af014133-7adf-489b-9034-831cbdf4690a",
+        "launcherPid": 30425,
+        "serverPid": 32277,
+        "serverStartTime": "180619",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      },
+      "visual": {
+        "analyzed": true,
+        "status": "Verified",
+        "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "imageCount": 1,
+        "summary": "The image shows a dark-themed browser interface with the title 'Browser QA' in large white text at the top left and a single button labeled 'Ready' below it. The layout is minimal, with no visible navigation, content, or interactive elements beyond the button. No rendering artifacts, clipping, or overlapping controls are evident.",
+        "confidence": 0.95,
+        "issues": [],
+        "latencyMs": 1912.834418999999,
+        "promptTokens": 249,
+        "completionTokens": 92
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "auto",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 9939.988657000002,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "auto",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "151ba6cc-5969-4222-b183-3ad6f7aafedb",
+        "launcherPid": 30425,
+        "serverPid": 32502,
+        "serverStartTime": "182075",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "off",
+      "vision": "on",
+      "context": 16384,
+      "elapsedMs": 7514.2732569999935,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "093c520e-7a39-4df0-9b69-08fcdad8cc0e",
+        "launcherPid": 30425,
+        "serverPid": 32667,
+        "serverStartTime": "182953",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "on",
+      "vision": "off",
+      "context": 16384,
+      "elapsedMs": 8961.885710000002,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 16384,
+        "mtpMode": "on",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "mtp",
+        "projectorDevice": "cpu",
+        "requestId": "d223dd56-9e63-490a-8deb-a9ed9aaf3562",
+        "launcherPid": 30425,
+        "serverPid": 33449,
+        "serverStartTime": "183880",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10",
+      "metrics": {
+        "drafted": 20,
+        "accepted": 20,
+        "acceptanceRate": 1,
+        "source": "llama-server metrics",
+        "scope": "server lifetime"
+      }
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "mode": "off",
+      "vision": "off",
+      "context": 12288,
+      "elapsedMs": 15012.754967999994,
+      "state": {
+        "status": "ready",
+        "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+        "contextWindow": 12288,
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "projectorDevice": "cpu",
+        "requestId": "316b92aa-f30f-400b-88d5-8c74593bb69f",
+        "launcherPid": 30425,
+        "serverPid": 33681,
+        "serverStartTime": "184659",
+        "launcherStartTime": "175555"
+      },
+      "content": "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    }
+  ],
+  "capabilities": [
+    {
+      "model": "qwen3.8:27b-q4_K_M",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    },
+    {
+      "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "supported": true,
+      "status": "available",
+      "architecture": "qwen35moe",
+      "heads": 1,
+      "reason": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+      "backendSupported": true
+    }
+  ],
+  "errors": [],
+  "backend": {
+    "status": "supported",
+    "path": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+    "reason": "llama-server /media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server advertises --spec-type draft-mtp."
+  },
+  "preflightFailure": {
+    "ok": false,
+    "state": {
+      "status": "ready",
+      "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "contextWindow": 12288,
+      "mtpMode": "off",
+      "kvCacheType": "q8_0",
+      "kvOffload": true,
+      "speculativeMode": "none",
+      "projectorDevice": "cpu",
+      "error": "Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.",
+      "requestId": "a061c502-bce0-43cb-9af1-9520591b55b4",
+      "launcherPid": 30425,
+      "serverPid": 33681,
+      "serverStartTime": "184659",
+      "launcherStartTime": "175555"
+    },
+    "error": "Browser Vision On requires a compatible local projector; the current runtime configuration was not changed."
+  },
+  "failureRecovery": {
+    "ok": false,
+    "state": {
+      "status": "ready",
+      "modelId": "qwen3.6:35b-a3b-ud-q4_k_m",
+      "contextWindow": 12288,
+      "mtpMode": "off",
+      "kvCacheType": "q8_0",
+      "kvOffload": true,
+      "speculativeMode": "none",
+      "projectorDevice": "cpu",
+      "error": "llama-server завершился до health check: mtmd_init_from_file: error: Failed to load CLIP model from /tmp/lad-p3-matrix-XrAvKj/invalid-projector.gguf srv    load_model: failed to load multimodal model, '/tmp/lad-p3-matrix-XrAvKj/invalid-projector.gguf' srv  llama_server: exiting due to model loading error ",
+      "requestId": "76221137-2bf6-45de-b727-4435477dd769",
+      "rolledBack": true,
+      "launcherPid": 30425,
+      "serverPid": 34439,
+      "serverStartTime": "186934",
+      "launcherStartTime": "175555"
+    },
+    "error": "llama-server завершился до health check: mtmd_init_from_file: error: Failed to load CLIP model from /tmp/lad-p3-matrix-XrAvKj/invalid-projector.gguf srv    load_model: failed to load multimodal model, '/tmp/lad-p3-matrix-XrAvKj/invalid-projector.gguf' srv  llama_server: exiting due to model loading error "
+  },
+  "retry": {
+    "ok": true,
+    "state": {
+      "status": "ready",
+      "modelId": "qwen3.8:27b-q4_K_M",
+      "contextWindow": 8192,
+      "mtpMode": "on",
+      "kvCacheType": "q8_0",
+      "kvOffload": true,
+      "speculativeMode": "mtp",
+      "projectorDevice": "cpu",
+      "requestId": "fc057916-090e-40b7-82bb-38a3f3993a51",
+      "launcherPid": 30425,
+      "serverPid": 34617,
+      "serverStartTime": "187722",
+      "launcherStartTime": "175555"
+    }
+  },
+  "result": "PASS",
+  "cleanup": [
+    {
+      "pid": 30931,
+      "alive": false
+    },
+    {
+      "pid": 31220,
+      "alive": false
+    },
+    {
+      "pid": 31388,
+      "alive": false
+    },
+    {
+      "pid": 31581,
+      "alive": false
+    },
+    {
+      "pid": 31878,
+      "alive": false
+    },
+    {
+      "pid": 32277,
+      "alive": false
+    },
+    {
+      "pid": 32502,
+      "alive": false
+    },
+    {
+      "pid": 32667,
+      "alive": false
+    },
+    {
+      "pid": 33449,
+      "alive": false
+    },
+    {
+      "pid": 33681,
+      "alive": false
+    },
+    {
+      "pid": 34617,
+      "alive": false
+    }
+  ]
+}

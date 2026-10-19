@@ -1,0 +1,13 @@
+# P3 state/data map
+
+Baseline: e03527d, feature/v0.3-native-browser-qa. Stabilization: fix/v0.3-p3-stabilization. Only pre-existing untracked data: runtime/ (never staged or used by tests).
+
+- Configuration: paths.ts selects existing runtime/sqlite lineage or XDG; runtime-settings.json stores per-model MTP and projector, global Vision/QA. Conversations in SQLite store model/context/KV, reasoning and strategy separately.
+- Models: model-registry → llama-runtime-policy → gguf-speculative + gguf-artifacts inspect metadata, actual tensor dimensions and payload extents. Embedded qwen35/qwen35moe NextN is independent of projector.
+- Capabilities: mtp-capability probes configured executable --help; original cache keys path/stat but caches failures as false forever. No error/unknown distinction. Model inspection precedes inference. launcher uses the same compiled resolver through Electron-as-Node.
+- Reload: toolbar draft → conversations:update → preflight/context assessment → LlamaRuntimeController serialized request file + SIGUSR1 → owned bash supervisor validates, stops, starts, checks health/identity/ctx/MTP, rolls back → runtime JSON → IPC → renderer. Conversation commit follows successful switch. MTP-specific apply saves preference after successful switch.
+- Vision: persisted policy; local projector remains independent of MTP. Runtime /props confirms multimodal support, image analysis has separate evidence from functional browser checks.
+- Agent: Rust checkpoint/task memory and verification ledger → TypeScript stream adapter → IPC generation-scoped events → renderer per-conversation view cache. Pause display is currently a separate string and can outlive a resumed run. Model-state is authoritative inference activity.
+- QA: approved browser → project content revision hash + scenario/state/runtime/permission → QaLoopGuard → functional checks + optional probabilistic Vision → JSON/PNG evidence → Rust verification ledger at mutation epoch → final candidate review. QA_NO_PROGRESS is local to QA, retains prior evidence and allows other tools. Browser reopen does not reset guard; explicit user continuation does.
+- Historical QA: exact budget message exists in retained task-memory evidence from an older gate; current source removed its producer in 3042d3f. Persisted reports may lack timing/visual fields. Renderer must support legacy data without inventing timings or reclassifying real test failures.
+- UI: compact/expanded share mounted controls; app.css shared tokens, native select/button defaults and disabled inheritance need inspection. Toolbar drafts, active runtime and activation diagnostics currently use different model/context sources in reload details.
