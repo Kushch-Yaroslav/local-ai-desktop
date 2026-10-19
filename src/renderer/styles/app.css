@@ -572,3 +572,14 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .qa-scenario { border-top:1px solid var(--border); padding:9px 0; display:grid; gap:5px; }
 .qa-scenario>span,.qa-scenario p,.agent-status-explanation { color:var(--text-muted); font-size:12px; margin:0; }
 .qa-scenario pre { white-space:pre-wrap; max-height:140px; overflow:auto; }
+
+.profile-section { grid-column:1/-1; margin-top:12px; border-top:1px solid var(--border); padding-top:10px; min-width:0; }
+.profile-section>summary { cursor:pointer; color:var(--text); font-weight:600; padding:6px 0; }
+.profile-fields { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:start; }
+.profile-fields>p,.profile-fields>small,.profile-fields>details,.profile-detection { grid-column:1/-1; overflow-wrap:anywhere; }
+.runtime-model-editor>.profile-section,.runtime-model-editor>.profile-detection { grid-column:1/-1; }
+.runtime-model-editor small,.author-configurations small { display:block;color:var(--text-muted); }
+.author-table-scroll { overflow:auto; } .author-configurations table { width:100%;border-collapse:collapse;font-size:12px; } .author-configurations th,.author-configurations td { border-bottom:1px solid var(--border);padding:8px;vertical-align:top;text-align:left; }
+.runtime-model-actions { display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:5px 0; }.runtime-model-actions>span { color:var(--text-muted);font-size:12px; }
+
+.model-launch-diff {max-width:100%;overflow:auto}.model-launch-diff table{width:100%;text-align:left;border-collapse:collapse}.model-launch-diff td,.model-launch-diff th{padding:6px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}.model-launch-diff small{display:block;color:var(--muted)}

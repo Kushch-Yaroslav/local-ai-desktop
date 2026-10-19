@@ -1,3 +1,7 @@
+import {ModelLaunchDiff} from './ModelLaunchDiff';
+import { ModelProfileEditor } from './ModelProfileEditor';
+import { AuthorConfigurations } from './AuthorConfigurations';
+import { ReloadDialog } from './ReloadDialog';
 import { useLocale } from '../use-locale';
 import { t, tr, localizeMessage, getLanguage } from '../../shared/locale';
 import { useEffect, useRef, useState } from 'react';
@@ -16,12 +20,16 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   const [message, setMessage] = useState('');
   const [languageError, setLanguageError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [applyDialog,setApplyDialog]=useState(false),[applying,setApplying]=useState(false),[applyError,setApplyError]=useState('');
+  const activeRuntime=useAppStore(s=>s.settings?.llamaRuntime),activeId=useAppStore(s=>s.activeId);
+  const ru=language==='ru';
+  const conversation=useAppStore(s=>s.conversations.find(c=>c.id===s.activeId));
   const [validation, setValidation] = useState<{ input: string; selected?: string; result: ExecutableResolution } | null>(null);
   const [directorySearch, setDirectorySearch] = useState<{ input: string; result: ExecutableResolution } | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<string | undefined>(setup.config.llamaServerInput ? setup.config.llamaServerPath ?? undefined : undefined);
   const [availability, setAvailability] = useState<{ key: string; result: RuntimeDraftAvailability } | null>(null);
   const [availabilityError, setAvailabilityError] = useState('');
-  const modelsKey = JSON.stringify({ modelsPath: config.modelsPath, models: config.models.map(({ id, modelPath, mmprojPath }) => ({ id, modelPath, mmprojPath })) });
+  const modelsKey = JSON.stringify({ modelsPath: config.modelsPath, models: config.models.map(({ id, modelPath, mmprojPath,family }) => ({ id, modelPath, mmprojPath,family })) });
   const draftModels = availability?.key === modelsKey ? availability.result : null;
 
   const inputPath = config.llamaServerInput ?? config.llamaServerPath ?? '';
@@ -100,7 +108,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
     setConfig((current) => ({ ...current, models: [...current.models, model] }));
     setEditingId(model.id); setMessage('');
   }); };
-  const save = async () => {
+  const save = async (rethrow=false) => {
     const submitted = config;
     setSaving(true); setMessage('');
     try {
@@ -111,15 +119,17 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
         if (configRef.current === submitted) {
           const saved = result.setup.config;
           setConfig(saved);
-          setAvailability({ key: JSON.stringify({ modelsPath: saved.modelsPath, models: saved.models.map(({ id, modelPath, mmprojPath }) => ({ id, modelPath, mmprojPath })) }),
-            result: { folderExists: true, models: result.setup.models.map((model) => ({ id: model.id, installed: model.installed, projectorMissing: model.status === 'invalid-projector' })) } });
+          setAvailability({ key: JSON.stringify({ modelsPath: saved.modelsPath, models: saved.models.map(({ id, modelPath, mmprojPath,family }) => ({ id, modelPath, mmprojPath,family })) }),
+            result: { folderExists: true, models: result.setup.models.map((model) => ({ id: model.id, installed: model.installed, projectorMissing: model.status === 'invalid-projector',inspection:model.inspection })) } });
           if (saved.llamaServerPath && result.setup.server) setValidation({ input: saved.llamaServerInput ?? saved.llamaServerPath, selected: selectedCandidate, result: { status: 'valid', path: result.setup.server, candidates: [result.setup.server] } });
         }
       }
       void useAppStore.getState().refreshRuntime().catch(() => undefined);
       setMessage(t("Настройки сохранены. Следующий запуск модели использует новые пути."));
+      return result;
     } catch (error) {
       setMessage((error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+      if(rethrow)throw error;
     } finally { setSaving(false); }
   };
   const remove = (model: RuntimeModelConfiguration) => {
@@ -189,12 +199,14 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
       <label>{t("Название в приложении")}<input aria-label={t("Название модели")} maxLength={80} value={selected.displayName} onChange={(event) => updateModel(selected.id, { displayName: event.target.value })} /></label>
       <label>{t("Файл модели GGUF")}<div className="setup-path"><input aria-label={t("Файл модели GGUF")} value={selected.modelPath} onChange={(event) => updateModel(selected.id, { modelPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { modelPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Выберите первый файл модели. Части split GGUF должны лежать рядом.")}</small></label>
       <label>{t("Projector для изображений — необязательно")}<div className="setup-path"><input aria-label={t("Проектор GGUF")} value={selected.mmprojPath} onChange={(event) => updateModel(selected.id, { mmprojPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { mmprojPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Нужен, чтобы эта модель понимала изображения. Без него остаётся текстовый чат.")}</small></label>
-      <label>{t("GPU-слои для этой модели")}<input aria-label={t("GPU-слои модели")} type="number" min="0" max="999" placeholder={tr`По умолчанию: ${config.gpuLayers}`} value={selected.gpuLayers ?? ''} onChange={(event) => updateModel(selected.id, { gpuLayers: event.target.value === '' ? null : Number(event.target.value) })} /><small>{t("Оставьте пустым, чтобы использовать значение по умолчанию выше.")}</small></label>
-      {!selected.builtin && <label className="runtime-option"><input type="checkbox" checked={selected.supportsTools} onChange={(event) => updateModel(selected.id, { supportsTools: event.target.checked })} />{t("Модель поддерживает вызов инструментов")}</label>}
+      <ModelProfileEditor profile={selected} inspection={draftModels?.models.find(m=>m.id===selected.id)?.inspection??setup.models.find(m=>m.id===selected.id)?.inspection} features={setup.backendFeatures} onChange={patch=>updateModel(selected.id,patch)}/>
+      <AuthorConfigurations profile={selected} inspection={draftModels?.models.find(m=>m.id===selected.id)?.inspection??setup.models.find(m=>m.id===selected.id)?.inspection} onChange={patch=>updateModel(selected.id,patch)}/>
+      <details className="profile-section"><summary>{ru?'Управление моделью':'Model management'}</summary><p>{ru?'Сохранение не останавливает backend. Применение выполняет отдельную безопасную перезагрузку llama-server.':'Saving leaves the backend running. Apply performs a separate safe llama-server restart.'}</p><button disabled={!activeId||saving||applying} onClick={()=>{setApplyError('');setApplyDialog(true);}}>{ru?'Применить и перезагрузить':'Apply and restart'}</button>{activeRuntime?.rolledBack&&activeRuntime.profileConfiguration?.id===selected.id&&<button onClick={()=>updateModel(selected.id,activeRuntime.profileConfiguration!)}>{ru?'Восстановить рабочую конфигурацию в черновике':'Restore working configuration to draft'}</button>}<details><summary>{ru?'Активная конфигурация и диагностика':'Active configuration and diagnostics'}</summary><pre>{JSON.stringify({status:activeRuntime?.status,activeProfile:activeRuntime?.profileConfiguration,arguments:activeRuntime?.launchArguments,observedPlacement:activeRuntime?.placement},null,2)}</pre>{activeRuntime?.diagnosticsHistory?.map((entry,i)=><p key={i}>{entry.at} · {entry.message}</p>)}</details></details>
       <small>{t('MTP Auto/On/Off: используйте переключатель MTP рядом с контекстом. Применение требует отдельного подтверждения перезагрузки.')}</small>
     </fieldset>}
     <small>{t("Настройки: ")}{setup.configPath}<br />{t("Данные приложения: ")}{setup.dataDirectory}{t(". Пути с пробелами и ~/ поддерживаются.")}</small>
     {message && <p role="status" className="runtime-setup-message">{localizeMessage(message)}</p>}
+    {applyDialog&&selected&&<ReloadDialog title={ru?'Настройки модели':'Model settings'} busy={applying||saving} error={applyError} onCancel={()=>setApplyDialog(false)} onApply={()=>{void(async()=>{setApplying(true);setApplyError('');try{const saved=await save(true);if(!saved||!activeId)return;const result=await window.localAi.runtime.control({action:'restart',conversationId:activeId,modelId:selected.id});useAppStore.setState({settings:result,conversations:await window.localAi.conversations.list()});await useAppStore.getState().refreshRuntime();setApplyDialog(false);}catch(e){setApplyError(localizeMessage(String(e).replace(/^Error: Error invoking remote method '[^']+': (Error: )?/,'')));await useAppStore.getState().refreshRuntimeStatus().catch(()=>undefined);}finally{setApplying(false);}})();}}><p>{ru?'Активная модель':'Active model'}: {activeRuntime?.profileConfiguration?.displayName??activeRuntime?.modelId??'—'}<br/>{ru?'Целевая модель':'Target model'}: {selected.displayName}</p><p>GPU layers: {activeRuntime?.profileConfiguration?.gpuLayers??'—'} → {selected.advanced?.mode==='automatic'?'auto':selected.gpuLayers??config.gpuLayers}<br/>{ru?'Контекст':'Context'}: {activeRuntime?.contextWindow?`${activeRuntime.contextWindow/1024}K`:'—'} {activeRuntime?.kvCacheType??''} → {(selected.defaults?.contextWindow??(activeRuntime?.modelId===selected.id?activeRuntime?.contextWindow:undefined)??conversation?.contextWindow??32768)/1024}K {selected.defaults?.kvCacheType??(activeRuntime?.modelId===selected.id?activeRuntime?.kvCacheType:undefined)??conversation?.llamaKvCacheType??'f16'}</p><ModelLaunchDiff active={activeRuntime?.profileConfiguration} pending={selected}/><p>{ru?'GGUF и backend проверяются до остановки предыдущей модели.':'GGUF and backend are checked before stopping the previous model.'}</p></ReloadDialog>}
     <footer><button disabled={saving || (Boolean(inputPath.trim()) && executableStatus !== 'valid')} onClick={() => void save()}>{saving ? t("Сохранение…") : t("Сохранить изменения")}</button></footer>
   </section></div>;
 }
