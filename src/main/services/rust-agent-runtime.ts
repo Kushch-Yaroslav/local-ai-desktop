@@ -153,6 +153,7 @@ export function taskPlan(value: unknown): AgentPlan {
 /** Electron bridge for the Rust runtime. It passes each content delta through
  * immediately; `final` is metadata, not a delayed text transport. */
 export class RustAgentRuntime {
+  private readonly activeQaGuards = new Map<string, QaLoopGuard>();
   private readonly qaGuards = new Map<string, QaLoopGuard>();
   private readonly previews = new Map<string, { root: string; session: ProjectBrowserSession }>();
   private readonly controls = new Map<string, (payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string; reasoning?: { mode: ReasoningMode; options: Record<string, Record<string, unknown>>; selection: import('../../shared/conversation-settings').EffectiveModeState } }) => Promise<void>>();
@@ -164,7 +165,7 @@ export class RustAgentRuntime {
   steer(runId: string, content: string, intent?: SteeringIntent): Promise<void> {
     const send = this.steering.get(runId);
     if (!send) return Promise.reject(new Error('Agent ещё не готов к уточнению или уже завершён.'));
-    return send(content, intent);
+    return send(content, intent).then(() => { if (intent !== 'pause') this.activeQaGuards.get(runId)?.rearm(); });
   }
 
   async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void): AsyncIterable<StreamEvent> {
@@ -201,10 +202,11 @@ export class RustAgentRuntime {
     const qaPause = new AbortController();
     const browserConfig = loadRuntimeConfiguration();
     const vision = browserConfig.browserVision && browserConfig.browserVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model) : undefined;
-    const qaKey = JSON.stringify([conversationId, logicalTaskId, projects.map(project => project.root)]);
+    const qaKey = JSON.stringify([browserObserver?.ownerId, conversationId, logicalTaskId, projects.map(project => project.root)]);
     const guard = this.qaGuards.get(qaKey) ?? new QaLoopGuard();
     // Only an explicit user run/continuation resets QA observations, never a browser reopen.
     guard.rearm(); this.qaGuards.delete(qaKey); this.qaGuards.set(qaKey, guard);
+    this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
     const qaOptions = { runId, guard, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before) } : {}) };
@@ -463,6 +465,7 @@ export class RustAgentRuntime {
       } else await closeWeb();
       signal.removeEventListener('abort', abortWeb);
       this.steering.delete(runId);
+      this.activeQaGuards.delete(runId);
       this.controls.delete(runId);
       lines.removeListener('line', acknowledgeControl);
       for (const pending of controlPending.values()) { clearTimeout(pending.timer); pending.reject(new Error('Agent execution ended')); }

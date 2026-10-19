@@ -23,6 +23,7 @@ void (async () => {
     identity=guard.key(first,'https://project-preview.invalid/',scenario,{camera:1},{model:'qwen'});guard.record(identity,report(),{camera:1});
     assert(guard.before(identity)?.loop.previousEvidence);
     guard.reopened({camera:0});assert(guard.before(key()),'closing/reopening the browser cannot evade the guard');
+    assert(!guard.before(guard.key(first,'https://project-preview.invalid/',qaSteps([{action:'key',key:'w',expect:{selector:'#camera',text:'new expected state'}}]),{camera:0},{model:'qwen'})),'a changed expected result is a meaningful new scenario');
     assert(!guard.before(guard.key('new-source','https://project-preview.invalid/',scenario,{camera:0},{model:'qwen'})));
     assert(!guard.before(guard.key(first,'https://project-preview.invalid/',[{action:'hold',key:'w'}],{camera:0},{model:'qwen'})));
     assert(!guard.before(guard.key(first,'https://project-preview.invalid/',scenario,{camera:3},{model:'qwen'})));
@@ -31,7 +32,10 @@ void (async () => {
     const alternating=new QaLoopGuard();
     for(let i=0;i<2;i++)for(const action of ['A','B','C']){const k=alternating.key(first,'url',action,{},{});alternating.record(k,report(),{});}
     for(const action of ['A','B','C'])assert(alternating.before(alternating.key(first,'url',action,{},{})),'alternating unchanged scenarios are still blocked');
-    const changed=new QaLoopGuard(), k=changed.key(first,'url',scenario,{},{});changed.record(k,report('first failure'),{});changed.record(k,report('different failure'),{});assert(!changed.before(k),'a changed observed outcome gets a fresh observation');
+    const changed=new QaLoopGuard(), k=changed.key(first,'url',scenario,{},{});changed.record(k,report('first failure'),{});changed.record(k,report('different failure'),{});assert(!changed.before(k),'a changed observed outcome gets a fresh observation');changed.record(k,report('first failure'),{});assert(changed.before(k),'A/B/A visual outcome oscillation must not masquerade as progress');
+    const statuses=new QaLoopGuard(), statusKey=statuses.key(first,'url',scenario,{},{});
+    for(const status of ['Verified','Failed','Partially Verified'] as const){assert(!statuses.before(statusKey));statuses.record(statusKey,{...report(),status},{});}
+    assert(!statuses.before(statusKey),'three distinct observations alone are not a task allowance');statuses.record(statusKey,{...report(),status:'Verified'},{});assert(statuses.before(statusKey),'a recurring three-status cycle is blocked with preserved evidence');
     for(const key of ['q','e','Shift+w','Control+a'])assert(qaSteps([{action:'hold',key,duration_ms:250}]).length);
     assert.throws(()=>qaSteps([{action:'hold',key:'w',duration_ms:90000}]));
     console.log('PASS QA guard: content revisions, own-evidence exclusion, normalized scenarios, outcomes, page/runtime/permission changes, reopen, explicit continuation, alternating cycles and real keyboard schema.');

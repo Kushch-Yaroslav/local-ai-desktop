@@ -39,37 +39,49 @@ export async function projectRevision(root: string, exclude: string[] = []): Pro
   await visit(base); return hash.digest('hex');
 }
 
-type Observation = { key: string; outcome: string; report: BrowserQaReport; repeats: number };
+type Observation = { key: string; report: BrowserQaReport; repeats: number; outcomes: Map<string,number> };
 /** A bounded observation window, never a work allowance. Share across browser reopen. */
 export class QaLoopGuard {
   private readonly observations = new Map<string, Observation>();
   private lastState?: string;
   private stateEpoch = 0;
+  private nextState = 0;
+  private readonly states = new Map<string,number>();
   private authorizationEpoch = 0;
-  rearm() { this.observations.clear(); this.lastState = undefined; this.stateEpoch++; }
+  private windowEpoch = 0;
+  rearm() { this.windowEpoch++; this.observations.clear(); this.states.clear(); this.lastState = undefined; this.stateEpoch=0; this.nextState=0; }
   authorized() { this.authorizationEpoch++; }
-  reopened(state: unknown) { this.lastState = qaHash(state); }
+  private observeState(state: unknown, owned = false) {
+    const fingerprint = qaHash(state);
+    if (!owned && fingerprint !== this.lastState) this.stateEpoch = this.states.get(fingerprint) ?? this.nextState++;
+    this.states.set(fingerprint,this.stateEpoch);
+    while (this.states.size > 256) this.states.delete(this.states.keys().next().value!);
+    this.lastState = fingerprint;
+  }
+  reopened(state: unknown) { this.observeState(state); }
   key(revision: string, url: string, scenario: unknown, state: unknown, runtime: unknown) {
-    const current = qaHash(state);
-    // Changes caused by the preceding check are not new external progress.
-    if (this.lastState !== undefined && current !== this.lastState) this.stateEpoch++;
-    this.lastState = current;
+    // Known initial/post-QA states retain their identity across reload/reopen.
+    // Only genuinely unseen state, not our own interaction effects, is novel.
+    this.observeState(state);
     const normalizedScenario = Array.isArray(scenario) ? scenario.map(step => ({...step, ...(step.selector ? {selector:step.selector.trim()} : {}), ...(step.action === 'hold' ? {duration_ms:Math.round((step.duration_ms ?? 300)/50)*50} : {}), ...(step.action === 'key' ? {repeat:step.repeat ?? 1} : {})})) : scenario;
-    return qaHash({ revision, url, scenario:normalizedScenario, stateEpoch: this.stateEpoch, authorization: this.authorizationEpoch, runtime });
+    return qaHash({ revision, url, scenario:normalizedScenario, stateEpoch: this.stateEpoch, authorization: this.authorizationEpoch, runtime, window:this.windowEpoch });
   }
   before(key: string) {
     const old = this.observations.get(key);
     if (!old || old.repeats < 2) return undefined;
-    return { error: 'Browser QA repeated the same scenario and outcome without source, state, permission or runtime progress.', code: 'QA_NO_PROGRESS', retrySameArguments: false,
-      loop: { key, repeats: old.repeats, previousEvidence: old.report.evidencePath, previousReportId: old.report.id, previousStatus: old.report.status },
+    return { error: 'Browser QA is revisiting known outcomes for the same scenario without source, state, permission or runtime progress (including oscillating visual assessments).', code: 'QA_NO_PROGRESS', retrySameArguments: false,
+      loop: { key, repeats: old.repeats, distinctOutcomes:old.outcomes.size, previousEvidence: old.report.evidencePath, previousReportId: old.report.id, previousStatus: old.report.status },
       guidance: 'Keep the existing evidence. Fix the observed defect, change the expected behaviour or scenario meaningfully, or continue other task work. Do not use fill on body, add hidden inputs, relaunch the browser or invoke terminal browsers to bypass this blocker. Keyboard testing uses key/down/up/hold actions. An explicit user continuation can request a fresh observation window.' };
   }
   record(key: string, report: BrowserQaReport, state: unknown) {
     const outcome = qaHash({ status: report.status, checks: report.checks.map(check => ({ action: check.action, expected: check.expected, status: check.status, ...(check.status === 'Failed' && !['canvas animation','canvas render','canvas input delivery'].includes(check.action) ? { actual: check.actual } : {}) })), errors: report.errors, visual: { status: report.visual.status, analyzed:report.visual.analyzed, severities:report.visual.issues?.map(issue=>issue.severity).sort() } });
     const old = this.observations.get(key);
+    const outcomes = old?.outcomes ?? new Map<string,number>();
+    outcomes.set(outcome,(outcomes.get(outcome) ?? 0)+1);
+    while (outcomes.size > 32) outcomes.delete(outcomes.keys().next().value!);
     this.observations.delete(key);
-    this.observations.set(key, { key, outcome, report, repeats: old?.outcome === outcome ? old.repeats + 1 : 1 });
+    this.observations.set(key, { key, report, outcomes, repeats:Math.max(...outcomes.values()) });
     while (this.observations.size > 128) this.observations.delete(this.observations.keys().next().value!);
-    this.lastState = qaHash(state);
+    this.observeState(state,true);
   }
 }

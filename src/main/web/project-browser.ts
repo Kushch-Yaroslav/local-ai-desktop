@@ -14,6 +14,7 @@ import type { BrowserInput } from '../../shared/live-browser';
 import type { ProjectBrowserObserver } from './live-browser';
 import type { NativeProjectPage } from './native-project-page';
 import { QaLoopGuard, projectRevision } from './qa-loop-guard';
+import { paths } from '../services/paths';
 
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
@@ -289,7 +290,7 @@ export class ProjectBrowserSession {
           await keyboardStep(this.page, step, this.heldKeys);
         } else if (args.action === 'qa') {
           let steps; try { steps=qaSteps(args.checks); } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
-          const revision = await projectRevision(this.root, [this.captureDirectory]);
+          const revision = await projectRevision(this.root, [this.captureDirectory, paths.userData, paths.configDirectory, paths.cache, paths.logs, paths.attachments, join(paths.dataRoot,'sqlite'), join(paths.dataRoot,'protected-runtime.json'), join(paths.dataRoot,'llama-cpp-runtime-state.json')]);
           const key = this.qaGuard.key(revision, this.page.url(), steps, await this.qaState(), this.qaOptions.runtimeIdentity);
           const blocked = this.qaGuard.before(key);
           if (blocked) {

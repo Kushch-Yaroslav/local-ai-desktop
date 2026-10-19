@@ -96,7 +96,13 @@ impl LoopDetector {
         // The browser's pre-execution guard already suppresses no-progress QA.
         // A local QA blocker must not escalate into pausing the entire agent.
         if name == "web_project" && result.get("code").and_then(Value::as_str) == Some("QA_NO_PROGRESS") {
-            return None;
+            let signature = hash(&format!("qa-local:{}", result.get("loop").and_then(|v|v.get("key")).unwrap_or(&Value::Null)));
+            if self.announced.insert(signature.clone(), 1).is_some() { return None; }
+            self.guidance_count = self.guidance_count.saturating_add(1);
+            return Some(LoopNotice { signature, level: 1,
+                evidence: "Browser QA revisited known evidence without a meaningful revision or state change".into(),
+                guidance: "The QA loop is blocked locally. Preserve previous evidence; do not call the same QA again or bypass it with fill(body), hidden inputs or browser relaunches. Fix a concrete issue, change the scenario meaningfully, continue other work, or finish honestly with partial verification. A user request can authorize a fresh observation window.".into(),
+                repair_exhausted: false });
         }
         let unavailable_resource = matches!(
             result.get("code").and_then(Value::as_str),
@@ -376,6 +382,17 @@ mod tests {
             detector.observe("write_file", &json!({"path":"same.txt","content":"same", "extra":index}), &json!({"unchanged":true}), false);
         }
         assert_eq!(detector.progress_epoch, before, "novel no-op arguments cannot pretend to be recovery progress");
+    }
+    #[test]
+    fn browser_qa_block_is_local_guidance_without_global_pause_escalation() {
+        let mut detector = LoopDetector::default();
+        let result = json!({"code":"QA_NO_PROGRESS","retrySameArguments":false,"loop":{"key":"revision-scenario"}});
+        let first = detector.observe("web_project", &json!({"action":"qa"}), &result, false).unwrap();
+        assert_eq!(first.level, 1);
+        for _ in 0..100 { assert!(detector.observe("web_project", &json!({"action":"qa"}), &result, false).is_none()); }
+        assert_eq!(detector.pause_count, 0);
+        assert_eq!(detector.guidance_count, 1);
+        assert!(detector.observe("read_file", &json!({"path":"other.js"}), &json!({"content":"new useful work"}), false).is_none());
     }
     #[test]
     fn cycles_are_bounded_and_continue_rearms_detection() {
