@@ -1,0 +1,2965 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-scenario-qa-jPHlAp",
+  "provider": "none; real Chromium and production QA",
+  "reports": [
+    {
+      "id": "03698582-9ec8-43c9-9d58-ea55f1dae412",
+      "scope": "interaction",
+      "status": "Blocked",
+      "functionalStatus": "Blocked",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:18.720Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "26 → 32 → 38",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "27 → 33 → 39",
+          "status": "Verified"
+        },
+        {
+          "action": "wrong-mode",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "Error: Required application state was not established; no scenario input was delivered.",
+          "status": "Blocked"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "e83acdae-9c5c-49db-990a-e308caa1364a",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/e83acdae-9c5c-49db-990a-e308caa1364a.png",
+          "sha256": "b68059778fd6cfa9a0f74aff156cd97889779365349996caecda33b964937fd0",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:17.487Z",
+          "captureMs": 50.80260999999996,
+          "bytes": 10010
+        },
+        {
+          "id": "879bc1f3-0be4-4220-838b-d8a601069ac0",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/879bc1f3-0be4-4220-838b-d8a601069ac0.png",
+          "sha256": "b047f5cce46771b40b459910cfa68408acb68d1ac665462bc34c21a6e3a1cfdc",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:18.719Z",
+          "captureMs": 45.03757599999972,
+          "bytes": 10010
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "wrong-mode",
+          "goal": "wrong-mode",
+          "target": "/index.html#info",
+          "status": "Blocked",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"info\"",
+              "status": "Blocked"
+            }
+          ],
+          "observations": [],
+          "checks": [
+            {
+              "action": "wrong-mode",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "Error: Required application state was not established; no scenario input was delivered.",
+              "status": "Blocked"
+            }
+          ],
+          "elapsedMs": 982.9704259999999,
+          "reasonCode": "PRECONDITION_FAILED",
+          "reason": "Error: Required application state was not established; no scenario input was delivered.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1284.5706989999999,
+      "reasonCode": "PRECONDITION_FAILED",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/03698582-9ec8-43c9-9d58-ea55f1dae412.json"
+    },
+    {
+      "id": "7b954723-64ba-478d-bb08-1020c25101f9",
+      "scope": "interaction",
+      "status": "Blocked",
+      "functionalStatus": "Blocked",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:20.022Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "104 → 110 → 116",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "105 → 111 → 117",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime-precondition",
+          "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+          "actual": "Error: Required application state was not established; no scenario input was delivered.",
+          "status": "Blocked"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "861da4af-5072-4dd4-a42c-e454c1caac9c",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/861da4af-5072-4dd4-a42c-e454c1caac9c.png",
+          "sha256": "7af7b1cea00596283afaf57f83e5f3a31cca898e613f2b4615fa89e475f73863",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:18.786Z",
+          "captureMs": 57.99492099999998,
+          "bytes": 10010
+        },
+        {
+          "id": "88b44825-dea0-4373-b83c-f81c2b903abb",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/88b44825-dea0-4373-b83c-f81c2b903abb.png",
+          "sha256": "6a199e3cb99fd4c4404eef1a3ea528e7a150fb15779d74155ee2fb15c143ea9e",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:20.021Z",
+          "captureMs": 59.63394900000003,
+          "bytes": 10010
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "runtime-precondition",
+          "goal": "runtime-precondition",
+          "target": "/index.html#info",
+          "status": "Blocked",
+          "evidenceKind": "runtime",
+          "assertion": {
+            "source": "visible",
+            "operator": "equals",
+            "selector": "#submit",
+            "expected": true
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"equals\",\"path\":\"ready\",\"expected\":true}",
+              "actual": "false",
+              "status": "Blocked"
+            }
+          ],
+          "observations": [],
+          "checks": [
+            {
+              "action": "runtime-precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+              "actual": "Error: Required application state was not established; no scenario input was delivered.",
+              "status": "Blocked"
+            }
+          ],
+          "elapsedMs": 970.1482900000001,
+          "reasonCode": "PRECONDITION_FAILED",
+          "reason": "Error: Required application state was not established; no scenario input was delivered.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1293.307417,
+      "reasonCode": "PRECONDITION_FAILED",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/7b954723-64ba-478d-bb08-1020c25101f9.json"
+    },
+    {
+      "id": "cd5e09e8-eefa-435f-b1a0-1d90e395b52d",
+      "scope": "interaction",
+      "status": "Blocked",
+      "functionalStatus": "Blocked",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:21.321Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "182 → 188 → 194",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "183 → 189 → 195",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime-precondition",
+          "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+          "actual": "Error: Required application state was not established; no scenario input was delivered.",
+          "status": "Blocked"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "552103cd-e41c-445b-b67b-1beb78fd44b4",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/552103cd-e41c-445b-b67b-1beb78fd44b4.png",
+          "sha256": "acefeadd09a35122c52dfd7745da9c971a07c55c305a8e39973af133e6dd8590",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:20.087Z",
+          "captureMs": 57.99418199999991,
+          "bytes": 10010
+        },
+        {
+          "id": "6fbf3d9c-f650-458d-b2af-3ed99dee5abe",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/6fbf3d9c-f650-458d-b2af-3ed99dee5abe.png",
+          "sha256": "bca5525910f36fea02c4d97f728df04f7c40a94d907d70fe5da3587907cf57fc",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:21.321Z",
+          "captureMs": 57.43757100000039,
+          "bytes": 10010
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "runtime-precondition",
+          "goal": "runtime-precondition",
+          "target": "/index.html#info",
+          "status": "Blocked",
+          "evidenceKind": "runtime",
+          "assertion": {
+            "source": "visible",
+            "operator": "equals",
+            "selector": "#submit",
+            "expected": true
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"equals\",\"path\":\"ready\",\"expected\":true}",
+              "actual": "false",
+              "status": "Blocked"
+            }
+          ],
+          "observations": [],
+          "checks": [
+            {
+              "action": "runtime-precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+              "actual": "Error: Required application state was not established; no scenario input was delivered.",
+              "status": "Blocked"
+            }
+          ],
+          "elapsedMs": 971.6277879999998,
+          "reasonCode": "PRECONDITION_FAILED",
+          "reason": "Error: Required application state was not established; no scenario input was delivered.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1292.4008870000002,
+      "reasonCode": "PRECONDITION_FAILED",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/cd5e09e8-eefa-435f-b1a0-1d90e395b52d.json"
+    },
+    {
+      "id": "e2a86319-ab59-4451-b314-5c4f9203f6fd",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:22.226Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "285 → 291 → 297",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "286 → 292 → 298",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime-precondition",
+          "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+          "actual": "[{\"atMs\":2.0435170000000653,\"value\":true},{\"atMs\":101.99692799999957,\"value\":true}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "a9baf641-bab9-451b-96f7-efde959f96a3",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/a9baf641-bab9-451b-96f7-efde959f96a3.png",
+          "sha256": "7270aae6ec905ad05c46d409e67a13cf08bb22c873d36d5ea0e535718d41b5ca",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:21.823Z",
+          "captureMs": 47.14555400000063,
+          "bytes": 11796
+        },
+        {
+          "id": "084f420b-c2e1-47a5-950e-010cf81c7145",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/084f420b-c2e1-47a5-950e-010cf81c7145.png",
+          "sha256": "d44780ba8e3d896dadaf9d152cbafc74b771860042e9bf8583df54383a6d4485",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:22.225Z",
+          "captureMs": 94.74996800000008,
+          "bytes": 11797
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "runtime-precondition",
+          "goal": "runtime-precondition",
+          "target": "/index.html#info",
+          "status": "Verified",
+          "evidenceKind": "runtime",
+          "assertion": {
+            "source": "visible",
+            "operator": "equals",
+            "selector": "#submit",
+            "expected": true
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"equals\",\"path\":\"ready\",\"expected\":true}",
+              "actual": "true",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 2.0435170000000653,
+              "value": true
+            },
+            {
+              "atMs": 101.99692799999957,
+              "value": true
+            }
+          ],
+          "checks": [
+            {
+              "action": "runtime-precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"#submit\",\"expected\":true}",
+              "actual": "[{\"atMs\":2.0435170000000653,\"value\":true},{\"atMs\":101.99692799999957,\"value\":true}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 102.59371699999974,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 450.45469499999945,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/e2a86319-ab59-4451-b314-5c4f9203f6fd.json"
+    },
+    {
+      "id": "a68b56b9-4659-4e73-b629-7611f56c34f2",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:23.337Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "313 → 319 → 325",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "314 → 320 → 326",
+          "status": "Verified"
+        },
+        {
+          "action": "hold-camera",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":180.89824500000032,\"value\":0},{\"atMs\":787.3557040000005,\"value\":31}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "c9f4e296-a6e7-4a93-926d-9c0ca057bf03",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/c9f4e296-a6e7-4a93-926d-9c0ca057bf03.png",
+          "sha256": "def160989fda75d760374a328500f3c48711184889a69e87f448073fb8a0d576",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:22.287Z",
+          "captureMs": 52.88778700000057,
+          "bytes": 11796
+        },
+        {
+          "id": "8c74104a-c9c9-4d6e-9a08-2e0c9635ea77",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/8c74104a-c9c9-4d6e-9a08-2e0c9635ea77.png",
+          "sha256": "3bf24fef4ec225a790fd6688e4e54f0f799ada3e4c2173a6e61df6360a52fccd",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:23.336Z",
+          "captureMs": 56.65005299999939,
+          "bytes": 11991
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "hold-camera",
+          "goal": "hold-camera",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 180.89824500000032,
+              "value": 0
+            },
+            {
+              "atMs": 787.3557040000005,
+              "value": 31
+            }
+          ],
+          "checks": [
+            {
+              "action": "hold-camera",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":180.89824500000032,\"value\":0},{\"atMs\":787.3557040000005,\"value\":31}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 787.9972630000002,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1102.9776190000002,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/a68b56b9-4659-4e73-b629-7611f56c34f2.json"
+    },
+    {
+      "id": "7f4dbffb-bd62-48b4-878b-5b48dbd76563",
+      "scope": "interaction",
+      "status": "Partially Verified",
+      "functionalStatus": "Not Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:23.670Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "380 → 386 → 392",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "381 → 387 → 393",
+          "status": "Verified"
+        },
+        {
+          "action": "body-is-not-camera",
+          "expected": "{\"source\":\"text\",\"operator\":\"changed\",\"selector\":\"body\"}",
+          "actual": "Error: A whole-document text change cannot establish the requested interaction. Select an application state/diagnostic.",
+          "status": "Not Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "8942ef20-5221-45ae-892a-6bc5bfe0c7dc",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/8942ef20-5221-45ae-892a-6bc5bfe0c7dc.png",
+          "sha256": "c4e9863330a35b9dc463376074e793bf461e13cc3a9c1dd5419edc6727c61063",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:23.404Z",
+          "captureMs": 59.98309900000004,
+          "bytes": 11991
+        },
+        {
+          "id": "cad61898-87e1-4886-ad4b-1ee6bf2eb1b7",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/cad61898-87e1-4886-ad4b-1ee6bf2eb1b7.png",
+          "sha256": "70f6a891826f875c3b2308f27afce4f110236cb5c73eaafbedbe18fe0f537f95",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:23.669Z",
+          "captureMs": 56.50086199999987,
+          "bytes": 11991
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "body-is-not-camera",
+          "goal": "body-is-not-camera",
+          "target": "/index.html#play",
+          "status": "Not Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "text",
+            "operator": "changed",
+            "selector": "body"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [],
+          "checks": [
+            {
+              "action": "body-is-not-camera",
+              "expected": "{\"source\":\"text\",\"operator\":\"changed\",\"selector\":\"body\"}",
+              "actual": "Error: A whole-document text change cannot establish the requested interaction. Select an application state/diagnostic.",
+              "status": "Not Verified"
+            }
+          ],
+          "elapsedMs": 4.944644000000153,
+          "reasonCode": "INCONCLUSIVE",
+          "reason": "Error: A whole-document text change cannot establish the requested interaction. Select an application state/diagnostic.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 325.70404299999973,
+      "reasonCode": "INCONCLUSIVE",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/7f4dbffb-bd62-48b4-878b-5b48dbd76563.json"
+    },
+    {
+      "id": "a7a265c0-0736-4696-a9e3-ddacc0dcdec1",
+      "scope": "interaction",
+      "status": "Partially Verified",
+      "functionalStatus": "Not Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:24.139Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "399 → 405 → 411",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "400 → 406 → 412",
+          "status": "Verified"
+        },
+        {
+          "action": "background-is-not-control",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"background\"}",
+          "actual": "Error: Observed state also changes without input; background animation cannot prove control handling. Choose a stable camera/state diagnostic.",
+          "status": "Not Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "532c3ea4-ca30-4197-9f2e-4d24ffe612c7",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/532c3ea4-ca30-4197-9f2e-4d24ffe612c7.png",
+          "sha256": "33cff3f26243cad57e05f05358457cc54bd6b37d2b38d63df41b341ec2ec31f9",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:23.720Z",
+          "captureMs": 43.754047999999784,
+          "bytes": 11991
+        },
+        {
+          "id": "915ace5f-759a-4d05-98e1-fba1fbb39bcf",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/915ace5f-759a-4d05-98e1-fba1fbb39bcf.png",
+          "sha256": "a7461442005faae8e7837c5ccc5bf7fdd8517539ba95f0d20dd5eae2d2238b8b",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:24.138Z",
+          "captureMs": 59.91312800000014,
+          "bytes": 11991
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "background-is-not-control",
+          "goal": "background-is-not-control",
+          "target": "/index.html#play",
+          "status": "Not Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "background"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [],
+          "checks": [
+            {
+              "action": "background-is-not-control",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"background\"}",
+              "actual": "Error: Observed state also changes without input; background animation cannot prove control handling. Choose a stable camera/state diagnostic.",
+              "status": "Not Verified"
+            }
+          ],
+          "elapsedMs": 153.3930479999999,
+          "reasonCode": "INCONCLUSIVE",
+          "reason": "Error: Observed state also changes without input; background animation cannot prove control handling. Choose a stable camera/state diagnostic.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 462.8470690000004,
+      "reasonCode": "INCONCLUSIVE",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/a7a265c0-0736-4696-a9e3-ddacc0dcdec1.json"
+    },
+    {
+      "id": "3111d2dd-eb64-4182-9c5a-d05055e99371",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:25.253Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "428 → 434 → 440",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "429 → 435 → 441",
+          "status": "Verified"
+        },
+        {
+          "action": "state-not-dom",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":152.68158700000004,\"value\":31},{\"atMs\":756.8417870000003,\"value\":62}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "368254a7-b3c5-4f68-9bb9-5a6d36a87aa7",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/368254a7-b3c5-4f68-9bb9-5a6d36a87aa7.png",
+          "sha256": "b8933edd3090309a8fe49dc2eaf1ae7ba9ba78aadae9df75dc1ddefabff77161",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:24.202Z",
+          "captureMs": 55.77878400000009,
+          "bytes": 11991
+        },
+        {
+          "id": "28950d7a-f762-48db-a713-3d07b9a48144",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/28950d7a-f762-48db-a713-3d07b9a48144.png",
+          "sha256": "886c3fbd1e20feb924d0f817579a3d490ac1c8da4795199a754a6bccd74aee12",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:25.252Z",
+          "captureMs": 89.24416299999939,
+          "bytes": 11990
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "state-not-dom",
+          "goal": "state-not-dom",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 152.68158700000004,
+              "value": 31
+            },
+            {
+              "atMs": 756.8417870000003,
+              "value": 62
+            }
+          ],
+          "checks": [
+            {
+              "action": "state-not-dom",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":152.68158700000004,\"value\":31},{\"atMs\":756.8417870000003,\"value\":62}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 757.3954860000003,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1106.7134290000004,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/3111d2dd-eb64-4182-9c5a-d05055e99371.json"
+    },
+    {
+      "id": "926e9af3-0a7d-4f79-980b-d65798c9a9ec",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#orbit",
+      "capturedAt": "2026-10-19T19:20:26.126Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "495 → 501 → 507",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "496 → 502 → 508",
+          "status": "Verified"
+        },
+        {
+          "action": "object-motion",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"decreased\",\"path\":\"object.distance\",\"sample_ms\":[0,150,400]}",
+          "actual": "[{\"atMs\":4.4197149999999965,\"value\":100,\"captureId\":\"07505289-6155-4f11-ba45-c17f6ce2eeb4\"},{\"atMs\":206.5340840000008,\"value\":97.59999999999997,\"captureId\":\"588de992-8bd0-4967-8dad-76d239561c0d\"},{\"atMs\":503.70940900000096,\"value\":94.59999999999992,\"captureId\":\"1c540ac1-9517-451e-94cd-25868185955e\"}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "ff3973f7-c045-421a-917b-c0b40e79366d",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/ff3973f7-c045-421a-917b-c0b40e79366d.png",
+          "sha256": "093e25c49b9904093853fd6cbec397fc9af542d37f147c02f1bec4cff0f242e5",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:25.310Z",
+          "captureMs": 51.36134800000036,
+          "bytes": 11989
+        },
+        {
+          "id": "07505289-6155-4f11-ba45-c17f6ce2eeb4",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/07505289-6155-4f11-ba45-c17f6ce2eeb4.png",
+          "sha256": "4633168c61ad600340f31297976ee3c223efa8efbd074e80690ed5be2465f6c7",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#orbit",
+          "capturedAt": "2026-10-19T19:20:25.571Z",
+          "captureMs": 51.76927800000158,
+          "bytes": 11952
+        },
+        {
+          "id": "588de992-8bd0-4967-8dad-76d239561c0d",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/588de992-8bd0-4967-8dad-76d239561c0d.png",
+          "sha256": "1059f35d971174a2cfd91d813c3e09db9342a4f4ced35a34b9692f4a5752bb51",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#orbit",
+          "capturedAt": "2026-10-19T19:20:25.768Z",
+          "captureMs": 46.90511399999923,
+          "bytes": 11951
+        },
+        {
+          "id": "1c540ac1-9517-451e-94cd-25868185955e",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/1c540ac1-9517-451e-94cd-25868185955e.png",
+          "sha256": "3ca4e14674fe566f7b843826d15f5c5a5390321d0eb61096ff788a6da27291a0",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#orbit",
+          "capturedAt": "2026-10-19T19:20:26.019Z",
+          "captureMs": 46.96530399999938,
+          "bytes": 11952
+        },
+        {
+          "id": "da17de83-6aaa-4ffd-8509-789d4f137365",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/da17de83-6aaa-4ffd-8509-789d4f137365.png",
+          "sha256": "496408896ea9ee2d53af1dc266e9c4b7d4ffc7c74d44a92341e330f77f16d17f",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#orbit",
+          "capturedAt": "2026-10-19T19:20:26.125Z",
+          "captureMs": 105.34111399999892,
+          "bytes": 11951
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "object-motion",
+          "goal": "object-motion",
+          "target": "/index.html#orbit",
+          "status": "Verified",
+          "evidenceKind": "temporal",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "decreased",
+            "path": "object.distance",
+            "sample_ms": [
+              0,
+              150,
+              400
+            ]
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"orbit\"}",
+              "actual": "\"orbit\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 4.4197149999999965,
+              "value": 100,
+              "captureId": "07505289-6155-4f11-ba45-c17f6ce2eeb4"
+            },
+            {
+              "atMs": 206.5340840000008,
+              "value": 97.59999999999997,
+              "captureId": "588de992-8bd0-4967-8dad-76d239561c0d"
+            },
+            {
+              "atMs": 503.70940900000096,
+              "value": 94.59999999999992,
+              "captureId": "1c540ac1-9517-451e-94cd-25868185955e"
+            }
+          ],
+          "checks": [
+            {
+              "action": "object-motion",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"decreased\",\"path\":\"object.distance\",\"sample_ms\":[0,150,400]}",
+              "actual": "[{\"atMs\":4.4197149999999965,\"value\":100,\"captureId\":\"07505289-6155-4f11-ba45-c17f6ce2eeb4\"},{\"atMs\":206.5340840000008,\"value\":97.59999999999997,\"captureId\":\"588de992-8bd0-4967-8dad-76d239561c0d\"},{\"atMs\":503.70940900000096,\"value\":94.59999999999992,\"captureId\":\"1c540ac1-9517-451e-94cd-25868185955e\"}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 504.3771190000007,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 866.7461459999995,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/926e9af3-0a7d-4f79-980b-d65798c9a9ec.json"
+    },
+    {
+      "id": "4b21f382-2624-4c28-8d4a-359485a1557a",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:27.205Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "550 → 556 → 562",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "551 → 557 → 563",
+          "status": "Verified"
+        },
+        {
+          "action": "down-and-up",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":156.2725929999997,\"value\":62},{\"atMs\":711.4307999999983,\"value\":89}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "76f49c92-132d-444b-b6be-07a80f1240a3",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/76f49c92-132d-444b-b6be-07a80f1240a3.png",
+          "sha256": "0864dcb8f89e11b1cc40deec996ff114a0999133ba68262e416813b9ef9487e2",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#orbit",
+          "capturedAt": "2026-10-19T19:20:26.226Z",
+          "captureMs": 93.36961899999915,
+          "bytes": 11952
+        },
+        {
+          "id": "df193c00-873d-4c05-a84f-766e803682de",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/df193c00-873d-4c05-a84f-766e803682de.png",
+          "sha256": "6c0fca5637adec3bbfaf422b3aef7656025558fc3e6dc9c690922aa0af85f031",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:27.204Z",
+          "captureMs": 61.10801700000047,
+          "bytes": 11990
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "down-and-up",
+          "goal": "down-and-up",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 156.2725929999997,
+              "value": 62
+            },
+            {
+              "atMs": 711.4307999999983,
+              "value": 89
+            }
+          ],
+          "checks": [
+            {
+              "action": "down-and-up",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":156.2725929999997,\"value\":62},{\"atMs\":711.4307999999983,\"value\":89}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 711.9504989999987,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1072.680330000001,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/4b21f382-2624-4c28-8d4a-359485a1557a.json"
+    },
+    {
+      "id": "029b5b0d-8c87-429d-b097-c48861a29c4b",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:27.937Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "612 → 618 → 624",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "613 → 619 → 625",
+          "status": "Verified"
+        },
+        {
+          "action": "drag-camera",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":152.67193800000132,\"value\":89},{\"atMs\":405.6290850000005,\"value\":97}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "30e1cb2c-cc2c-46cc-8cf4-7e00a22102f7",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/30e1cb2c-cc2c-46cc-8cf4-7e00a22102f7.png",
+          "sha256": "0d2d0caac6950bc5071737fa78bacc063dee71f34c564e8d114609225936b038",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:27.269Z",
+          "captureMs": 56.41710200000125,
+          "bytes": 11990
+        },
+        {
+          "id": "f0b1aeae-4d26-442d-bccc-d22656937fdb",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/f0b1aeae-4d26-442d-bccc-d22656937fdb.png",
+          "sha256": "3d526f8741e0be85fccabcfa6e560a3042d4f6776bdac9098e66831b350e02e0",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:27.936Z",
+          "captureMs": 57.020830999999816,
+          "bytes": 11991
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "drag-camera",
+          "goal": "drag-camera",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 152.67193800000132,
+              "value": 89
+            },
+            {
+              "atMs": 405.6290850000005,
+              "value": 97
+            }
+          ],
+          "checks": [
+            {
+              "action": "drag-camera",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":152.67193800000132,\"value\":89},{\"atMs\":405.6290850000005,\"value\":97}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 406.14535500000056,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 724.5475040000001,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/029b5b0d-8c87-429d-b097-c48861a29c4b.json"
+    },
+    {
+      "id": "bed31bb5-c284-4182-ae42-93d6e6198d42",
+      "scope": "interaction",
+      "status": "Blocked",
+      "functionalStatus": "Blocked",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:28.303Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "656 → 662 → 668",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "657 → 663 → 669",
+          "status": "Verified"
+        },
+        {
+          "action": "unsupported-lock",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "Error: The application did not acquire pointer lock; no synthetic lock was forced.",
+          "status": "Blocked"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "8fbce8df-1d63-41de-8349-b25b06713dac",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/8fbce8df-1d63-41de-8349-b25b06713dac.png",
+          "sha256": "1951d0755c8c47f1362310edebd30204f1806dc6623c09dc03c9a6913b8705ca",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:28.003Z",
+          "captureMs": 59.85895799999889,
+          "bytes": 11991
+        },
+        {
+          "id": "11fcb1d1-60bd-4500-bc67-1dd5260d4aa3",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/11fcb1d1-60bd-4500-bc67-1dd5260d4aa3.png",
+          "sha256": "d0218d2bf36556fda6ccd0c927f8200810f92ee93279303c2648c5feea20049b",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:28.303Z",
+          "captureMs": 52.56151800000043,
+          "bytes": 12190
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "unsupported-lock",
+          "goal": "unsupported-lock",
+          "target": "/index.html#play",
+          "status": "Blocked",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 1.5520180000003165,
+              "value": 97
+            }
+          ],
+          "checks": [
+            {
+              "action": "unsupported-lock",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "Error: The application did not acquire pointer lock; no synthetic lock was forced.",
+              "status": "Blocked"
+            }
+          ],
+          "elapsedMs": 42.57111900000018,
+          "reasonCode": "UNSUPPORTED_OPERATION",
+          "reason": "Error: The application did not acquire pointer lock; no synthetic lock was forced.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 360.04269899999963,
+      "reasonCode": "UNSUPPORTED_OPERATION",
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/bed31bb5-c284-4182-ae42-93d6e6198d42.json"
+    },
+    {
+      "id": "b4d6bdc3-4fdb-4383-8629-9e591b970d83",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:28.819Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "678 → 684 → 690",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "679 → 685 → 691",
+          "status": "Verified"
+        },
+        {
+          "action": "form-async",
+          "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#answer\",\"expected\":\"Hello Ada\"}",
+          "actual": "[{\"atMs\":4.275775000000067,\"value\":\"Hello\"},{\"atMs\":192.40190900000016,\"value\":\"Hello Ada\"}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "eafc7496-e2d4-44f7-be8e-1a14256deade",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/eafc7496-e2d4-44f7-be8e-1a14256deade.png",
+          "sha256": "3afd20ce9b2a739ca8dd8a2183cc0edaed1d456c747185f1058a6f4f60dee7ff",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:28.369Z",
+          "captureMs": 58.25806999999986,
+          "bytes": 12189
+        },
+        {
+          "id": "969181ae-d600-4bd7-96e3-66719ddffc97",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/969181ae-d600-4bd7-96e3-66719ddffc97.png",
+          "sha256": "98cf43a3816af7ba5ae617a7f8027b2024b759a87c25285fb663f3745671d484",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:28.818Z",
+          "captureMs": 52.67938700000013,
+          "bytes": 13188
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "form-async",
+          "goal": "form-async",
+          "target": "/index.html#info",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "text",
+            "operator": "equals",
+            "selector": "#answer",
+            "expected": "Hello Ada"
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 4.275775000000067,
+              "value": "Hello"
+            },
+            {
+              "atMs": 192.40190900000016,
+              "value": "Hello Ada"
+            }
+          ],
+          "checks": [
+            {
+              "action": "form-async",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#answer\",\"expected\":\"Hello Ada\"}",
+              "actual": "[{\"atMs\":4.275775000000067,\"value\":\"Hello\"},{\"atMs\":192.40190900000016,\"value\":\"Hello Ada\"}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 192.92067900000075,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 509.06888999999865,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/b4d6bdc3-4fdb-4383-8629-9e591b970d83.json"
+    },
+    {
+      "id": "438560b8-5a7b-4708-ad15-d922da6f06cc",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:29.221Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "708 → 714 → 720",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "709 → 715 → 721",
+          "status": "Verified"
+        },
+        {
+          "action": "saved-list",
+          "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#list li\",\"expected\":\"Saved\"}",
+          "actual": "[{\"atMs\":1.4385689999999158,\"value\":\"Saved\"},{\"atMs\":101.9226579999995,\"value\":\"Saved\"}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "aef330e6-9409-4b24-849e-ea904e73d1b8",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/aef330e6-9409-4b24-849e-ea904e73d1b8.png",
+          "sha256": "40abdfbeb6f3e923bce31c3069de32e28294df495ba68c75ae250a540065c7c8",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:28.868Z",
+          "captureMs": 42.71988899999997,
+          "bytes": 13188
+        },
+        {
+          "id": "e782433b-641f-4f10-84fc-135376c1f0d2",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/e782433b-641f-4f10-84fc-135376c1f0d2.png",
+          "sha256": "c344bc6c76e978f40ff10724497bb44604531a4dd8907621944f37b9a1467b32",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:29.220Z",
+          "captureMs": 45.570535999999265,
+          "bytes": 13188
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "saved-list",
+          "goal": "saved-list",
+          "target": "/index.html#info",
+          "status": "Verified",
+          "evidenceKind": "runtime",
+          "assertion": {
+            "source": "text",
+            "operator": "equals",
+            "selector": "#list li",
+            "expected": "Saved"
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 1.4385689999999158,
+              "value": "Saved"
+            },
+            {
+              "atMs": 101.9226579999995,
+              "value": "Saved"
+            }
+          ],
+          "checks": [
+            {
+              "action": "saved-list",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#list li\",\"expected\":\"Saved\"}",
+              "actual": "[{\"atMs\":1.4385689999999158,\"value\":\"Saved\"},{\"atMs\":101.9226579999995,\"value\":\"Saved\"}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 102.46533699999964,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 395.8755259999998,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/438560b8-5a7b-4708-ad15-d922da6f06cc.json"
+    },
+    {
+      "id": "361080ac-f93b-4c0b-a127-c4a04dd96044",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#info",
+      "capturedAt": "2026-10-19T19:20:29.671Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "733 → 739 → 745",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "734 → 740 → 746",
+          "status": "Verified"
+        },
+        {
+          "action": "modal",
+          "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"dialog[open]\",\"expected\":true}",
+          "actual": "[{\"atMs\":1.0013789999993605,\"value\":false},{\"atMs\":124.50039099999958,\"value\":true}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "3bfab959-11e0-48e2-940e-66e3f938bbbe",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/3bfab959-11e0-48e2-940e-66e3f938bbbe.png",
+          "sha256": "328559070b50ada53548dd12ed2c1ffdef315e7b8a95b48ce59e84014a9fb631",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:29.285Z",
+          "captureMs": 58.59646000000066,
+          "bytes": 13188
+        },
+        {
+          "id": "0eb78612-d2d8-491e-83ad-10ee8c9206f1",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/0eb78612-d2d8-491e-83ad-10ee8c9206f1.png",
+          "sha256": "180426fe214bac7cc963cf93cc63d20577feb623c542766b0a20bff5aff593f6",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:29.670Z",
+          "captureMs": 55.39200400000118,
+          "bytes": 15668
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "modal",
+          "goal": "modal",
+          "target": "/index.html#info",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "visible",
+            "operator": "equals",
+            "selector": "dialog[open]",
+            "expected": true
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 1.0013789999993605,
+              "value": false
+            },
+            {
+              "atMs": 124.50039099999958,
+              "value": true
+            }
+          ],
+          "checks": [
+            {
+              "action": "modal",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"dialog[open]\",\"expected\":true}",
+              "actual": "[{\"atMs\":1.0013789999993605,\"value\":false},{\"atMs\":124.50039099999958,\"value\":true}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 124.9127499999995,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 444.10440800000106,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/361080ac-f93b-4c0b-a127-c4a04dd96044.json"
+    },
+    {
+      "id": "36020999-6dac-41d9-9a4f-c79713b45045",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:30.339Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "770 → 776 → 782",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "771 → 777 → 783",
+          "status": "Verified"
+        },
+        {
+          "action": "scroll",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"scroll\"}",
+          "actual": "[{\"atMs\":3.238225999999486,\"value\":0},{\"atMs\":121.87646400000085,\"value\":400}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "51a9c244-0e3f-4a99-8533-a4da06eed2be",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/51a9c244-0e3f-4a99-8533-a4da06eed2be.png",
+          "sha256": "6e89b55730b04a33df8b7cef8571720a915626b3937a9f43affdf01231010404",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#info",
+          "capturedAt": "2026-10-19T19:20:29.902Z",
+          "captureMs": 50.72578900000008,
+          "bytes": 12952
+        },
+        {
+          "id": "b4067667-fb66-4e80-9298-13277cfdccc4",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/b4067667-fb66-4e80-9298-13277cfdccc4.png",
+          "sha256": "5d378130ab00f631855f9c206682e2524b1627b1232271e56a96a05b75ea8951",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:30.338Z",
+          "captureMs": 109.93858899999941,
+          "bytes": 5294
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "scroll",
+          "goal": "scroll",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "scroll"
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 3.238225999999486,
+              "value": 0
+            },
+            {
+              "atMs": 121.87646400000085,
+              "value": 400
+            }
+          ],
+          "checks": [
+            {
+              "action": "scroll",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"scroll\"}",
+              "actual": "[{\"atMs\":3.238225999999486,\"value\":0},{\"atMs\":121.87646400000085,\"value\":400}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 122.30404300000009,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 487.9102550000007,
+      "revisionFingerprint": "938a61a55cdf0ce61b8c18f2fb9b51d6bd37b4197924140c3105f4cac92c998f",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/36020999-6dac-41d9-9a4f-c79713b45045.json"
+    },
+    {
+      "id": "c98e2866-f51e-4762-a7a4-369c438aa376",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/isolated.html",
+      "capturedAt": "2026-10-19T19:20:30.769Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "800 → 806 → 812",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "801 → 807 → 813",
+          "status": "Verified"
+        },
+        {
+          "action": "independent-document",
+          "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#identity\",\"expected\":\"Independent page\"}",
+          "actual": "[{\"atMs\":28.38026600000012,\"value\":\"Independent page\"},{\"atMs\":128.879065000001,\"value\":\"Independent page\"}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "1fd66a0e-d0ba-4511-9482-218c4e7a65ad",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/1fd66a0e-d0ba-4511-9482-218c4e7a65ad.png",
+          "sha256": "5d378130ab00f631855f9c206682e2524b1627b1232271e56a96a05b75ea8951",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:30.399Z",
+          "captureMs": 53.034026999999696,
+          "bytes": 5294
+        },
+        {
+          "id": "5f45ce5e-5b6b-46e7-9bc9-ac93c00993f0",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/5f45ce5e-5b6b-46e7-9bc9-ac93c00993f0.png",
+          "sha256": "b66f208b03b750707d4df8cfb19f507f887e36d11b4a0986f69d98e68914b7c6",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/isolated.html",
+          "capturedAt": "2026-10-19T19:20:30.768Z",
+          "captureMs": 34.85281899999973,
+          "bytes": 7108
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "independent-document",
+          "goal": "independent-document",
+          "target": "/isolated.html",
+          "status": "Verified",
+          "evidenceKind": "runtime",
+          "assertion": {
+            "source": "text",
+            "operator": "equals",
+            "selector": "#identity",
+            "expected": "Independent page"
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 28.38026600000012,
+              "value": "Independent page"
+            },
+            {
+              "atMs": 128.879065000001,
+              "value": "Independent page"
+            }
+          ],
+          "checks": [
+            {
+              "action": "independent-document",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#identity\",\"expected\":\"Independent page\"}",
+              "actual": "[{\"atMs\":28.38026600000012,\"value\":\"Independent page\"},{\"atMs\":128.879065000001,\"value\":\"Independent page\"}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 129.49620400000094,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/isolated.html": "828f5f3cedd898715ff0bb66b147ffdb41924891a698c6e9946141eb5d2b0bd8"
+          }
+        }
+      ],
+      "elapsedMs": 423.3601030000009,
+      "revisionFingerprint": "0bc85c0d0fc452990aa8ba85071984b3c189ded1f1243e9d52bb73bdacbac299",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/isolated.html": "828f5f3cedd898715ff0bb66b147ffdb41924891a698c6e9946141eb5d2b0bd8"
+      },
+      "sourceFingerprint": "828f5f3cedd898715ff0bb66b147ffdb41924891a698c6e9946141eb5d2b0bd8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/c98e2866-f51e-4762-a7a4-369c438aa376.json"
+    },
+    {
+      "id": "093c1b63-9f7e-453c-a005-5c2838981ecf",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:31.888Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "restored-document",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":182.8302300000014,\"value\":0},{\"atMs\":787.8898740000004,\"value\":30}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "ed97f2b4-6bd2-40c0-a535-c6feea384095",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/ed97f2b4-6bd2-40c0-a535-c6feea384095.png",
+          "sha256": "b66f208b03b750707d4df8cfb19f507f887e36d11b4a0986f69d98e68914b7c6",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/isolated.html",
+          "capturedAt": "2026-10-19T19:20:30.850Z",
+          "captureMs": 73.57699199999843,
+          "bytes": 7108
+        },
+        {
+          "id": "ca361eb6-ffb1-44d6-a9cc-bd8db6422d72",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/ca361eb6-ffb1-44d6-a9cc-bd8db6422d72.png",
+          "sha256": "f8057d715878c436e7b58b4a494dff5da232dc79fd9df9641fed0b85e5b7acac",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:31.887Z",
+          "captureMs": 44.20347699999911,
+          "bytes": 10392
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "restored-document",
+          "goal": "restored-document",
+          "target": "/index.html#play",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 182.8302300000014,
+              "value": 0
+            },
+            {
+              "atMs": 787.8898740000004,
+              "value": 30
+            }
+          ],
+          "checks": [
+            {
+              "action": "restored-document",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":182.8302300000014,\"value\":0},{\"atMs\":787.8898740000004,\"value\":30}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 788.4896239999998,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+          }
+        }
+      ],
+      "elapsedMs": 1112.021925000001,
+      "revisionFingerprint": "0bc85c0d0fc452990aa8ba85071984b3c189ded1f1243e9d52bb73bdacbac299",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8"
+      },
+      "sourceFingerprint": "29a23065f3a5fd9ec6f3e88c26e181ca3b203e144801ee12a1623a2da47610d8",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/093c1b63-9f7e-453c-a005-5c2838981ecf.json"
+    },
+    {
+      "id": "d902e360-ec00-4052-8f36-ef2409ee4abb",
+      "scope": "interaction",
+      "status": "Failed",
+      "functionalStatus": "Failed",
+      "url": "https://project-preview.invalid/index.html#play",
+      "capturedAt": "2026-10-19T19:20:32.986Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "6 → 12 → 18",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "7 → 13 → 19",
+          "status": "Verified"
+        },
+        {
+          "action": "broken-camera",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+          "actual": "[{\"atMs\":152.84637699999985,\"value\":0},{\"atMs\":756.9964999999993,\"value\":0}]",
+          "status": "Failed"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "id": "ea08256e-98ca-4cfb-8460-d8e64feabe5d",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/ea08256e-98ca-4cfb-8460-d8e64feabe5d.png",
+          "sha256": "2081e46702d2d00f9ee6758d80fdbb606dfe1135a7c43bac958bed5cbebc3fa5",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:31.971Z",
+          "captureMs": 62.37208499999906,
+          "bytes": 10171
+        },
+        {
+          "id": "9aea0efb-c6ad-4806-9871-a00cd2905945",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/9aea0efb-c6ad-4806-9871-a00cd2905945.png",
+          "sha256": "9e8ecf9398079e37fe1b674a76de4295c2412f77203a9d8ea375858a2a907586",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:32.985Z",
+          "captureMs": 38.04550400000153,
+          "bytes": 10391
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "broken-camera",
+          "goal": "broken-camera",
+          "target": "/index.html#play",
+          "status": "Failed",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera.x"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"text\",\"operator\":\"equals\",\"selector\":\"#mode\",\"expected\":\"play\"}",
+              "actual": "\"play\"",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 152.84637699999985,
+              "value": 0
+            },
+            {
+              "atMs": 756.9964999999993,
+              "value": 0
+            }
+          ],
+          "checks": [
+            {
+              "action": "broken-camera",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera.x\"}",
+              "actual": "[{\"atMs\":152.84637699999985,\"value\":0},{\"atMs\":756.9964999999993,\"value\":0}]",
+              "status": "Failed"
+            }
+          ],
+          "elapsedMs": 757.5507300000008,
+          "reasonCode": "FUNCTIONAL_REQUIREMENT_FAILED",
+          "reason": "The declared application assertion did not hold under satisfied preconditions.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286"
+          }
+        }
+      ],
+      "elapsedMs": 1077.3180150000007,
+      "reasonCode": "FUNCTIONAL_REQUIREMENT_FAILED",
+      "revisionFingerprint": "ed0f202eaadf4ba519701fba919e8c867c5a77fe263ea1e4657464488cd1a26a",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286"
+      },
+      "sourceFingerprint": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/d902e360-ec00-4052-8f36-ef2409ee4abb.json"
+    },
+    {
+      "id": "9183e075-565f-4b9d-960b-5ac431c68164",
+      "scope": "interaction",
+      "status": "Failed",
+      "functionalStatus": "Failed",
+      "url": "https://project-preview.invalid/index.html#crash",
+      "capturedAt": "2026-10-19T19:20:33.488Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas animation",
+          "expected": "Observed RAF callbacks continue (not object/camera motion)",
+          "actual": "69 → 75 → 81",
+          "status": "Verified"
+        },
+        {
+          "action": "canvas render",
+          "expected": "Observed draw calls continue (not visual correctness)",
+          "actual": "70 → 76 → 82",
+          "status": "Verified"
+        },
+        {
+          "action": "scenario runtime errors",
+          "expected": "No new application errors",
+          "actual": "real fixture error",
+          "status": "Failed"
+        },
+        {
+          "action": "application-error",
+          "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+          "actual": "[{\"atMs\":5.678843999998207,\"value\":true},{\"atMs\":191.86309999999867,\"value\":true}]",
+          "status": "Failed"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "real fixture error",
+          "status": "Failed"
+        }
+      ],
+      "captures": [
+        {
+          "id": "d33209df-c797-4c01-8a3d-304e8a7f9347",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/d33209df-c797-4c01-8a3d-304e8a7f9347.png",
+          "sha256": "9f29c9742c0f645cf39ee3afbe9cceb61c8ff7237e3b281706627ecba419570d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#play",
+          "capturedAt": "2026-10-19T19:20:33.036Z",
+          "captureMs": 43.99786699999822,
+          "bytes": 10392
+        },
+        {
+          "id": "ee6354b0-11be-4a39-a993-17869b0d1590",
+          "path": "/tmp/lad-scenario-qa-jPHlAp/captures/ee6354b0-11be-4a39-a993-17869b0d1590.png",
+          "sha256": "114215784b9141afffce2c0b6002a37c53839d4306dd51889f6817f154317366",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html#crash",
+          "capturedAt": "2026-10-19T19:20:33.487Z",
+          "captureMs": 53.61323600000105,
+          "bytes": 10441
+        }
+      ],
+      "errors": [
+        "real fixture error"
+      ],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "application-error",
+          "goal": "application-error",
+          "target": "/index.html#crash",
+          "status": "Failed",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "visible",
+            "operator": "equals",
+            "selector": "canvas",
+            "expected": true
+          },
+          "preconditions": [],
+          "observations": [
+            {
+              "atMs": 5.678843999998207,
+              "value": true
+            },
+            {
+              "atMs": 191.86309999999867,
+              "value": true
+            }
+          ],
+          "checks": [
+            {
+              "action": "scenario runtime errors",
+              "expected": "No new application errors",
+              "actual": "real fixture error",
+              "status": "Failed"
+            },
+            {
+              "action": "application-error",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+              "actual": "[{\"atMs\":5.678843999998207,\"value\":true},{\"atMs\":191.86309999999867,\"value\":true}]",
+              "status": "Failed"
+            }
+          ],
+          "elapsedMs": 192.3755889999993,
+          "reasonCode": "FUNCTIONAL_REQUIREMENT_FAILED",
+          "reason": "The declared application assertion did not hold under satisfied preconditions.",
+          "sourceRevisions": {
+            "/tmp/lad-scenario-qa-jPHlAp/index.html": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286"
+          }
+        }
+      ],
+      "elapsedMs": 495.04792400000224,
+      "reasonCode": "FUNCTIONAL_REQUIREMENT_FAILED",
+      "revisionFingerprint": "ed0f202eaadf4ba519701fba919e8c867c5a77fe263ea1e4657464488cd1a26a",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-qa-jPHlAp/index.html": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286"
+      },
+      "sourceFingerprint": "443aeeb494c242039023c2dab49f9be58383ded18be25a2e1f9a049a05980286",
+      "evidencePath": "/tmp/lad-scenario-qa-jPHlAp/captures/9183e075-565f-4b9d-960b-5ac431c68164.json"
+    }
+  ]
+}

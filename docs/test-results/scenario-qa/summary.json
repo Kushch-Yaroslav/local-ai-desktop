@@ -1,0 +1,36 @@
+{
+  "result": "PASS",
+  "stage": "Scenario QA recovery complete",
+  "timeUtc": "2026-10-19T19:24:25.695631+00:00",
+  "rust": {
+    "passed": 390,
+    "failed": 0,
+    "ignored": 1
+  },
+  "regressionSuites": 35,
+  "build": "PASS",
+  "typeScript": "PASS",
+  "eslint": "PASS",
+  "realQwen": [
+    {
+      "report": "qwen/qwen-native-result.json",
+      "result": "PASS",
+      "acceptedDraftTokens": 2989
+    },
+    {
+      "report": "qwen-contracts/qwen-contract-result.json",
+      "result": "PASS",
+      "acceptedDraftTokens": 1041
+    }
+  ],
+  "scriptedProviderSuites": [
+    "scenario-gate-runtime.test.mjs",
+    "qa-loop-runtime.test.mjs"
+  ],
+  "recoveredFailure": {
+    "code": "QA_TOOL_ERROR",
+    "detail": "First clipped PNG of a data-URL fixture raced initial compositor frame; test setup now waits for paint. Application failure was never claimed."
+  },
+  "userRuntime": "preserved; excluded from Git",
+  "nexus": "read-only diagnosis; no source edits"
+}

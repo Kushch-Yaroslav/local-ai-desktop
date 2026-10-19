@@ -1,0 +1,810 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-scenario-gate-Btyexc",
+  "provider": "scripted; real Rust/Chromium/filesystem",
+  "checks": [
+    "open cannot prove interaction",
+    "immutable scenario_refs",
+    "actual 450ms hold",
+    "independent edit retains proof",
+    "served app.js edit stales proof",
+    "identical verify loop blocked",
+    "other tools continue",
+    "fresh retest verifies",
+    "next run retains criteria but requires fresh execution"
+  ],
+  "reports": [
+    {
+      "id": "57b35c97-3f40-477f-9ec0-3355304c9651",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-19T19:20:42.787Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "Camera",
+          "status": "Verified"
+        },
+        {
+          "action": "Actual camera response after a bounded hold",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+          "actual": "[{\"atMs\":152.87108499999977,\"value\":0},{\"atMs\":711.1150079999998,\"value\":1}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "runId": "scenario-gate",
+          "id": "0fb20df3-14ff-4fef-a436-6df3bb0c46e1",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/0fb20df3-14ff-4fef-a436-6df3bb0c46e1.png",
+          "sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:41.820Z",
+          "captureMs": 44.78927599999952,
+          "bytes": 5289
+        },
+        {
+          "runId": "scenario-gate",
+          "id": "ea81cb92-1c54-4b36-9f4f-af5e0b17083f",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/ea81cb92-1c54-4b36-9f4f-af5e0b17083f.png",
+          "sha256": "36cc60d4ce0ac1389d945eeb8a5e8de7a2b600cffe5aa886e4202deebe578d3d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:42.785Z",
+          "captureMs": 28.99186499999996,
+          "bytes": 5658
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "criterion-1",
+          "goal": "Actual camera response after a bounded hold",
+          "target": "/index.html",
+          "deliverableId": "camera",
+          "criterionId": "forward",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+              "actual": "true",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 152.87108499999977,
+              "value": 0
+            },
+            {
+              "atMs": 711.1150079999998,
+              "value": 1
+            }
+          ],
+          "checks": [
+            {
+              "action": "Actual camera response after a bounded hold",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+              "actual": "[{\"atMs\":152.87108499999977,\"value\":0},{\"atMs\":711.1150079999998,\"value\":1}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 712.0054869999994,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "76d0f2b42c3de2ad5ebd66b5a427cd676dcc6772e880da72cd0f75edc2303f80"
+          }
+        }
+      ],
+      "elapsedMs": 1012.0440929999995,
+      "runId": "scenario-gate",
+      "revisionFingerprint": "8b5d7badf59d8c0c684b02c03c4fc06225bec8b9a5959ea791158f1843a7aa8a",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+        "/tmp/lad-scenario-gate-Btyexc/app.js": "76d0f2b42c3de2ad5ebd66b5a427cd676dcc6772e880da72cd0f75edc2303f80"
+      },
+      "sourceFingerprint": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+      "evidencePath": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/57b35c97-3f40-477f-9ec0-3355304c9651.json"
+    },
+    {
+      "id": "9c0a438f-5373-4fb1-a353-732c44297c16",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-19T19:20:44.242Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "Camera",
+          "status": "Verified"
+        },
+        {
+          "action": "Actual camera response after a bounded hold",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+          "actual": "[{\"atMs\":153.03788299999997,\"value\":0},{\"atMs\":707.6302390000001,\"value\":2}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "runId": "scenario-gate",
+          "id": "055970dc-e8c6-46e8-97f9-f1446bfa4016",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/055970dc-e8c6-46e8-97f9-f1446bfa4016.png",
+          "sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:43.287Z",
+          "captureMs": 40.9076699999996,
+          "bytes": 5289
+        },
+        {
+          "runId": "scenario-gate",
+          "id": "c8bf6715-b2fd-44e0-b955-a55001ecaac4",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/c8bf6715-b2fd-44e0-b955-a55001ecaac4.png",
+          "sha256": "36cc60d4ce0ac1389d945eeb8a5e8de7a2b600cffe5aa886e4202deebe578d3d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:44.241Z",
+          "captureMs": 26.6645180000005,
+          "bytes": 5658
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "criterion-1",
+          "goal": "Actual camera response after a bounded hold",
+          "target": "/index.html",
+          "deliverableId": "camera",
+          "criterionId": "forward",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+              "actual": "true",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 153.03788299999997,
+              "value": 0
+            },
+            {
+              "atMs": 707.6302390000001,
+              "value": 2
+            }
+          ],
+          "checks": [
+            {
+              "action": "Actual camera response after a bounded hold",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+              "actual": "[{\"atMs\":153.03788299999997,\"value\":0},{\"atMs\":707.6302390000001,\"value\":2}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 708.3664980000003,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+          }
+        }
+      ],
+      "elapsedMs": 995.7758789999998,
+      "runId": "scenario-gate",
+      "revisionFingerprint": "81bf267ec448b3790bdb676a5b5a6c8b19e051a282614561cdf531918d0c4df5",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+        "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+      },
+      "sourceFingerprint": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+      "evidencePath": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/9c0a438f-5373-4fb1-a353-732c44297c16.json"
+    },
+    {
+      "id": "d2ca5c11-762f-4a9d-9d27-3063066442ef",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-19T19:20:48.836Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "Camera",
+          "status": "Verified"
+        },
+        {
+          "action": "Actual camera response after a bounded hold",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+          "actual": "[{\"atMs\":153.59847199999967,\"value\":0},{\"atMs\":709.0470839999998,\"value\":2}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "runId": "scenario-gate",
+          "id": "5a6b40c4-d4c7-45f6-8911-ff67e50f70e0",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/5a6b40c4-d4c7-45f6-8911-ff67e50f70e0.png",
+          "sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:47.872Z",
+          "captureMs": 45.01740500000051,
+          "bytes": 5289
+        },
+        {
+          "runId": "scenario-gate",
+          "id": "19738e51-bbdd-427f-8c56-0b0f330625fe",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/19738e51-bbdd-427f-8c56-0b0f330625fe.png",
+          "sha256": "36cc60d4ce0ac1389d945eeb8a5e8de7a2b600cffe5aa886e4202deebe578d3d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:48.835Z",
+          "captureMs": 32.30123099999946,
+          "bytes": 5658
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "criterion-1",
+          "goal": "Actual camera response after a bounded hold",
+          "target": "/index.html",
+          "deliverableId": "camera",
+          "criterionId": "forward",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+              "actual": "true",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 153.59847199999967,
+              "value": 0
+            },
+            {
+              "atMs": 709.0470839999998,
+              "value": 2
+            }
+          ],
+          "checks": [
+            {
+              "action": "Actual camera response after a bounded hold",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+              "actual": "[{\"atMs\":153.59847199999967,\"value\":0},{\"atMs\":709.0470839999998,\"value\":2}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 709.881883,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+          }
+        }
+      ],
+      "elapsedMs": 1008.8189689999999,
+      "runId": "scenario-gate",
+      "revisionFingerprint": "81bf267ec448b3790bdb676a5b5a6c8b19e051a282614561cdf531918d0c4df5",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+        "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+      },
+      "sourceFingerprint": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+      "evidencePath": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/d2ca5c11-762f-4a9d-9d27-3063066442ef.json"
+    }
+  ],
+  "memory": {
+    "browser_qa": {
+      "id": "d2ca5c11-762f-4a9d-9d27-3063066442ef",
+      "scope": "interaction",
+      "status": "Verified",
+      "functionalStatus": "Verified",
+      "url": "https://project-preview.invalid/index.html",
+      "capturedAt": "2026-10-19T19:20:48.836Z",
+      "checks": [
+        {
+          "action": "load",
+          "expected": "Document has a rendered body",
+          "actual": "Camera",
+          "status": "Verified"
+        },
+        {
+          "action": "Actual camera response after a bounded hold",
+          "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+          "actual": "[{\"atMs\":153.59847199999967,\"value\":0},{\"atMs\":709.0470839999998,\"value\":2}]",
+          "status": "Verified"
+        },
+        {
+          "action": "exposed numeric diagnostics",
+          "expected": "No NaN/Infinity in exposed diagnostics",
+          "actual": "None observed",
+          "status": "Verified"
+        },
+        {
+          "action": "runtime errors",
+          "expected": "No observed uncaught errors/console errors/rejections",
+          "actual": "None observed",
+          "status": "Verified"
+        }
+      ],
+      "captures": [
+        {
+          "runId": "scenario-gate",
+          "id": "5a6b40c4-d4c7-45f6-8911-ff67e50f70e0",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/5a6b40c4-d4c7-45f6-8911-ff67e50f70e0.png",
+          "sha256": "57f45d88e654eeca054ff1cc37c39a437cb6e4b6ea2a6f59cf08a6228670107a",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:47.872Z",
+          "captureMs": 45.01740500000051,
+          "bytes": 5289
+        },
+        {
+          "runId": "scenario-gate",
+          "id": "19738e51-bbdd-427f-8c56-0b0f330625fe",
+          "path": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/19738e51-bbdd-427f-8c56-0b0f330625fe.png",
+          "sha256": "36cc60d4ce0ac1389d945eeb8a5e8de7a2b600cffe5aa886e4202deebe578d3d",
+          "width": 1280,
+          "height": 900,
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "region": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "url": "https://project-preview.invalid/index.html",
+          "capturedAt": "2026-10-19T19:20:48.835Z",
+          "captureMs": 32.30123099999946,
+          "bytes": 5658
+        }
+      ],
+      "errors": [],
+      "visual": {
+        "analyzed": false,
+        "status": "Not Verified",
+        "reason": "Browser Vision Off or unavailable; functional evidence only"
+      },
+      "scenarios": [
+        {
+          "id": "criterion-1",
+          "goal": "Actual camera response after a bounded hold",
+          "target": "/index.html",
+          "deliverableId": "camera",
+          "criterionId": "forward",
+          "status": "Verified",
+          "evidenceKind": "interaction",
+          "assertion": {
+            "source": "diagnostic",
+            "operator": "increased",
+            "path": "camera"
+          },
+          "preconditions": [
+            {
+              "action": "precondition",
+              "expected": "{\"source\":\"visible\",\"operator\":\"equals\",\"selector\":\"canvas\",\"expected\":true}",
+              "actual": "true",
+              "status": "Verified"
+            }
+          ],
+          "observations": [
+            {
+              "atMs": 153.59847199999967,
+              "value": 0
+            },
+            {
+              "atMs": 709.0470839999998,
+              "value": 2
+            }
+          ],
+          "checks": [
+            {
+              "action": "Actual camera response after a bounded hold",
+              "expected": "{\"source\":\"diagnostic\",\"operator\":\"increased\",\"path\":\"camera\"}",
+              "actual": "[{\"atMs\":153.59847199999967,\"value\":0},{\"atMs\":709.0470839999998,\"value\":2}]",
+              "status": "Verified"
+            }
+          ],
+          "elapsedMs": 709.881883,
+          "sourceRevisions": {
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+          }
+        }
+      ],
+      "elapsedMs": 1008.818969,
+      "runId": "scenario-gate",
+      "revisionFingerprint": "81bf267ec448b3790bdb676a5b5a6c8b19e051a282614561cdf531918d0c4df5",
+      "sourceRevisions": {
+        "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+        "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be"
+      },
+      "sourceFingerprint": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+      "evidencePath": "/tmp/lad-scenario-gate-Btyexc/runtime/cache/browser-captures/scenario-gate/d2ca5c11-762f-4a9d-9d27-3063066442ef.json"
+    },
+    "entries": [],
+    "revision": 0,
+    "deliverables": {
+      "items": [
+        {
+          "criteria": [
+            {
+              "id": "forward",
+              "description": "Actual camera response after a bounded hold",
+              "kind": "interaction",
+              "scenario": {
+                "target": "/index.html",
+                "preconditions": [
+                  {
+                    "source": "visible",
+                    "selector": "canvas",
+                    "operator": "equals",
+                    "expected": true
+                  }
+                ],
+                "required_state": [],
+                "steps": [
+                  {
+                    "action": "hold",
+                    "key": "w",
+                    "selector": "canvas",
+                    "duration_ms": 450
+                  }
+                ],
+                "assertion": {
+                  "source": "diagnostic",
+                  "path": "camera",
+                  "operator": "increased"
+                },
+                "timeout_ms": 3000
+              }
+            }
+          ],
+          "id": "camera",
+          "task": "",
+          "text": "Holding forward changes the camera",
+          "status": "verified",
+          "evidence": "index.html and app.js inspected",
+          "reason": "",
+          "check": "browser",
+          "proof": [
+            "ev-005"
+          ],
+          "verification_scope": "acceptance"
+        }
+      ],
+      "revision": 8
+    },
+    "verification": {
+      "run_serial": 2,
+      "unknown_epoch": 0,
+      "epoch": 3,
+      "next": 5,
+      "records": [
+        {
+          "coverage": [
+            {
+              "deliverable_id": "camera",
+              "criterion_id": "forward",
+              "kind": "interaction",
+              "qualified": false
+            }
+          ],
+          "source_revisions": {
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "76d0f2b42c3de2ad5ebd66b5a427cd676dcc6772e880da72cd0f75edc2303f80",
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6"
+          },
+          "run_serial": 1,
+          "unknown_epoch": 0,
+          "outcome": "passed",
+          "id": "ev-001",
+          "kind": "browser",
+          "class": "functional",
+          "subject": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "pass": true,
+          "epoch": 0,
+          "turn": 3,
+          "detail": "Scoped browser observation; consult scenario assertions and uncertainty",
+          "check_key": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "deliverable_ids": [
+            "camera"
+          ],
+          "baseline": true,
+          "outcome_hash": "39e8411c3e0401712b9287098a6698f4a60a75eff175c0649df32b0cb3e0c041",
+          "checked_paths": [
+            "/tmp/lad-scenario-gate-Btyexc/app.js",
+            "/tmp/lad-scenario-gate-Btyexc/index.html"
+          ]
+        },
+        {
+          "run_serial": 1,
+          "unknown_epoch": 0,
+          "id": "ev-002",
+          "kind": "readback",
+          "class": "readback",
+          "subject": "independent.html",
+          "pass": true,
+          "epoch": 1,
+          "turn": 5,
+          "detail": "35 bytes on disk",
+          "check_key": "independent.html",
+          "deliverable_ids": [],
+          "baseline": false,
+          "outcome_hash": "fbb741dba8bd29607292df263e5b55db409fdd22fdda1a7720b30ee8ad8c4c23",
+          "checked_paths": [
+            "/tmp/lad-scenario-gate-Btyexc/independent.html"
+          ]
+        },
+        {
+          "run_serial": 1,
+          "unknown_epoch": 0,
+          "id": "ev-003",
+          "kind": "readback",
+          "class": "readback",
+          "subject": "app.js",
+          "pass": true,
+          "epoch": 2,
+          "turn": 7,
+          "detail": "97 bytes on disk",
+          "check_key": "app.js",
+          "deliverable_ids": [],
+          "baseline": false,
+          "outcome_hash": "764f2b04d7bd739ef53d63b02628ce6ccc43da4f6709f3c2c448b5d53fbe1a96",
+          "checked_paths": [
+            "/tmp/lad-scenario-gate-Btyexc/app.js"
+          ]
+        },
+        {
+          "coverage": [
+            {
+              "deliverable_id": "camera",
+              "criterion_id": "forward",
+              "kind": "interaction",
+              "qualified": false
+            }
+          ],
+          "source_revisions": {
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be",
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6"
+          },
+          "run_serial": 1,
+          "unknown_epoch": 0,
+          "outcome": "passed",
+          "id": "ev-004",
+          "kind": "browser",
+          "class": "functional",
+          "subject": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "pass": true,
+          "epoch": 2,
+          "turn": 12,
+          "detail": "Scoped browser observation; consult scenario assertions and uncertainty",
+          "check_key": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "deliverable_ids": [
+            "camera"
+          ],
+          "baseline": false,
+          "outcome_hash": "b20dd00d0a4318ff44c44c4b75fa6fd1392d33526306643552b113919c1ffba7",
+          "checked_paths": [
+            "/tmp/lad-scenario-gate-Btyexc/app.js",
+            "/tmp/lad-scenario-gate-Btyexc/index.html"
+          ]
+        },
+        {
+          "coverage": [
+            {
+              "deliverable_id": "camera",
+              "criterion_id": "forward",
+              "kind": "interaction",
+              "qualified": false
+            }
+          ],
+          "source_revisions": {
+            "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be",
+            "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6"
+          },
+          "run_serial": 2,
+          "unknown_epoch": 0,
+          "outcome": "passed",
+          "id": "ev-005",
+          "kind": "browser",
+          "class": "functional",
+          "subject": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "pass": true,
+          "epoch": 3,
+          "turn": 1,
+          "detail": "Scoped browser observation; consult scenario assertions and uncertainty",
+          "check_key": "web_project scenario criterion-1 criterion camera:forward \"/index.html\"",
+          "deliverable_ids": [
+            "camera"
+          ],
+          "baseline": false,
+          "outcome_hash": "a8872ed32f6a9efad40b4fe0a7c197b30664a0749dcafb252a15da840f26cecd",
+          "checked_paths": [
+            "/tmp/lad-scenario-gate-Btyexc/app.js",
+            "/tmp/lad-scenario-gate-Btyexc/index.html"
+          ]
+        }
+      ],
+      "changed": {
+        "app.js": 2,
+        "independent.html": 1
+      },
+      "code_changed": true,
+      "page_changed": true,
+      "revisions": {
+        "/tmp/lad-scenario-gate-Btyexc/app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be",
+        "/tmp/lad-scenario-gate-Btyexc/independent.html": "722e43fa6de42ffc6b7a7c6db8b4f42da31ba500e2b202b3882b82288d3f2bcb",
+        "/tmp/lad-scenario-gate-Btyexc/index.html": "1f9b4a97345f22444e6417de4a4bd07ec881158e2c52050513431b7ddf964dc6",
+        "app.js": "9d6af84a477c769cd1f0e745d963c47a775bf8c5d8c72a19c2c1e900b9fde8be",
+        "independent.html": "722e43fa6de42ffc6b7a7c6db8b4f42da31ba500e2b202b3882b82288d3f2bcb"
+      },
+      "bindings": {
+        "web_project scenario criterion-1 criterion camera:forward \"/index.html\"": [
+          "camera"
+        ]
+      }
+    }
+  }
+}

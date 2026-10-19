@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-scenario-ui-Eaq3xq",
+  "scope": "Real Electron UI and SQLite; seeded scenario report, no model",
+  "locales": [
+    "en",
+    "ru"
+  ],
+  "modes": [
+    "Compact",
+    "Expanded"
+  ]
+}

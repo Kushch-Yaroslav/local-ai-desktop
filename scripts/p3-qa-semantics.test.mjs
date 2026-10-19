@@ -8,6 +8,8 @@ const require=createRequire(import.meta.url),{runBrowserQa,installQaInstrumentat
 const root=await mkdtemp('/tmp/lad-p3-qa-semantics-'),browser=await launchWebBrowser();
 try {
  const page=await browser.newPage({viewport:{width:384,height:256}});await installQaInstrumentation(page);await page.goto('data:text/html,'+encodeURIComponent('<button id="run" onclick="this.textContent=\'Done\'">Run</button>'));
+ // Wait for the data-URL fixture's first compositor frame before requesting a clipped PNG.
+ await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(null)))));
  let index=0;const capture=async()=>{const path=join(root,`${index++}.png`),bytes=await page.screenshot({path,type:'png',clip:{x:0,y:0,width:384,height:256},scale:'css'});return{id:String(index),path,sha256:createHash('sha256').update(bytes).digest('hex'),width:384,height:256,viewport:{width:384,height:256},region:{x:0,y:0,width:384,height:256},url:page.url(),capturedAt:new Date().toISOString(),bytes:bytes.length};};
  const check=async extra=>runBrowserQa({page,signal:AbortSignal.timeout(15000),steps:[{action:'click',selector:'#run',expect:{selector:'#run',text:'Done'}}],capture,errors:()=>[],...extra});
  const functional=await check({});assert.equal(functional.functionalStatus,'Verified',JSON.stringify(functional));assert.equal(functional.status,'Verified');assert.equal(functional.visual.analyzed,false);
