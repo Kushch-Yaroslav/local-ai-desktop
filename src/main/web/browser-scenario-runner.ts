@@ -5,6 +5,7 @@ import { keyboardActions, keyboardStep, qaSnapshot } from './browser-qa';
 
 export interface ScenarioQaOptions {
   page: Page; signal: AbortSignal; steps: QaStep[]; scenarios?: QaScenario[];
+  sourceRevisions?(): Record<string,string>;
   errors(): string[]; capture(): Promise<BrowserCapture>;
   navigate?(target: string): Promise<{ authRequired?: boolean }>;
   analyze?: (capture: BrowserCapture, before?: BrowserCapture, scenario?: { goal: string; temporal: boolean }) => Promise<BrowserVisualResult>;
@@ -73,7 +74,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
   const report=(reason?:string,reasonCode?:BrowserQaReport['reasonCode']):BrowserQaReport=>{
     const visualChecks=new Set(results.filter(r=>r.evidenceKind==='visual').flatMap(r=>r.checks));
     const functional=aggregate(checks.filter(c=>!visualChecks.has(c))),functionalScenarios=results.filter(r=>r.evidenceKind!=='visual'),hasScenarios=functionalScenarios.length>0,complete=hasScenarios&&functionalScenarios.every(r=>r.status==='Verified');
-    return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'?'Blocked':complete&&functional==='Verified'&&(!options.analyze||visual.status==='Verified')?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
+    return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'?'Blocked':results.length>0&&results.every(r=>r.status==='Verified')&&functional==='Verified'&&(!options.analyze||visual.status==='Verified')?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
   };
   options.status?.({phase:'started'});
   try{
@@ -153,7 +154,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         if(result.visual?.analyzed&&result.visual.status==='Failed'){result.status='Failed';result.reasonCode='VISUAL_REQUIREMENT_FAILED';result.reason='Vision reported a possible violation of the declared visual criterion; review the captures and observations.';}
         local.push(check(scenario.goal,JSON.stringify(scenario.assertion),String(error),result.status));
       }finally{for(const key of [...held].reverse())await page.keyboard.up(key).catch(()=>undefined);await page.mouse.up().catch(()=>undefined);}
-      result.elapsedMs=performance.now()-began;checks.push(...local);
+      result.sourceRevisions=options.sourceRevisions?.();result.elapsedMs=performance.now()-began;checks.push(...local);
     }
     boundary();options.status?.({phase:'capturing'});const last=await capture();
     const state=await qaSnapshot(page),errors=[...options.errors(),...state.rejections];

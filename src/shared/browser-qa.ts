@@ -41,6 +41,7 @@ export interface QaScenario {
 }
 export interface QaObservation { atMs: number; value: string | number | boolean | null; captureId?: string; }
 export interface QaScenarioResult {
+  sourceRevisions?: Record<string,string>;
   id: string; goal: string; target: string; deliverableId?: string; criterionId?: string;
   status: VerificationStatus; evidenceKind: QaEvidenceKind; assertion: QaAssertion;
   preconditions: BrowserQaCheck[]; observations: QaObservation[]; checks: BrowserQaCheck[];

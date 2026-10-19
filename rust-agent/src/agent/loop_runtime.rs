@@ -1959,7 +1959,10 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
         state.task_memory.verification.record_outcome(verification::Kind::Browser,&subject,pass,"Scoped browser observation; consult scenario assertions and uncertainty",state.turn,&detail);
         if let Some(record)=state.task_memory.verification.records.last_mut() {
             record.checked_paths=if snapshots.is_empty(){vec![path.to_string_lossy().into_owned()]}else{snapshots.keys().cloned().collect()};
-            record.source_revisions=snapshots.clone();record.outcome=Some(outcome);
+            let dependencies=coverage.as_ref().and_then(|coverage|result.pointer("/qa/scenarios").and_then(Value::as_array).and_then(|scenarios|scenarios.iter().find(|scenario|scenario["deliverableId"]==coverage.deliverable_id&&scenario["criterionId"]==coverage.criterion_id))).and_then(|scenario|scenario["sourceRevisions"].as_object());
+            record.source_revisions=snapshots.iter().filter(|(path,_)|dependencies.is_none_or(|dependencies|dependencies.contains_key(*path))).map(|(path,hash)|(path.clone(),hash.clone())).collect();
+            if !record.source_revisions.is_empty(){record.checked_paths=record.source_revisions.keys().cloned().collect();}
+            record.outcome=Some(outcome);
             if let Some(coverage)=coverage {record.deliverable_ids.push(coverage.deliverable_id.clone());record.coverage.push(coverage);}
         }
     }

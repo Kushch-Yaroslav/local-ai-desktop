@@ -287,7 +287,7 @@ impl Deliverables {
                 if !spec.is_object() || !spec["target"].is_string() || !spec["preconditions"].is_array() || !spec["required_state"].is_array() || !spec["steps"].is_array() || !spec["assertion"].is_object() || !spec["timeout_ms"].is_u64() {
                     return Err("Incomplete acceptance scenario specification".into());
                 }
-                if criterion.kind=="interaction" && spec["steps"].as_array().is_none_or(|steps|steps.is_empty()) {return Err("Interaction criteria require actual input steps".into());}
+                if criterion.kind=="interaction" && spec["steps"].as_array().is_none_or(|steps|!steps.iter().any(|step|["click","fill","key","keydown","keyup","hold","scroll","focus","mousemove","drag","pointer-lock"].contains(&step["action"].as_str().unwrap_or("")))) {return Err("Interaction criteria require actual input steps".into());}
                 if criterion.kind=="temporal" && (!spec["assertion"]["sample_ms"].as_array().is_some_and(|samples|samples.len()>=3) || ["pixels","raf","draws"].contains(&spec["assertion"]["source"].as_str().unwrap_or(""))) {return Err("Temporal functional criteria require at least three application-state observations; pixels/RAF/draw counters do not prove object motion".into());}
                 if criterion.kind=="visual" && spec["assertion"]["source"]!="pixels" {return Err("Visual criteria require actual image observations".into());}
             }
