@@ -427,7 +427,23 @@ export class ProjectBrowserSession {
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
     return { ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: 'DOM and runtime diagnostics only; screenshots require separate visual analysis' };
   }
-  async close(refresh = false) {
+  private closing?: Promise<void>;
+  private browserClosing?: Promise<void>;
+  private closeBrowser() {
+    return this.browserClosing ??= Promise.resolve().then(async () => {
+      if (this.native) await this.native.close();
+      else { await this.context?.close().catch(() => undefined); await this.browser?.close().catch(() => undefined); }
+    });
+  }
+  close(refresh = false): Promise<void> {
+    if (!refresh) {
+      this.closed = true; this.stopWatching(); this.abort.abort();
+      // Stop can interrupt a pending final refresh instead of waiting behind it.
+      if (this.closing) void this.closeBrowser();
+    }
+    return this.closing ??= Promise.resolve().then(() => this.dispose(refresh));
+  }
+  private async dispose(refresh: boolean) {
     if (refresh && !this.closed) {
       await this.watcher?.flush();
       await this.exclusive(async () => {
@@ -435,7 +451,6 @@ export class ProjectBrowserSession {
       }).catch(error => { if (!this.closed) this.observer?.state('error', undefined, `Auto-reload failed: ${String(error).slice(0, 200)}`); });
     }
     this.closed = true; this.stopWatching(); this.abort.abort(); this.observer?.closed();
-    if (this.native) await this.native.close();
-    else { await this.context?.close().catch(() => undefined); await this.browser?.close().catch(() => undefined); }
+    await this.closeBrowser();
   }
 }

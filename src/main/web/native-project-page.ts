@@ -85,7 +85,8 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     release = release.then(async () => {
       if (contents.isDestroyed() || !contents.debugger.isAttached()) return;
       for (const key of keys) await contents.debugger.sendCommand('Input.dispatchKeyEvent', { type:'keyUp', ...key }).catch(() => undefined);
-      for (const button of pointer) await contents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseReleased',...button,clickCount:0}).catch(() => undefined);
+      // Release outside the page so a held press is cancelled, not clicked by handover.
+      for (const button of pointer) await contents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseReleased',...button,x:-1,y:-1,clickCount:0}).catch(() => undefined);
     });
     return release;
   };
@@ -120,17 +121,25 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   window.contentView.addChildView(shield);
   let transport: ViewTransport | undefined;
   let browser: Browser | undefined;
-  const close = async () => {
-    if (destroyed) return;
+  let closing: Promise<void> | undefined;
+  const closeContents = (target: WebContents) => new Promise<void>(resolve => {
+    if (target.isDestroyed()) { resolve(); return; }
+    target.once('destroyed', () => resolve());
+    target.close({ waitForBeforeUnload:false });
+  });
+  const close = (): Promise<void> => {
+    if (closing) return closing;
     destroyed = true;
-    if (!window.isDestroyed()) { window.contentView.removeChildView(shield); window.contentView.removeChildView(view); }
-    transport?.close();
-    if (!shield.webContents.isDestroyed()) shield.webContents.close({ waitForBeforeUnload: false });
-    if (!contents.isDestroyed()) contents.close({ waitForBeforeUnload: false });
-    await browser?.close().catch(() => undefined);
-    await isolated.closeAllConnections().catch(() => undefined);
-    await isolated.clearStorageData().catch(() => undefined);
-    await shieldSession.clearStorageData().catch(() => undefined);
+    // Publish the shared promise before CDP/page-close callbacks can reenter.
+    closing = Promise.resolve().then(async () => {
+      if (!window.isDestroyed()) { window.contentView.removeChildView(shield); window.contentView.removeChildView(view); }
+      transport?.close();
+      await Promise.all([closeContents(shield.webContents),closeContents(contents),browser?.close().catch(() => undefined)]);
+      await isolated.closeAllConnections().catch(() => undefined);
+      await isolated.clearStorageData().catch(() => undefined);
+      await shieldSession.clearStorageData().catch(() => undefined);
+    });
+    return closing;
   };
   try {
     await shield.webContents.loadURL(shieldUrl);
@@ -146,7 +155,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
     return { browser, context, page, contents, close, releaseInput,
-      ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed()) owner.focus(); },
+      ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(bounds) {
         if (destroyed || window.isDestroyed()) return;
         if (!bounds) { void releaseInput(); contents.setBackgroundThrottling(ownerState !== 'agent'); visible = false; view.setVisible(false); shield.setVisible(false); return; }
