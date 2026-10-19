@@ -62,7 +62,9 @@
     "test:live-browser:qwen": "npm run build && node scripts/live-browser-qwen.test.mjs",
     "test:runtime-controls": "npm run build && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/runtime-controls.test.mjs && node scripts/runtime-controls-browser.test.mjs && node scripts/runtime-controls-electron.test.mjs && node scripts/runtime-controls-ui.test.mjs",
     "test:runtime-controls:qwen": "npm run build && node scripts/runtime-controls-qwen.test.mjs",
-    "test:live-browser:auto-qwen": "npm run build && cross-env LOCAL_AI_TEST_AUTO_RELOAD=1 node scripts/live-browser-qwen.test.mjs"
+    "test:live-browser:auto-qwen": "npm run build && cross-env LOCAL_AI_TEST_AUTO_RELOAD=1 node scripts/live-browser-qwen.test.mjs",
+    "test:scenario-qa": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/scenario-qa-regressions.test.mjs",
+    "test:scenario-qa:qwen": "npm run build && node scripts/scenario-qa-qwen.test.mjs && node scripts/scenario-contract-qwen.test.mjs"
   },
   "dependencies": {
     "@electron/remote": "^2.1.3",

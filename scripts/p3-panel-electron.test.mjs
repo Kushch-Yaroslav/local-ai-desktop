@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 import {_electron} from 'playwright-core';
 const root=await mkdtemp('/tmp/lad-p3-panel-');let app;
 const contrast=(a,b)=>{const l=c=>{const s=c.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>(v/=255)<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*s[0]+.7152*s[1]+.0722*s[2];};return (Math.max(l(a),l(b))+.05)/(Math.min(l(a),l(b))+.05);};
-const output=resolve('docs/test-results/p3');await mkdir(output,{recursive:true});
+const output=resolve(process.env.LOCAL_AI_TEST_RESULTS_DIR??'docs/test-results/p3');await mkdir(output,{recursive:true});
 try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
  const page=await app.firstWindow();page.setDefaultTimeout(20000);await page.locator('.conversation').waitFor();
