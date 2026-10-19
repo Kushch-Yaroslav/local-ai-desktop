@@ -75,9 +75,10 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
   const { page, signal } = options, started = performance.now(), checks: BrowserQaCheck[] = [], captures: BrowserCapture[] = [], held = new Set<string>();
   const status = (phase: BrowserQaStatus['phase']) => options.status?.({ phase });
   const check = (action: string, expected: string, actual: string, pass: boolean) => checks.push({ action, expected, actual, status: pass ? 'Verified' : 'Failed' });
-  const boundary = () => { if (signal.aborted) throw new Error('QA paused, cancelled or timed out'); if (performance.now()-started > 30000) throw new Error('Functional QA exceeded 30 second operation deadline'); };
+  const boundary = () => { if (signal.aborted) throw new Error('QA paused, cancelled or timed out'); if (performance.now()-started > 30000) throw new DOMException('Functional QA exceeded 30 second operation deadline', 'TimeoutError'); };
   status('started');
   let visual: BrowserVisualResult = { analyzed: false, status: 'Not Verified', reason: 'Browser Vision Off or unavailable; functional evidence only' };
+  let operationFailure: 'QA_TIMEOUT' | 'QA_TOOL_ERROR' | undefined;
   try {
     boundary(); status('capturing'); captures.push(await options.capture());
     const before = await snapshot(page); await page.waitForTimeout(200); const initial = await snapshot(page);
@@ -123,7 +124,10 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
           const changed = step.expect.changed;
           check(`${step.action} ${step.selector ?? step.key ?? ''}`, changed === undefined ? wanted ?? 'Visible expected element' : changed ? 'Application state changes after input' : 'Application state stays unchanged', (changed === undefined ? actual : `${beforeText} → ${actual}`).slice(0,1000), changed === undefined ? wanted === undefined || actual === wanted : (actual !== beforeText) === changed);
         } else checks.push({ action: step.action, expected: 'Application-specific expectation not supplied', actual: 'Action delivered; handling not established', status: 'Partially Verified' });
-      } catch (error) { check(step.action, JSON.stringify(step.expect ?? {}), String(error).slice(0, 500), false); }
+      } catch (error) {
+        operationFailure = error instanceof Error && error.name === 'TimeoutError' ? 'QA_TIMEOUT' : 'QA_TOOL_ERROR';
+        checks.push({ action: step.action, expected: JSON.stringify(step.expect ?? {}), actual: String(error).slice(0,500), status: 'Blocked' });
+      }
     }
     for (const key of [...held].reverse()) await page.keyboard.up(key).catch(() => undefined); held.clear();
     boundary(); status('capturing'); captures.push(await options.capture());
@@ -132,13 +136,13 @@ export async function runBrowserQa(options: { page: Page; signal: AbortSignal; s
     check('runtime errors', 'No uncaught errors, console errors or unhandled rejections', errors.length ? errors.join('\n').slice(0, 3000) : 'None observed', errors.length === 0);
     if (options.analyze) { status('analyzing'); visual = await options.analyze(captures[captures.length - 1], captures[0]); }
     if (signal.aborted) throw new Error('QA paused, cancelled or timed out');
-    const functionalStatus = checks.some(c=>c.status==='Failed') ? 'Failed' : expectations>0 && canvasStateVerified && checks.every(c=>c.status==='Verified') ? 'Verified' : 'Partially Verified';
-    const failed = functionalStatus === 'Failed' || visual.status === 'Failed';
-    const result: BrowserQaReport = { scope: 'interaction', functionalStatus, id: randomUUID(), url: page.url(), capturedAt: new Date().toISOString(), checks, errors, captures, visual, elapsedMs: performance.now() - started, status: failed ? 'Failed' : functionalStatus === 'Verified' && (!options.analyze || visual.status === 'Verified') ? 'Verified' : 'Partially Verified', ...(!expectations || !canvasStateVerified ? { reason: 'Smoke tests establish observed execution, not application-specific correctness. Supply interaction expectations for stronger evidence, including changed application state after Canvas input.' } : {}) };
+    const functionalStatus = checks.some(c=>c.status==='Failed') ? 'Failed' : operationFailure ? 'Blocked' : expectations>0 && canvasStateVerified && checks.every(c=>c.status==='Verified') ? 'Verified' : 'Partially Verified';
+    const failed = functionalStatus === 'Failed';
+    const result: BrowserQaReport = { scope: 'interaction', ...(operationFailure ? {reasonCode:operationFailure} : {}), functionalStatus, id: randomUUID(), url: page.url(), capturedAt: new Date().toISOString(), checks, errors, captures, visual, elapsedMs: performance.now() - started, status: failed ? 'Failed' : operationFailure ? 'Blocked' : functionalStatus === 'Verified' && (!options.analyze || visual.status === 'Verified') ? 'Verified' : 'Partially Verified', ...(!expectations || !canvasStateVerified ? { reason: 'Smoke tests establish observed execution, not application-specific correctness. Supply interaction expectations for stronger evidence, including changed application state after Canvas input.' } : {}) };
     if (captures.length === 2 && captures[0].sha256 !== captures[1].sha256) checks.push({ action: 'frame comparison', expected: 'Record pixel change without inferring correctness', actual: 'Captured pixels differ after interaction', status: 'Verified' });
     if (failed) status('issue'); options.status?.({ phase: 'complete', report: result }); return result;
   } catch (error) {
-    const report: BrowserQaReport = { scope: 'interaction', id: randomUUID(), status: signal.aborted ? 'Blocked' : String(error).includes('Screenshot limit') ? 'Not Verified' : 'Failed', url: page.isClosed() ? '' : page.url(), capturedAt: new Date().toISOString(), checks, errors: [...options.errors(), String(error).slice(0, 500)], captures, visual, elapsedMs: performance.now() - started, reason: String(error) };
+    const report: BrowserQaReport = { scope: 'interaction', id: randomUUID(), reasonCode: signal.reason?.name === 'TimeoutError' || error instanceof Error && error.name === 'TimeoutError' ? 'QA_TIMEOUT' : 'QA_TOOL_ERROR', status: signal.aborted || error instanceof Error && error.name === 'TimeoutError' ? 'Blocked' : 'Not Verified', url: page.isClosed() ? '' : page.url(), capturedAt: new Date().toISOString(), checks, errors: [...options.errors(), String(error).slice(0, 500)], captures, visual, elapsedMs: performance.now() - started, reason: String(error) };
     options.status?.({ phase: 'complete', report }); return report;
   } finally { for (const key of [...held].reverse()) await page.keyboard.up(key).catch(() => undefined); }
 }

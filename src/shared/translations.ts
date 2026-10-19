@@ -1,5 +1,22 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Зрение браузера выключено или недоступно; есть только функциональные доказательства": "Browser Vision Off or unavailable; functional evidence only",
+  "Встроенные MTP-тензоры Qwen проверены. Для активации ещё требуется успешная инициализация backend.": "Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.",
+  "llama-server {0} объявляет --spec-type draft-mtp.": "llama-server {0} advertises --spec-type draft-mtp.",
+  "llama-server {0} --help не объявляет --spec-type draft-mtp.": "llama-server {0} --help does not advertise --spec-type draft-mtp.",
+  "MTP On недоступен: {0}": "MTP On unavailable: {0}",
+
+  "Зрение браузера выключено": "Browser Vision Off",
+  "Анализ изображения относится к предыдущей версии": "Image analysis refers to the previous captured revision",
+  "Новый анализ изображения не выполнен; предыдущие доказательства сохранены": "No new image analysis; previous evidence retained",
+  "Только снимок; взаимодействия в этой операции не проверялись": "Single captured image; no interaction verification in this action",
+  "Загруженный backend не объявляет поддержку изображений; функциональная проверка доступна": "Loaded backend does not advertise multimodal capability; functional QA remains available",
+  "Нужен совместимый локальный projector для Browser Vision On; рабочая конфигурация не изменена.": "Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.",
+
+  "Нет свежей проверки текущей версии. Предыдущие доказательства сохранены.": "No fresh check of the current revision. Previous evidence is retained.",
+  "Проверена работа страницы, но не все требования приложения. Добавьте ожидаемый результат взаимодействий, включая изменение состояния Canvas после ввода.": "Smoke tests establish observed execution, not application-specific correctness. Supply interaction expectations for stronger evidence, including changed application state after Canvas input.",
+  "Для текущей версии или запуска нет свежей проверки. Предыдущие доказательства сохранены, но не подтверждают последующие изменения.": "No fresh QA for this revision/run. Previous evidence is retained but does not verify subsequent changes.",
+
   "Выбор модели задаёт, какая локальная LLM отвечает и выполняет задачи. Смена модели пересоздаёт её вычислительный контекст; история чата сохраняется.": "Choose which local LLM answers and performs tasks. Switching models rebuilds its inference context; chat history is preserved.",
   "Multi-Token Prediction ускоряет генерацию, предлагая несколько следующих токенов сразу. Нужна поддержка модели и runtime; функция может занять дополнительную память и требует перезагрузки.": "Multi-Token Prediction may speed up generation by proposing several next tokens at once. It needs model and runtime support, may use extra memory, and requires a reload.",
   "Контекст — объём текста, который модель учитывает за раз. Больший размер помогает с длинными чатами и файлами, но расходует больше памяти и требует загрузки заново.": "Context is the amount of text the model can consider at once. A larger size helps with long chats and files, but uses more memory and requires a reload.",

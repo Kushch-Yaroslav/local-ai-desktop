@@ -1892,7 +1892,7 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
     if result.get("code").and_then(Value::as_str) == Some("SCREENSHOT_LIMIT") { return; }
     if result.get("code").and_then(Value::as_str) == Some("PERMISSION_DENIED") {
         state.browser_qa_denied = true;
-        state.task_memory.browser_qa = Some(json!({"status":"Blocked", "reason":"Explicit browser security decision; no automatic retry", "detail":result}));
+        state.task_memory.browser_qa = Some(json!({"status":"Blocked", "reasonCode":"PERMISSION_REQUIRED", "reason":"Explicit browser security decision; no automatic retry", "detail":result}));
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
         return;
     }
@@ -4739,12 +4739,14 @@ fn review_tool_free_final(
     if state.browser_qa_enabled && state.browser_qa_unavailable && (state.browser_qa_used || web_changed) {
         state.browser_qa_denied = true;
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
-        state.task_memory.browser_qa = Some(json!({"status":"Blocked","reason":"Browser tool disabled or unavailable. Enable Web and authorize the browser in a new run; do not bypass with terminal browser launches.","checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));
+        state.task_memory.browser_qa = Some(json!({"status":"Blocked","reasonCode":"PERMISSION_REQUIRED","reason":"Browser tool disabled or unavailable. Enable Web and authorize the browser in a new run; do not bypass with terminal browser launches.","checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));
     }
     let qa_stale = state.browser_qa_at_epoch != Some(state.task_memory.verification.epoch);
     if qa_stale && !state.browser_qa_denied {
         if let Some(qa) = state.task_memory.browser_qa.as_mut() {
             qa["status"] = json!("Not Verified");
+            qa["reasonCode"] = json!("EVIDENCE_STALE");
+            qa["functionalStatus"] = json!("Not Verified");
             qa["reason"] = json!("No fresh QA for this revision/run. Previous evidence is retained but does not verify subsequent changes.");
             if let Some(visual) = qa.get_mut("visual") { visual["status"] = json!("Not Verified"); visual["reason"] = json!("Image analysis refers to the previous captured revision"); }
         }
@@ -4861,6 +4863,13 @@ pub fn run(mut config: Config) {
         }
     };
     state.task_memory.verification.start_run();
+    // Restored evidence remains historical until this run observes the project.
+    // In particular, legacy fixed-budget reports must not describe a live quota.
+    if let Some(qa) = state.task_memory.browser_qa.as_mut() {
+        qa["status"] = json!("Not Verified");
+        qa["functionalStatus"] = json!("Not Verified");
+        qa["reasonCode"] = json!("EVIDENCE_STALE");
+    }
     state.task_memory.deliverables.demote_verified();
     if !user_requests_read_only(&config.user) {
         if let Some(root) = config.root.as_deref() {
@@ -6447,7 +6456,7 @@ mod tests {
         let mut transcript=Transcript::default();
         assert!(matches!(review_tool_free_final(&mut state,&mut transcript,&Ledger::default()),FinalCandidateReview::Accept));
         let qa=state.task_memory.browser_qa.as_ref().unwrap();
-        assert_eq!(qa["status"],"Not Verified"); assert_eq!(qa["visual"]["status"],"Not Verified"); assert_eq!(state.browser_qa_reviews,0);
+        assert_eq!(qa["status"],"Not Verified"); assert_eq!(qa["reasonCode"],"EVIDENCE_STALE"); assert_eq!(qa["functionalStatus"],"Not Verified"); assert_eq!(qa["visual"]["status"],"Not Verified"); assert_eq!(state.browser_qa_reviews,0);
     }
 
     #[test]

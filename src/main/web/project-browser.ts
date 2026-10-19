@@ -294,7 +294,7 @@ export class ProjectBrowserSession {
           const key = this.qaGuard.key(revision, this.page.url(), steps, await this.qaState(), this.qaOptions.runtimeIdentity);
           const blocked = this.qaGuard.before(key);
           if (blocked) {
-            const qa: BrowserQaReport = { scope:'interaction', id:randomUUID(), runId:this.qaOptions.runId, status:'Blocked', url:this.page.url(), capturedAt:new Date().toISOString(), checks:[], errors:[], captures:[], visual:{analyzed:false,status:'Not Verified',reason:'No new image analysis; previous evidence retained'}, elapsedMs:0, reason:blocked.error, revisionFingerprint:revision, loop:blocked.loop };
+            const qa: BrowserQaReport = { scope:'interaction', id:randomUUID(), runId:this.qaOptions.runId, status:'Blocked', reasonCode:'QA_NO_PROGRESS', url:this.page.url(), capturedAt:new Date().toISOString(), checks:[], errors:[], captures:[], visual:{analyzed:false,status:'Not Verified',reason:'No new image analysis; previous evidence retained'}, elapsedMs:0, reason:blocked.error, revisionFingerprint:revision, loop:blocked.loop };
             await this.saveQa(qa); this.qaOptions.status?.({phase:'complete',report:qa});
             return { ...blocked, qa };
           }

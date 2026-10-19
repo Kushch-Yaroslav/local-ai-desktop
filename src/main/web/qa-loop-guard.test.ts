@@ -15,6 +15,7 @@ void (async () => {
     await utimes(join(root,'app.js'),new Date(),new Date());assert.equal(await projectRevision(root),first,'mtime is not source progress');
     await mkdir(join(root,'evidence'));await writeFile(join(root,'evidence/check.json'),'{}');assert.equal(await projectRevision(root,[join(root,'evidence')]),first,'evidence must not manufacture source progress');
     await writeFile(join(root,'app.js'),'const version=2');assert.notEqual(await projectRevision(root,[join(root,'evidence')]),first,'dependent JS edit is real progress');
+    await writeFile(join(root,'App.vue'),'<template>new source</template>');assert.notEqual(await projectRevision(root,[join(root,'evidence')]),first,'framework source edits are real QA progress');
     const guard = new QaLoopGuard(), scenario = qaSteps([{action:'key',key:'w',ignored:'noise',expect:{selector:'#camera',changed:true}}]);
     assert.deepEqual(scenario,qaSteps([{expect:{changed:true,selector:'#camera'},key:'w',action:'key',ignored:'other'}]));
     const key = () => guard.key(first,'https://project-preview.invalid/',scenario,{camera:0},{model:'qwen'});

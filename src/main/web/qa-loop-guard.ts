@@ -6,7 +6,7 @@ import type { BrowserQaReport } from '../../shared/browser-qa';
 
 export const qaHash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const ignored = new Set(['node_modules', 'vendor', 'coverage', 'tmp', 'temp', '__pycache__']);
-const extensions = new Set(['.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.svg','.glsl','.wgsl','.png','.jpg','.jpeg','.webp','.ico','.woff','.woff2']);
+const extensions = new Set(['.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.svg','.glsl','.wgsl','.png','.jpg','.jpeg','.webp','.ico','.woff','.woff2','.vue','.svelte','.scss','.sass','.less','.wasm','.yaml','.yml','.toml']);
 /** Content, not mtime. Bounded, symlink-free reads confined to the approved project. */
 export async function projectRevision(root: string, exclude: string[] = []): Promise<string> {
   const base = await realpath(root), hash = createHash('sha256');
