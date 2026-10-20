@@ -82,3 +82,53 @@ Scenarios retain revisions of loaded source dependencies. An unchanged responsiv
 Existing QA anti-loop protection remains active. Renaming scenarios, changing prose or reopening the browser is not progress. Per-operation limits remain: 6 scenarios, 5 viewports, 8 steps per scenario, 500–15000 ms scenario timeout, 30 s runner deadline and 90 s outer envelope. These are not lifetime limits on useful checks.
 
 Desktop Chromium viewport emulation does not certify iOS Safari, Android Chrome, touch, virtual keyboards or physical mobile GPUs. Isolated QA does not reproduce a private user session. Verification applies only to the observed assertions, route, dimensions and source revisions.
+
+## Visual Layout QA: coverage, seams and resize evidence
+
+Visual Layout QA extends the same scenario runner, isolated QA Page, capture files, source-revision ledger and Verification Gate. It does not replace functional tests or create another browser runtime. A zero-overflow DOM result cannot establish that a fullscreen Canvas/background looks continuous.
+
+At a meaningful checkpoint, consider it when the request, acceptance criteria, active work and actual edits concern fullscreen scenes, Canvas/WebGL, background continuity, clipped content, container heights or a reported visual defect. Existing viewport/visual findings are another reason to investigate. Backend/API/database/Rust-only changes do not require it. The existing contextual QA advice explains its recommendation; the agent decides without a separate classifier LLM. Do not run after every edit.
+
+Supported assertion source `visual_layout` uses `equals`, `expected:0` and one property:
+
+- `path:coverage`, with `selector`: measure whether an **explicitly required fullscreen target's bounds** cover the CSS viewport (2 px tolerance). Uncovered bands are Failed for this contract. This does not prove that every pixel inside the target was painted correctly.
+- `path:backing`, with a Canvas selector: compare backing dimensions against CSS dimensions × actual DPR. A mismatch is Suspected because intentional low-resolution rendering is possible; equality verifies only this measured relationship.
+- `path:seams`: find persistent extended horizontal/vertical high-contrast boundaries in two captured frames. Candidates are Suspected, including intentional section separators. No candidates is also inconclusive for a broad continuity/aesthetic claim, never absolute proof that the design is correct.
+
+Pixel analysis uses bounded RGB/RGBA PNG decoding, sampled colour differences on both sides of a boundary (≥24/255 average contrast over ≥80% sampled cross-section), two-frame persistence, coarse 8×8 RGB background signatures and correlation with target bounds. Reports retain CSS coordinates, contrast, extent, confidence, capture IDs, actual image dimensions, DPR, scroll, source hashes and per-size DOM inspection. Confidence is heuristic, not a model probability. DOM measurements, pixel suspicions, functional checks and Vision opinions stay separate. A styled header, gradient stop or decorative geometry is not automatically an application failure.
+
+Example: investigate an illustrative fullscreen Canvas with an 80 px bottom band and a horizontal dark/purple transition. Do not edit the project just to make it testable:
+
+```json
+{
+  "action":"qa",
+  "scenarios":[{
+    "id":"scene-coverage",
+    "goal":"The fullscreen scene covers the viewport; inspect the bottom band and background transition",
+    "target":"/index.html#scene",
+    "viewport":"desktop",
+    "preconditions":[], "required_state":[], "steps":[],
+    "assertion":{"source":"visual_layout","path":"coverage","selector":"canvas","operator":"equals","expected":0},
+    "visual_layout":{"dpr":1,"resize":[{"width":1440,"height":700},{"width":390,"height":844}],"vision":"auto","state_key":"scene-ready"},
+    "timeout_ms":14000
+  }]
+}
+```
+
+Use real preconditions/actions to establish the relevant application state. Register a `kind:visual` acceptance criterion with the same immutable scenario and use `scenario_refs` to obtain criterion-bound evidence; unbound diagnostics do not certify unrelated deliverables. Register separate criteria for different routes/viewports and functional behaviour. Only measured coverage/backing assertions can yield deterministic passing visual evidence; seam findings and general Vision descriptions remain qualified. A desktop capture cannot verify mobile layout or animation behaviour.
+
+### Before/after and animations
+
+First run the scenario diagnostically before the fix and retain its report ID and scenario ID. After a relevant edit, repeat it with `visual_layout.baseline:{report_id:"<saved UUID>",scenario_id:"scene-coverage"}`. If required for an acceptance check, register that exact baseline reference in its immutable criterion before executing it. Baselines are read only from the existing private capture directory, checked for bounded size/project identity and never treated as fresh passing evidence.
+
+Comparison requires identical route, initial viewport, DPR, transition sequence, assertion, preconditions/actions, declared `state_key`, captured scroll/image dimensions and a hash of bounded form/dialog/details state. It reports resolved, persisting and new candidate regions plus coarse background shift. A mismatch/missing baseline blocks the comparison. Changing `state_key` cannot manufacture a match or renew source freshness. State not exposed in DOM/preconditions (for example a private game camera) cannot be guaranteed identical; declare stable state explicitly. A restored browser session is not inferred.
+
+Two frames per size (180 ms apart after a 180 ms settling interval) distinguish persistent boundaries from moving particles; no animation code is injected or user project modified. Coarse differences are observations, not pixel-perfect regression verdicts. New seams can remain Suspected even when the specific coverage fix passes. Long/cyclic animations and subtle thin/diagonal defects may be missed.
+
+### Targeted Vision, isolation and limits
+
+With an already available compatible Vision backend, `vision:auto` requests one analysis when candidates exist; `on` forces the targeted inspection, `off` retains DOM/pixel diagnostics. The existing real provider receives the captured image, matched baseline image if present, route, CSS viewport, actual image resolution, DPR, suspect regions, bounds/backing/background context and scenario requirement, including a specific bottom-20%/boundary question. Images are not artificially enlarged. An unavailable backend leaves deterministic results usable. Fixture Vision responses in tests prove routing only, not model accuracy. Vision cannot erase a measured coverage failure or certify a broad criterion by saying “looks good”.
+
+There is one visual scenario per checkpoint, at most two resize transitions and six analysis frames; existing 8-capture/12 MiB returned-image budget, ≤2 MiB/image and ≤1280×900 image bounds apply. Rendering still uses the requested independent CSS viewport (named profiles or 280–1920 × 320–1600 custom sizes); capture may downsample it. DPR 1/2 is emulated, with CSS pixels distinguished from backing and image pixels. Fixed commands address only the owned Native target; browser-wide CDP remains forbidden. Stop/Pause/error closes the temporary QA Page/context and input state without resizing/navigating the visible user page. Source freshness and unchanged-check reuse/anti-loop continue to apply. This is desktop Chromium emulation, not physical-device testing or a general aesthetic judge.
+
+The existing RU/EN QA panel shows Visual Layout QA, route/viewport, suspected/failed observations, frame regions, before/after counts, separate Vision state and blocked reasons. Technical details retain complete measurements/captures and evidence IDs. Run focused real-browser regressions with `npm run test:visual-layout-qa`.
