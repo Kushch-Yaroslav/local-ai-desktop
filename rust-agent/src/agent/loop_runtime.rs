@@ -669,7 +669,7 @@ fn dynamic_tail(
     if state.browser_qa_enabled {
         let criteria=state.task_memory.deliverables.items.iter().flat_map(|item|item.criteria.iter().map(|c|c.description.as_str())).collect::<Vec<_>>().join(" ");
         let changes=state.task_memory.verification.changed.keys().map(|path|(path.clone(),state.responsive_changes.get(path).cloned().unwrap_or_default())).collect::<Vec<_>>();
-        let issue=state.task_memory.browser_qa.as_ref().and_then(|qa|qa["scenarios"].as_array()).is_some_and(|scenarios|scenarios.iter().any(|s|s.pointer("/responsive/findings").and_then(Value::as_array).is_some_and(|f|!f.is_empty())));
+        let issue=state.task_memory.browser_qa.as_ref().and_then(|qa|qa["scenarios"].as_array()).is_some_and(|scenarios|scenarios.iter().any(|s|s.pointer("/responsive/findings").and_then(Value::as_array).is_some_and(|f|!f.is_empty()) || s.pointer("/visualLayout/frames").and_then(Value::as_array).is_some_and(|frames|frames.iter().any(|frame|frame["findings"].as_array().is_some_and(|f|!f.is_empty())))));
         let active_plan=state.task_memory.plan.steps.iter().filter(|step|step.status!=StepStatus::Completed).map(|step|step.text.as_str()).collect::<Vec<_>>().join(" ");
         tail.push(super::responsive::advice(objective,&criteria,&active_plan,&changes,issue));
     }
@@ -1948,9 +1948,24 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
             if contract.is_none() {continue;}
             let temporal_valid=kind!="temporal" || scenario["observations"].as_array().is_some_and(|values|values.len()>=3 && values.windows(2).all(|pair|pair[0]["atMs"].as_f64().zip(pair[1]["atMs"].as_f64()).is_some_and(|(a,b)|b>a)));
             let viewport_valid=contract.and_then(|c|c.scenario.as_ref()).is_none_or(|spec|spec.get("viewport").is_none()||super::responsive::viewport(&spec["viewport"]).is_some_and(|expected|super::responsive::viewport(&scenario["viewport"])==Some(expected)));
-            let pass=status=="Verified" && temporal_valid && viewport_valid && kind!="visual";
+            // Image descriptions cannot certify aesthetics. Only the explicit deterministic visual-layout property can pass.
+            let measured_visual=contract.and_then(|c|c.scenario.as_ref()).is_some_and(|spec| {
+                let sizes=std::iter::once(&spec["viewport"]).chain(spec.pointer("/visual_layout/resize").and_then(Value::as_array).into_iter().flatten()).map(super::responsive::viewport).collect::<Option<Vec<_>>>();
+                let Some(sizes)=sizes.filter(|v|!v.is_empty() && v.len()<=3) else {return false;};
+                let dpr=spec.pointer("/visual_layout/dpr").and_then(Value::as_u64).unwrap_or(1);
+                spec["assertion"]["source"]=="visual_layout" && matches!(spec["assertion"]["path"].as_str(),Some("coverage"|"backing"))
+                && scenario.pointer("/visualLayout/property")==spec.pointer("/assertion/path")
+                && scenario.pointer("/visualLayout/selector")==spec.pointer("/assertion/selector")
+                && scenario.pointer("/visualLayout/status").and_then(Value::as_str)==Some("Verified")
+                && scenario.pointer("/visualLayout/frames").and_then(Value::as_array).is_some_and(|frames|frames.len()==sizes.len()*2 && frames.iter().enumerate().all(|(i,f)|
+                    super::responsive::viewport(&f["viewport"])==Some(sizes[i/2]) && f["dpr"].as_u64()==Some(dpr)
+                    && result.pointer("/qa/captures").and_then(Value::as_array).is_some_and(|captures|captures.iter().any(|capture|
+                        capture["id"]==f["captureId"] && capture["sha256"].as_str().is_some_and(|hash|hash.len()==64 && hash.bytes().all(|c|c.is_ascii_hexdigit()))
+                        && capture["viewport"]==f["viewport"] && capture["dpr"]==f["dpr"]))))
+            });
+            let pass=status=="Verified" && temporal_valid && viewport_valid && (kind!="visual" || measured_visual);
             let outcome=if pass {"passed"} else if status=="Failed" {"failed"} else {"inconclusive"};
-            observed.push((format!("web_project scenario {} criterion {id}:{criterion_id} {}",scenario["id"].as_str().unwrap_or("unknown"),scenario["target"]),pass,outcome.to_owned(),Some(verification::CriterionEvidence{deliverable_id:id.to_owned(),criterion_id:criterion_id.to_owned(),kind:kind.to_owned(),qualified:kind=="visual" && scenario.pointer("/visual/analyzed").and_then(Value::as_bool)==Some(true)}),scenario.to_string()));
+            observed.push((format!("web_project scenario {} criterion {id}:{criterion_id} {}",scenario["id"].as_str().unwrap_or("unknown"),scenario["target"]),pass,outcome.to_owned(),Some(verification::CriterionEvidence{deliverable_id:id.to_owned(),criterion_id:criterion_id.to_owned(),kind:kind.to_owned(),qualified:kind=="visual" && !measured_visual && scenario.pointer("/visual/analyzed").and_then(Value::as_bool)==Some(true)}),scenario.to_string()));
         }
     }
     // A generic open/read is load/runtime observation only. It has no implicit
@@ -7009,6 +7024,29 @@ mod tests {
         let second=execution_process_context(&config);
         assert_ne!(first,second);
         assert!(second.contains("generation=fresh-generation-b"));
+    }
+
+    #[test]
+    fn visual_layout_proof_is_property_scoped_and_requires_captured_frames() {
+        let root=std::env::temp_dir().join(format!("visual-layout-gate-{}",std::process::id()));std::fs::create_dir_all(&root).unwrap();
+        let path=root.join("index.html");std::fs::write(&path,"<canvas></canvas>").unwrap();
+        let mut state=AgentState::default();let transcript=Transcript::default();
+        let spec=json!({"target":"/index.html","viewport":"desktop","preconditions":[],"required_state":[],"steps":[],"assertion":{"source":"visual_layout","path":"coverage","selector":"canvas","operator":"equals","expected":0},"timeout_ms":6000});
+        apply_deliverables(&mut state,&json!({"action":"add","id":"scene","text":"Canvas viewport coverage","check":"browser","criteria":[{"id":"cover","description":"Canvas bounds cover desktop","kind":"visual","scenario":spec}]}),&transcript).unwrap();
+        let args=prepare_browser_contracts(&state,&json!({"action":"qa","scenario_refs":[{"deliverable_id":"scene","criterion_id":"cover"}]})).unwrap();
+        let viewport=json!({"width":1440,"height":900});
+        let mut result=json!({"source_path":path,"qa":{"scenarios":[{"id":"visual","target":"/index.html","deliverableId":"scene","criterionId":"cover","status":"Verified","evidenceKind":"visual","viewport":viewport,"visual":{"analyzed":true,"status":"Verified"}}]}});
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(!state.task_memory.verification.records.last().unwrap().pass,"Generic Vision cannot certify coverage");
+        result["qa"]["scenarios"][0]["visualLayout"]=json!({"property":"coverage","selector":"canvas","status":"Verified","frames":[{"captureId":"first","viewport":viewport,"dpr":1},{"captureId":"second","viewport":viewport,"dpr":1}]});
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(!state.task_memory.verification.records.last().unwrap().pass,"Missing captures cannot prove geometry/pixels");
+        result["qa"]["captures"]=json!([{"id":"first","viewport":viewport,"dpr":1,"sha256":"a".repeat(64)},{"id":"second","viewport":viewport,"dpr":1,"sha256":"b".repeat(64)}]);
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(state.task_memory.verification.records.last().unwrap().pass);assert!(!state.task_memory.verification.records.last().unwrap().coverage[0].qualified,"Measured property remains independent of qualified Vision opinion");
+        result["qa"]["scenarios"][0]["visualLayout"]["frames"][0]["viewport"]=json!({"width":390,"height":844});
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(!state.task_memory.verification.records.last().unwrap().pass,"One viewport cannot stand in for another");
+        result["qa"]["scenarios"][0]["visualLayout"]["frames"][0]["viewport"]=viewport.clone();
+        result["qa"]["scenarios"][0]["visualLayout"]["property"]=json!("seams");
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(!state.task_memory.verification.records.last().unwrap().pass,"Seam observations cannot verify coverage");
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

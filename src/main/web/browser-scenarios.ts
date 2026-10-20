@@ -1,12 +1,15 @@
 import type { QaAssertion, QaScenario } from '../../shared/browser-qa';
 import { qaSteps } from './browser-qa';
+import { visualLayoutOptions } from './visual-layout-qa';
 import { qaViewport } from './responsive-qa';
 
-const sources = ['text','value','visible','url','diagnostic','pixels','runtime_errors','raf','draws','viewport','layout'];
+const sources = ['text','value','visible','url','diagnostic','pixels','runtime_errors','raf','draws','viewport','layout','visual_layout'];
 export function qaAssertion(value: unknown): QaAssertion {
   if (!value || typeof value !== 'object') throw new Error('A declarative assertion is required');
   const a = value as QaAssertion;
   if (!sources.includes(a.source) || !['equals','changed','increased','decreased'].includes(a.operator)) throw new Error('Unsupported assertion method');
+  if(a.selector!==undefined&&(typeof a.selector!=='string'||!a.selector.trim()||a.selector.length>500))throw new Error('Invalid bounded assertion selector');
+  if(a.source==='visual_layout'&&(a.operator!=='equals'||a.expected!==0||!['coverage','backing','seams'].includes(a.path??'')||a.sample_ms||a.tolerance!==undefined||(['coverage','backing'].includes(a.path??'')&&(!a.selector||a.selector.length>500))))throw new Error('Visual layout requires equals 0, path coverage/backing/seams; coverage/backing need a target selector. No ignored tolerance/sample fields.');
   if(a.source==='layout'&&(a.operator!=='equals'||a.expected!==0||a.sample_ms||a.path!==undefined||a.selector!==undefined||a.tolerance!==undefined))throw new Error('Layout asserts zero confirmed DOM geometry defects with no ignored selector/path/tolerance; use separate scenarios for interaction or animation');
   if (['text','value','visible','viewport'].includes(a.source) && (typeof a.selector !== 'string' || !a.selector.trim() || a.selector.length > 500)) throw new Error('Assertion requires a bounded selector');
   if (a.source === 'diagnostic' && (typeof a.path !== 'string' || !/^[a-zA-Z_][\w]*(\.[a-zA-Z_0-9]+){0,5}$/.test(a.path) || a.path.split('.').some(p=>['__proto__','constructor','prototype'].includes(p)))) throw new Error('Diagnostic path must name bounded data in window.__qaDiagnostics');
@@ -29,8 +32,10 @@ export function qaScenarios(value: unknown): QaScenario[] {
     if(!Array.isArray(raw.steps))throw new Error('Scenario steps must be an array');
     const conditions=(field:string)=>{if(!Array.isArray(raw[field])||raw[field].length>6)throw new Error(`${field} must be a bounded array`);return raw[field].map(qaAssertion);};
     if(!Number.isInteger(raw.timeout_ms)||raw.timeout_ms<500||raw.timeout_ms>15000)throw new Error('Scenario timeout must be 500..15000 ms');
-    if(raw.assertion?.source==='layout'&&raw.viewport===undefined)throw new Error('Layout scenarios require an explicit viewport');
-    return {id:raw.id,goal:raw.goal,target:raw.target,...(raw.viewport!==undefined?{viewport:qaViewport(raw.viewport)}:{}),deliverable_id:raw.deliverable_id,criterion_id:raw.criterion_id,preconditions:conditions('preconditions'),required_state:conditions('required_state'),steps:qaSteps(raw.steps),assertion:qaAssertion(raw.assertion),timeout_ms:raw.timeout_ms};
-  });
+    if(['layout','visual_layout'].includes(raw.assertion?.source)&&raw.viewport===undefined)throw new Error('Layout scenarios require an explicit viewport');
+    if(raw.visual_layout!==undefined&&raw.assertion?.source!=='visual_layout')throw new Error('visual_layout options require a visual_layout assertion');
+    if([...raw.preconditions??[],...raw.required_state??[]].some((a:{source?:string})=>a.source==='visual_layout'))throw new Error('Visual layout is a scenario assertion, not a precondition');
+    return {visual_layout:visualLayoutOptions(raw.visual_layout),id:raw.id,goal:raw.goal,target:raw.target,...(raw.viewport!==undefined?{viewport:qaViewport(raw.viewport)}:{}),deliverable_id:raw.deliverable_id,criterion_id:raw.criterion_id,preconditions:conditions('preconditions'),required_state:conditions('required_state'),steps:qaSteps(raw.steps),assertion:qaAssertion(raw.assertion),timeout_ms:raw.timeout_ms};
+  }).map((s,_,all)=>{if(all.filter(s=>s.assertion.source==='visual_layout').length>1)throw new Error('One Visual Layout scenario per checkpoint (up to 2 resize transitions, 6 frames)');return s;});
 }
-export const assertionSchema = {type:'object',properties:{source:{type:'string',enum:sources},selector:{type:'string',maxLength:500},path:{type:'string',description:'Read-only scalar path inside window.__qaDiagnostics; no JavaScript expressions.'},operator:{type:'string',enum:['equals','changed','increased','decreased']},expected:{type:['string','number','boolean']},tolerance:{type:'number',minimum:0},sample_ms:{type:'array',minItems:3,maxItems:4,items:{type:'integer',minimum:0,maximum:3000}}},required:['source','operator'],additionalProperties:false};
+export const assertionSchema = {type:'object',properties:{source:{type:'string',enum:sources},selector:{type:'string',maxLength:500},path:{type:'string',description:'For diagnostic: read-only scalar path in window.__qaDiagnostics. For visual_layout: coverage, backing, or seams. No JavaScript expressions.'},operator:{type:'string',enum:['equals','changed','increased','decreased']},expected:{type:['string','number','boolean']},tolerance:{type:'number',minimum:0},sample_ms:{type:'array',minItems:3,maxItems:4,items:{type:'integer',minimum:0,maximum:3000}}},required:['source','operator'],additionalProperties:false};
