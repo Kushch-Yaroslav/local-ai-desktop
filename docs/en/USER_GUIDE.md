@@ -57,7 +57,7 @@ The selector near the composer changes the permission workflow, not the mandator
 
 The approval dialog shows the full proposed command and target project, with **Allow once**, **Always allow for this session** and **Deny**. Review the operation before allowing it. The [v0.2.0 permission screenshots](../archive/releases/v0.2.0-validation-history.md#permission-screenshots-and-approval-flow) illustrate these controls; the shown command is not an instruction to execute.
 
-There is no trusted-folder management step. “Always allow in this session” means a scoped grant for the current run, not permanent trust for a directory or arbitrary future commands. Review/revoke grants in the permission controls. Restart does not restore them. Mode changes affect subsequent operations, not a completed action.
+There is no trusted-folder management step. “Allow once” permits the current call. “Always allow in this session” means a scoped grant for this chat/window across runs and Pause/Resume, not permanent trust for a directory or arbitrary future commands. Grants bind the operation, project, preview origin and security context; scope or mode changes revoke them. Review/revoke grants in the permission controls, including between runs. Restart does not restore them. Mode changes affect subsequent operations, not a completed action.
 
 Mandatory blocks cannot be approved away. Autopilot returns an explanation rather than repeatedly prompting for forbidden actions. For an action eligible for explicit review, switch to Ask; that still cannot bypass filesystem, sandbox or protected-process restrictions.
 
