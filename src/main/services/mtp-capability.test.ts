@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { embeddedMtpCapability, mtpCapability, resolveMtpMode, probeBackendMtp, advertisesMtp } from './mtp-capability';
+import { embeddedMtpCapability, externalMtpCompatibility, mtpCapability, resolveMtpMode, probeBackendMtp, advertisesMtp, prepareExternalMtpDraft } from './mtp-capability';
 import { parseMtpMetrics } from './mtp-diagnostics';
 const root = mkdtempSync(join(tmpdir(), 'mtp-capability-'));
 const u32 = (n: number) => { const b=Buffer.alloc(4);b.writeUInt32LE(n);return b; };
@@ -13,6 +13,12 @@ function fixture(name: string, architecture='qwen35', heads=1, tensors=true, pay
   const tensorItems: Array<[string, number[], number]> = tensors ? [['blk.0.attn_norm.weight',[4],0],['blk.1.nextn.eh_proj.weight',[8,4],32],['blk.1.nextn.enorm.weight',[4],160],['blk.1.nextn.hnorm.weight',[4],192]]:[];
   const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(tensorItems.length),u64(items.length),...items.flatMap(([key,value])=>[text(key),u32(typeof value==='string'?8:4),typeof value==='string'?text(value):u32(value)]),...tensorItems.flatMap(([key,shape,offset])=>[text(key),u32(shape.length),...shape.map(u64),u32(0),u64(offset)])]);
   const path=join(root,name);writeFileSync(path,Buffer.concat([header,Buffer.alloc((32-header.length%32)%32),Buffer.alloc(payload?224:0)]));return path;
+}
+function externalFixture(name:string,draft:boolean,token='same'){
+ const architecture='qwen3next',fields:Array<[string,string|number|string[]]>=[['general.architecture',architecture],[`${architecture}.context_length`,65536],[`${architecture}.embedding_length`,4],['tokenizer.ggml.model','gpt2'],['tokenizer.ggml.tokens',['a','b']],['tokenizer.ggml.merges',['a b']],['tokenizer.ggml.bos_token_id',1],['tokenizer.ggml.add_bos_token',1],...(draft?[[`${architecture}.nextn_predict_layers`,1]] as Array<[string,number]>:[])];
+ if(token!=='same')fields[fields.findIndex(([key])=>key==='tokenizer.ggml.model')][1]=token;
+ const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(fields.length),...fields.flatMap(([key,value])=>[text(key),typeof value==='string'?Buffer.concat([u32(8),text(value)]):typeof value==='number'?Buffer.concat([u32(4),u32(value)]):Buffer.concat([u32(9),u32(8),u64(value.length),...value.map(text)])])]);
+ const path=join(root,name);writeFileSync(path,header);return path;
 }
 async function run(){try{
   const valid=fixture('valid.gguf'), metadataOnly=fixture('metadata.gguf','qwen35',1,false), truncated=fixture('truncated.gguf','qwen35',1,true,false);
@@ -36,6 +42,16 @@ async function run(){try{
   assert.equal(await resolveMtpMode('auto',valid,plain),'none');
   await assert.rejects(resolveMtpMode('on',valid,plain),/On unavailable/);
   await assert.rejects(resolveMtpMode('on',metadataOnly,server),/tensors/);
+  const target=externalFixture('external-target.gguf',false),draft=externalFixture('external-draft.gguf',true),wrong=externalFixture('external-wrong.gguf',true,'different');
+  assert(externalMtpCompatibility(target,draft).supported,'external MTP-only GGUF must pass the architecture/tokenizer checks');
+  assert(!externalMtpCompatibility(target,wrong).supported,'an arbitrary MTP GGUF with a different tokenizer is rejected');
+  const prepared=await prepareExternalMtpDraft(target,draft,2);assert.equal(prepared.maxDraftTokens,2);assert.equal(prepared.sizeBytes,statSync(draft).size);
+  const externalServer=join(root,'external-server');writeFileSync(externalServer,"#!/bin/sh\nprintf '%s\\n' '--spec-type none,draft-mtp --spec-draft-n-max --spec-draft-model --gpu-layers-draft'\n",{mode:0o700});
+  assert((await mtpCapability(target,externalServer,draft)).supported);
+  assert.equal(await resolveMtpMode('auto',target,externalServer,draft),'mtp');assert.equal(await resolveMtpMode('on',target,externalServer,draft),'mtp');
+  assert.equal(await resolveMtpMode('off',target,plain,draft),'none','MTP Off does not require or apply the external draft');
+  assert.equal(await resolveMtpMode('auto',target,plain,draft),'none','Auto falls back when backend draft flags are absent');
+  await assert.rejects(resolveMtpMode('on',target,plain,draft),/On unavailable/);
   const metrics=parseMtpMetrics('llamacpp:spec_decode_num_draft_tokens_total 20\nllamacpp:spec_decode_num_accepted_tokens_total 15\n');
   assert.equal(metrics?.acceptanceRate,.75);assert.equal(metrics?.scope,'server lifetime');
   assert.equal(parseMtpMetrics(''),undefined);

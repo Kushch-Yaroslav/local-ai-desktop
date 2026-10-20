@@ -1,7 +1,7 @@
 import { applyReasoningDefaults } from '../../shared/reasoning-controls';
 import { liveMultimodal } from '../services/browser-vision';
 import type { BrowserVisionMode } from '../../shared/browser-qa';
-import { mtpCapability, resolveMtpMode } from '../services/mtp-capability';
+import { mtpCapability, resolveMtpMode, prepareExternalMtpDraft } from '../services/mtp-capability';
 import { parseMtpMetrics } from '../services/mtp-diagnostics';
 import type { MtpStatus, MtpMode } from '../../shared/types';
 import { liveBrowsers } from '../web/live-browser';
@@ -584,7 +584,7 @@ export function registerIpc(): void {
         }
         const modelConfig = runtimeConfig.models.find(model => model.id === nextModelId);
         const requestedMtp = modelConfig?.mtpMode ?? (modelConfig?.speculative === 'none' ? 'off' : 'auto');
-        const effectiveMtp = await resolveMtpMode(requestedMtp, modelConfig?.modelPath ?? visionProfile.modelPath ?? '', runtimeConfig.llamaServerPath);
+        const effectiveMtp = await resolveMtpMode(requestedMtp, modelConfig?.modelPath ?? visionProfile.modelPath ?? '', runtimeConfig.llamaServerPath,modelConfig?.mtpDraft?.path);
         if (effectiveMtp === 'mtp' && visionProfile.visionWithMtp === false) {
           throw new Error(t('Выбранная модель несовместима с Browser Vision при включённом MTP. Измените настройки модели; MTP автоматически не отключён.'));
         }
@@ -714,7 +714,7 @@ export function registerIpc(): void {
   const mtpStatus = async (modelId: string): Promise<MtpStatus> => {
     const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
     if (!model) throw new Error(t('Неизвестная модель.'));
-    const capability = await mtpCapability(model.modelPath, config.llamaServerPath);
+    const capability = await mtpCapability(model.modelPath, config.llamaServerPath,model.mtpDraft?.path);
     const state = await currentLlamaRuntime();
     const requested = model.mtpMode ?? (model.speculative === 'none' ? 'off' : 'auto');
     const active = state.status === 'ready' && state.modelId === modelId;
@@ -767,7 +767,7 @@ export function registerIpc(): void {
     try {
       const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
       if (!model) throw new Error(t('Неизвестная модель.'));
-      await resolveMtpMode(mode, model.modelPath, config.llamaServerPath);
+      await resolveMtpMode(mode, model.modelPath, config.llamaServerPath,model.mtpDraft?.path);
       const current = await llamaRuntime.state();
       if (current.status === 'ready' && current.modelId === modelId) {
         const result = await llamaRuntime.switchTo(modelId, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice, mode);
@@ -835,6 +835,9 @@ export function registerIpc(): void {
     const running=await llamaRuntime.state();
     if(running.status==='ready'&&running.modelId&&!next.models.some(model=>model.id===running.modelId))throw Error('Unload the active model before deleting its profile.');
     next.models = next.models.map(model => ({ ...model, mtpMode: existingConfig.models.find(current => current.id === model.id)?.mtpMode ?? model.mtpMode }));
+    for(const model of next.models){
+      if(model.mtpDraft?.path)model.mtpDraft=await prepareExternalMtpDraft(model.modelPath,model.mtpDraft.path,model.mtpDraft.maxDraftTokens);
+    }
     const input = next.llamaServerInput ?? next.llamaServerPath ?? '';
     if (input.trim()) {
       const resolution = await resolveLlamaExecutable(input, next.llamaServerPath ?? undefined);

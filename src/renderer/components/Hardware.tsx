@@ -8,6 +8,6 @@ export function Hardware({ value, compact = false }: { value: HardwareStats | nu
   if (!value) return <div className={className}>{t("Мониторинг…")}</div>;
   return <div className={className} aria-label={t('Мониторинг памяти и GPU')}>
     <span title="RAM">RAM {gb(value.ramUsedBytes)} / {gb(value.ramTotalBytes)} GB</span>
-    {value.available ? <><span title="VRAM">VRAM {gb(value.vramUsedBytes ?? 0)} / {gb(value.vramTotalBytes ?? 0)} GB</span><span title={t('Загрузка GPU')}>GPU {value.gpuUtilization}%</span></> : <span title={t("nvidia-smi недоступен")}>{t("GPU недоступен")}</span>}
+    {value.available ? <><span title="VRAM">VRAM {gb(value.vramUsedBytes ?? 0)} / {gb(value.vramTotalBytes ?? 0)} GB</span>{value.gpuUtilization!==null&&<span title={t('Загрузка GPU')}>GPU {value.gpuUtilization}%</span>}</> : <span title={t("nvidia-smi недоступен")}>{t("GPU недоступен")}</span>}
   </div>;
 }

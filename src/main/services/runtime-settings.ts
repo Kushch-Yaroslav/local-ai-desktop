@@ -53,8 +53,20 @@ function normalizeModel(raw: unknown, modelsPath: string): RuntimeModelConfigura
   const mtpMode = value.mtpMode ?? (speculative === 'none' ? 'off' : 'auto');
   if (!['auto', 'on', 'off'].includes(String(mtpMode))) throw new Error('Некорректный режим MTP.');
   if(value.family!==undefined&&!modelFamilies.includes(value.family as typeof modelFamilies[number]))throw Error('Unknown model family');
+  let mtpDraft:RuntimeModelConfiguration['mtpDraft'];
+  if(value.mtpDraft!==undefined){
+    if(!value.mtpDraft||typeof value.mtpDraft!=='object'||Array.isArray(value.mtpDraft))throw Error(`Некорректный MTP Draft для «${displayName}».`);
+    const draft=value.mtpDraft as Record<string,unknown>;
+    if(typeof draft.path!=='string'||!draft.path.trim())throw Error(`Укажите путь MTP Draft для «${displayName}».`);
+    const maxDraftTokens=draft.maxDraftTokens===undefined?2:Number(draft.maxDraftTokens);
+    if(!Number.isInteger(maxDraftTokens)||maxDraftTokens<1||maxDraftTokens>16)throw Error('MTP n-max должен быть целым числом от 1 до 16.');
+    const sizeBytes=draft.sizeBytes===undefined?undefined:Number(draft.sizeBytes);
+    if(sizeBytes!==undefined&&(!Number.isSafeInteger(sizeBytes)||sizeBytes<1))throw Error('Некорректный размер MTP Draft.');
+    if(draft.sha256!==undefined&&(typeof draft.sha256!=='string'||!/^[a-f0-9]{64}$/.test(draft.sha256)))throw Error('Некорректный SHA-256 MTP Draft.');
+    mtpDraft={path:expandPath(draft.path,modelsPath),maxDraftTokens,...(sizeBytes!==undefined?{sizeBytes}:{}),...(typeof draft.sha256==='string'?{sha256:draft.sha256}:{})};
+  }
   const advanced=normalizeAdvanced(value.advanced),defaults=normalizeModelDefaults(value.defaults);
-  return { id, displayName,...(value.family?{family:value.family as typeof modelFamilies[number]}:{}),...(advanced?{advanced}:{}),...(defaults?{defaults}:{}), mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
+  return { id, displayName,...(value.family?{family:value.family as typeof modelFamilies[number]}:{}),...(advanced?{advanced}:{}),...(defaults?{defaults}:{}),...(mtpDraft?{mtpDraft}:{}), mtpMode: mtpMode as 'auto' | 'on' | 'off', modelPath: expandPath(value.modelPath, modelsPath),
     mmprojPath: value.mmprojPath ? expandPath(String(value.mmprojPath), modelsPath) : '',
     gpuLayers, projectorDevice: projectorDevice as 'auto' | 'gpu' | 'cpu', supportsTools,...(toolCallingMode?{toolCallingMode}:{}), speculative, builtin: Boolean(builtin) };
 }
@@ -157,7 +169,7 @@ export function runtimeDraftAvailability(raw: unknown): RuntimeDraftAvailability
   try { folderExists = Boolean(base && statSync(base, { throwIfNoEntry: false })?.isDirectory()); } catch { /* Unreadable folder. */ }
   return { folderExists, models: value.models.map((entry) => {
     if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') throw new Error('Некорректные настройки моделей.');
-    return { id: entry.id,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)) };
+    return { id: entry.id,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)), mtpDraftMissing:Boolean(entry.mtpDraft?.path&&!check(entry.mtpDraft.path)), mtpDraftInspection:typeof entry.mtpDraft?.path==='string'?inspectModel(expandPath(entry.mtpDraft.path,base),'auto'):undefined };
   }) };
 }
 
@@ -176,7 +188,7 @@ export function runtimeSetup(file = settingsFile) {
     const issue = [modelIssue, !server ? 'Сначала выберите исполняемый llama-server.' : undefined,
       projectorMissing ? 'Projector не найден; модель сможет работать без изображений, если очистить это поле.' : undefined].filter(Boolean).join(' ');
     const status = !installed ? 'missing-model' : !server ? 'missing-server' : projectorMissing ? 'invalid-projector' : 'ready';
-    return { id: model.id,inspection:inspectModel(model.modelPath,model.family), name: model.displayName, modelPath: model.modelPath, ...(model.mmprojPath ? { mmprojPath: model.mmprojPath } : {}), installed,
+    return { id: model.id,inspection:inspectModel(model.modelPath,model.family), name: model.displayName, modelPath: model.modelPath, ...(model.mmprojPath ? { mmprojPath: model.mmprojPath } : {}), ...(model.mtpDraft?{mtpDraftPath:model.mtpDraft.path,mtpDraftMissing:!validGguf(model.mtpDraft.path),mtpDraftInspection:inspectModel(model.mtpDraft.path,'auto')}:{}), installed,
       status: status as 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector', issue: issue || undefined, builtin: model.builtin };
   });
   const ready = Boolean(server && models.some((model) => model.installed));
@@ -201,6 +213,10 @@ export function saveRuntimeConfiguration(raw: unknown, file = settingsFile): Run
       const builtinDefault = model.builtin && key === 'modelPath' && path === join(config.modelsPath, builtinModelCatalog.find((item) => item.id === model.id)!.modelPath);
       if (path === previous || builtinDefault || key === 'mmprojPath') continue;
       throw new Error(`Не найден читаемый GGUF ${key === 'modelPath' ? 'модели' : 'projector'}: ${path}. Проверьте выбранный файл и все части split GGUF.`);
+    }
+    if(model.mtpDraft){
+      if(!validGguf(model.mtpDraft.path))throw new Error(`Не найден читаемый MTP Draft GGUF: ${model.mtpDraft.path}.`);
+      if(model.mtpDraft.sizeBytes===undefined||model.mtpDraft.sha256===undefined)throw new Error(`MTP Draft для «${model.displayName}» должен пройти проверку совместимости перед сохранением.`);
     }
   }
   mkdirSync(dirname(file), { recursive: true });

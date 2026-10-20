@@ -14,7 +14,9 @@ import { verifyHostMemory } from '../services/host-memory-guard';
 
 export function effectiveSpeculativeMode(profile: LlamaRuntimeProfile, enabled: string | undefined) {
   if (enabled !== undefined && enabled !== '0' && enabled !== '1') throw new Error('LOCAL_AI_LLAMA_SPECULATIVE должно быть 0 или 1.');
-  if (profile.draft && profile.speculative === 'none') throw new Error('Draft настроен для модели без speculative capability.');
+  // Turning MTP off is valid even when an external draft is saved in the
+  // profile. The saved artifact remains available for a later session switch.
+  if (profile.draft && profile.speculative === 'none' && profile.mtpMode !== 'off' && enabled !== '0') throw new Error('Draft настроен для модели без speculative capability.');
   if (profile.speculative === 'eagle3' && !profile.draft) throw new Error('EAGLE требует отдельный совместимый draft GGUF.');
   if (profile.draft && (!/^[a-f0-9]{64}$/.test(profile.draft.sha256) || !Number.isSafeInteger(profile.draft.sizeBytes) || profile.draft.sizeBytes <= 0 || !Number.isInteger(profile.draft.maxDraftTokens) || profile.draft.maxDraftTokens <= 0)) throw new Error('Некорректная конфигурация draft GGUF.');
   return enabled === '0' ? 'none' : profile.speculative;
@@ -27,7 +29,7 @@ export function validateDraftMetadata(profile: LlamaRuntimeProfile, target: Gguf
   const context = draft.values[`${arch}.context_length`];
   if (draft.values['general.architecture'] !== arch || target.values['general.architecture'] !== targetArch
     || target.values[`${targetArch}.embedding_length`] !== expected.targetEmbeddingLength
-    || draft.values[`${arch}.embedding_length_out`] !== expected.targetEmbeddingLength
+  || Number(draft.values[`${arch}.embedding_length_out`]??(Number(draft.values[`${arch}.nextn_predict_layers`])>0?draft.values[`${arch}.embedding_length`]:undefined)) !== expected.targetEmbeddingLength
     || typeof context !== 'number' || !Number.isSafeInteger(context) || context < profile.maxContext
     || (profile.speculative === 'mtp' && !(Number(draft.values[`${arch}.nextn_predict_layers`]) > 0))) throw new Error('Draft GGUF несовместим с архитектурой, размером или контекстом основной модели.');
   // MTP uses the target's template/stop policy. Its tokenizer token texts, merges,
@@ -85,6 +87,7 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
     RUNTIME_LABEL: getModelProfile(profile.id)?.displayName ?? profile.id, DEFAULT_LLAMA_CONTEXT: String(profile.normalContext?.initialContextWindow ?? 32_768), MAX_LLAMA_CONTEXT: String(profile.maxContext),
     SPECULATIVE_MODE: mode, DRAFT_MODEL: draft?.path ?? '', DRAFT_KV_SHARED: draft?.kvCache === 'shared' ? '1' : '0',
     DRAFT_N_MAX: draft ? String(draft.maxDraftTokens) : mode === 'mtp' && profile.speculativeDraftTokens ? String(profile.speculativeDraftTokens) : '',
+    DRAFT_GPU_LAYERS: draft ? 'auto' : '',
     MODEL_GPU_LAYERS: profile.advanced?.mode==='automatic'?'auto':profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
   };
   return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${placementArguments(profile,backend).map(quote).join(' ')})`].join('\n');
@@ -96,7 +99,7 @@ if (require.main === module) {
     if (!profile) throw new Error(`Unknown Local AI llama.cpp model: ${process.argv[2]}`);
     const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
     if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
-    profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
+    profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath,profile.draft?.path), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
     if (effectiveRuntimeConfiguration().browserVision === 'on' && (!profile.vision || !profile.mmprojPath)) {
       throw new Error('Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.');
     }

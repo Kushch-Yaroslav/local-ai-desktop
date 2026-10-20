@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process';
-import { realpathSync, statSync } from 'node:fs';
+import { createReadStream, realpathSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { MtpCapability, MtpMode } from '../../shared/types';
 import { readGgufSpeculativeMetadata } from './gguf-speculative';
 import { ggufArtifactPaths } from './gguf-artifacts';
 import { executablePath } from './runtime-settings';
+import { probeBackendFeatures } from './backend-capabilities';
 
 /** Only graph families inspected/tested for embedded MTP, not ordinary draft models. */
 export function embeddedMtpCapability(path: string): MtpCapability {
@@ -23,6 +25,31 @@ export function embeddedMtpCapability(path: string): MtpCapability {
     }
     return { supported: true, status: 'available', architecture, heads, reason: 'Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.' };
   } catch (error) { return { supported: false, status: 'error', reason: `Cannot inspect MTP weights: ${error instanceof Error ? error.message : String(error)}` }; }
+}
+/** External draft-mtp is accepted only when the GGUF pair proves architecture, dimensions, context and tokenizer compatibility. */
+export function externalMtpCompatibility(targetPath:string,draftPath:string):MtpCapability{
+ try{
+  const target=readGgufSpeculativeMetadata(targetPath),draft=readGgufSpeculativeMetadata(draftPath);
+  const architecture=String(target.values['general.architecture']??''),draftArchitecture=String(draft.values['general.architecture']??'');
+  const targetEmbedding=Number(target.values[`${architecture}.embedding_length`]),draftOutput=Number(draft.values[`${draftArchitecture}.embedding_length_out`]??(Number(draft.values[`${draftArchitecture}.nextn_predict_layers`])>0?draft.values[`${draftArchitecture}.embedding_length`]:undefined));
+  const draftContext=Number(draft.values[`${draftArchitecture}.context_length`]),targetContext=Number(target.values[`${architecture}.context_length`]);
+  const heads=Number(draft.values[`${draftArchitecture}.nextn_predict_layers`]??0);
+  if(!architecture||draftArchitecture!==architecture||!(targetEmbedding>0)||draftOutput!==targetEmbedding||!(heads>0)||!(draftContext>=targetContext))
+   return {supported:false,status:'unsupported',architecture: draftArchitecture||architecture,heads,reason:'MTP Draft не подтверждает совпадение архитектуры, embedding, nextn head и контекста с основной GGUF.'};
+  for(const key of ['model','tokens','merges','bos_token_id','add_bos_token']){
+   const field=`tokenizer.ggml.${key}`;
+   if(!target.tokenizer[field]||target.tokenizer[field]!==draft.tokenizer[field])return {supported:false,status:'unsupported',architecture,heads,reason:`Несовместимый tokenizer MTP Draft: ${field}.`};
+  }
+  return {supported:true,status:'available',architecture,heads,reason:'External MTP-only GGUF matches model architecture, dimensions, context and tokenizer. Backend initialization is still required to confirm activation.'};
+ }catch(error){return {supported:false,status:'error',reason:`Cannot inspect external MTP Draft: ${error instanceof Error?error.message:String(error)}`};}
+}
+export async function prepareExternalMtpDraft(targetPath:string,draftPath:string,maxDraftTokens=2):Promise<{path:string;maxDraftTokens:number;sizeBytes:number;sha256:string}>{
+ if(!Number.isInteger(maxDraftTokens)||maxDraftTokens<1||maxDraftTokens>16)throw new Error('MTP n-max must be an integer from 1 to 16.');
+ const capability=externalMtpCompatibility(targetPath,draftPath);
+ if(!capability.supported)throw new Error(`MTP Draft incompatible: ${capability.reason}`);
+ const file=statSync(draftPath);if(!file.isFile())throw new Error(`MTP Draft is not a file: ${draftPath}`);
+ const hash=createHash('sha256');for await(const chunk of createReadStream(draftPath))hash.update(chunk);
+ return {path:draftPath,maxDraftTokens,sizeBytes:file.size,sha256:hash.digest('hex')};
 }
 export type BackendMtpProbe = { status: 'supported' | 'unsupported' | 'error'; path?: string; reason: string };
 const probes = new Map<string, Promise<BackendMtpProbe>>();
@@ -59,16 +86,28 @@ export async function probeBackendMtp(input: string | null): Promise<BackendMtpP
 export async function backendMtpCapability(input: string | null): Promise<boolean> {
   return (await probeBackendMtp(input)).status === 'supported';
 }
-export async function mtpCapability(path: string, server: string | null): Promise<MtpCapability> {
+export async function mtpCapability(path: string, server: string | null,draftPath?:string): Promise<MtpCapability> {
+  if(draftPath)return externalMtpCapability(path,draftPath,server);
   const model = embeddedMtpCapability(path), backend = await probeBackendMtp(server);
   const backendSupported = backend.status === 'error' ? undefined : backend.status === 'supported';
   if (!model.supported) return { ...model, backendSupported };
   return backend.status === 'supported' ? { ...model, backendSupported }
     : { ...model, supported: false, backendSupported, status: backend.status === 'error' ? 'error' : 'unsupported', reason: backend.reason };
 }
-export async function resolveMtpMode(mode: MtpMode, path: string, server: string | null): Promise<'mtp' | 'none'> {
+export async function externalMtpCapability(targetPath:string,draftPath:string,server:string|null):Promise<MtpCapability>{
+ const pair=externalMtpCompatibility(targetPath,draftPath),backend=await probeBackendMtp(server);
+ const backendSupported=backend.status==='error'?undefined:backend.status==='supported';
+ if(!pair.supported)return {...pair,backendSupported};
+ if(!backendSupported)return {supported:false,status:backend.status==='error'?'error':'unsupported',architecture:pair.architecture,heads:pair.heads,backendSupported,reason:backend.reason};
+ const features=await probeBackendFeatures(server);
+ const required=['--spec-type','--spec-draft-n-max','--spec-draft-model','--gpu-layers-draft'];
+ const missing=required.filter(flag=>!features.flags.includes(flag));
+ if(features.status!=='supported'||missing.length)return {supported:false,status:features.status==='error'?'error':'unsupported',architecture:pair.architecture,heads:pair.heads,backendSupported,reason:features.status==='error'?(features.reason??'Не удалось проверить CLI-возможности llama-server.'):`llama-server не сообщает флаги внешнего MTP draft: ${missing.join(', ')}.`};
+ return {...pair,backendSupported};
+}
+export async function resolveMtpMode(mode: MtpMode, path: string, server: string | null,draftPath?:string): Promise<'mtp' | 'none'> {
   if (mode === 'off') return 'none';
-  const capability = await mtpCapability(path, server);
+  const capability = await mtpCapability(path, server,draftPath);
   if (mode === 'on' && !capability.supported) throw new Error(`MTP On unavailable: ${capability.reason}`);
   return capability.supported ? 'mtp' : 'none';
 }

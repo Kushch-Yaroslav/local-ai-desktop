@@ -227,7 +227,7 @@ export interface HardwareStats {
 }
 
 export type ExecutableValidation = { status: 'not-configured' | 'valid' | 'missing' | 'not-executable' | 'unsupported' | 'failed'; path?: string };
-export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; projectorMissing: boolean; inspection?:import('./model-profiles').ModelInspection }> };
+export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; projectorMissing: boolean; mtpDraftMissing: boolean; inspection?:import('./model-profiles').ModelInspection; mtpDraftInspection?:import('./model-profiles').ModelInspection }> };
 export type ExecutableResolution = { status: ExecutableValidation['status'] | 'multiple' | 'not-found' | 'incomplete' | 'cancelled'; path?: string; candidates: string[]; kind?: 'file' | 'directory'; incomplete?: boolean; selectedMissing?: boolean; reasons?: string[] };
 
 export interface RuntimeConfiguration {
@@ -251,6 +251,8 @@ export interface RuntimeModelConfiguration {
   family?: import('./model-profiles').ModelFamily;
   advanced?: import('./model-profiles').AdvancedModelParameters;
   defaults?: import('./model-profiles').ModelProfileDefaults;
+  /** Optional MTP-only speculative draft; digest/size are refreshed when settings are saved. */
+  mtpDraft?: { path: string; maxDraftTokens: number; sha256?: string; sizeBytes?: number };
   id: string;
   displayName: string;
   modelPath: string;
@@ -267,7 +269,7 @@ export interface RuntimeModelConfiguration {
 }
 export type RuntimeActivation = { conversationId: string; modelId: string; contextWindow: number; kvCacheType: LlamaKvCacheType; kvOffload: boolean; phase: 'validating' | 'failed'; warning?: string; error?: string };
 export interface AppSettings {
-  setup?: { backendFeatures?:import('./model-profiles').BackendFeatureProbe; config: RuntimeConfiguration; server: string | null; ready: boolean; autoOpen: boolean; models: Array<{ id: string; name: string; modelPath: string; mmprojPath?: string; installed: boolean; status: 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector'; issue?: string; builtin: boolean; inspection?:import('./model-profiles').ModelInspection }>; issues: string[]; configPath: string; dataDirectory: string };
+  setup?: { backendFeatures?:import('./model-profiles').BackendFeatureProbe; config: RuntimeConfiguration; server: string | null; ready: boolean; autoOpen: boolean; models: Array<{ id: string; name: string; modelPath: string; mmprojPath?: string; mtpDraftPath?:string; mtpDraftMissing?:boolean; mtpDraftInspection?:import('./model-profiles').ModelInspection; installed: boolean; status: 'ready' | 'missing-model' | 'missing-server' | 'invalid-projector'; issue?: string; builtin: boolean; inspection?:import('./model-profiles').ModelInspection }>; issues: string[]; configPath: string; dataDirectory: string };
   llamaServerPath: string | null;
   llamaRuntimeModelId?: string;
   /** Live state of the launcher-managed llama-server; the authority on what is running. */

@@ -43,7 +43,7 @@ ACTIVE_PROJECTOR_DEVICE=""
 LAUNCH_ERROR=""
 REQUEST_CONTEXT_FOR_ERROR=""
 VARIANT=""; MODEL=""; MMPROJ=""; RUNTIME_MODEL_ID=""; RUNTIME_LABEL=""; DEFAULT_LLAMA_CONTEXT=""; MAX_LLAMA_CONTEXT=""; MODEL_GPU_LAYERS=""
-SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""
+SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""; DRAFT_GPU_LAYERS="auto"
 PROFILE_SERVER_ARGS=()
 PROFILE_VISION_REQUIRED="0"; PROFILE_FINGERPRINT=""; PROFILE_MODEL_CONFIG=""; SELECTED_PROFILE_ENV=""
 ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""; ACTIVE_PROFILE_ENV=""; ACTIVE_RUNTIME_CONFIG=""; SERVER_START_TIME=""
@@ -195,7 +195,7 @@ build_server_args() {
     none) server_args+=(--spec-type none) ;;
     *) LAUNCH_ERROR="Unsupported speculative mechanism: $SPECULATIVE_MODE"; return 1 ;;
   esac
-  if [[ -n "$DRAFT_MODEL" ]]; then server_args+=(--model-draft "$DRAFT_MODEL" --gpu-layers-draft "$gpu_layers"); fi
+  if [[ -n "$DRAFT_MODEL" ]]; then server_args+=(--spec-draft-model "$DRAFT_MODEL" --gpu-layers-draft "${DRAFT_GPU_LAYERS:-auto}"); fi
   if [[ -n "$DRAFT_N_MAX" ]]; then server_args+=(--spec-draft-n-max "$DRAFT_N_MAX"); fi
 }
 

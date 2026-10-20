@@ -49,13 +49,13 @@ for id in qwen3.8:27b-q4_K_M qwen3.6:35b-a3b-ud-q4_k_m huihui-qwen3.8:27b-ud-dw-
 done
 # Generic external assistant launch remains covered without pinning a removed local model.
 VARIANT=future-family; MODEL=/models/future.gguf; MMPROJ=/models/projector.gguf; RUNTIME_MODEL_ID=future
-SPECULATIVE_MODE=mtp; DRAFT_MODEL=/models/compatible-assistant.gguf; DRAFT_KV_SHARED=1; DRAFT_N_MAX=4
+SPECULATIVE_MODE=mtp; DRAFT_MODEL=/models/compatible-assistant.gguf; DRAFT_KV_SHARED=1; DRAFT_N_MAX=4; DRAFT_GPU_LAYERS=auto
 build_server_args 32768 999
-[[ " ${server_args[*]} " == *" --model-draft $DRAFT_MODEL "* && " ${server_args[*]} " == *" --spec-draft-n-max 4 "* ]]
+[[ " ${server_args[*]} " == *" --spec-draft-model $DRAFT_MODEL "* && " ${server_args[*]} " == *" --spec-draft-n-max 4 "* && " ${server_args[*]} " == *" --gpu-layers-draft auto "* ]]
 [[ "$DRAFT_KV_SHARED" == 1 ]]
 SPECULATIVE_MODE=none; DRAFT_MODEL=""; DRAFT_KV_SHARED=0; DRAFT_N_MAX=""
 build_server_args 32768 999
-[[ " ${server_args[*]} " == *" --spec-type none "* && " ${server_args[*]} " != *" --model-draft "* ]]
+[[ " ${server_args[*]} " == *" --spec-type none "* && " ${server_args[*]} " != *" --spec-draft-model "* ]]
 echo 'PASS external shared-KV draft and MTP OFF'
 # A future projector runtime needs no family-name allow-list to reserve compute.
 VARIANT=future-family; MODEL=/models/future.gguf; MMPROJ=/models/future-projector.gguf; RUNTIME_MODEL_ID=future

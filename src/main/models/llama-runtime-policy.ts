@@ -5,6 +5,7 @@ import { ggufArtifactPaths } from '../services/gguf-artifacts';
 import type { ModelInfo } from '../../shared/types';
 import { contextPresetsFor } from './model-registry';
 import { legacyReasoningSelection, reasoningEffortOrder, resolveReasoningSelection, type ReasoningCapability, type ReasoningEffort, type ReasoningInput, type ReasoningSelection } from '../../shared/reasoning-controls';
+import { readGgufSpeculativeMetadata } from '../services/gguf-speculative';
 
 export type LlamaSpeculativeMode = 'mtp' | 'eagle3' | 'none';
 /** An authoritative external assistant, pinned independently of the main GGUF. */
@@ -101,8 +102,15 @@ export function llamaRuntimeProfilesList(config = effectiveRuntimeConfiguration(
     const inspection=inspectModel(model.modelPath,model.family);
     const detectedReasoning:LlamaReasoningProfile|undefined=inspection.reasoning.thinkingToggle||inspection.reasoning.efforts.length?{...(inspection.reasoning.thinkingToggle?{thinkingKwarg:'enable_thinking' as const}:{}),efforts:Object.fromEntries(inspection.reasoning.efforts.map(effort=>[effort,effort==='max'?'xhigh':effort])),final:inspection.template==='harmony'?{reasoning_effort:'low'}:inspection.reasoning.thinkingToggle?{chat_template_kwargs:{enable_thinking:false}}:{}}:undefined;
     const additions={inspection,advanced:model.advanced,defaults:inspection.template==='harmony'?{reasoningEffort:'medium' as const,...model.defaults}:model.defaults,...(model.defaults?.contextWindow||model.defaults?.kvCacheType?{normalContext:{initialContextWindow:model.defaults.contextWindow??builtin?.normalContext?.initialContextWindow??32768,kvCacheType:model.defaults.kvCacheType??builtin?.normalContext?.kvCacheType??'f16' as const}}:{})};
-    if (builtin) return { ...builtin,...additions,...(inspection.status==='inspected'?{reasoning:detectedReasoning}:{}), speculative: model.speculative, mtpMode: model.mtpMode, ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
-    return { id: model.id,...additions,reasoning:detectedReasoning, maxContext: inspection.trainedContext??32_768, ...modelPaths(model.id, config), speculative: model.speculative, mtpMode: model.mtpMode,
+    let draft:LlamaDraftProfile|undefined;
+    if(model.mtpDraft?.path&&model.mtpDraft.sizeBytes&&model.mtpDraft.sha256){
+      try{const metadata=readGgufSpeculativeMetadata(model.mtpDraft.path),architecture=String(metadata.values['general.architecture']??''),targetArchitecture=String(readGgufSpeculativeMetadata(model.modelPath).values['general.architecture']??''),targetEmbeddingLength=Number(metadata.values[`${architecture}.embedding_length_out`]??(Number(metadata.values[`${architecture}.nextn_predict_layers`])>0?metadata.values[`${architecture}.embedding_length`]:undefined));
+        if(architecture&&targetArchitecture&&targetEmbeddingLength>0)draft={path:model.mtpDraft.path,sizeBytes:model.mtpDraft.sizeBytes,sha256:model.mtpDraft.sha256,architecture,targetArchitecture,targetEmbeddingLength,kvCache:'independent',maxDraftTokens:model.mtpDraft.maxDraftTokens};
+      }catch{/* A missing or malformed draft remains unavailable; explicit On fails during preflight. */}
+    }
+    const speculative=model.mtpDraft?'mtp':model.speculative;
+    if (builtin) return { ...builtin,...additions,...(inspection.status==='inspected'?{reasoning:detectedReasoning}:{}), speculative, mtpMode: model.mtpMode, ...(draft?{draft}:{}), ...modelPaths(model.id, config), vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)), gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
+    return { id: model.id,...additions,reasoning:detectedReasoning, maxContext: inspection.trainedContext??32_768, ...modelPaths(model.id, config), speculative, mtpMode: model.mtpMode,...(draft?{draft}:{}),
       vision: Boolean(model.mmprojPath && existsSync(model.mmprojPath)),
       gpuLayers: model.gpuLayers, projectorDevice: config.imageProcessingDevice ?? model.projectorDevice, projectorPreference: config.imageProcessingDevice };
   });
