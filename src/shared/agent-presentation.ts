@@ -5,6 +5,7 @@ import { commandPresentation } from './command-description';
 export { commandPresentation } from './command-description';
 
 export function permissionPresentation(category: RiskCategory, detail = '') {
+  if(category==='browser_preview')return {title:t('Браузерная проверка'),description:t('Локальный preview выбранного проекта: только разрешённый origin и GET, без внешней сети.')};
   if (/^(read_file|list_directory):/.test(detail)) return { title: t('Изучение файла'), description: t('Прочитать данные в указанном месте.') };
   if (/^(create_file|write_file|replace_text|apply_patch|project_knowledge_update):/.test(detail)) return { title: t('Изменение проекта'), description: t('Изменить файлы проекта; состав операции приведён в деталях.') };
   if (/^download_file:/.test(detail)) return { title: t('Загрузка файла'), description: t('Скачать ресурс и сохранить его в указанном месте. Загрузка не подтверждает установку.') };

@@ -1,5 +1,13 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Локальный preview выбранного проекта: только разрешённый origin и GET, без внешней сети.": "Selected project preview: approved origin and GET only, without external network access.",
+  "Разрешения сохраняются между заданиями этого чата до отзыва, смены проекта или режима и закрытия приложения.": "Permissions survive tasks in this chat until revoked, project or mode changes, or application closure.",
+  "Один раз — для текущего вызова. В этой сессии — для того же действия, проекта и origin в текущем чате до отзыва, смены области или режима и закрытия приложения.": "Once allows the current call. Session approval covers the same operation, project and origin in this chat until revoked, scope or mode changes, or application closure.",
+
+  "Разрешения текущего чата": "Current chat permissions",
+  "Отменяет это разрешение для текущего чата. Остальные разрешения остаются без изменений.": "Revokes this permission for the current chat. Other permissions remain unchanged.",
+  "Отзывает все временные разрешения текущего чата. Следующее действие снова потребует подтверждения, если оно нужно политике безопасности.": "Revokes temporary permissions for this chat. Future operations request approval when required by policy.",
+
   'Сначала поставьте активного агента на паузу и дождитесь checkpoint либо отмените смену модели.': 'Pause the active agent and wait for its checkpoint, or cancel this action, before changing the model runtime.',
   'Выгрузите активную модель перед удалением её профиля.': 'Unload the active model before deleting its profile.',
   'Изменения профиля сохранены, но ещё не активны. Примените их с перезагрузкой модели перед новым запуском задачи.': 'Model profile changes are saved but not active. Apply and restart the model before starting a new run.',

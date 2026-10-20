@@ -193,6 +193,7 @@ export class RustAgentRuntime {
     const permissionIdentity = (value: AgentPermissions) => JSON.stringify([value.mode, [...new Set(value.trusted_roots)].sort()]);
     let qaPermissions = permissionIdentity(permissions);
     this.controls.set(runId, payload => new Promise<void>((resolve, reject) => {
+      if(payload.permissions)qaOptions.securityMode=payload.permissions.mode;
       if (signal.aborted || !child.stdin.writable) { reject(new Error('Agent execution ended')); return; }
       const id = randomUUID();
       const timer = setTimeout(() => { controlPending.delete(id); reject(new Error('Runtime control processing timed out; Stop remains available')); }, payload.action ? 30_000 : 5_000);
@@ -201,6 +202,7 @@ export class RustAgentRuntime {
     }).then(() => {
       if (payload.permissions) {
         const next = permissionIdentity(payload.permissions);
+        qaOptions.securityMode=payload.permissions.mode;
         if (next !== qaPermissions) { qaPermissions = next; guard.authorized(); }
       }
       if (payload.action && payload.action !== 'pause') guard.rearm();
@@ -217,7 +219,7 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { runId, guard, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: {goal:string;temporal:boolean}) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const qaOptions = { runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: {goal:string;temporal:boolean}) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -240,6 +242,7 @@ export class RustAgentRuntime {
     let projectBrowser: ProjectBrowserSession | undefined;
     const previewKey = browserObserver?.ownerId !== undefined && conversationId ? JSON.stringify([browserObserver.ownerId, conversationId]) : undefined;
     let previewProject: string | undefined;
+    let browserRecoveries=0;
     const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(!signal.aborted), session?.then(browser => browser.close(), () => undefined)]); };
     const abortWeb = () => { void session?.then(browser => browser.close(), () => undefined); };
     signal.addEventListener('abort', abortWeb, { once: true });
@@ -312,6 +315,10 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
+              qaOptions.projectId=project.id;
+              const recover=projectBrowser&&!projectBrowser.reusable&&event.arguments?.action==='open'&&!signal.aborted&&!qaPause.signal.aborted&&['connection_lost','page_closed','renderer_crashed','policy_changed','permission_revoked','startup_failed'].includes(projectBrowser.endReason)&&browserRecoveries<1;
+              const browserArgs=recover?projectBrowser!.recoveryRequest(event.arguments??{}):event.arguments??{};
+              if(recover){browserRecoveries++;await projectBrowser!.close();projectBrowser=undefined;browserObserver=browserObserver?.renew?.()??browserObserver;browserObserver?.ownership?.('recovering');}
               if (!projectBrowser) {
                 const prior = previewKey ? this.previews.get(previewKey) : undefined;
                 if (prior?.root === project.root && prior.session.reusable && browserObserver) {
@@ -321,7 +328,8 @@ export class RustAgentRuntime {
                   projectBrowser = new ProjectBrowserSession(project.root, join(paths.cache, 'browser-captures', runId), undefined, browserObserver, qaOptions);
                 }
               }
-              result = await projectBrowser.execute(event.arguments ?? {}, signal, confirm, String(event.id));
+              result = await projectBrowser.execute(browserArgs, signal, confirm, String(event.id));
+              if(recover&&result&&typeof result==='object'&&!('error' in result))result={...result,browser_session:{...projectBrowser.stateIdentity,recovered:true}};
               if (result && typeof result === 'object' && 'error' in result) log('agent.browser.operation.refused', { conversationId, runId, projectId: project.id, projectRoot: project.root, action: event.arguments?.action, ...result });
             } else if (event.name === 'download_file') {
               const slot = event.arguments?.project ?? 1;

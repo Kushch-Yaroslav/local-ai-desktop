@@ -21,9 +21,9 @@ export function AgentControls() {
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const descriptionId = useId();
-  const refreshGrants = async () => setGrants(id && runId ? await window.localAi.chat.grants(id, runId) : []);
+  const refreshGrants = async () => setGrants(id ? await window.localAi.chat.grants(id, runId??'') : []);
   useEffect(() => { let live = true; setOpen(false); setAdvanced(false); setError(''); if (id) void window.localAi.chat.permissions(id).then(p => { if (live) setPermissions({ ...p, mode: normalizeAutonomyMode(p.mode) }); }).catch(e => { if (live) setError(String(e)); }); return () => { live = false; }; }, [id]);
-  useEffect(() => { let live = true; if (id && runId) void window.localAi.chat.grants(id, runId).then(g => { if (live) setGrants(g); }); else setGrants([]); return () => { live = false; }; }, [id, runId, approval]);
+  useEffect(() => { let live = true; if (id) void window.localAi.chat.grants(id, runId??'').then(g => { if (live) setGrants(g); }); else setGrants([]); return () => { live = false; }; }, [id, runId, approval]);
   useEffect(() => {
     if (!open) return;
     const close = (e: PointerEvent) => { if (!container.current?.contains(e.target as Node)) setOpen(false); };
@@ -33,9 +33,9 @@ export function AgentControls() {
   }, [open]);
   const change = async (mode: AgentPermissions['mode'], trust = false) => {
     if (!id) return; setBusy(true); setError('');
-    try { setPermissions(await window.localAi.chat.setPermissions(id, mode, trust)); } catch (e) { setError(String(e)); } finally { setBusy(false); }
+    try { setPermissions(await window.localAi.chat.setPermissions(id, mode, trust)); await refreshGrants(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
   };
-  const revoke = async (grantId?: string) => { if (!id || !runId) return; setBusy(true); try { await window.localAi.chat.revokeApprovals(id, runId, grantId); await refreshGrants(); } catch (e) { setError(String(e)); } finally { setBusy(false); } };
+  const revoke = async (grantId?: string) => { if (!id) return; setBusy(true); try { await window.localAi.chat.revokeApprovals(id, runId??'', grantId); await refreshGrants(); } catch (e) { setError(String(e)); } finally { setBusy(false); } };
   const info = autonomyDescriptions[permissions.mode];
   return <div ref={container} className={`agent-controls autonomy-${permissions.mode}`} onKeyDown={e => { if (e.key === 'Escape') { setOpen(false); trigger.current?.focus(); } }}>
     <button ref={trigger} type="button" className="autonomy-trigger" aria-expanded={open} aria-controls={descriptionId} aria-describedby={`${descriptionId}-tooltip`} disabled={!id} onClick={() => { setOpen(!open); void refreshGrants(); }}>
@@ -52,9 +52,9 @@ export function AgentControls() {
       <div className="autonomy-advanced-toggle"><button className="agent-button" type="button" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>{advanced ? t('Скрыть расширенные настройки') : t('Расширенные настройки')}</button><ControlHelp label={t('Расширенные настройки')}>{t('Открывает параметры автономности, разрешения безопасности и подтверждения на эту сессию. Они определяют, какие инструменты доступны агенту.')}</ControlHelp></div>
       {advanced && <div className="autonomy-advanced">
       <strong>{tr`Разрешения сессии (${grants.length})`}</strong>
-      <p>{approval ? t("Ожидается разрешение") : runId ? t("Сессия активна") : t("Нет активной сессии агента")}. {t("Разрешения истекают при завершении запуска.")}</p>
-      {grants.map(grant => <div className="session-grant" key={grant.id}><span>{t('Разрешённая операция')}<small>{grant.root}</small><code>{grant.detail}</code></span><div className="permission-revoke-control"><button className="agent-button" type="button" disabled={busy} onClick={() => void revoke(grant.id)}>{t("Отозвать")}</button><ControlHelp label={t('Отозвать')}>{t('Отменяет это разрешение для текущего запуска агента. Остальные разрешения остаются без изменений.')}</ControlHelp></div></div>)}
-      <div className="permission-revoke-control"><button className="agent-button" type="button" disabled={busy || !grants.length} onClick={() => void revoke()}>{t("Отозвать все разрешения сессии")}</button><ControlHelp label={t('Отозвать все разрешения сессии')}>{t('Отзывает все временные разрешения текущего запуска агента. Следующее действие снова потребует подтверждения, если оно нужно политике безопасности.')}</ControlHelp></div>
+      <p>{approval ? t("Ожидается разрешение") : runId ? t("Сессия активна") : t("Разрешения текущего чата")}. {t("Разрешения сохраняются между заданиями этого чата до отзыва, смены проекта или режима и закрытия приложения.")}</p>
+      {grants.map(grant => <div className="session-grant" key={grant.id}><span>{t('Разрешённая операция')}<small>{grant.root}</small><code>{grant.detail}</code></span><div className="permission-revoke-control"><button className="agent-button" type="button" disabled={busy} onClick={() => void revoke(grant.id)}>{t("Отозвать")}</button><ControlHelp label={t('Отозвать')}>{t('Отменяет это разрешение для текущего чата. Остальные разрешения остаются без изменений.')}</ControlHelp></div></div>)}
+      <div className="permission-revoke-control"><button className="agent-button" type="button" disabled={busy || !grants.length} onClick={() => void revoke()}>{t("Отозвать все разрешения сессии")}</button><ControlHelp label={t('Отозвать все разрешения сессии')}>{t('Отзывает все временные разрешения текущего чата. Следующее действие снова потребует подтверждения, если оно нужно политике безопасности.')}</ControlHelp></div>
       {telemetry && <div className="permission-policy-details"><details><summary>{t('Диагностика runtime')}</summary><p>{tr`Действия: ${telemetry.actions}; ходы: ${telemetry.turn}`}</p><p>{tr`Детектор циклов: ${telemetry.loopObservations ?? 0} наблюдений; ${telemetry.loopGuidance ?? 0} подсказок; ${telemetry.loopWarnings ?? 0} предупреждений; ${telemetry.loopPauses ?? 0} пауз`}</p></details><ControlHelp label={t('Диагностика runtime')}>{t('Показывает техническую сводку работы runtime и обнаружения повторяющихся действий. Просмотр не меняет состояние агента.')}</ControlHelp></div>}
       </div>}
       {error && <p role="alert">{error}</p>}

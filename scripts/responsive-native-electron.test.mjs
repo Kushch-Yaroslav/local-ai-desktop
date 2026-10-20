@@ -16,7 +16,7 @@ try{
  const result=await app.evaluate((_,args)=>global.nativeFixture.execute(args),args);assert(result.qa,JSON.stringify(result));assert.equal(result.qa.scenarios[0].status,'Failed');assert.equal(result.qa.scenarios[1].status,'Verified');
  const after=await app.evaluate(()=>global.nativeFixture.info());assert.equal(after.nativeId,before.nativeId);assert.equal(after.pageCount,1);assert.equal(after.views.length,before.views.length);assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length),windows,'No new Electron window');
  for(const key of ['url','identity','input','scrollY','viewport'])assert.deepEqual(after.snapshot[key],before.snapshot[key],`Active native ${key} is preserved`);
- assert.equal(after.approvals,before.approvals,'Isolated QA reuses the authorized origin, without extra permission or wider scope');
+ assert.equal(after.approvals,before.approvals+1,'One operation approval; isolated QA viewports add no prompts or wider scope');
  const reused=await app.evaluate((_,args)=>global.nativeFixture.execute(args),args);assert.equal(reused.reused_evidence,true);
  const slow={action:'qa',scenarios:[{id:'pause-probe',goal:'Cancellation preserves native page',target:'/index.html',viewport:'mobile',preconditions:[],required_state:[],steps:[{action:'wait',duration_ms:2000}],assertion:{source:'visible',selector:'#text',operator:'equals',expected:true},timeout_ms:5000}]};
  for(const pause of [false,true]){await app.evaluate((_,{args,pause})=>global.nativeFixture.responsiveCancel(args,pause),{args:slow,pause});const info=await app.evaluate(()=>global.nativeFixture.info());assert.equal(info.nativeId,before.nativeId);assert.equal(info.views.length,before.views.length);assert.equal(info.snapshot.input,'user state');}

@@ -121,9 +121,7 @@ try {
   await waitForRun();
   assert(requests.some(request => request.messages.slice(request.messages.findLastIndex(message => message.role === 'user') + 1).filter(message => message.role === 'tool').length === 2));
   repetitions = 1;
-  await send('Repeat in a new run; the session grant must have expired');
-  await page.getByRole('button', { name: /^(Отклонить|Deny)$/ }).click();
-  await waitForRun();
+  beginScenario();await page.locator('.composer textarea').fill('Repeat the approved exact operation in the same chat session');await page.locator('.composer textarea').press('Enter');await waitForRun();assert.equal(await page.locator('.approval-panel').count(),0,'Chat grant survives a completed run');
   command = 'git switch -c cancelled'; await send('Cancel this approval');
   await page.evaluate(() => window.localAi.chat.stop('approval-fixture'));
   await waitForRun();

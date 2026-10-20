@@ -45,13 +45,13 @@ ipcMain.handle('context:discovery-status', () => ({ busy: false }));
 ipcMain.handle('chat:diagram-validation-result', (event, id, error) => diagram.reply(event.sender.id, id, error));
 ipcMain.handle('chat:approve', (event, request) => active?.runId === request.generationId && broker.reply(event.sender.id, request));
 ipcMain.handle('chat:permissions', () => autonomy.get(conversation.id));
-ipcMain.handle('chat:grants', (_event, _id, runId) => broker.list(runId));
+ipcMain.handle('chat:grants', (_event, _id, runId) => broker.list(runId||conversation.id));
 ipcMain.handle('chat:set-permissions', async (_event, _id, mode, trust) => {
   const permissions = await autonomy.set(conversation.id, mode, [root], trust, async () => (await dialog.showMessageBox({ message: 'Absolute Autopilot can cause data loss. Arbitrary scripts, deletion, Git history, installs and access outside the project.', buttons: ['Cancel', 'Enable Absolute Autopilot'], defaultId: 0, cancelId: 0 })).response === 1);
   if (active) await agent.control(active.runId, { permissions }); return permissions;
 });
 ipcMain.handle('chat:loop-control', (_event, _id, runId, signature, action) => agent.control(runId, { signature, action }));
-ipcMain.handle('chat:revoke-approvals', (_event, _conversationId, runId, grantId) => { broker.revoke(runId, grantId); return true; });
+ipcMain.handle('chat:revoke-approvals', (_event, _conversationId, runId, grantId) => { broker.revoke(conversation.id, grantId); return true; });
 ipcMain.handle('chat:stop', () => { active?.abort.abort(); });
 ipcMain.handle('chat:send', async (event, request) => {
   const abort = new AbortController(); active = { abort, runId: request.generationId };

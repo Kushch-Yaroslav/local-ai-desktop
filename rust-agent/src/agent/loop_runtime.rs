@@ -4022,6 +4022,15 @@ fn clear_edit_failures_after_read(state: &mut AgentState, tool: &ValidatedCall) 
     });
 }
 
+fn clear_browser_failures_after_recovery(state:&mut AgentState,tool:&ValidatedCall,value:&Value) {
+    if tool.name!="web_project" || tool.arguments["action"]!="open" || value.pointer("/browser_session/recovered").and_then(Value::as_bool)!=Some(true){return;}
+    let slot=tool.arguments["project"].as_u64().unwrap_or(1);
+    state.failed_tool_calls.retain(|fingerprint,_|{
+        let Some(args)=fingerprint.strip_prefix("web_project:").and_then(|args|serde_json::from_str::<Value>(args).ok())else{return true;};
+        args["project"].as_u64().unwrap_or(1)!=slot
+    });
+}
+
 fn failed_call_retry_exhausted(state: &AgentState, fingerprint: &str) -> bool {
     state.failed_tool_calls.get(fingerprint).copied().unwrap_or(0) >= 2
 }
@@ -5988,6 +5997,7 @@ pub fn run(mut config: Config) {
                     match result {
                         Ok((value, diff)) => {
                             clear_edit_failures_after_read(&mut state, tool);
+                    clear_browser_failures_after_recovery(&mut state,tool,&value);
                             record_safe_read_effect(&config, &mut state, tool, &value);
                             observe_loop(&config,&mut state,&mut transcript,tool,&value,false);
                             let content = value.to_string();
@@ -6251,6 +6261,7 @@ pub fn run(mut config: Config) {
                 Ok((value, diff)) => {
                     state.failed_tool_calls.remove(&failure_fingerprint);
                     clear_edit_failures_after_read(&mut state, tool);
+                    clear_browser_failures_after_recovery(&mut state,tool,&value);
                     if mutation_tool(&tool.name) || tool.name == "run_terminal" {
                         state.failed_tool_calls.retain(|key, _| !key.starts_with("run_terminal:"));
                     }
@@ -6872,6 +6883,18 @@ mod tests {
         literal_visible.push_str(&literal.push("", true, &source, &tools));
         assert_eq!(literal_visible, source, "code example was mistaken for an executed tool call");
         assert!(!literal.hid_markup);
+    }
+
+    #[test]
+    fn browser_recovery_releases_only_same_project_failures() {
+        let mut state=AgentState::default();
+        let tool=ValidatedCall{id:"recover".into(),name:"web_project".into(),arguments:json!({"action":"open","project":1})};
+        let one="web_project:{\"action\":\"read\",\"project\":1}";
+        let two="web_project:{\"action\":\"read\",\"project\":2}";
+        for key in [one,two,"run_terminal:danger","denied:scope"]{state.failed_tool_calls.insert(key.into(),2);}
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":false}}));assert!(failed_call_retry_exhausted(&state,one));
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":true}}));assert!(!failed_call_retry_exhausted(&state,one));
+        for key in [two,"run_terminal:danger","denied:scope"]{assert!(failed_call_retry_exhausted(&state,key));}
     }
 
     #[test]

@@ -7,7 +7,7 @@ import { ControlHelp } from './ControlHelp';
 
 type Mode = 'split' | 'expanded' | 'chat';
 export function LiveBrowserWorkspace({ conversationId, children }: { conversationId: string | null; children: ReactNode }) {
-  useLocale();
+  const ru=useLocale()==='ru';
   const choices = useRef(new Map<string, Mode>());
   const [mode, setMode] = useState<Mode>('chat');
   const [browser, setBrowser] = useState<LiveBrowserState | null>(null);
@@ -101,7 +101,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       <div ref={screen} className="live-screen native-browser-surface" tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
         {!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}
       </div>
-      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
+      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership==='recovering'?(ru?'Браузер восстанавливается':'Browser recovering'):browser?.ownership==='blocked'?(ru?'Браузер заблокирован политикой':'Browser blocked by policy'): browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
         <ControlHelp label={t('Состояние браузера')}>{interactive ? t('Страница передана вам: можно нажимать, прокручивать и вводить текст.') : browser?.ownership === 'agent' ? t('Агент сейчас управляет этой страницей. После завершения задачи управление перейдёт вам.') : status === 'error' ? t('Браузер недоступен; проверьте сообщение об ошибке и повторно откройте страницу, если это безопасно.') : t('Браузер ожидает действий агента или открытия страницы.')}</ControlHelp>
         <button title={t('Переподключить просмотр')} aria-label={t('Переподключить просмотр')} onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
         {mode === 'expanded' && <button aria-label={t('Показать чат')} title={t('Показать чат')} onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}

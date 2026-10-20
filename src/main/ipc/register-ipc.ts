@@ -6,7 +6,7 @@ import { parseMtpMetrics } from '../services/mtp-diagnostics';
 import type { MtpStatus, MtpMode } from '../../shared/types';
 import { liveBrowsers } from '../web/live-browser';
 import { AutonomySessions } from '../services/autonomy-session';
-import type { AutonomyMode, LoopAction } from '../../shared/autonomy';
+import { normalizeAutonomyMode, type AutonomyMode, type LoopAction } from '../../shared/autonomy';
 import { ApprovalBroker } from '../services/approval-broker';
 import { resolveLlamaExecutable } from '../services/llama-executable';
 import { DiagramValidationBridge } from '../services/diagram-validation';
@@ -541,7 +541,7 @@ export function registerIpc(): void {
         const selection = resolveReasoningSelection(capability, next.reasoningMode, applyReasoningDefaults(next,modelDefaults));
         await rustAgent.control(active.id, { reasoning: { mode: next.reasoningMode, options: agentReasoningOptions(existing.modelId ?? '', selection) ?? {}, selection: { mode: 'agent', reasoningMode: next.reasoningMode === 'deep' ? 'deep' : 'fast', reasoningEffort: selection.effort, thinkingEnabled: selection.thinking } } });
       }
-      if (patch.webMode === 'off' || patch.workingDirectory !== undefined || patch.secondaryWorkingDirectory !== undefined) await liveBrowsers.closeConversation(_event.sender, id);
+      if ((patch.webMode === 'off'&&existing.webMode!=='off') || (patch.workingDirectory !== undefined&&patch.workingDirectory!==existing.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined&&patch.secondaryWorkingDirectory!==existing.secondaryWorkingDirectory)) await liveBrowsers.closeConversation(_event.sender, id);
       const stored = database.updateConversation(id, pinned);
       if ((patch.workingDirectory !== undefined && patch.workingDirectory !== existing.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== existing.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
       return database.getConversation(id) ?? stored;
@@ -627,6 +627,7 @@ export function registerIpc(): void {
         contextDiscoveryProgress = { busy: false, modelId: nextModelId, stage: '', probeCount: 0 };
       }
     }
+    if((patch.webMode==='off'&&current.webMode!=='off')||(patch.workingDirectory!==undefined&&patch.workingDirectory!==current.workingDirectory)||(patch.secondaryWorkingDirectory!==undefined&&patch.secondaryWorkingDirectory!==current.secondaryWorkingDirectory))await liveBrowsers.closeConversation(_event.sender,id);
     const updated = database.updateConversation(id, { ...patch,...(modelChanged?{thinkingEnabled:llamaRuntimeProfile(nextModelId??'')?.defaults?.thinkingEnabled??null,reasoningEffort:llamaRuntimeProfile(nextModelId??'')?.defaults?.reasoningEffort??null}:{}), contextWindow });
     if ((patch.workingDirectory !== undefined && patch.workingDirectory !== current.workingDirectory) || (patch.secondaryWorkingDirectory !== undefined && patch.secondaryWorkingDirectory !== current.secondaryWorkingDirectory)) { approvalBroker.revoke(id); }
     if (patch.modelId !== undefined && patch.modelId !== current.modelId) database.setContextUsage(id, null, null);
@@ -904,16 +905,17 @@ export function registerIpc(): void {
   });
   ipcMain.handle('chat:revoke-approvals', (_event, conversationId: string, generationId: string, grantId?: string) => {
     const generation = activeGenerations.get(conversationId);
-    if (!generation || generation.id !== generationId) return false;
-    approvalBroker.revoke(generationId, grantId); void liveBrowsers.closeConversation(_event.sender, conversationId); return true;
+    if (!database.getConversation(conversationId) || generation && generation.id !== generationId) return false;
+    approvalBroker.revoke(conversationId, grantId); void liveBrowsers.closeConversation(_event.sender, conversationId); return true;
   });
   ipcMain.handle('chat:permissions', (_event, id: string) => autonomySessions.get(id));
-  ipcMain.handle('chat:grants', (_event, id: string, runId: string) => activeGenerations.get(id)?.id === runId ? approvalBroker.list(runId) : []);
+  ipcMain.handle('chat:grants', (_event, id: string, runId: string) => database.getConversation(id) && (!activeGenerations.has(id) || activeGenerations.get(id)?.id === runId) ? approvalBroker.list(id,_event.sender.id) : []);
   ipcMain.handle('chat:set-permissions', async (event, id: string, mode: AutonomyMode, trust: boolean) => {
     const conversation = database.listConversations().find(item => item.id === id);
     if (!conversation) throw new Error('Чат недоступен');
-    await liveBrowsers.closeConversation(event.sender, id);
+    if(normalizeAutonomyMode(mode)!==autonomySessions.get(id).mode){approvalBroker.revoke(id);await liveBrowsers.closeConversation(event.sender,id);}
     const permissions = await autonomySessions.set(id, mode, [conversation.workingDirectory, conversation.secondaryWorkingDirectory].filter((root): root is string => Boolean(root)), trust === true, async () => false);
+    approvalBroker.context(id,{mode:permissions.mode,roots:[conversation.workingDirectory,conversation.secondaryWorkingDirectory].filter((root):root is string=>Boolean(root)).sort()});
     const generation = activeGenerations.get(id);
     if (generation?.mode === 'agent' && !generation.abort.signal.aborted && rustAgent.hasRun(generation.id)) await rustAgent.control(generation.id, { permissions });
     return permissions;
@@ -1050,7 +1052,7 @@ export function registerIpc(): void {
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); })
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); })
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));

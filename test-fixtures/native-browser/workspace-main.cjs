@@ -20,10 +20,16 @@ app.whenReady().then(async()=>{
  const {ProjectBrowserSession}=require(resolve('dist/main/web/project-browser.js'));
  const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));
  const {QaLoopGuard}=require(resolve('dist/main/web/qa-loop-guard.js'));
- const guard=new QaLoopGuard();let browser,run=0,approvals=0,frameIpc=0;
- const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='live-browser:event'&&event.type==='frame')frameIpc++;return send(channel,event,...rest)};
+ const guard=new QaLoopGuard();const {ApprovalBroker}=require(resolve('dist/main/services/approval-broker.js'));const broker=new ApprovalBroker(15000);const approvalRequests=[];let browser,run=0,approvals=0,frameIpc=0;
+ const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='chat:stream'&&event.type==='approval-request'){approvalRequests.push(event);writeFileSync(join(root,'browser-approvals.json'),JSON.stringify(approvalRequests));}if(channel==='live-browser:event'&&event.type==='frame')frameIpc++;return send(channel,event,...rest)};
  const approve=async()=>{approvals++;return{approved:true,reason:'once'}};
- global.nativeFixture={chat:fixture.chat.id,project,window,
+ global.nativeFixture={
+  approvalRequests,
+  approveSession(){const e=approvalRequests.at(-1);return broker.reply(window.webContents.id,{conversationId:fixture.chat.id,generationId:e.generationId,approvalId:e.approval.approvalId,decision:'session'})},
+  async dropRuntimeConnection(){const native=this.activeNative&&!this.activeNative.contents.isDestroyed()?this.activeNative:[...this.runtime?.previews?.values()??[]].map(item=>item.session.native).find(native=>native&&!native.contents.isDestroyed());if(!native)throw Error('No live fixture Native target');native.contents.debugger.detach();},
+  async closeRuntimePage(){for(const item of this.runtime?.previews?.values()??[])await item.session.close(false,'user_closed');},
+  async runtimeInfo(){const item=[...this.runtime?.previews?.values()??[]].at(-1)?.session;return item?{identity:item.stateIdentity,nativeId:item.native?.contents.id}:null},
+  chat:fixture.chat.id,project,window,
   async open(args={}){await browser?.close();browser=new ProjectBrowserSession(project,join(root,'captures'),undefined,liveBrowsers.observer(window.webContents,fixture.chat.id,'native-'+(++run)),{guard});return browser.execute({action:'open',...args},new AbortController().signal,approve)},
   async execute(args){return browser.execute(args,new AbortController().signal,approve)},
   seedQa(report){fixture.db.saveAgentPlan(fixture.chat.id,{milestones:[],taskMemory:{entries:[],browser_qa:report}})},
@@ -40,11 +46,13 @@ app.whenReady().then(async()=>{
   async screenshot(){return (await browser.native.contents.capturePage()).toPNG().toString('base64')},
   async pressWithoutRelease(selector){const box=await browser.page.locator(selector).boundingBox();browser.native.contents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,x:Math.round(box.x+box.width/2),y:Math.round(box.y+box.height/2)})},
   async keyboard(key,phase){browser.native.contents.sendInputEvent({type:phase==='down'?'keyDown':'keyUp',keyCode:key})},
-  async startRealAgent(endpoint,model,prompt,context=32768,memory){
+  async startRealAgent(endpoint,model,prompt,context=32768,memory,options={}){
     await browser?.close();global.fetch=originalFetch;
-    const settings=require(resolve('dist/main/services/runtime-settings.js'));settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),browserVision:'on',autonomousBrowserQa:true});
+    const settings=require(resolve('dist/main/services/runtime-settings.js'));settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),browserVision:options.vision??'on',autonomousBrowserQa:options.qa??true});
     const {RustAgentRuntime}=require(resolve('dist/main/services/rust-agent-runtime.js'));const runtime=this.runtime??new RustAgentRuntime(endpoint);this.runtime=runtime;this.runId='native-real-'+Date.now();this.events=[];this.reports=[];this.agentError=null;this.finished=false;this.qaPhase=null;this.abort=new AbortController();this.history??=[];this.history.push({id:this.runId+'-user',conversationId:fixture.chat.id,role:'user',content:prompt,createdAt:new Date().toISOString()});this.persistSummary();
-    this.promise=(async()=>{try{for await(const event of runtime.stream(model,[...this.history],[{id:'native-project',slot:1,root:project,label:'Native Canvas fixture'}],this.abort.signal,context,'fast','auto',this.runId,memory,fixture.chat.id,true,{fast:{chat_template_kwargs:{enable_thinking:false}},main:{chat_template_kwargs:{enable_thinking:false}},final:{chat_template_kwargs:{enable_thinking:false}}},[],undefined,approve,undefined,{mode:'strict',trusted_roots:[]},'native-real-task',liveBrowsers.observer(window.webContents,fixture.chat.id,this.runId),status=>{this.qaPhase=status.phase;if(status.report)this.reports.push(status.report);this.persistSummary()})){this.events.push(event);void appendFile(join(root,'agent-events.jsonl'),JSON.stringify(event)+'\n');if(event.type==='error')this.agentError=event}}catch(error){this.agentError=String(error)}finally{if(this.events.some(e=>e.type==='done'))this.history.push({id:this.runId+'-assistant',conversationId:fixture.chat.id,role:'assistant',content:this.events.filter(e=>e.type==='token').map(e=>e.content).join(''),createdAt:new Date().toISOString()});this.finished=true;writeFileSync(join(root,'agent-result.json'),JSON.stringify(this.realResult()));this.persistSummary()}})();
+    const confirm=options.sessionApproval?broker.forRun(window.webContents,fixture.chat.id,this.runId,{mode:options.mode??'strict',roots:[project]}):approve;
+    const runtimeObserver=liveBrowsers.observer(window.webContents,fixture.chat.id,this.runId);const create=runtimeObserver.createPage;runtimeObserver.createPage=async origin=>{const native=await create(origin);this.activeNative=native;return native};
+    this.promise=(async()=>{try{for await(const event of runtime.stream(model,[...this.history],[{id:'native-project',slot:1,root:project,label:'Native Canvas fixture'}],this.abort.signal,context,'fast','auto',this.runId,memory,fixture.chat.id,true,{fast:{chat_template_kwargs:{enable_thinking:false}},main:{chat_template_kwargs:{enable_thinking:false}},final:{chat_template_kwargs:{enable_thinking:false}}},[],undefined,confirm,undefined,{mode:options.mode??'strict',trusted_roots:[]},'native-real-task',runtimeObserver,status=>{this.qaPhase=status.phase;if(status.report)this.reports.push(status.report);this.persistSummary()})){this.events.push(event);void appendFile(join(root,'agent-events.jsonl'),JSON.stringify(event)+'\n');if(event.type==='error')this.agentError=event}}catch(error){this.agentError=String(error)}finally{broker.endRun(this.runId);if(this.events.some(e=>e.type==='done'))this.history.push({id:this.runId+'-assistant',conversationId:fixture.chat.id,role:'assistant',content:this.events.filter(e=>e.type==='token').map(e=>e.content).join(''),createdAt:new Date().toISOString()});this.finished=true;writeFileSync(join(root,'agent-result.json'),JSON.stringify(this.realResult()));this.persistSummary()}})();
   },
   persistSummary(){writeFileSync(join(root,'agent-status.tmp'),this.realSummary());renameSync(join(root,'agent-status.tmp'),join(root,'agent-status.json'))},
   realSummary(){return JSON.stringify({finished:this.finished,error:this.agentError,qaPhase:this.qaPhase,reports:this.reports?.length,nativeViewId:[...liveBrowsers.entries.values()].find(entry=>entry.state.conversationId===fixture.chat.id&&!entry.ended)?.native?.contents.id})},
@@ -57,7 +65,7 @@ app.whenReady().then(async()=>{
   let command;try{command=JSON.parse(readFileSync(commandFile,'utf8'))}catch{return}
   if(command.id===lastCommand)return;lastCommand=command.id;
   const ack={id:command.id};
-  try{if(command.action==='stop')global.nativeFixture.abort.abort();else if(command.action==='pause')await global.nativeFixture.runtime.steer(global.nativeFixture.runId,'Pause','pause');else throw Error('Unknown fixture command')}catch(error){ack.error=String(error)}
+  try{if(command.action==='approve-preview')ack.approved=global.nativeFixture.approveSession();else if(command.action==='drop-browser')await global.nativeFixture.dropRuntimeConnection();else if(command.action==='stop')global.nativeFixture.abort.abort();else if(command.action==='pause')await global.nativeFixture.runtime.steer(global.nativeFixture.runId,'Pause','pause');else throw Error('Unknown fixture command')}catch(error){ack.error=String(error)}
   writeFileSync(join(root,'native-command-ack.tmp'),JSON.stringify(ack));renameSync(join(root,'native-command-ack.tmp'),join(root,'native-command-ack.json'));
  });
  app.once('before-quit',()=>unwatchFile(commandFile));

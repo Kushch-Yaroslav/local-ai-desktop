@@ -6,16 +6,17 @@ import type { NativeProjectPage } from './native-project-page';
 
 export interface ProjectBrowserObserver {
   readonly ownerId?: number;
+  renew?():ProjectBrowserObserver;
   createPage?(origin: string): Promise<NativeProjectPage>;
   createQaPage?(origin: string): Promise<NativeProjectPage>;
-  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; close(): Promise<void> }): void;
+  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; close(reason?:string): Promise<void> }): void;
   ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
   action(action: BrowserAction): void;
-  closed(): void;
+  closed(reason?:string): void;
 }
 interface Entry {
-  controls?: { input(input: BrowserInput): Promise<void>; close(): Promise<void> };
+  controls?: { input(input: BrowserInput): Promise<void>; close(reason?:string): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; native?: NativeProjectPage;
   ended: boolean; visibility?: (visible: boolean) => void;
 }
@@ -59,8 +60,10 @@ export class LiveBrowserHub {
       for (const [oldKey] of older.slice(0, Math.max(0, older.length - 7))) this.entries.delete(oldKey);
       return entry;
     };
+    const current=()=>!entry||entry.state.generationId===generationId;
     return {
       ownerId: owner.id,
+      renew:()=>this.observer(owner,conversationId,generationId),
       ...(process.versions.electron ? { createPage: async (origin: string) => {
         const item = ensure();
         const { createNativeProjectPage } = await import('./native-project-page');
@@ -74,17 +77,18 @@ export class LiveBrowserHub {
         // Hidden, scoped to this owner; never registered as the user's Live Browser.
         return createNativeProjectPage(owner,origin);
       } } : {}),
-      ownership: ownership => { const item = ensure(); if (!item.ended) { item.state = { ...item.state, ownership }; item.native?.ownership(ownership); this.send(item, { type: 'state', state: item.state }); } },
+      ownership: ownership => { if(!current())return;const item = ensure(); if (!item.ended) { item.state = { ...item.state, ownership }; item.native?.ownership(ownership); this.send(item, { type: 'state', state: item.state }); } },
       ready: (page, visibility, controls) => {
+        if(!current())return;
         const item = ensure(), changed = item.page !== page;
         item.controls = controls; item.page = page; item.visibility = visibility;
-        if (changed) page.once('close', () => { void this.end(item); });
-        item.state = { ...item.state, status: page.url() === 'about:blank' ? 'loading' : 'live' };
+        if (changed) page.once('close', () => { if(item.page===page)void this.end(item,'page_closed'); });
+        item.state = { ...item.state, status: page.url() === 'about:blank' ? 'loading' : page.url().startsWith('chrome-error:')?'error':'live' };
         this.reconcile(item); this.send(item, { type: 'state', state: item.state });
       },
-      state: (status, url, error) => { const item = ensure(); if (!item.ended) { item.state = { ...item.state, status, ...(url === undefined ? {} : { url }), error }; this.send(item, { type: 'state', state: item.state }); } },
-      action: action => { const item = ensure(); if (!item.ended) { item.state = { ...item.state, action }; this.send(item, { type: 'state', state: item.state }); } },
-      closed: () => { if (entry) void this.end(entry); },
+      state: (status, url, error) => { if(!current())return;const item = ensure(); if (!item.ended) { item.state = { ...item.state, status, ...(url === undefined ? {} : { url }), error }; this.send(item, { type: 'state', state: item.state }); } },
+      action: action => { if(!current())return;const item = ensure(); if (!item.ended) { item.state = { ...item.state, action }; this.send(item, { type: 'state', state: item.state }); } },
+      closed: (reason) => { if (entry&&current()) void this.end(entry,reason??'page_closed'); },
     };
   }
   watch(owner: WebContents, conversationId: unknown, visible: unknown) {
@@ -110,19 +114,19 @@ export class LiveBrowserHub {
     await entry.controls.input(input as BrowserInput);
   }
   async close(owner: WebContents, sessionId: unknown) { await this.end(this.authorizedEntry(owner, sessionId)); }
-  async closeConversation(owner: WebContents, conversationId: string) { const entry = this.entries.get(this.key(owner.id, conversationId)); if (entry) await this.end(entry); }
+  async closeConversation(owner: WebContents, conversationId: string, reason='policy_changed') { const entry = this.entries.get(this.key(owner.id, conversationId)); if (entry) await this.end(entry,reason); }
   private authorizedEntry(owner: WebContents, sessionId: unknown) {
     const entry = [...this.entries.values()].find(item => item.owner === owner && !item.ended && item.state.sessionId === sessionId);
     if (typeof sessionId !== 'string' || !entry) throw new Error('Browser session is closed or belongs to another window');
     return entry;
   }
-  private async end(entry: Entry) {
+  private async end(entry: Entry, reason='user_closed') {
     if (entry.ended) return;
     entry.ended = true; this.reconcile(entry); entry.visibility = undefined;
     entry.state = { ...entry.state, ownership: 'closed', status: entry.state.status === 'error' ? 'error' : 'ended' };
     this.send(entry, { type: 'state', state: entry.state });
     const controls = entry.controls; entry.controls = undefined;
-    await controls?.close().catch(() => undefined); await entry.native?.close();
+    await controls?.close(reason).catch(() => undefined); await entry.native?.close();
     entry.native = undefined; entry.page = undefined;
   }
 }

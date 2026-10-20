@@ -4,6 +4,7 @@ import { ProjectFileWatcher } from './project-file-watcher';
 import { constants } from 'node:fs';
 import { lstat, open, realpath, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, extname, relative, resolve, sep, join } from 'node:path';
+import { log } from '../services/logger';
 import { randomUUID } from 'node:crypto';
 import { request } from 'node:http';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
@@ -102,7 +103,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: {goal:string;temporal:boolean}) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: {goal:string;temporal:boolean}) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
@@ -112,6 +113,7 @@ export class ProjectBrowserSession {
   private lastAllowedUrl?: string;
   private blockedNavigation = false;
   private recoveringNavigation = false;
+  private navigationRecoveryUsed=false;
   private closed = false;
   private readonly abort = new AbortController();
   private readonly errors: string[] = [];
@@ -123,26 +125,34 @@ export class ProjectBrowserSession {
   private get qaGuard() { return this.qaOptions.guard ?? this.fallbackGuard; }
   private ownership: 'agent' | 'user' | 'paused' = 'agent';
   private authorized = false;
+  private previewApproved=false;
   private denied?: string;
   private readonly heldKeys = new Set<string>();
   private responsiveSession?: ProjectBrowserSession;
   private queuedInputs = 0;
-  get reusable() { return !this.closed && Boolean(this.page && !this.page.isClosed()); }
+  readonly sessionId=randomUUID();
+  endReason='not-opened';
+  get reusable() { return !this.closed && Boolean(this.page && !this.page.isClosed() && this.browser?.isConnected()); }
+  get stateIdentity(){return {id:this.sessionId,usable:this.reusable,origin:this.origin,reason:this.endReason};}
+  recoveryRequest(args:Record<string,unknown>):Record<string,unknown> {
+    if(args.url!==undefined&&loopbackTarget(String(args.url)).origin!==this.origin)throw new Error('Recovery cannot change the approved preview origin');
+    return this.origin&&this.origin!==staticOrigin&&args.url===undefined?{...args,path:undefined,url:new URL('/'+String(args.path??'index.html').replace(/^\//,''),this.origin).href}:args;
+  }
   beginRun(observer: ProjectBrowserObserver, qaOptions: ProjectQaOptions = {}) {
     this.qaOptions = qaOptions;
     if (!qaOptions.guard) this.fallbackGuard.rearm();
-    this.ownership = 'agent'; this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
+    this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
     if (this.page) this.bindObserver();
   }
   async finishRun(refresh = true) {
-    if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); });
-    if (!this.reusable || !this.authorized) { await this.close(); return; }
+    if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); }).catch(error=>{if(!this.closed)this.observer?.state('error',undefined,`Preview refresh failed; reopen the approved URL: ${String(error).slice(0,200)}`);});
+    if (!this.reusable || !this.previewApproved) { await this.close(); return; }
     await this.releaseInput();
     this.ownership = 'user'; this.observer?.ownership?.('user');
   }
   async pauseRun() { this.ownership = 'paused'; await this.releaseInput(); this.observer?.ownership?.('paused'); }
   private bindObserver() {
-    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), close: () => this.close() });
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), close: reason => this.close(false,reason??'user_closed') });
     this.observer?.ownership?.(this.ownership);
   }
   private async releaseInput() {
@@ -210,9 +220,12 @@ export class ProjectBrowserSession {
     this.dirty = false;
     this.errors.length = 0; this.blocked.length = 0;
     this.observer?.state('loading');
+    if(new URL(this.page.url()).origin!==this.origin){this.observer?.state('error',undefined,'Preview navigation failed; reopen the approved project URL.');return;}
+    this.navigationRecoveryUsed=false;
     const response = await this.page.reload({ waitUntil: 'load' });
     if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
     // Let the real page settle before reporting the refreshed revision.
+    if(this.closed||this.page.isClosed())return;
     await this.page.waitForTimeout(150);
     if (!this.closed) { this.observer?.action({ kind: 'auto-reload', at: Date.now() }); this.observer?.state('live', this.page.url()); }
   }
@@ -226,17 +239,18 @@ export class ProjectBrowserSession {
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     const isolated=responsiveRequest(args)&&!this.isolatedQa&&Boolean(this.page);
-    if(!isolated){this.ownership = 'agent'; this.observer?.ownership?.('agent');}
-    const cancel = () => { if(!isolated)void this.close(); };
+    if(signal.aborted)return {error:'Browser operation cancelled',code:'BROWSER_OPERATION_CANCELLED',retrySameArguments:false,browser_session:this.stateIdentity};
+    const cancel = () => { if(!isolated)void this.close(false,'operation_cancelled'); };
     signal.addEventListener('abort', cancel, { once: true });
     const operationSignal = AbortSignal.any([signal, this.abort.signal]);
-    try { return await (isolated&&this.page?this.executePage(args,operationSignal,confirm,actionId):this.exclusive(() => this.executePage(args, operationSignal, confirm, actionId))); }
+    const operation=()=>{this.authorized=false;this.navigationRecoveryUsed=false;return this.executePage(args,operationSignal,confirm,actionId);};
+    try { return await (isolated&&this.page?operation():this.exclusive(operation)); }
     finally { signal.removeEventListener('abort', cancel); }
   }
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
       this.networkBudget = { requests:0, bytes:0, started:Date.now() };
-      if (signal.aborted || this.closed) throw new Error('Project browser cancelled or closed');
+      if (signal.aborted || this.closed || this.page?.isClosed() || this.browser&&!this.browser.isConnected())return {error:'Project browser is unavailable; open it explicitly in an authorized new task, or recreate a lost connection.',code:signal.aborted&&!this.closed?'BROWSER_OPERATION_CANCELLED':'BROWSER_SESSION_UNAVAILABLE',retrySameArguments:!signal.aborted&&['connection_lost','page_closed','renderer_crashed'].includes(this.endReason),browser_session:this.stateIdentity};
       if (!keyboardActions.has(String(args.action))&&(!responsiveRequest(args)||this.isolatedQa)) await this.releaseInput();
       if (args.action === 'qa' && (!this.page || !responsiveRequest(args)&&(args.path !== undefined || args.url !== undefined)) && !this.denied) {
         const opened = await this.executePage({action:'open', ...(args.path ? {path:args.path} : {}), ...(args.url ? {url:args.url} : {})}, signal, confirm, actionId);
@@ -245,23 +259,27 @@ export class ProjectBrowserSession {
       if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
       if (!this.authorized && (args.action === 'open' || this.page)) {
         const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
-        if (this.origin && proposed !== this.origin) throw new Error('Preview is scoped to its initially approved origin');
-        const decision = await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'system_command', actionId,
-          detail: `Разрешить браузер проекта ${this.root} для этого запуска и последующего Interactive Preview? Origin: ${proposed}. Только GET, без внешней сети.` }, signal);
+        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
+        const automatic=this.qaOptions.securityMode==='autonomous'&&Boolean(this.qaOptions.projectId);
+        if(automatic)log('agent.browser.preview.auto-approved',{projectId:this.qaOptions.projectId,root:this.root,origin:proposed,mode:'autonomous',capability:'read-only-local-preview'});
+        const decision = automatic?{approved:true,reason:'once' as const}:await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'browser_preview', preview:{projectId:this.qaOptions.projectId??this.root,origin:proposed},actionId,
+          detail: `Разрешить браузер проекта ${this.root} для этой операции? Разрешение «в этой сессии» действует в текущем чате до отзыва, смены проекта/режима или закрытия приложения. Origin: ${proposed}. Только GET, без внешней сети.` }, signal);
         if (!decision?.approved || signal.aborted) {
+          this.ownership='user';this.observer?.ownership?.('blocked');
           this.denied = decision?.reason ?? 'ui_unavailable';
           return { error: 'Project browser authorization denied', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', origin: proposed, projectRoot: this.root, retrySameArguments: false };
         }
-        this.authorized = true;
+        this.authorized = true;this.previewApproved=true;
       }
+      if(!responsiveRequest(args)||this.isolatedQa){this.ownership='agent';this.observer?.ownership?.('agent');}
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
       if (['read', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher && !responsiveRequest(args)) { await this.watcher.flush(); await this.refresh(); }
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
-        const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), staticOrigin);
-        if (url.origin !== staticOrigin && args.url === undefined) throw new Error('Invalid project path');
-        if (this.origin && this.origin !== url.origin) throw new Error('Preview is scoped to its initial origin for this run');
+        const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
+        if (url.origin !== (this.origin??staticOrigin) && args.url === undefined) throw new Error('Invalid project path');
+        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
         const newPage = !this.origin;
         if (!this.origin) {
           this.origin = url.origin;
@@ -365,11 +383,12 @@ export class ProjectBrowserSession {
       this.observer?.state('live', this.page!.url());
       return await this.read();
     } catch (error) {
+      if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');}
       // Failed startup cannot leave a half-initialized reusable session.
-      const code = String(error).includes('Screenshot limit reached') ? 'SCREENSHOT_LIMIT' : signal.aborted || this.closed ? 'BROWSER_CLOSED_OR_CANCELLED' : !this.page && this.origin ? 'BROWSER_UNAVAILABLE' : 'PROJECT_BROWSER_FAILED';
+      const code=String(error).includes('Screenshot limit reached')?'SCREENSHOT_LIMIT':this.endReason==='user_closed'?'BROWSER_USER_CLOSED':this.endReason==='operation_cancelled'?'BROWSER_OPERATION_CANCELLED':['connection_lost','renderer_crashed'].includes(this.endReason)?'BROWSER_CONNECTION_LOST':this.endReason==='page_closed'?'BROWSER_PAGE_CLOSED':this.endReason==='policy_changed'?'BROWSER_POLICY_CHANGED':this.endReason==='preview_unavailable'?'BROWSER_PREVIEW_UNAVAILABLE':signal.aborted?'BROWSER_OPERATION_CANCELLED':!this.page&&this.origin?'BROWSER_UNAVAILABLE':'PROJECT_BROWSER_FAILED';
       if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
-      if (!this.page && this.origin) await this.close();
-      return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: false };
+      if (!this.page && this.origin) await this.close(false,'startup_failed');
+      return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: ['startup_failed','connection_lost','renderer_crashed','page_closed'].includes(this.endReason),browser_session:this.stateIdentity };
     } finally { await this.ensureWatching(); }
   }
   private async isolatedResponsive(args:Record<string,unknown>,scenarios:import('../../shared/browser-qa').QaScenario[],signal:AbortSignal,actionId:string) {
@@ -512,22 +531,25 @@ export class ProjectBrowserSession {
     this.page = this.native?.page ?? await this.context.newPage();
     if (this.closed) { await this.context.close(); throw new Error('Project browser cancelled during setup'); }
     await installQaInstrumentation(this.page);
-    this.page.on('crash', () => { this.observer?.state('error', undefined, 'Browser renderer crashed'); void this.close(); });
-    this.page.on('close', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
+    this.endReason='live';
+    this.page.on('crash', () => {this.endReason='renderer_crashed'; this.observer?.state('error', undefined, 'Browser renderer crashed'); void this.close(false,'renderer_crashed'); });
+    this.page.on('close', () => { if(!this.closed)this.endReason='page_closed';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
     this.bindObserver();
-    if(!this.isolatedQa)this.browser.on('disconnected', () => { this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(); });
+    if(!this.isolatedQa)this.browser.on('disconnected', () => { if(!this.closed)this.endReason='connection_lost';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(this.endReason); });
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
     this.context.on('page', page => { if (page !== this.page) void page.close(); });
     this.page.on('framenavigated', frame => {
+      if(this.closed)return;
       if (frame === this.page?.mainFrame() && frame.url() !== 'about:blank') {
-        try { if (new URL(frame.url()).origin === this.origin) { this.lastAllowedUrl = frame.url(); this.blockedNavigation = false; this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
+        try { if (new URL(frame.url()).origin === this.origin) { this.lastAllowedUrl = frame.url(); this.endReason='live';this.blockedNavigation = false; this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
         this.note(this.blocked, `Navigation outside approved origin: ${frame.url()}`);
-        if (frame.url() === 'chrome-error://chromewebdata/' && this.blockedNavigation && this.lastAllowedUrl && !this.recoveringNavigation) {
-          const target = this.lastAllowedUrl; this.blockedNavigation = false; this.recoveringNavigation = true;
+        if (frame.url() === 'chrome-error://chromewebdata/' && this.blockedNavigation && this.lastAllowedUrl && !this.recoveringNavigation && !this.navigationRecoveryUsed) {
+          const target = this.lastAllowedUrl; this.blockedNavigation = false; this.recoveringNavigation = true;this.navigationRecoveryUsed=true;
           void this.exclusive(async () => {
             if (!this.closed && this.page && !this.page.isClosed()) await this.page.goto(target, { waitUntil: 'load' });
-          }).catch(() => this.close()).finally(() => { this.recoveringNavigation = false; });
-        } else void this.page?.close();
+          }).catch(error => {this.observer?.state('error',undefined,`Approved preview unavailable: ${String(error).slice(0,200)}. Reopen it when the server is ready.`);}).finally(() => { this.recoveringNavigation = false; });
+        } else if(frame.url()==='chrome-error://chromewebdata/'){this.endReason='preview_unavailable';this.observer?.state('error',undefined,'Preview server/navigation unavailable; reopen the approved project URL.');}
+        else void this.page?.close();
       }
     });
     this.page.on('pageerror', error => this.note(this.errors, error.message));
@@ -540,7 +562,7 @@ export class ProjectBrowserSession {
     const page = this.page!;
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
-    return { source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;
@@ -550,7 +572,8 @@ export class ProjectBrowserSession {
       else { await this.context?.close().catch(() => undefined); if(!this.isolatedQa)await this.browser?.close().catch(() => undefined); }
     });
   }
-  close(refresh = false): Promise<void> {
+  close(refresh = false, reason='closed'): Promise<void> {
+    if(!this.closed)this.endReason=reason;
     if (!refresh) {
       void this.responsiveSession?.close();
       this.closed = true; this.stopWatching(); this.abort.abort();
@@ -566,7 +589,7 @@ export class ProjectBrowserSession {
         await this.refresh(true);
       }).catch(error => { if (!this.closed) this.observer?.state('error', undefined, `Auto-reload failed: ${String(error).slice(0, 200)}`); });
     }
-    this.closed = true; this.stopWatching(); this.abort.abort(); this.observer?.closed();
+    this.closed = true; this.stopWatching(); this.abort.abort(); this.observer?.closed(this.endReason);
     await this.closeBrowser();
   }
 }

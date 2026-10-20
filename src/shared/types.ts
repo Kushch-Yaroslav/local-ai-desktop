@@ -12,7 +12,7 @@ export type LlamaKvCacheType = 'f16' | 'q8_0';
 /** A backend-native reasoning control. It never changes the output token budget. */
 export type ReasoningMode = 'auto' | 'fast' | 'deep';
 export type FinishReason = 'stop' | 'length' | 'cancelled' | 'error';
-export type RiskCategory = 'git_commit' | 'git_push' | 'destructive_git' | 'package_install' | 'package_remove' | 'file_delete' | 'file_download' | 'chmod_chown' | 'shell_redirection' | 'shell_chaining' | 'system_command';
+export type RiskCategory = 'browser_preview' | 'git_commit' | 'git_push' | 'destructive_git' | 'package_install' | 'package_remove' | 'file_delete' | 'file_download' | 'chmod_chown' | 'shell_redirection' | 'shell_chaining' | 'system_command';
 export type ApprovalDecision = 'reject' | 'once' | 'session';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'session-approved';
 export type AttachmentKind = 'image' | 'text' | 'document' | 'spreadsheet' | 'pdf';

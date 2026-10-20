@@ -26,7 +26,7 @@ export function ApprovalPanel() {
     {command && <div className="permission-command"><pre>{approval.detail}</pre><button className="agent-button" onClick={() => void copy()} aria-label={t('Копировать команду')}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? t('Скопировано') : t('Копировать')}</button></div>}
     {copyError && <p role="alert">{t('Не удалось скопировать')}</p>}
     {!command && approval.detail && <details><summary>{t('Технические детали')}</summary><pre>{approval.detail}</pre></details>}
-    <p className="permission-scope">{t('Разрешение сессии действует только для этой операции и папки до завершения текущего запуска агента.')}</p>
+    <p className="permission-scope">{t('Один раз — для текущего вызова. В этой сессии — для того же действия, проекта и origin в текущем чате до отзыва, смены области или режима и закрытия приложения.')}</p>
     <div className="permission-actions">
       <button className="agent-button primary" disabled={submitting} onClick={() => void approve('once')}>{t('Разрешить один раз')}</button>
       <button className="agent-button" disabled={submitting} onClick={() => void approve('session')}>{t('Всегда разрешать в этой сессии')}</button>

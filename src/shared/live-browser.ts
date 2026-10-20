@@ -1,5 +1,5 @@
 /** Native browser surface state; no image/frame transport. */
-export type BrowserOwnership = 'idle' | 'agent' | 'user' | 'paused' | 'closed' | 'unavailable';
+export type BrowserOwnership = 'recovering' | 'blocked' | 'idle' | 'agent' | 'user' | 'paused' | 'closed' | 'unavailable';
 export type BrowserInput = { kind: 'release' | 'focus' } | { kind: 'pointer'; phase: 'down' | 'up' | 'move'; x: number; y: number } | { kind: 'wheel'; dx: number; dy: number } | { kind: 'key'; phase: 'down' | 'up'; key: string } | { kind: 'text'; text: string } | { kind: 'back' | 'forward' | 'reload' };
 export type BrowserStatus = 'loading' | 'live' | 'ended' | 'error';
 export interface BrowserAction { kind: string; x?: number; y?: number; at: number }

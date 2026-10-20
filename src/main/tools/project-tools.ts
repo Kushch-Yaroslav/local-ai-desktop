@@ -19,7 +19,7 @@ const maxChunkBytes = 128_000;
 /** Kept outside tool schemas; it is protocol metadata, not a tool argument. */
 export type ProjectToolCall = { name: string; arguments: Record<string, unknown>; toolCallId?: string };
 export type ProjectToolDefinition = { type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } };
-export type ConfirmationRequest = { title: string; detail: string; category: RiskCategory; actionId: string; root?: string };
+export type ConfirmationRequest = { title: string; detail: string; category: RiskCategory; actionId: string; root?: string; preview?: {projectId:string;origin:string} };
 export type ApprovalResult = { approved: boolean; reason: 'user_rejected' | 'cancelled' | 'once' | 'session' | 'ui_unavailable' | 'timeout' };
 export type ConfirmAction = (request: ConfirmationRequest, signal: AbortSignal) => Promise<ApprovalResult>;
 export type TerminalPolicy = { kind: 'allow' | 'confirm' | 'block'; category?: RiskCategory };
