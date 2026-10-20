@@ -24,7 +24,7 @@
 
 Sidecar проверен до запуска: 1 507 216 000 bytes, SHA-256 `1f7813cd8c944d208183ff81c83de31b82d72dbea5b45d4343ba72c1d37ee4c5`; `qwen3next.nextn_predict_layers=1`, 23 тензора, embedding 2048, context 262 144. Все пять проверенных полей tokenizer (модель, tokens, merges, BOS id и add-BOS) совпадают с основной GGUF. Backend загрузил его как draft MTP и сообщил об инициализации speculative context.
 
-Текущая MTP capability-проверка Local AI Desktop не принимает архитектуру `qwen3next` как embedded-MTP, а в панели модели нет поля для этого отдельного sidecar. Поэтому интерфейс приложения для этой GGUF не может применить MTP On. Ниже приведена рабочая команда прямого запуска текущего `llama-server`; она не меняет файлы модели. Для обычного запуска через интерфейс оставляйте MTP Off, пока приложение не получит отдельную настройку draft-пути и capability для внешнего `qwen3next` MTP.
+В основной GGUF нет встроенной MTP head, поэтому для MTP требуется отдельный совместимый draft. В профиле Local AI Desktop теперь есть отдельное поле **MTP / Draft GGUF**: оно проверяет архитектуру, размеры, nextn head, tokenizer, backend-флаги, размер и SHA-256 файла. Для этой пары подтверждён внешний `draft-mtp`; выбор Off не использует sidecar, On требует его успешной загрузки, Auto включает режим только после capability preflight.
 
 | Условие | MTP Off | MTP On |
 |---|---:|---:|
@@ -195,7 +195,51 @@ export LD_LIBRARY_PATH="/media/yaroslav/DATA/llama.cpp/build-cuda/bin${LD_LIBRAR
 
 `--n-gpu-layers 48` — поле GPU layers; `--ctx-size` и `--cache-type-k/v` — context и KV. `--n-cpu-moe` выбирает первые N слоёв MoE, чьи experts остаются на CPU; отдельно назначать конкретных экспертов эта сборка не предлагает. Threads, batch, microbatch, Flash Attention и mmap соответствуют одноимённым полям Advanced. Tensor rules оставьте пустыми. `--fit off` нужен, чтобы backend не уменьшил 64K ради памяти.
 
-MTP sidecar — единственное исключение: текущая панель профиля не умеет привязать отдельную draft GGUF к `qwen3next`; указанные UI значения не включат MTP внутри приложения. Для On нужен прямой запуск команды выше либо отдельное изменение приложения, расширяющее профиль и capability checks.
+### Воспроизвести в Local AI Desktop: расширенный профиль
+
+Профиль `Qwen3-Coder-Next 80B Q4 — 64K Q8` проверен через настоящий runtime controller и launcher Local AI Desktop. В редакторе профиля укажите основную и draft GGUF, затем задайте следующие значения. Контекст и MTP Off/On остаются настройками активной сессии; профиль содержит стартовый контекст и проверенный draft.
+
+| Поле UI | Значение |
+|---|---|
+| Main GGUF | `Qwen_Qwen3-Coder-Next-Q4_K_M.gguf` |
+| Projector GGUF | Не используется; оставить пустым |
+| MTP / Draft GGUF | `Qwen3-Next-80B-A3B-Instruct-MTP-ONLY-Q4_K_M.gguf` рядом с основной GGUF |
+| MTP n-max | `2` |
+| GPU layers | `48` |
+| Offload mode | `GPU Layers` |
+| CPU MoE | `On` |
+| N CPU MoE layers | `32` |
+| Dense FFN on CPU | `Backend default` / не задавать; это отдельный режим `--n-cpu-ffn`, не CPU MoE |
+| Tensor-specific rules | `Backend default` / пусто |
+| CPU threads | `8` |
+| CPU batch threads | `8` |
+| Batch / microbatch | `2048 / 512` |
+| Flash Attention | `On` |
+| mmap/load mode | `mmap` |
+| Context | `65536` (64K), в активной сессии |
+| KV K / V | `q8_0 / q8_0` |
+| KV placement | `GPU` (`--kv-offload`) |
+| MTP session mode | `On` для speculative decoding; `Off` оставляет обычную генерацию |
+| Reasoning controls | Не применяются: эта Coder-Next GGUF не подтверждает пользовательский Thinking/effort control |
+| Automatic fit | `Off`; не разрешать backend уменьшать заданный контекст или placement |
+
+Существенная часть реально сформированной команды для профиля:
+
+```text
+--ctx-size 65536 --gpu-layers 48 --cache-type-k q8_0 --cache-type-v q8_0 --kv-offload
+--fit off --n-cpu-moe 32 --threads 8 --threads-batch 8
+--batch-size 2048 --ubatch-size 512 --flash-attn on --load-mode mmap
+```
+
+Для сессии MTP Off launcher добавляет `--spec-type none` и не передаёт draft. Для On он добавляет `--spec-type draft-mtp --metrics --spec-draft-model <path> --gpu-layers-draft auto --spec-draft-n-max 2`, а для draft KV — `--cache-type-k-draft q8_0 --cache-type-v-draft q8_0`. Эти аргументы записываются в runtime state и сверяются с фактическим `/proc/<pid>/cmdline`.
+
+### Реальная проверка через runtime приложения
+
+После сохранения профиля launcher Local AI Desktop запустил ту же модель сначала с MTP Off, затем безопасно перезагрузил её с внешним draft и MTP On. В обоих режимах `/health` и модель подтвердили контекст 65 536, KV K/V `q8_0`, GPU layers `48`, `--n-cpu-moe 32`; ошибок CUDA OOM не было. Лог Off сообщил `offloaded 48/49 layers to GPU`, а KV cache составил 816 MiB (408 MiB K и 408 MiB V).
+
+Одинаковый smoke-запрос сгенерировал 7 токенов: Off — 22.59 tok/s decode, On — 25.98 tok/s. MTP metrics показали 4/4 принятых draft token (100%) на двух speculative шагах. Это подтверждает загрузку и работу внешнего MTP в приложении, но выборка слишком короткая для benchmark и сравнения с 512-токенными сериями выше. Стабильные скоростные ориентиры остаются результатами предыдущих повторных benchmark: 30.14 tok/s Off и 32.72 tok/s On.
+
+Короткий результат и фактические значения сохранены локально в [`app-runtime-smoke.json`](../test-results/qwen3-coder-next-80b/app-runtime-smoke.json) и `runtime/logs/qwen80b-app-e2e-result.json`, а launcher/server logs — в `runtime/logs/llama-cpp-mtp-*.log`. Перед проверкой сохранена копия прежних runtime logs/state в `runtime/backups/pre-qwen80b-profile-fix-20261020T143813Z/`.
 
 ## Выводы и ограничения
 
@@ -207,6 +251,7 @@ MTP sidecar — единственное исключение: текущая п
 - CPU MoE 32 + MTP требует около 21.6 GiB VRAM total; если другим приложениям нужно больше примерно 3 GiB, используйте Balanced или выключите MTP. Не уменьшайте context автоматически.
 - 16-thread тест не завершён; CUDA OOM на выбранных профилях не возникал, поэтому профиль GPU выше 32 CPU MoE и отдельный 14/16/20-layer GPU OOM здесь не проверялись.
 - MTP donor сторонний и основан на Qwen3-Next-Instruct; хорошая acceptance этого теста не гарантирует то же для другого sampler, chat history или обновлённой GGUF.
+- Приложен отдельный реальный короткий запрос для проверки профиля, но он не является повтором полного benchmark; MTP acceptance/speed из одного короткого ответа не заменяют исходные три повтора по 512 токенов.
 
 ## Артефакты измерений
 

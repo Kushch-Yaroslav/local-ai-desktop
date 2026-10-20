@@ -1,0 +1,51 @@
+{
+  "test": "Qwen3-Coder-Next-80B application runtime smoke test",
+  "result": "PASS",
+  "timestamp": "2026-10-20",
+  "backend": "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server (0.4.1-dev, d1d3c33)",
+  "profile": "Qwen3-Coder-Next 80B Q4 — 64K Q8",
+  "configuration": {
+    "gpuLayers": 48,
+    "cpuMoeLayers": 32,
+    "cpuThreads": 8,
+    "cpuBatchThreads": 8,
+    "batch": 2048,
+    "microbatch": 512,
+    "context": 65536,
+    "kvK": "q8_0",
+    "kvV": "q8_0",
+    "kvPlacement": "GPU",
+    "flashAttention": true,
+    "loadMode": "mmap"
+  },
+  "mtpOff": {
+    "speculativeMode": "none",
+    "outputTokens": 7,
+    "decodeTokensPerSecond": 22.59087178174206,
+    "launchConfirmed": true,
+    "oom": false
+  },
+  "mtpOn": {
+    "speculativeMode": "draft-mtp",
+    "externalDraft": "Qwen3-Next-80B-A3B-Instruct-MTP-ONLY-Q4_K_M.gguf",
+    "nMax": 2,
+    "draftTokens": 4,
+    "acceptedDraftTokens": 4,
+    "acceptanceRate": 1,
+    "outputTokens": 7,
+    "decodeTokensPerSecond": 25.97953678485913,
+    "launchConfirmed": true,
+    "oom": false
+  },
+  "observations": {
+    "targetContextConfirmed": 65536,
+    "kvCacheBytes": 855638016,
+    "targetKv": "K q8_0 408 MiB, V q8_0 408 MiB",
+    "draftKv": "K q8_0 34 MiB, V q8_0 34 MiB",
+    "gpuLayersLog": "offloaded 48/49 layers to GPU",
+    "cpuMoeArg": "--n-cpu-moe 32",
+    "unloadConfirmed": true,
+    "benchmarkCaveat": "7-token replies are smoke tests, not comparable speed benchmark samples."
+  },
+  "evidence": "runtime/logs/llama-cpp-mtp-launcher.log and runtime/logs/llama-cpp-mtp-server.log (local user runtime)"
+}
