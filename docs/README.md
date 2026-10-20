@@ -8,6 +8,7 @@ Start with the guides for your language. The release notes describe what changed
 - [English user guide](en/USER_GUIDE.md) · [Russian: руководство пользователя](ru/USER_GUIDE.md)
 - [English features](en/FEATURES.md) · [Russian: возможности](ru/FEATURES.md)
 - [English model guide](en/MODELS.md) · [Russian: модели](ru/MODELS.md)
+- [Browser QA and responsive layouts (EN)](en/BROWSER_QA.md) · [Браузерная QA и адаптивность (RU)](ru/BROWSER_QA.md)
 - [English roadmap](en/ROADMAP.md) · [Russian: планы развития](ru/ROADMAP.md)
 - [v0.2.1 release notes (EN)](releases/v0.2.1.md) · [примечания v0.2.1 (RU)](releases/v0.2.1.ru.md)
 - [v0.2.0 release notes (EN)](releases/v0.2.0.md) · [примечания v0.2.0 (RU)](releases/v0.2.0.ru.md)

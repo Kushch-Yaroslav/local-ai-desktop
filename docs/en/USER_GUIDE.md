@@ -4,6 +4,8 @@
 
 For installation use [Getting started](GETTING_STARTED.md); for release changes use the [changelog](../../CHANGELOG.md).
 
+See [Browser QA](BROWSER_QA.md) for scenario verification, responsive viewport checks and the Verification Gate.
+
 ## Select a model and context
 
 Configure local GGUF and `llama-server` paths in Settings, then select the model in the toolbar. Opening a saved chat does not itself load or restart its model. Use the explicit load action and wait for the ready status.

@@ -20,6 +20,10 @@ export function BrowserQaPanel() {
   const ru=useLocale()==='ru',activeId=useAppStore(s=>s.activeId),status=useAppStore(s=>activeId?s.qaStatuses[activeId]:undefined),saved=useAppStore(s=>s.agentPlan?.taskMemory?.browser_qa);
   const deliverables=useAppStore(s=>s.agentPlan?.taskMemory?.deliverables?.items)??[];
   const report=status?.report??saved;
+  const responsiveProgress=status?.phase==='complete'?undefined:status?.responsive;
+  const responsiveScenarios=report?.scenarios?.filter(s=>s.viewport)??[];
+  const responsiveViewportCount=new Set(responsiveScenarios.map(s=>`${s.viewport!.width}x${s.viewport!.height}`)).size;
+  const responsiveIssues=responsiveScenarios.reduce((n,s)=>n+(s.responsive?.findings.length??0),0);
   const expectation=(a:QaAssertion)=>`${({equals:ru?'равно':'equals',changed:ru?'изменяется':'changes',increased:ru?'увеличивается':'increases',decreased:ru?'уменьшается':'decreases'})[a.operator]}${a.expected!==undefined?' '+String(a.expected):''}${a.sample_ms?' · '+(ru?'наблюдения во времени':'observations over time'):''}`;
   const reasonCode = report ? qaReasonCode(report) : undefined;
   const reasons = {
@@ -48,6 +52,7 @@ export function BrowserQaPanel() {
         <summary>
           <ScanEye size={16} />
           <strong>{t('Браузерная проверка')}</strong>
+          {(responsiveProgress||responsiveScenarios.length>0)&&<small className="qa-responsive-status">Responsive QA · {responsiveProgress?`${responsiveProgress.viewport.width} × ${responsiveProgress.viewport.height} · ${responsiveProgress.checked}/${responsiveProgress.total}`:`${responsiveViewportCount} ${ru?'viewport проверено':'viewports checked'}`} · {responsiveProgress?.issues??responsiveIssues} {ru?'наблюдений':'findings'}</small>}
           <span role="status">{status ? phases[status.phase] : verificationLabel(report?.status ?? 'Not Verified', ru)}</span>
           {report && <small>{report.visual?.analyzed ? (ru ? 'Изображение проанализировано' : 'Image analyzed') : (ru ? 'Без визуального подтверждения' : 'No image confirmation')}</small>}
           {reason && <span className="qa-reason" role="status">{reason}</span>}
@@ -57,12 +62,16 @@ export function BrowserQaPanel() {
           {report.scenarios?.map(scenario=><section className="qa-scenario" key={scenario.id}>
             <strong>{scenario.goal}</strong><span>{verificationLabel(scenario.status,ru)}</span>
             <p>{ru?'Где':'Where'}: {scenario.target}</p>
+            {scenario.viewport&&<p>{ru?'Размер viewport':'Viewport'}: {scenario.viewport.width} × {scenario.viewport.height}{scenario.viewport.profile?` · ${scenario.viewport.profile}`:''}. {ru?'Эмуляция desktop Chromium; физическое мобильное устройство не проверялось.':'Desktop Chromium viewport emulation; no physical mobile device was tested.'}</p>}
+            {scenario.responsive&&<ul>{scenario.responsive.findings.map((finding,i)=><li key={i}><strong>{({ 'horizontal-overflow':ru?'Горизонтальное переполнение':'Horizontal overflow','viewport-fit':ru?'Выход за viewport':'Viewport fit',overlap:ru?'Перекрытие':'Overlap','text-clipping':ru?'Обрезание текста':'Text clipping','image-fit':ru?'Размер изображения':'Image fit' })[finding.kind]}</strong> · {finding.confidence==='confirmed'?(ru?'подтверждено DOM':'confirmed by DOM'):(ru?'кандидат; требуется проверка':'candidate; review needed')} · {finding.selector}</li>)}</ul>}
+            {scenario.viewport&&<small>Vision: {scenario.visual?.analyzed?(ru?'Изображение проанализировано; оценка вероятностная':'Image analyzed; probabilistic assessment'):(ru?'Без анализа изображения':'No image analysis')}</small>}
             <p>{ru?'Ожидалось':'Expected'}: {expectation(scenario.assertion)}{scenario.observations.length>0&&<><br />{ru?'Получено':'Observed'}: {scenario.observations.map(o=>o.value===null?(ru?'данных нет':'unavailable'):String(o.value)).join(' → ')}</>}</p>
             {scenario.deliverableId&&<p>{ru?'Требование':'Deliverable'}: {deliverables.find(item=>item.id===scenario.deliverableId)?.text??scenario.goal}</p>}
             <small>{scenario.evidenceKind==='visual'?(ru?'Визуальные данные; вероятностная оценка':'Visual evidence; probabilistic assessment'):(ru?'Функциональные данные':'Functional evidence')}</small>
             {scenario.reason&&<p>{scenario.reasonCode ? reasons[scenario.reasonCode] : localizeMessage(scenario.reason)}</p>}
             <details><summary>{ru?'Ожидание, наблюдения и evidence':'Expectation, observations and evidence'}</summary>
               <p>{JSON.stringify(scenario.assertion)}</p><pre>{JSON.stringify(scenario.observations,null,2)}</pre>
+              {scenario.responsive&&<pre>{JSON.stringify(scenario.responsive,null,2)}</pre>}
               <small>{ru?'Сценарий':'Scenario'}: {scenario.id}{scenario.deliverableId&&<> · {scenario.deliverableId} / {scenario.criterionId}</>}</small>
               {scenario.preconditions.map((condition,i)=><p key={i}>{condition.expected} → {condition.actual} · {verificationLabel(condition.status,ru)}</p>)}
               {scenario.reason&&<p>{scenario.reason}</p>}

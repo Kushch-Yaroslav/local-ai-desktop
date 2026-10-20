@@ -64,6 +64,7 @@
     "test:runtime-controls:qwen": "npm run build && node scripts/runtime-controls-qwen.test.mjs",
     "test:live-browser:auto-qwen": "npm run build && cross-env LOCAL_AI_TEST_AUTO_RELOAD=1 node scripts/live-browser-qwen.test.mjs",
     "test:scenario-qa": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/scenario-qa-regressions.test.mjs",
+    "test:responsive-qa": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node dist/main/web/qa-loop-guard.test.js && node scripts/responsive-qa.test.mjs && node scripts/responsive-native-electron.test.mjs",
     "test:scenario-qa:qwen": "npm run build && node scripts/scenario-qa-qwen.test.mjs && node scripts/scenario-contract-qwen.test.mjs",
     "test:model-profiles": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/model-profiles-regressions.test.mjs",
     "test:model-profiles:gptoss": "npm run build && node scripts/model-profiles-gptoss.test.mjs",

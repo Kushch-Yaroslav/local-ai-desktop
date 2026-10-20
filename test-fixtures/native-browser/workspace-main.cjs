@@ -1,4 +1,4 @@
-const {app,BrowserWindow}=require('electron');
+const {app,BrowserWindow,ipcMain}=require('electron');
 const {resolve,join}=require('node:path');
 const {mkdir,appendFile}=require('node:fs/promises');
 const {writeFileSync,renameSync,watchFile,unwatchFile,readFileSync}=require('node:fs');
@@ -8,6 +8,12 @@ app.whenReady().then(async()=>{
  const root=process.env.LOCAL_AI_RUNTIME_ROOT;
  const originalFetch=global.fetch;
  const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true);
+ ipcMain.handle('settings:setLanguage',(_event,language)=>{
+  if(!['en','ru'].includes(language))throw new Error('Invalid language');
+  require(resolve('dist/main/services/runtime-settings.js')).saveLanguage(language);
+  require(resolve('dist/shared/locale.js')).setLanguage(language);
+  BrowserWindow.getAllWindows().forEach(window=>window.webContents.send('settings:language',language));
+ });
  const project=process.env.LOCAL_AI_TEST_PROJECT_ROOT??join(root,'project');await mkdir(project,{recursive:true});
  fixture.db.updateConversation(fixture.chat.id,{title:'Native browser fixture',mode:'agent',workingDirectory:project,webMode:'auto'});
  const window=new BrowserWindow({width:1400,height:950,webPreferences:{preload:resolve('dist/preload/index.js'),sandbox:true,contextIsolation:true,nodeIntegration:false}});
@@ -20,6 +26,8 @@ app.whenReady().then(async()=>{
  global.nativeFixture={chat:fixture.chat.id,project,window,
   async open(args={}){await browser?.close();browser=new ProjectBrowserSession(project,join(root,'captures'),undefined,liveBrowsers.observer(window.webContents,fixture.chat.id,'native-'+(++run)),{guard});return browser.execute({action:'open',...args},new AbortController().signal,approve)},
   async execute(args){return browser.execute(args,new AbortController().signal,approve)},
+  seedQa(report){fixture.db.saveAgentPlan(fixture.chat.id,{milestones:[],taskMemory:{entries:[],browser_qa:report}})},
+  async responsiveCancel(args,pause=false){const controller=new AbortController(),old=browser.qaOptions;browser.qaOptions={...old,signal:controller.signal};const timer=setTimeout(()=>{if(pause)void browser.pauseRun();controller.abort()},250);try{return await browser.execute(args,new AbortController().signal,approve)}finally{clearTimeout(timer);browser.qaOptions=old}},
   async finish(){return browser.finishRun()},async pause(){return browser.pauseRun()},
   async begin(){guard.rearm();browser.beginRun(liveBrowsers.observer(window.webContents,fixture.chat.id,'native-'+(++run)),{guard});return browser.execute({action:'read'},new AbortController().signal,approve)},
   async close(){this.abort?.abort();await this.promise?.catch(()=>{});await browser?.close();for(const item of this.runtime?.previews?.values()??[])await item.session.close()},
