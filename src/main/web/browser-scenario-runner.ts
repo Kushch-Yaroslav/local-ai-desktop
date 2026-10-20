@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { Page } from 'playwright-core';
 import type { BrowserQaReport, BrowserQaStatus, BrowserQaCheck, BrowserCapture, BrowserVisualResult, QaAssertion, QaScenario, QaScenarioResult, QaStep, QaObservation } from '../../shared/browser-qa';
 import { keyboardActions, keyboardStep, qaSnapshot } from './browser-qa';
+import { inspectResponsive, layoutScenario, nextBreakpoint, type ResponsiveOptions } from './responsive-qa';
 
 export interface ScenarioQaOptions {
   page: Page; signal: AbortSignal; steps: QaStep[]; scenarios?: QaScenario[];
   sourceRevisions?(): Record<string,string>;
+  responsive?: ResponsiveOptions;
   errors(): string[]; capture(): Promise<BrowserCapture>;
   navigate?(target: string): Promise<{ authRequired?: boolean }>;
   analyze?: (capture: BrowserCapture, before?: BrowserCapture, scenario?: { goal: string; temporal: boolean }) => Promise<BrowserVisualResult>;
@@ -69,38 +71,48 @@ function legacyScenarios(steps:QaStep[],url:string):QaScenario[] {
 export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQaReport>{
   const {page,signal}=options,start=performance.now(),checks:BrowserQaCheck[]=[],captures:BrowserCapture[]=[],results:QaScenarioResult[]=[];
   let visual=emptyVisual(),capturedBytes=0;
+  let progress:BrowserQaStatus['responsive'];
+  const notify=(value:BrowserQaStatus)=>{if(value.responsive)progress=value.responsive;options.status?.({...value,...(progress?{responsive:progress}:{})});};
   const boundary=()=>{signal.throwIfAborted();if(performance.now()-start>30000)throw new DOMException('Functional QA exceeded 30 second operation deadline','TimeoutError');};
   const capture=async()=>{boundary();if(captures.length>=8||capturedBytes>=12*1024*1024)throw new QaBlocked('INCONCLUSIVE','Per-operation capture resources exhausted; split the scenarios across QA calls.');const value=await options.capture();capturedBytes+=value.bytes;captures.push(value);return value;};
   const report=(reason?:string,reasonCode?:BrowserQaReport['reasonCode']):BrowserQaReport=>{
     const visualChecks=new Set(results.filter(r=>r.evidenceKind==='visual').flatMap(r=>r.checks));
     const functional=aggregate(checks.filter(c=>!visualChecks.has(c))),functionalScenarios=results.filter(r=>r.evidenceKind!=='visual'),hasScenarios=functionalScenarios.length>0,complete=hasScenarios&&functionalScenarios.every(r=>r.status==='Verified');
-    return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'?'Blocked':results.length>0&&results.every(r=>r.status==='Verified')&&functional==='Verified'&&(!options.analyze||visual.status==='Verified')?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
+    return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'?'Blocked':results.length>0&&results.every(r=>r.status==='Verified')&&functional==='Verified'&&(!options.analyze||visual.status==='Verified'||results.every(r=>r.viewport&&r.evidenceKind!=='visual'))?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
   };
-  options.status?.({phase:'started'});
+  notify({phase:'started'});
   try{
-    boundary();options.status?.({phase:'capturing'});await capture();
+    boundary();notify({phase:'capturing'});await capture();
     checks.push(check('load','Document has a rendered body',await page.title(),await page.locator('body').isVisible()?'Verified':'Failed'));
     // Passive liveness observations are runtime diagnostics, never invented input tests.
     const t0=await qaSnapshot(page);await page.waitForTimeout(100);const t1=await qaSnapshot(page);await page.waitForTimeout(100);const t2=await qaSnapshot(page);
     if(t1.frames>t0.frames)checks.push(check('canvas animation','Observed RAF callbacks continue (not object/camera motion)',`${t0.frames} → ${t1.frames} → ${t2.frames}`,t2.frames>t1.frames?'Verified':'Not Verified'));
     if(t1.draws>t0.draws)checks.push(check('canvas render','Observed draw calls continue (not visual correctness)',`${t0.draws} → ${t1.draws} → ${t2.draws}`,t2.draws>t1.draws?'Verified':'Not Verified'));
-    const scenarios=options.scenarios?.length?options.scenarios:legacyScenarios(options.steps,page.url());
+    const scenarios=options.scenarios?.length?[...options.scenarios]:legacyScenarios(options.steps,page.url());
+    const probes:Array<{width:number;failed:boolean}>=[];
     for(const scenario of scenarios){
       boundary();const began=performance.now(),held=new Set<string>(),local:BrowserQaCheck[]=[],pre:BrowserQaCheck[]=[],observations:QaObservation[]=[];
       const result:QaScenarioResult={id:scenario.id,goal:scenario.goal,target:scenario.target,deliverableId:scenario.deliverable_id,criterionId:scenario.criterion_id,status:'Not Verified',evidenceKind:scenario.id.startsWith('legacy-')&&!options.scenarios?.length?'interaction':scenario.assertion.source==='pixels'?'visual':['runtime_errors','raf','draws'].includes(scenario.assertion.source)?'runtime':scenario.assertion.sample_ms?'temporal':scenario.steps.length?'interaction':'runtime',assertion:scenario.assertion,preconditions:pre,observations,checks:local,elapsedMs:0};
       results.push(result);
       let reason:QaScenarioResult['reasonCode'];
-      const errorStart=options.errors().length;
-      const read=(a:QaAssertion,timeout:number)=>observe(page,a,timeout,options.errors);
+      let errorStart=options.errors().length;
+      const read=async(a:QaAssertion,timeout:number)=>{if(a.source!=='layout')return observe(page,a,timeout,options.errors);result.responsive=await inspectResponsive(page);return result.responsive.findings.filter(f=>f.confidence==='confirmed').length;};
       const deadline=began+scenario.timeout_ms;
       const timeout=()=>{boundary();if(performance.now()>deadline)throw new DOMException('Scenario operation timed out','TimeoutError');return Math.max(1,Math.min(3000,deadline-performance.now()));};
       try{
+        if(scenario.viewport){
+          await page.setViewportSize({width:scenario.viewport.width,height:scenario.viewport.height});
+          result.viewport={...scenario.viewport};
+          notify({phase:'interacting',responsive:{viewport:result.viewport,checked:new Set(results.slice(0,-1).filter(r=>r.viewport).map(r=>`${r.viewport!.width}x${r.viewport!.height}`)).size,total:options.responsive?.breakpoint?.attempts??new Set(scenarios.filter(s=>s.viewport).map(s=>`${s.viewport!.width}x${s.viewport!.height}`)).size,issues:results.reduce((n,r)=>n+(r.responsive?.findings.length??0),0),vision:false}});
+        }
         const target=new URL(scenario.target,page.url());
         if(target.origin!==new URL(page.url()).origin)throw new QaBlocked('PRECONDITION_FAILED','Scenario target is outside the approved origin');
-        if(target.href!==page.url()){
+        if(target.href!==page.url()||scenario.viewport){
           if(!options.navigate)throw new QaBlocked('PRECONDITION_FAILED','This runner cannot navigate to the declared target');
           if((await options.navigate(target.href)).authRequired)throw new QaBlocked('AUTH_REQUIRED','The target requires authentication; no authorization bypass was attempted.');
+          if(scenario.viewport)await page.waitForTimeout(100);
         }
+        if(scenario.viewport)errorStart=0;
         if(page.url()!==target.href)throw new QaBlocked('PRECONDITION_FAILED','Application route differs from the scenario target');
         for(const condition of [...scenario.preconditions,...scenario.required_state]){
           if(condition.operator!=='equals')throw new QaBlocked('PRECONDITION_FAILED','Preconditions require a concrete expected state');
@@ -122,7 +134,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         }
         observations.push({atMs:performance.now()-began,value:before});
         if(a.sample_ms)observations[0].captureId=(await capture()).id;
-        options.status?.({phase:'interacting'});
+        notify({phase:'interacting'});
         if(scenario.id.startsWith('legacy-')&&scenario.steps.some(step=>step.expect?.changed===false))throw new QaBlocked('INCONCLUSIVE','Legacy unchanged expectations need a concrete equality assertion.');
         for(const step of scenario.steps){timeout();await perform(page,step,held,timeout());}
         let after=before;
@@ -132,8 +144,18 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
           observations.push({atMs:performance.now()-began,value:after,...(a.sample_ms?{captureId:(await capture()).id}:{})});
         }
         // Explicit equality supports async UI without fixed sleeps masquerading as proof.
-        while(a.operator==='equals'&&!matches(a,before,after)&&performance.now()+60<deadline){await page.waitForTimeout(50);after=await read(a,timeout());}
+        while(a.source!=='layout'&&a.operator==='equals'&&!matches(a,before,after)&&performance.now()+60<deadline){await page.waitForTimeout(50);after=await read(a,timeout());}
         observations[observations.length-1]={...observations.at(-1)!,atMs:performance.now()-began,value:after};
+        if(scenario.viewport){
+          result.responsive??=await inspectResponsive(page);
+          const image=await capture();
+          observations[observations.length-1].captureId=image.id;
+          if(options.analyze&&options.responsive?.vision!=='off'&&(options.responsive?.vision==='on'||result.responsive.hasCanvas||result.responsive.findings.some(f=>f.confidence==='candidate'))){
+            notify({phase:'analyzing',responsive:{viewport:scenario.viewport,checked:new Set(results.filter(r=>r.viewport).map(r=>`${r.viewport!.width}x${r.viewport!.height}`)).size,total:options.responsive?.breakpoint?.attempts??new Set(scenarios.filter(s=>s.viewport).map(s=>`${s.viewport!.width}x${s.viewport!.height}`)).size,issues:result.responsive.findings.length,vision:true}});
+            result.visual=await options.analyze(image,undefined,{goal:`${scenario.goal}. Correlate screenshot at ${scenario.viewport.width}x${scenario.viewport.height} with bounded DOM candidates: ${JSON.stringify(result.responsive.findings).slice(0,6000)}. Findings are probabilistic; do not infer other viewports or routes.`,temporal:false});visual=result.visual;
+          }
+          if(a.source==='layout'&&after===0&&(result.responsive.truncated||result.responsive.findings.some(f=>f.confidence==='candidate')))throw new QaBlocked('INCONCLUSIVE','DOM inspection found ambiguous geometry candidates or reached its resource bound; review scoped evidence and optional Vision before claiming layout correctness.');
+        }
         if(a.source==='pixels'){
           const last=await capture(),first=captures.find(c=>c.id===observations[0].captureId);
           if(options.analyze){visual=await options.analyze(last,first,{goal:scenario.goal,temporal:Boolean(a.sample_ms)});result.visual=visual;}
@@ -151,17 +173,25 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
       }catch(error){
         reason=error instanceof QaBlocked?error.code:error instanceof Error&&error.name==='TimeoutError'?'QA_TIMEOUT':'QA_TOOL_ERROR';
         result.reasonCode=reason;result.reason=String(error);result.status=reason==='INCONCLUSIVE'?'Not Verified':'Blocked';
-        if(result.visual?.analyzed&&result.visual.status==='Failed'){result.status='Failed';result.reasonCode='VISUAL_REQUIREMENT_FAILED';result.reason='Vision reported a possible violation of the declared visual criterion; review the captures and observations.';}
+        if(!scenario.viewport&&result.visual?.analyzed&&result.visual.status==='Failed'){result.status='Failed';result.reasonCode='VISUAL_REQUIREMENT_FAILED';result.reason='Vision reported a possible violation of the declared visual criterion; review the captures and observations.';}
         local.push(check(scenario.goal,JSON.stringify(scenario.assertion),String(error),result.status));
       }finally{for(const key of [...held].reverse())await page.keyboard.up(key).catch(()=>undefined);await page.mouse.up().catch(()=>undefined);}
       result.sourceRevisions=options.sourceRevisions?.();result.elapsedMs=performance.now()-began;checks.push(...local);
+      if(result.viewport)notify({phase:'interacting',responsive:{viewport:result.viewport,checked:new Set(results.filter(r=>r.viewport).map(r=>`${r.viewport!.width}x${r.viewport!.height}`)).size,total:options.responsive?.breakpoint?.attempts??new Set(scenarios.filter(s=>s.viewport).map(s=>`${s.viewport!.width}x${s.viewport!.height}`)).size,issues:results.reduce((n,r)=>n+(r.responsive?.findings.length??0),0),vision:Boolean(result.visual?.analyzed)}});
+      if(options.responsive?.breakpoint&&scenario.viewport&&scenario.assertion.source==='layout'&&['Verified','Failed'].includes(result.status)){
+        probes.push({width:scenario.viewport.width,failed:result.status==='Failed'});
+        const width=nextBreakpoint(probes,options.responsive.breakpoint.attempts);
+        if(width!==undefined&&results.length===scenarios.length)scenarios.push(layoutScenario(`responsive-probe-${scenarios.length+1}`,scenario.target,{width,height:scenario.viewport.height}));
+      }
     }
-    boundary();options.status?.({phase:'capturing'});const last=await capture();
+    boundary();notify({phase:'capturing'});const last=await capture();
     const state=await qaSnapshot(page),errors=[...options.errors(),...state.rejections];
     checks.push(check('exposed numeric diagnostics','No NaN/Infinity in exposed diagnostics',state.diagnosticInvalid.join(', ')||'None observed',state.diagnosticInvalid.length?'Failed':'Verified'));
     checks.push(check('runtime errors','No observed uncaught errors/console errors/rejections',errors.join('\n')||'None observed',errors.length?'Failed':'Verified'));
-    if(options.analyze&&!results.some(r=>r.visual)){options.status?.({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false});}
+    if(results.some(r=>r.viewport)&&!results.some(r=>r.visual))visual={analyzed:false,status:'Not Verified',reason:'Responsive DOM evidence only; image analysis was not requested or needed for these assertions.'};
+    if(options.analyze&&!results.some(r=>r.visual)&&!results.some(r=>r.viewport)){notify({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false});}
     const result=report(results.length?undefined:'Passive runtime smoke only. Declare scenarios and acceptance criteria to verify application behaviour.',errors.length||state.diagnosticInvalid.length?'FUNCTIONAL_REQUIREMENT_FAILED':(results.find(r=>r.status==='Failed')??results.find(r=>r.reasonCode))?.reasonCode);result.errors=errors;
-    options.status?.({phase:'complete',report:result});return result;
-  }catch(error){const code=signal.reason?.name==='TimeoutError'||error instanceof Error&&error.name==='TimeoutError'?'QA_TIMEOUT':error instanceof QaBlocked?error.code:'QA_TOOL_ERROR';const result=report(String(error),code);result.status='Blocked';options.status?.({phase:'complete',report:result});return result;}
+    if(probes.length)result.reason=`Responsive geometry probes (not CSS breakpoint inference): ${probes.map(p=>`${p.width}px ${p.failed?'defect reproduced':'bounds passed'}`).join('; ')}. Narrowest observed pass/fail bracket is bounded by these observations only.`;
+    notify({phase:'complete',report:result});return result;
+  }catch(error){const code=signal.reason?.name==='TimeoutError'||error instanceof Error&&error.name==='TimeoutError'?'QA_TIMEOUT':error instanceof QaBlocked?error.code:'QA_TOOL_ERROR';const result=report(String(error),code);result.status='Blocked';notify({phase:'complete',report:result});return result;}
 }

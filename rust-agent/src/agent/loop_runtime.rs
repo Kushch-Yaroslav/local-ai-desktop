@@ -666,6 +666,13 @@ fn dynamic_tail(
     if !deliverables.is_empty() {
         tail.push(deliverables);
     }
+    if state.browser_qa_enabled {
+        let criteria=state.task_memory.deliverables.items.iter().flat_map(|item|item.criteria.iter().map(|c|c.description.as_str())).collect::<Vec<_>>().join(" ");
+        let changes=state.task_memory.verification.changed.keys().map(|path|(path.clone(),state.responsive_changes.get(path).cloned().unwrap_or_default())).collect::<Vec<_>>();
+        let issue=state.task_memory.browser_qa.as_ref().and_then(|qa|qa["scenarios"].as_array()).is_some_and(|scenarios|scenarios.iter().any(|s|s.pointer("/responsive/findings").and_then(Value::as_array).is_some_and(|f|!f.is_empty())));
+        let active_plan=state.task_memory.plan.steps.iter().filter(|step|step.status!=StepStatus::Completed).map(|step|step.text.as_str()).collect::<Vec<_>>().join(" ");
+        tail.push(super::responsive::advice(objective,&criteria,&active_plan,&changes,issue));
+    }
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
         state.verification_closed,
@@ -802,7 +809,7 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
     // Action-specific requirements are enforced transactionally at dispatch.
     let mut tools = vec![
         json!({"type":"function","function":{"name":"task_memory","description":"Durable semantic memory for the current task across compaction. Record/update meaningful findings, decisions, blockers, or unresolved questions; view reads it; invalidate needs id. Record requires finding; update needs the id of an existing entry and changes only the fields you pass (an empty string clears one). Both may include evidence, implication, next, supersedes, status. Cite observations by exact id (obs-00000012), one per item in observations or comma-separated in evidence. Trust precise unchanged-file memory; reread only for a concrete missing, ambiguous, changed, exact-detail, or verification need.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["record","update","invalidate","view"]},"id":{"type":"string"},"finding":{"type":"string"},"evidence":{"type":"string"},"implication":{"type":"string"},"next":{"type":"string"},"supersedes":{"type":"string"},"status":{"type":"string","enum":["confirmed","inferred","unknown","contradicted"],"description":"How well established the finding is: confirmed (observed, cited), inferred (reasoned, not observed), unknown (open; put the resolving step in next), contradicted (evidence disagrees)."},"observations":{"type":"array","items":{"type":"string"},"description":"Observation IDs (obs-…) that support the finding; same as evidence, one id per item."}},"required":["action"]}}}),
-        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. criteria: define immutable acceptance criteria before checking; every browser deliverable requires them. Each scenario must bind the criterion. Never weaken a criterion after recording. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","criteria","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"criteria":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"id":{"type":"string"},"description":{"type":"string"},"kind":{"type":"string","enum":["load","runtime","interaction","temporal","visual","implementation"]},"scenario":{"type":"object","description":"Immutable executable specification: target, preconditions [], required_state [], steps [], assertion {source, operator, expected/path/selector/sample_ms}, timeout_ms. Execute with web_project scenario_refs to avoid redefining it."}},"required":["id","description","kind"],"additionalProperties":false}},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
+        json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. criteria: define immutable acceptance criteria before checking; every browser deliverable requires them. Each scenario must bind the criterion. Never weaken a criterion after recording. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","criteria","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"criteria":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"id":{"type":"string"},"description":{"type":"string"},"kind":{"type":"string","enum":["load","runtime","interaction","temporal","visual","implementation"]},"scenario":{"type":"object","description":"Immutable executable specification: target, optional viewport (named mobile/desktop/etc profile or bounded width/height), preconditions [], required_state [], steps [], assertion {source, operator, expected/path/selector/sample_ms}, timeout_ms. Responsive DOM bounds use source=layout, equals, expected=0 with an explicit viewport; each required route/viewport has its own criterion. Execute with web_project scenario_refs to avoid redefining it."}},"required":["id","description","kind"],"additionalProperties":false}},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"plan","description":"Your own short execution plan: how you will get the work done. Optional: skip it for a trivial or single-step request. set: replace the unfinished steps with a short ordered list of one-line steps (steps); the first becomes active. update: change a step (id; status pending|in_progress|completed|blocked, optional text or note; blocked needs a note); completing the active step activates the next. add: insert a step (text, optional after). view: list. Update at meaningful milestones or when your approach changes; do not narrate it or update it after every call. A plan is not proof: finishing steps does not complete the user's deliverables.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["set","update","add","view"]},"steps":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed","blocked"]},"text":{"type":"string"},"note":{"type":"string"},"after":{"type":"string"}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"observation_index","description":"List historical tool observations by stable ID, with source path and outcome metadata. Use source to select the raw observation for the needed file. If more=true, continue at the returned next_offset. Observation IDs start with obs-.","parameters":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":50}}}}}),
         json!({"type":"function","function":{"name":"observation_read","description":"Recover a bounded exact slice of a stored historical tool result by observation ID. The response distinguishes historical evidence from current source and reports whether the source changed.","parameters":{"type":"object","properties":{"id":{"type":"string"},"offset_chars":{"type":"integer","minimum":0},"max_chars":{"type":"integer","minimum":1,"maximum":16000}},"required":["id"]}}}),
@@ -1912,7 +1919,7 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
         state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
     }
 
-    if result.get("error").is_some() || result.pointer("/qa/reasonCode").and_then(Value::as_str)==Some("EVIDENCE_STALE") {return;}
+    if result.get("error").is_some() || result["reused_evidence"]==true || result.pointer("/qa/reasonCode").and_then(Value::as_str)==Some("EVIDENCE_STALE") {return;}
     let Some(source)=result.get("source_path").and_then(Value::as_str) else {return;};
     let Ok(base)=std::fs::canonicalize(root) else {return;};
     let Ok(path)=std::fs::canonicalize(source) else {return;};
@@ -1940,7 +1947,8 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
             let contract=state.task_memory.deliverables.items.iter().find(|item|item.id==id).and_then(|item|item.criteria.iter().find(|criterion|criterion.id==criterion_id && criterion.kind==kind));
             if contract.is_none() {continue;}
             let temporal_valid=kind!="temporal" || scenario["observations"].as_array().is_some_and(|values|values.len()>=3 && values.windows(2).all(|pair|pair[0]["atMs"].as_f64().zip(pair[1]["atMs"].as_f64()).is_some_and(|(a,b)|b>a)));
-            let pass=status=="Verified" && temporal_valid && kind!="visual";
+            let viewport_valid=contract.and_then(|c|c.scenario.as_ref()).is_none_or(|spec|spec.get("viewport").is_none()||super::responsive::viewport(&spec["viewport"]).is_some_and(|expected|super::responsive::viewport(&scenario["viewport"])==Some(expected)));
+            let pass=status=="Verified" && temporal_valid && viewport_valid && kind!="visual";
             let outcome=if pass {"passed"} else if status=="Failed" {"failed"} else {"inconclusive"};
             observed.push((format!("web_project scenario {} criterion {id}:{criterion_id} {}",scenario["id"].as_str().unwrap_or("unknown"),scenario["target"]),pass,outcome.to_owned(),Some(verification::CriterionEvidence{deliverable_id:id.to_owned(),criterion_id:criterion_id.to_owned(),kind:kind.to_owned(),qualified:kind=="visual" && scenario.pointer("/visual/analyzed").and_then(Value::as_bool)==Some(true)}),scenario.to_string()));
         }
@@ -1950,9 +1958,10 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
     if observed.is_empty() && matches!(args["action"].as_str(),Some("open"|"read"|"click"|"back"|"qa")) {
         let errors=result["javascript_errors"].as_array();let blocked=result["blocked_requests"].as_array();
         if let (Some(errors),Some(blocked))=(errors,blocked) {
-            let pass=errors.is_empty()&&blocked.is_empty()&&result.get("qa").is_none_or(|qa|qa["functionalStatus"]!="Failed");
+            let responsive_complete=result.get("qa").is_none_or(|qa|!qa["scenarios"].as_array().is_some_and(|scenarios|scenarios.iter().any(|s|s.get("viewport").is_some()))||qa["functionalStatus"]=="Verified");
+            let pass=errors.is_empty()&&blocked.is_empty()&&responsive_complete&&result.get("qa").is_none_or(|qa|qa["functionalStatus"]!="Failed");
             let coverage=if args["action"]=="open" {args["deliverable_id"].as_str().zip(args["criterion_id"].as_str()).map(|(id,criterion)|verification::CriterionEvidence{deliverable_id:id.into(),criterion_id:criterion.into(),kind:"load".into(),qualified:false})} else {None};
-            observed.push((format!("web_project {} {}",args["action"].as_str().unwrap_or(""),result["url"].as_str().unwrap_or("")),pass,if pass {"passed"} else {"failed"}.into(),coverage,result.to_string()));
+            observed.push((format!("web_project {} {}",args["action"].as_str().unwrap_or(""),result["url"].as_str().unwrap_or("")),pass,if pass {"passed"} else if !responsive_complete && result.pointer("/qa/functionalStatus").and_then(Value::as_str)!=Some("Failed") {"inconclusive"} else {"failed"}.into(),coverage,result.to_string()));
         }
     }
     for (subject,pass,outcome,coverage,detail) in observed {
@@ -4450,6 +4459,9 @@ fn run_scoped_tool_authorized(
                     _ => target.iter().cloned().collect::<Vec<_>>(),
                 };
                 record_project_change(state, &file_scope, name, &changed);
+                let span=super::responsive::edit_span(result.1.as_deref().unwrap_or_default());
+                for path in &changed {state.responsive_changes.insert(path.clone(),span.clone());}
+                while state.responsive_changes.len()>64 {if let Some(key)=state.responsive_changes.keys().next().cloned(){state.responsive_changes.remove(&key);}}
                 emit_task_memory(config, state);
             }
             Ok(result)
@@ -6997,6 +7009,35 @@ mod tests {
         let second=execution_process_context(&config);
         assert_ne!(first,second);
         assert!(second.contains("generation=fresh-generation-b"));
+    }
+
+    #[test]
+    fn responsive_evidence_is_bound_to_viewport_and_cached_observations_cannot_mint_proof() {
+        let root=std::env::temp_dir().join(format!("responsive-gate-{}",std::process::id()));std::fs::create_dir_all(&root).unwrap();
+        let path=root.join("index.html");std::fs::write(&path,"<main>responsive</main>").unwrap();
+        let mut state=AgentState::default();let transcript=Transcript::default();
+        let spec=json!({"target":"/index.html","viewport":"mobile","preconditions":[],"required_state":[],"steps":[],"assertion":{"source":"layout","operator":"equals","expected":0},"timeout_ms":4000});
+        apply_deliverables(&mut state,&json!({"action":"add","id":"landing","text":"Mobile layout bounds","check":"browser","criteria":[{"id":"mobile","description":"390px DOM layout fits","kind":"runtime","scenario":spec}]}),&transcript).unwrap();
+        let args=prepare_browser_contracts(&state,&json!({"action":"qa","scenario_refs":[{"deliverable_id":"landing","criterion_id":"mobile"}]})).unwrap();
+        assert_eq!(args["scenarios"][0]["viewport"],"mobile");
+        let mut result=json!({"source_path":path,"qa":{"scenarios":[{"id":"mobile","target":"/index.html","deliverableId":"landing","criterionId":"mobile","status":"Verified","evidenceKind":"runtime","viewport":{"width":1440,"height":900}}]}});
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(!state.task_memory.verification.records.last().unwrap().pass,"Desktop cannot certify the mobile criterion");
+        result["qa"]["scenarios"][0]["viewport"]=json!({"width":390,"height":844});
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert!(state.task_memory.verification.records.last().unwrap().pass);
+        let count=state.task_memory.verification.records.len();result["reused_evidence"]=json!(true);
+        record_project_browser_evidence(&mut state,&root,&args,&result);assert_eq!(state.task_memory.verification.records.len(),count);
+        let diagnostic=json!({"source_path":path,"javascript_errors":[],"blocked_requests":[],"qa":{"functionalStatus":"Not Verified","scenarios":[{"viewport":{"width":390,"height":844},"status":"Not Verified"}]}});
+        record_project_browser_evidence(&mut state,&root,&json!({"action":"qa"}),&diagnostic);
+        assert!(!state.task_memory.verification.records.last().unwrap().pass,"Inconclusive responsive diagnostics are not a generic passing browser check");
+        assert!(state.task_memory.verification.records.last().unwrap().coverage.is_empty());
+        assert_eq!(state.task_memory.verification.records.last().unwrap().outcome.as_deref(),Some("inconclusive"));
+        let mut actual_failure=diagnostic.clone();actual_failure["qa"]["functionalStatus"]=json!("Failed");
+        record_project_browser_evidence(&mut state,&root,&json!({"action":"qa"}),&actual_failure);
+        assert_eq!(state.task_memory.verification.records.last().unwrap().outcome.as_deref(),Some("failed"));
+        let mut weakened=args.clone();weakened.as_object_mut().unwrap().remove("scenario_refs");weakened["scenarios"][0]["viewport"]=json!("desktop");
+        assert!(prepare_browser_contracts(&state,&weakened).is_err());
+        let restored:super::super::task_memory::TaskMemory=serde_json::from_value(serde_json::to_value(&state.task_memory).unwrap()).unwrap();assert_eq!(restored.deliverables.items[0].criteria[0].scenario,Some(spec));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

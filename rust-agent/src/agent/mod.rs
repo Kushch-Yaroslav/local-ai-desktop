@@ -12,6 +12,7 @@ pub mod strategy;
 pub mod task_memory;
 pub mod transcript;
 pub mod verification;
+pub mod responsive;
 pub mod work_budget;
 pub mod loop_detector;
 pub mod control;

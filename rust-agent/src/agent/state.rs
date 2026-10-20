@@ -71,6 +71,7 @@ pub struct AgentState {
     /// Revision (content hash) of each project file as this run last read or
     /// wrote it, so a write over a file that changed since can be refused.
     pub file_revisions: BTreeMap<std::path::PathBuf, String>,
+    pub responsive_changes: BTreeMap<String,String>,
     /// Failed executions keyed by their exact tool and JSON arguments. Two
     /// unchanged failures are allowed; another identical request closes the
     /// tool loop instead of redoing work with the same known-bad input.

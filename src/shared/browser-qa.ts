@@ -6,7 +6,7 @@ export interface VisualIssue { severity: 'high' | 'medium' | 'low'; description:
 export interface BrowserVisualResult { analyzed: boolean; status: VerificationStatus; model?: string; imageCount?: number; reason?: string; summary?: string; confidence?: number; issues?: VisualIssue[]; latencyMs?: number; promptTokens?: number; completionTokens?: number; }
 export type QaReasonCode = 'QA_NO_PROGRESS' | 'QA_TIMEOUT' | 'QA_TOOL_ERROR' | 'VERIFICATION_INCOMPLETE' | 'EVIDENCE_STALE' | 'AUTH_REQUIRED' | 'PERMISSION_REQUIRED' | 'PRECONDITION_FAILED' | 'UNSUPPORTED_OPERATION' | 'INCONCLUSIVE' | 'FUNCTIONAL_REQUIREMENT_FAILED' | 'VISUAL_REQUIREMENT_FAILED';
 export interface BrowserQaReport { scenarios?: QaScenarioResult[]; sourceRevisions?: Record<string,string>; reasonCode?: QaReasonCode; revisionFingerprint?: string; loop?: { distinctOutcomes?:number; key:string; repeats:number; previousEvidence?:string; previousReportId:string; previousStatus:VerificationStatus }; functionalStatus?: VerificationStatus; scope?: 'interaction' | 'capture'; runId?: string; id: string; status: VerificationStatus; url: string; capturedAt: string; checks: BrowserQaCheck[]; errors: string[]; captures: BrowserCapture[]; visual: BrowserVisualResult; elapsedMs: number; evidencePath?: string; sourceFingerprint?: string; reason?: string; }
-export interface BrowserQaStatus { phase: 'started' | 'capturing' | 'analyzing' | 'interacting' | 'issue' | 'fixing' | 'retesting' | 'complete'; report?: BrowserQaReport; }
+export interface BrowserQaStatus { phase: 'started' | 'capturing' | 'analyzing' | 'interacting' | 'issue' | 'fixing' | 'retesting' | 'complete'; report?: BrowserQaReport; responsive?: { viewport: QaViewport; checked: number; total: number; issues: number; vision: boolean }; }
 
 /** Legacy checkpoint messages remain available in details, never imply a live quota. */
 export function qaReasonCode(report: BrowserQaReport): QaReasonCode | undefined {
@@ -19,7 +19,7 @@ export function qaReasonCode(report: BrowserQaReport): QaReasonCode | undefined 
 /** Declarative observations only: never evaluates model-supplied JavaScript. */
 export type QaEvidenceKind = 'load' | 'runtime' | 'interaction' | 'temporal' | 'visual' | 'implementation';
 export interface QaAssertion {
-  source: 'text' | 'value' | 'visible' | 'url' | 'diagnostic' | 'pixels' | 'runtime_errors' | 'raf' | 'draws' | 'viewport';
+  source: 'text' | 'value' | 'visible' | 'url' | 'diagnostic' | 'pixels' | 'runtime_errors' | 'raf' | 'draws' | 'viewport' | 'layout';
   selector?: string;
   path?: string;
   operator: 'equals' | 'changed' | 'increased' | 'decreased';
@@ -28,6 +28,7 @@ export interface QaAssertion {
   sample_ms?: number[];
 }
 export interface QaScenario {
+  viewport?: QaViewport;
   id: string;
   goal: string;
   target: string;
@@ -41,12 +42,18 @@ export interface QaScenario {
 }
 export interface QaObservation { atMs: number; value: string | number | boolean | null; captureId?: string; }
 export interface QaScenarioResult {
+  viewport?: QaViewport;
+  responsive?: ResponsiveInspection;
   sourceRevisions?: Record<string,string>;
   id: string; goal: string; target: string; deliverableId?: string; criterionId?: string;
   status: VerificationStatus; evidenceKind: QaEvidenceKind; assertion: QaAssertion;
   preconditions: BrowserQaCheck[]; observations: QaObservation[]; checks: BrowserQaCheck[];
   reasonCode?: QaReasonCode; reason?: string; elapsedMs: number; visual?: BrowserVisualResult;
 }
+
+export type QaViewport = { width: number; height: number; profile?: string };
+export interface ResponsiveFinding { kind: 'horizontal-overflow' | 'viewport-fit' | 'overlap' | 'text-clipping' | 'image-fit'; confidence: 'confirmed' | 'candidate'; selector: string; detail: string; rect?: { x: number; y: number; width: number; height: number }; }
+export interface ResponsiveInspection { viewport: QaViewport; url: string; documentWidth: number; findings: ResponsiveFinding[]; intentionalScrollContainers: number; hasCanvas: boolean; truncated: boolean; }
 
 export interface QaStep {
   action: 'click' | 'fill' | 'key' | 'keydown' | 'keyup' | 'hold' | 'scroll' | 'focus' | 'mousemove' | 'drag' | 'wait' | 'pointer-lock';

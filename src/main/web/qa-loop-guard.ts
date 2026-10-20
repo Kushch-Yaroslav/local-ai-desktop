@@ -5,6 +5,11 @@ import { join, extname, relative, sep } from 'node:path';
 import type { BrowserQaReport } from '../../shared/browser-qa';
 
 export const qaHash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export function qaScenarioIdentity(value:unknown):unknown {
+  if(Array.isArray(value))return value.map(qaScenarioIdentity);
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!['id','goal','reason'].includes(key)).map(([key,item])=>[key,qaScenarioIdentity(item)]));
+  return value;
+}
 const ignored = new Set(['node_modules', 'vendor', 'coverage', 'tmp', 'temp', '__pycache__']);
 const extensions = new Set(['.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.json','.svg','.glsl','.wgsl','.png','.jpg','.jpeg','.webp','.ico','.woff','.woff2','.vue','.svelte','.scss','.sass','.less','.wasm','.yaml','.yml','.toml']);
 /** Content, not mtime. Bounded, symlink-free reads confined to the approved project. */
@@ -43,13 +48,14 @@ type Observation = { key: string; report: BrowserQaReport; repeats: number; outc
 /** A bounded observation window, never a work allowance. Share across browser reopen. */
 export class QaLoopGuard {
   private readonly observations = new Map<string, Observation>();
+  private readonly responsiveReports = new Map<string,BrowserQaReport>();
   private lastState?: string;
   private stateEpoch = 0;
   private nextState = 0;
   private readonly states = new Map<string,number>();
   private authorizationEpoch = 0;
   private windowEpoch = 0;
-  rearm() { this.windowEpoch++; this.observations.clear(); this.states.clear(); this.lastState = undefined; this.stateEpoch=0; this.nextState=0; }
+  rearm() { this.windowEpoch++; this.observations.clear(); this.responsiveReports.clear(); this.states.clear(); this.lastState = undefined; this.stateEpoch=0; this.nextState=0; }
   authorized() { this.authorizationEpoch++; }
   private observeState(state: unknown, owned = false) {
     const fingerprint = qaHash(state);
@@ -65,7 +71,7 @@ export class QaLoopGuard {
     this.observeState(state);
     const normalize=(value:unknown):unknown=>{
       if(Array.isArray(value))return value.map(normalize);
-      if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!['id','goal'].includes(key)).map(([key,item])=>[key,normalize(item)]));
+      if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!['id','goal','reason'].includes(key)).map(([key,item])=>[key,normalize(item)]));
       return value;
     };
     const normalizedScenario = Array.isArray(scenario) ? scenario.map(step => ({...step, ...(step.selector ? {selector:step.selector.trim()} : {}), ...(step.action === 'hold' ? {duration_ms:Math.round((step.duration_ms ?? 300)/50)*50} : {}), ...(step.action === 'key' ? {repeat:step.repeat ?? 1} : {})})) : scenario;
@@ -77,6 +83,12 @@ export class QaLoopGuard {
     return { error: 'Browser QA is revisiting known outcomes for the same scenario without source, state, permission or runtime progress (including oscillating visual assessments).', code: 'QA_NO_PROGRESS', retrySameArguments: false,
       loop: { key, repeats: old.repeats, distinctOutcomes:old.outcomes.size, previousEvidence: old.report.evidencePath, previousReportId: old.report.id, previousStatus: old.report.status },
       guidance: 'Keep the existing evidence. Fix the observed defect, change the expected behaviour or scenario meaningfully, or continue other task work. Do not use fill on body, add hidden inputs, relaunch the browser or invoke terminal browsers to bypass this blocker. Keyboard testing uses key/down/up/hold actions. An explicit user continuation can request a fresh observation window.' };
+  }
+  responsiveCached(scope:string) {return this.responsiveReports.get(scope);}
+  rememberResponsive(scope:string,report:BrowserQaReport) {
+    if(report.status==='Blocked'||report.errors.length||!Object.keys(report.sourceRevisions??{}).length||['QA_TOOL_ERROR','QA_TIMEOUT','EVIDENCE_STALE','QA_NO_PROGRESS'].includes(report.reasonCode??''))return;
+    this.responsiveReports.delete(scope);this.responsiveReports.set(scope,report);
+    while(this.responsiveReports.size>32)this.responsiveReports.delete(this.responsiveReports.keys().next().value!);
   }
   record(key: string, report: BrowserQaReport, state: unknown) {
     const scenarioChecks=new Set(report.scenarios?.flatMap(scenario=>scenario.checks)??[]);

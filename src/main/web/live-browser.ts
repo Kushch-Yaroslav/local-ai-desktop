@@ -7,6 +7,7 @@ import type { NativeProjectPage } from './native-project-page';
 export interface ProjectBrowserObserver {
   readonly ownerId?: number;
   createPage?(origin: string): Promise<NativeProjectPage>;
+  createQaPage?(origin: string): Promise<NativeProjectPage>;
   ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; close(): Promise<void> }): void;
   ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
@@ -68,6 +69,10 @@ export class LiveBrowserHub {
         });
         if (item.ended) { await native.close(); throw new Error('Browser closed during creation'); }
         item.native = native; this.reconcile(item); return native;
+      }, createQaPage: async (origin:string) => {
+        const {createNativeProjectPage}=await import('./native-project-page');
+        // Hidden, scoped to this owner; never registered as the user's Live Browser.
+        return createNativeProjectPage(owner,origin);
       } } : {}),
       ownership: ownership => { const item = ensure(); if (!item.ended) { item.state = { ...item.state, ownership }; item.native?.ownership(ownership); this.send(item, { type: 'state', state: item.state }); } },
       ready: (page, visibility, controls) => {
