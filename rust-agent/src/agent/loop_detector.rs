@@ -181,7 +181,7 @@ impl LoopDetector {
             }
         }
         let informative = name == "run_terminal" || name.starts_with("read_") || name.starts_with("list_")
-            || name.starts_with("web_") || matches!(name, "project_knowledge_read" | "project_knowledge_index" | "attachment_read_rows");
+            || name.starts_with("web_") || name == "attachment_read_rows";
         if novel && !failure && !planning && informative && result.get("unchanged") != Some(&Value::Bool(true)) {
             self.progress();
         }

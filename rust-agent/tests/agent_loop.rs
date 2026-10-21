@@ -2,7 +2,6 @@
 //! provider. They assert runtime-owned behavior only: what the model is offered
 //! and told, when a tool-free reply completes the run, and that the run can
 //! never be blocked from answering. They contain no project- or model-specific
-//! knowledge.
 
 use local_ai_agent_runtime::agent::loop_runtime::{
     run, Config,
@@ -1283,9 +1282,6 @@ fn explicit_directory_without_a_project_exposes_execution_tools_and_really_execu
             "{tool} missing: {names:?}"
         );
     }
-    assert!(!names
-        .iter()
-        .any(|name| name.starts_with("project_knowledge_")));
     assert!(requests[0]
         .to_string()
         .contains(&granted.to_string_lossy().into_owned()));
@@ -1299,8 +1295,8 @@ fn explicit_directory_without_a_project_exposes_execution_tools_and_really_execu
     );
     assert!(completed(&workspace.journal()));
     assert!(
-        !granted.join(".ai-framework").exists() && !workspace.root.join(".ai-framework").exists(),
-        "a workspace run must not create a project knowledge cache"
+        !workspace.root.join(".ai-framework").exists(),
+        "agent runs must not create the retired memory directory"
     );
 }
 
@@ -1388,7 +1384,6 @@ fn project_scope_keeps_all_tools_and_named_directories_extend_file_scope() {
     run(config);
     assert_eq!(std::fs::read_to_string(written).unwrap(), "hello");
     let names = tool_names(&provider.requests()[0]);
-    assert!(names.contains(&"project_knowledge_index".to_owned()));
     for tool in EXECUTION_TOOLS {
         assert!(names.contains(&(*tool).to_owned()), "{tool}");
     }
@@ -1557,8 +1552,7 @@ fn tree(root: &std::path::Path) -> Vec<(String, Vec<u8>)> {
     files
 }
 
-/// Reading a reference project (Project 2) must leave it byte-identical:
-/// passive knowledge caching is limited to the primary project.
+/// Reading a reference project (Project 2) must leave it byte-identical.
 #[test]
 fn reading_the_secondary_project_never_modifies_it_while_writes_land_in_the_primary() {
     let fixture = Workspace::new(&[("a.txt", "primary")]);
@@ -1571,7 +1565,6 @@ fn reading_the_secondary_project_never_modifies_it_while_writes_land_in_the_prim
         0 => Reply::Tools(vec![
             ("list_directory", json!({"path":".","project":2})),
             ("read_file", json!({"path":"src/theme.css","project":2})),
-            ("project_knowledge_index", json!({"project":2})),
         ]),
         1 => Reply::Tools(vec![(
             "create_file",

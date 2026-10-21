@@ -38,8 +38,7 @@ export async function runRichAgentHttpRegression() {
         assert.equal(events.filter((event) => event.type === 'rich-artifact').length, 1, 'accepted duplicate artifact was emitted twice');
         assert(events.some((event) => event.type === 'done'));
         assert.equal(events.filter((event) => event.type === 'token').map((event) => event.content).join(''), 'Interactive chart complete. Fictional demonstration data only.');
-        // The existing ledger creates .ai-framework bookkeeping, never a model-directed edit.
-        assert.deepEqual(readdirSync(root).filter((name) => name !== '.ai-framework'), ['untouched.txt'], 'informational artifacts triggered user-file writes');
+        assert.deepEqual(readdirSync(root), ['untouched.txt'], 'informational artifacts created or modified project files');
         assert.equal(readFileSync(join(root, 'untouched.txt'), 'utf8'), 'User project must remain untouched.');
       } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
     }

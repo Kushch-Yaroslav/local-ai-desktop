@@ -46,7 +46,6 @@ const IGNORED_DIRECTORIES: &[&str] = &[
     ".cache",
     ".idea",
     ".vscode",
-    ".ai-framework",
 ];
 
 const ASSET_EXTENSIONS: &[&str] = &[

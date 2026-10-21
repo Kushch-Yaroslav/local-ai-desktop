@@ -1,4 +1,4 @@
-//! Small per-run working memory. This is a handoff list, not project knowledge.
+//! Small per-run working memory for continuity across agent steps.
 use super::deliverables::Deliverables;
 use super::plan::Plan;
 use super::verification::Verification;

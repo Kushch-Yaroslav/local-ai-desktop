@@ -179,7 +179,6 @@ pub enum Event {
         transcript_tokens_before: usize,
         summary_prompt_tokens: usize,
         runtime_tail_tokens: usize,
-        memory_catalog_tokens: usize,
         trigger_threshold_tokens: usize,
         safety_reserve_tokens: usize,
         compaction_target_tokens: usize,
@@ -212,19 +211,6 @@ pub enum Event {
         current_before_tokens: usize,
         new_turns: usize,
         new_tool_result_tokens: usize,
-    },
-    /// Project-local virtual-context cache diagnostics. Content is deliberately
-    /// excluded; this is for the context/debug surface only.
-    KnowledgeCache {
-        exists: bool,
-        manifest_version: Option<u32>,
-        total_files: usize,
-        approximate_bytes: u64,
-        knowledge_reads: usize,
-        knowledge_writes: usize,
-        cache_hits: usize,
-        stale_source_entries: usize,
-        bytes_injected: usize,
     },
     ApprovalRequired {
         id: String,

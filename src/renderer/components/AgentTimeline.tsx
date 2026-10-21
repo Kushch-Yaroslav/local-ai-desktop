@@ -64,12 +64,6 @@ export function toolResultSummary(activity: ToolActivity): string | undefined {
   if (checklist) return tr`проверено ${checklist.verified} из ${checklist.total}${checklist.implemented ? tr` · реализовано, не проверено ${checklist.implemented}` : ''}${checklist.open ? tr` · осталось ${checklist.open}` : ''}`;
   const plan = activity.detail === 'plan' ? planChecklist(activity.output) : undefined;
   if (plan) return tr`шагов выполнено ${plan.completed} из ${plan.total}`;
-  if (activity.detail === 'project_knowledge_read') {
-    try {
-      const entries = structuredEntries(JSON.parse(activity.output ?? ''));
-      if (entries) return tr`${entries.length} ${pluralRu(entries.length, t("запись"), t("записи"), t("записей"))} знаний${entries.length ? ` · ${entries.slice(0, 2).map(entryLine).join(', ')}` : ''}`;
-    } catch { /* Fall through to the event detail. */ }
-  }
   if (activity.kind === 'directory') {
     try { const entries = structuredEntries(JSON.parse(activity.output ?? '')); return entries ? `${entries.length} ${pluralRu(entries.length, t("элемент"), t("элемента"), t("элементов"))}` : activity.detail; } catch { return activity.detail; }
   }

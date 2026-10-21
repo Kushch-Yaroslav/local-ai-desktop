@@ -50,7 +50,6 @@ type RuntimeEvent = {
   continuation?: number; prior_chars?: number; next_max_tokens?: number; arguments?: Record<string, unknown>;
   command?: string; cwd?: string; pid?: number; pgid?: number; session_id?: number; started_at?: number;
   exists?: boolean; manifest_version?: number; total_files?: number; approximate_bytes?: number;
-  knowledge_reads?: number; knowledge_writes?: number; cache_hits?: number; stale_source_entries?: number; bytes_injected?: number;
 };
 type RuntimeRequest = {
   browser_qa?: boolean; type: 'run'; run_id: string; endpoint: string; model: string; system: string; ui_language?: 'ru' | 'en'; user: string; user_images?: string[]; user_image_refs?: string[]; web_tools?: unknown[];
@@ -430,8 +429,6 @@ export class RustAgentRuntime {
         } else if (event.type === 'compaction_diagnostics') {
           const metadata = Object.fromEntries(Object.entries(event).filter(([key, value]) => !['type', 'run_id'].includes(key) && ['number', 'string', 'boolean'].includes(typeof value))) as Record<string, string | number | boolean>;
           yield { type: 'tool', activity: { id: `context-${runId}-${compactions}`, label: 'Контекст сжат', kind: 'context', state: 'completed', metadata } };
-        } else if (event.type === 'knowledge_cache') {
-          yield { type: 'agent-telemetry', telemetry: { knowledgeCacheFiles: event.total_files, knowledgeCacheBytes: event.approximate_bytes, knowledgeCacheHits: event.cache_hits, knowledgeCacheStale: event.stale_source_entries, knowledgeCacheInjectedBytes: event.bytes_injected } };
         } else if (event.type === 'context_stats') {
           yield { type: 'context-usage', used: event.used ?? 0, maximum: event.limit ?? contextLimit };
           yield { type: 'agent-telemetry', telemetry: { contextUsed: event.used, contextLimit: event.limit ?? contextLimit } };
@@ -499,10 +496,10 @@ function activityLabel(name?: string): string {
   if (name?.startsWith('web_')) return activityForWebTool({ name, arguments: {} }).label;
   if (name === 'download_file') return 'Download file';
   if (name === 'create_visual_artifact') return 'Подготовка визуального ответа';
-  return ({ list_directory: 'Просмотр структуры проекта', read_file: 'Чтение файла', write_file: 'Изменение файла', replace_text: 'Изменение файла', create_file: 'Создание файла', apply_patch: 'Изменение проекта', delete_file: 'Удаление файла', run_terminal: 'Запуск terminal', task_memory: 'Task Memory', deliverables: 'Требуемый результат', plan: 'План выполнения', project_knowledge_index: 'Индекс знаний проекта', project_knowledge_read: 'Чтение знаний проекта', project_knowledge_update: 'Обновление знаний проекта' } as Record<string, string>)[name ?? ''] ?? 'Действие агента';
+  return ({ list_directory: 'Просмотр структуры проекта', read_file: 'Чтение файла', write_file: 'Изменение файла', replace_text: 'Изменение файла', create_file: 'Создание файла', apply_patch: 'Изменение проекта', delete_file: 'Удаление файла', run_terminal: 'Запуск terminal', task_memory: 'Task Memory', deliverables: 'Требуемый результат', plan: 'План выполнения' } as Record<string, string>)[name ?? ''] ?? 'Действие агента';
 }
 function activityKind(name?: string): NonNullable<import('../../shared/types').ToolActivity['kind']> {
-  return name?.startsWith('web_') ? 'web' : name === 'run_terminal' ? 'terminal' : name === 'deliverables' || name === 'plan' ? 'planning' : name === 'task_memory' || name === 'project_knowledge_read' || name === 'project_knowledge_index' ? 'file_read' : name === 'read_file' ? 'file_read' : name === 'list_directory' ? 'directory' : 'mutation';
+  return name?.startsWith('web_') ? 'web' : name === 'run_terminal' ? 'terminal' : name === 'deliverables' || name === 'plan' ? 'planning' : name === 'task_memory' ? 'file_read' : name === 'read_file' ? 'file_read' : name === 'list_directory' ? 'directory' : 'mutation';
 }
 function timestamp(value: number | undefined): string | undefined { return typeof value === 'number' && Number.isFinite(value) ? new Date(value).toISOString() : undefined; }
 function terminalResult(raw: string | undefined): TerminalExecution | undefined {

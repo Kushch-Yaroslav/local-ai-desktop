@@ -3,13 +3,13 @@ import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RustAgentRuntime } from './rust-agent-runtime';
+import { ReadonlyProjectTools } from '../tools/project-tools';
 import type { ChatMessage } from '../../shared/types';
 import { enabledAgentTools, explicitWorkspaceRoots, restoreHistoricalTaskScope, extractAbsolutePaths, isGrantablePath, maxWorkspaceRoots } from './agent-workspace';
 
 export async function runAgentWorkspaceRegression(): Promise<void> {
   // Tool exposure by mode and scope. Chat never gets Agent capabilities; Agent gets execution tools only with a scope.
   const execution = ['apply_patch', 'create_file', 'delete_file', 'list_directory', 'read_file', 'replace_text', 'run_terminal', 'write_file'];
-  const knowledge = ['project_knowledge_index', 'project_knowledge_read', 'project_knowledge_update'];
   const always = ['observation_index', 'observation_read', 'task_memory'];
   for (const scope of [{ hasProject: false, workspaceRootCount: 0 }, { hasProject: false, workspaceRootCount: 2 }, { hasProject: true, workspaceRootCount: 0 }]) {
     assert.deepEqual(enabledAgentTools('chat', scope, 'off'), [], 'Chat must not receive Agent tools');
@@ -17,8 +17,8 @@ export async function runAgentWorkspaceRegression(): Promise<void> {
   }
   assert(!enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 1 }, 'auto').includes('web_project'), 'project preview requires a selected project');
   assert.deepEqual(enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 0 }, 'off'), always, 'an unscoped Agent must not receive execution tools');
-  assert.deepEqual(enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 1 }, 'off'), [...execution, ...always].sort(), 'a named directory must unlock execution tools, not project knowledge');
-  assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), [...execution, ...knowledge, ...always].sort());
+  assert.deepEqual(enabledAgentTools('agent', { hasProject: false, workspaceRootCount: 1 }, 'off'), [...execution, ...always].sort(), 'a named directory unlocks only scoped project tools');
+  assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), [...execution, ...always].sort());
   assert.deepEqual(enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 3 }, 'auto'), [...enabledAgentTools('agent', { hasProject: true, workspaceRootCount: 0 }, 'off'), 'web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'web_project'].sort(), 'web mode exposes research and scoped project browser tools');
   // Switching Chat -> Agent -> Chat is stateless: the same inputs always give the same tools.
   const scope = { hasProject: true, workspaceRootCount: 0 };
@@ -36,6 +36,15 @@ export async function runAgentWorkspaceRegression(): Promise<void> {
 
   const base = await mkdtemp(join(tmpdir(), 'agent-workspace-'));
   try {
+    const legacyNamedDirectory = join(base, '.ai-framework');
+    await mkdir(legacyNamedDirectory);
+    await writeFile(join(legacyNamedDirectory, 'notes.md'), 'user-owned file');
+    const discoveredLegacyFile = await ReadonlyProjectTools.findResources(base, 'notes.md');
+    assert(discoveredLegacyFile.some((item) => item.relativePath === '.ai-framework/notes.md'), 'legacy-named folders remain ordinary project files');
+    const projectTools = await ReadonlyProjectTools.open(base, async () => ({ approved: false, reason: 'user_rejected' }));
+    const legacyFile = await projectTools.execute({ name: 'read_file', arguments: { path: '.ai-framework/notes.md' } }, new AbortController().signal, 'legacy-read');
+    assert.match(legacyFile, /user-owned file/);
+
     const scoped = { projects: [{id:'owned',root:base}], roots: [] };
     assert.deepEqual(await restoreHistoricalTaskScope(scoped,tmpdir()),scoped);
     await assert.rejects(restoreHistoricalTaskScope({projects:[{id:'bad',root:join(base,'missing')}],roots:[]},tmpdir()), /unavailable/);

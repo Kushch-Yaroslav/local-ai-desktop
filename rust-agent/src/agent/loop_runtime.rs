@@ -170,8 +170,8 @@ const AGENT_GUIDANCE: &str = r#"
 - In the final answer, answer the user's sections directly, distinguish facts from hypotheses, prioritize concrete effects over generic advice, state what remained unexamined, and avoid duplicate points or meta-progress narration. Refer to sources by file path (and line or quoted text), never by observation ID: IDs are internal to this run. Treat claims about how the code was produced conservatively; style alone is weak evidence.
 - For project archaeology with run_terminal, prefer one scoped read-only command such as git -C <project> log --oneline; avoid compound shell wrappers and unsafe pipelines that require approval.
 - Use git diff/show/log --no-ext-diff --no-textconv for diff inspection; configured external diff/text converters execute programs and require separate authorization.
-- Project Knowledge = reusable observations already derived from this project. Use relevant fresh knowledge before broad rereading; source remains authoritative when exact current code or an unresolved detail is needed. It is project-level; Task Memory is task-level.
-- After compaction: use the continuation brief, Task Memory, then relevant Project Knowledge; read source only for genuinely new or verification-specific information.
+- Task Memory = durable continuity for this task. Inspect current project files when source details are needed.
+- After compaction: use the continuation brief and Task Memory, then inspect project files only for genuinely new or verification-specific information.
 - Do not call tools merely because they are available. Stop naturally when the requested work is complete.
 "#;
 
@@ -589,7 +589,7 @@ fn stable_prefix(config: &Config) -> String {
         }
         ToolScope::Workspace => {
             prefix.push_str(&format!(
-                "\nNo project is selected. The user named these directories explicitly: {}. File tools accept absolute paths inside them, and a relative path resolves against the first one. run_terminal starts in the first one. Project knowledge tools are not available.",
+                "\nNo project is selected. The user named these directories explicitly: {}. File tools accept absolute paths inside them, and a relative path resolves against the first one. run_terminal starts in the first one.",
                 config.workspace_roots.join(", ")
             ));
         }
@@ -617,7 +617,7 @@ fn execution_process_context(config: &Config) -> String {
 
 fn dynamic_tail(
     state: &AgentState,
-    root: Option<&str>,
+    _root: Option<&str>,
     objective: &str,
     transcript: &Transcript,
     investigation: &str,
@@ -716,12 +716,6 @@ fn dynamic_tail(
             tail.push(strategy::checkpoint_text(state.calls_since_memory));
         }
     }
-    if !transcript.is_finalizing() && !user_requests_read_only(objective) {
-        let knowledge = crate::tools::knowledge::prompt_catalog(root);
-        if !knowledge.is_empty() {
-            tail.push(knowledge);
-        }
-    }
     tail.join("\n")
 }
 
@@ -765,45 +759,6 @@ fn contract_hint(state: &AgentState, user: &str) -> Option<String> {
 /// deliverables are still unfinished: the model otherwise has no way to know
 /// that it is spending the last turns on refinements of the first deliverable.
 
-fn emit_knowledge_diagnostics(config: &Config, state: &AgentState) {
-    if user_requests_read_only(&config.user) {
-        return;
-    }
-    let Some(root) = config.root.as_deref() else {
-        return;
-    };
-    let index = crate::tools::knowledge::index(&PathBuf::from(root)).ok();
-    let stats = index.as_ref().and_then(|value| value.get("stats"));
-    let injected = crate::tools::knowledge::prompt_catalog(Some(root));
-    emit(
-        &config.run_id,
-        Event::KnowledgeCache {
-            exists: index.is_some(),
-            manifest_version: index
-                .as_ref()
-                .and_then(|value| value.get("version"))
-                .and_then(Value::as_u64)
-                .map(|value| value as u32),
-            total_files: stats
-                .and_then(|value| value.get("totalFiles"))
-                .and_then(Value::as_u64)
-                .unwrap_or(0) as usize,
-            approximate_bytes: stats
-                .and_then(|value| value.get("approximateBytes"))
-                .and_then(Value::as_u64)
-                .unwrap_or(0),
-            knowledge_reads: state.knowledge_reads,
-            knowledge_writes: state.knowledge_writes,
-            cache_hits: state.knowledge_cache_hits,
-            stale_source_entries: stats
-                .and_then(|value| value.get("staleSourceEntries"))
-                .and_then(Value::as_u64)
-                .unwrap_or(0) as usize,
-            bytes_injected: injected.len(),
-        },
-    );
-}
-
 fn tool_schemas(scope: ToolScope) -> Vec<Value> {
     // Native tool grammars enumerate object-root properties, not union roots.
     // Action-specific requirements are enforced transactionally at dispatch.
@@ -821,25 +776,16 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
             json!({"type":"function","function":{"name":"delete_file","description":"Delete a project file when allowed.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}),
             json!({"type":"function","function":{"name":"list_directory","description":"List a project directory. complete=true means all directory entries are represented; false means internal runtime entries were omitted.","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}),
             json!({"type":"function","function":{"name":"read_file","description":"Read up to 64 KiB of a project file. A truncated result provides next_offset_chars; use that offset or a specific line range for more. An identical read of unchanged bytes and range is cached: reuse its obs- result or observation_read instead of repeating read_file.","parameters":{"type":"object","properties":{"path":{"type":"string"},"start_line":{"type":"integer","minimum":1},"end_line":{"type":"integer","minimum":1},"offset_chars":{"type":"integer","minimum":0}},"required":["path"]}}}),
-            json!({"type":"function","function":{"name":"project_knowledge_index","description":"Read the small .ai-framework manifest index and source freshness map. Use it before repeating broad project orientation.","parameters":{"type":"object","properties":{}}}}),
-            json!({"type":"function","function":{"name":"project_knowledge_read","description":"Read selected reusable observations from the private .ai-framework knowledge cache, not from the project filesystem. `paths` are relative to .ai-framework (for example project/overview.md); use this tool only for those paths. Use read_file for ordinary project source files. Prefer relevant fresh knowledge before broad rereads; do not reread unchanged source only to reconstruct context. Read source for exact current code or a concrete unresolved/verification detail.","parameters":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}}},"required":["paths"]}}}),
-            json!({"type":"function","function":{"name":"project_knowledge_update","description":"Optionally persist durable, reusable semantic project knowledge in the private .ai-framework cache, not in the project filesystem. This is never required for normal work. `path` values are relative to .ai-framework and use project/, modules/, sources/, or tasks/ markdown paths.","parameters":{"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"mode":{"type":"string","enum":["replace","merge"]}},"required":["path","content"]}},"source_paths":{"type":"array","items":{"type":"string"}}},"required":["updates"]}}}),
             json!({"type":"function","function":{"name":"run_terminal","description":"Run an isolated project command. Host process-management shell commands are forbidden in every autonomy mode. Start a development server in foreground with task_action=start; use the returned task_id with task_action=status/stop (command may be empty). A task is owned by this run and cleaned up when it ends. For an acceptance check, use one check per call (optional cd <project> && prefix); chains of checks or || are not evidence. Select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check. For a negative security check, use a scoped assertion script that exits 0 only when the expected denial is observed; a raw nonzero exit cannot verify a deliverable. Finish all source and report writes BEFORE final checks, then only update plan/deliverables metadata. Do not rewrite already-correct factual reports merely to update evidence IDs or dynamic test ports: changed reports stale prior checks.","parameters":{"type":"object","properties":{"task_action":{"type":"string","enum":["start","status","stop"]},"task_id":{"type":"string","description":"Opaque handle valid only in the current generation. After Stop, completion or restart every previous handle is expired and its task was cleaned up. Start a fresh task with task_action=start; never reuse a historical task_id or adopt a PID/port."},"command":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":["command"]}}}),
             json!({"type":"function","function":{"name":"replace_text","description":"For a small edit, replace exactly one literal snippet in an existing file after a fresh read. old_text and new_text are plain source strings, not patch syntax. Include enough exact text to identify one place. Empty, missing or repeated old_text and changes since the last read are refused; write is atomic. Prefer this for one-line edits; use apply_patch for multiple hunks.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}}),
             json!({"type":"function","function":{"name":"write_file","description":"Write the full content of a project file, replacing it. To change part of a file, prefer apply_patch.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}),
         ]);
     }
-    if scope == ToolScope::Workspace {
-        // The .ai-framework cache belongs to a selected project.
-        tools.retain(|tool| !tool_name(tool).starts_with("project_knowledge_"));
-    }
     tools.sort_by(|left, right| tool_name(left).cmp(tool_name(right)));
     tools
 }
 /// A constrained/read-only run does not advertise mutations and therefore
-/// cannot strand the model behind an approval-only capability. Task Memory and
-/// explicit knowledge reads remain available so analysis has a complete
-/// working contract.
+/// cannot strand the model behind an approval-only capability.
 fn tool_schemas_for_policy(scope: ToolScope, policy: RunPolicy) -> Vec<Value> {
     let mut tools = tool_schemas(scope);
     if policy == RunPolicy::Safe {
@@ -853,8 +799,6 @@ fn tool_schemas_for_policy(scope: ToolScope, policy: RunPolicy) -> Vec<Value> {
                     | "observation_read"
                     | "read_file"
                     | "list_directory"
-                    | "project_knowledge_index"
-                    | "project_knowledge_read"
             )
         });
     }
@@ -868,9 +812,6 @@ fn is_project_side_effect_tool(name: &str) -> bool {
             | "download_file"
             | "create_file"
             | "delete_file"
-            | "project_knowledge_index"
-            | "project_knowledge_read"
-            | "project_knowledge_update"
             | "write_file"
             | "replace_text"
     )
@@ -3593,13 +3534,6 @@ fn emit_compaction_diagnostics(
             transcript_tokens_before: report.before.transcript_history_tokens,
             summary_prompt_tokens: report.after.summary_tokens,
             runtime_tail_tokens: report.after.dynamic_tail_tokens,
-            memory_catalog_tokens: if user_requests_read_only(&config.user) {
-                0
-            } else {
-                estimate_tokens(&json!(crate::tools::knowledge::prompt_catalog(
-                    config.root.as_deref()
-                )))
-            },
             trigger_threshold_tokens: CompactionBudget { context_window: config.context_limit, ratio: DEFAULT_COMPACTION_RATIO, reserve_tokens: None }.trigger_tokens(),
             safety_reserve_tokens: SAFETY_RESERVE_TOKENS,
             compaction_target_tokens: compaction_target_tokens(config.context_limit),
@@ -3923,35 +3857,6 @@ fn request_shape(messages: &[Value]) -> Vec<String> {
         .collect()
 }
 
-/// Project 2 is a reference the user may only want to read. Passive knowledge
-/// caching writes into the project's `.ai-framework`, so it is limited to the
-/// primary project; an explicit `project_knowledge_update` stays the model's choice.
-fn targets_secondary_project(tool: &ValidatedCall) -> bool {
-    tool.arguments.get("project").and_then(Value::as_u64) == Some(2)
-}
-
-/// A reference project without a knowledge cache stays that way: the knowledge
-/// tools would otherwise create `.ai-framework` in it just to answer "nothing here".
-fn absent_reference_knowledge(config: &Config, tool: &ValidatedCall) -> Option<Value> {
-    if !targets_secondary_project(tool)
-        || !matches!(
-            tool.name.as_str(),
-            "project_knowledge_index" | "project_knowledge_read"
-        )
-    {
-        return None;
-    }
-    let root = config.root.as_deref()?;
-    if Path::new(root).join(".ai-framework").exists() {
-        return None;
-    }
-    Some(json!({
-        "exists": false,
-        "entries": [],
-        "message": "Project 2 has no knowledge cache and the runtime does not create one in a reference project. Read its files directly."
-    }))
-}
-
 fn scoped_tool_config(config: &Config, tool: &ValidatedCall) -> Result<Config, String> {
     let slot = match tool.arguments.get("project") {
         None => 1,
@@ -4045,9 +3950,6 @@ fn run_scoped_tool_authorized(
     let mut scoped = scoped_tool_config(config, tool)?;
     if authorized && !scoped.workspace_roots.iter().any(|root|root=="/"){scoped.workspace_roots.push("/".into());}
     let config = &scoped;
-    if let Some(absent) = absent_reference_knowledge(config, tool) {
-        return Ok((absent, None));
-    }
     if crate::tools::web::is_web_tool(&tool.name) {
         if !config.web_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Web tool is unavailable".into()); }
         let browser_args=if tool.name=="web_project" {Some(prepare_browser_contracts(state,&tool.arguments)?)}else{None};
@@ -4083,62 +3985,6 @@ fn run_scoped_tool_authorized(
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
     match tool.name.as_str() {
-        "project_knowledge_index" => {
-            let root = config
-                .root
-                .as_ref()
-                .ok_or_else(|| "no project scope".to_owned())?;
-            let value = crate::tools::knowledge::index(&PathBuf::from(root))?;
-            state.record_knowledge_read();
-            emit_knowledge_diagnostics(config, state);
-            Ok((value, None))
-        }
-        "project_knowledge_read" => {
-            let root = config
-                .root
-                .as_ref()
-                .ok_or_else(|| "no project scope".to_owned())?;
-            let revision = crate::tools::knowledge::revision(&PathBuf::from(root));
-            if let Some(path) = tool
-                .arguments
-                .get("paths")
-                .and_then(Value::as_array)
-                .and_then(|paths| paths.first())
-                .and_then(Value::as_str)
-            {
-                if state.knowledge_missing_paths.get(path) == Some(&revision) {
-                    return Ok((
-                        json!({"entries":[{"status":"missing","stillMissing":true,"path":path,"cacheRevision":revision,"message":"This knowledge document is still missing. Do not retry alternate path spellings; continue source research or wait for cache revision change."}]}),
-                        None,
-                    ));
-                }
-            }
-            let value = crate::tools::knowledge::read(&PathBuf::from(root), &tool.arguments)?;
-            if let Some(entries) = value.get("entries").and_then(Value::as_array) {
-                for entry in entries {
-                    if entry.get("status").and_then(Value::as_str) == Some("missing") {
-                        if let Some(path) = entry.get("path").and_then(Value::as_str) {
-                            state
-                                .knowledge_missing_paths
-                                .insert(path.to_owned(), revision);
-                        }
-                    }
-                }
-            }
-            state.record_knowledge_read();
-            emit_knowledge_diagnostics(config, state);
-            Ok((value, None))
-        }
-        "project_knowledge_update" => {
-            let root = config
-                .root
-                .as_ref()
-                .ok_or_else(|| "no project scope".to_owned())?;
-            let value = crate::tools::knowledge::update(&PathBuf::from(root), &tool.arguments)?;
-            state.record_knowledge_write();
-            emit_knowledge_diagnostics(config, state);
-            Ok((value, None))
-        }
         "deliverables" => {
             refresh_evidence_revisions(config,state);
             let mut arguments = tool.arguments.clone();
@@ -4449,22 +4295,6 @@ fn run_scoped_tool_authorized(
                 }
                 _ => {}
             }
-            if config.root.is_some()
-                && !targets_secondary_project(tool)
-                && matches!(name, "read_file" | "list_directory")
-                && !user_requests_read_only(&config.user)
-            {
-                let _ = crate::tools::knowledge::observe_tool(
-                    &PathBuf::from(root),
-                    &config.run_id,
-                    &config.user,
-                    None,
-                    None,
-                    name,
-                    &tool.arguments,
-                    &result.0,
-                );
-            }
             if mutation_tool(name) && !(matches!(name,"write_file"|"apply_patch") && result.0.get("unchanged").and_then(Value::as_bool)==Some(true)) {
                 state.record_mutation();
                 let changed = match name {
@@ -4582,7 +4412,7 @@ impl TurnBudget {
 fn safe_read_only_tool(name: &str) -> bool {
     matches!(
         name,
-        "read_file" | "list_directory" | "project_knowledge_index" | "project_knowledge_read"
+        "read_file" | "list_directory"
     )
 }
 
@@ -4656,28 +4486,10 @@ fn run_scoped_read_tool(
 ) -> Result<(Value, Option<String>), String> {
     let scoped = scoped_tool_config(config, tool)?;
     let config = &scoped;
-    if let Some(absent) = absent_reference_knowledge(config, tool) {
-        return Ok((absent, None));
-    }
     let root = config
         .work_root()
         .ok_or_else(|| "no project scope".to_owned())?;
     match tool.name.as_str() {
-        "project_knowledge_index" => {
-            let root = config
-                .root
-                .as_ref()
-                .ok_or_else(|| "no project scope".to_owned())?;
-            crate::tools::knowledge::index(&PathBuf::from(root)).map(|value| (value, None))
-        }
-        "project_knowledge_read" => {
-            let root = config
-                .root
-                .as_ref()
-                .ok_or_else(|| "no project scope".to_owned())?;
-            crate::tools::knowledge::read(&PathBuf::from(root), &tool.arguments)
-                .map(|value| (value, None))
-        }
         "read_file" | "list_directory" => {
             let grants = config.grants();
             crate::tools::filesystem::execute_in(
@@ -4697,39 +4509,12 @@ fn record_safe_read_effect(
     config: &Config,
     state: &mut AgentState,
     tool: &ValidatedCall,
-    value: &Value,
 ) {
     let Ok(scoped) = scoped_tool_config(config, tool) else {
         return;
     };
     let config = &scoped;
-    if absent_reference_knowledge(config, tool).is_some() {
-        return;
-    }
     match tool.name.as_str() {
-        "project_knowledge_index" | "project_knowledge_read" => {
-            if tool.name == "project_knowledge_read" {
-                if let Some(root) = config.root.as_deref() {
-                    let revision = crate::tools::knowledge::revision(&PathBuf::from(root));
-                    for entry in value
-                        .get("entries")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                    {
-                        if entry.get("status").and_then(Value::as_str) == Some("missing") {
-                            if let Some(path) = entry.get("path").and_then(Value::as_str) {
-                                state
-                                    .knowledge_missing_paths
-                                    .insert(path.to_owned(), revision);
-                            }
-                        }
-                    }
-                }
-            }
-            state.record_knowledge_read();
-            emit_knowledge_diagnostics(config, state);
-        }
         "read_file" | "list_directory" => {
             if tool.name == "read_file" {
                 if let (Some(root), Some(path)) = (
@@ -4747,21 +4532,6 @@ fn record_safe_read_effect(
                         state.work_budget.observe_file(path, &revision);
                         state.note_file_revision(file, revision);
                     }
-                }
-            }
-            if !user_requests_read_only(&config.user) && !targets_secondary_project(tool) {
-                if let Some(root) = config.root.as_deref() {
-                    let _ = crate::tools::knowledge::observe_tool(
-                        &PathBuf::from(root),
-                        &config.run_id,
-                        &config.user,
-                        None,
-                        None,
-                        &tool.name,
-                        &tool.arguments,
-                        value,
-                    );
-                    emit_knowledge_diagnostics(config, state);
                 }
             }
         }
@@ -5026,11 +4796,6 @@ pub fn run(mut config: Config) {
         qa["reasonCode"] = json!("EVIDENCE_STALE");
     }
     state.task_memory.deliverables.demote_verified();
-    if !user_requests_read_only(&config.user) {
-        if let Some(root) = config.root.as_deref() {
-            let _ = crate::tools::knowledge::bootstrap(&PathBuf::from(root));
-        }
-    }
     let budget = CompactionBudget {
         context_window: config.context_limit,
         ratio: DEFAULT_COMPACTION_RATIO,
@@ -5108,7 +4873,6 @@ pub fn run(mut config: Config) {
     if state.task_memory.browser_qa.is_some() || !state.task_memory.verification.is_empty() || !state.task_memory.deliverables.is_empty() {
         emit_task_memory(&config, &state);
     }
-    emit_knowledge_diagnostics(&config, &state);
     checkpoint_work_budget(&config, &state, &mut transcript);
     let mut applied_reasoning = None;
     for turn in 0_usize.. {
@@ -5998,7 +5762,7 @@ pub fn run(mut config: Config) {
                         Ok((value, diff)) => {
                             clear_edit_failures_after_read(&mut state, tool);
                     clear_browser_failures_after_recovery(&mut state,tool,&value);
-                            record_safe_read_effect(&config, &mut state, tool, &value);
+                            record_safe_read_effect(&config, &mut state, tool);
                             observe_loop(&config,&mut state,&mut transcript,tool,&value,false);
                             let content = value.to_string();
                             budget.spend(content.chars().count());
@@ -7313,12 +7077,13 @@ mod tests {
             "read_file",
             "list_directory",
             "run_terminal",
-            "project_knowledge_index",
-            "project_knowledge_read",
-            "project_knowledge_update",
         ] {
             assert!(names.contains(&name), "{name}");
         }
+        assert!(
+            !names.iter().any(|name| name.starts_with("project_knowledge_")),
+            "legacy project knowledge tools must not be advertised"
+        );
         // The runtime does not offer ceremonies for certifying evidence or
         // requesting a lifecycle transition; completing is simply answering.
         for name in ["evidence_record", "evidence_frontier", "begin_finalization"] {
@@ -7485,9 +7250,6 @@ mod tests {
                 "apply_patch",
                 "create_file",
                 "delete_file",
-                "project_knowledge_index",
-                "project_knowledge_read",
-                "project_knowledge_update",
                 "write_file",
             ] {
                 assert!(!names.contains(&name), "{prompt}: {name}");
@@ -7522,62 +7284,6 @@ mod tests {
         for name in ["write_file","create_file","replace_text","apply_patch","delete_file"] {
             assert!(!names.contains(&name),"{name}");
         }
-    }
-
-    #[test]
-    fn explicit_read_only_source_inspection_does_not_write_project_knowledge() {
-        let root = std::env::temp_dir().join(format!(
-            "local-ai-read-only-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(root.join("src")).unwrap();
-        std::fs::create_dir_all(root.join(".ai-framework")).unwrap();
-        std::fs::write(root.join("src/App.tsx"), "export const app = true;\n").unwrap();
-        let manifest = root.join(".ai-framework/manifest.json");
-        std::fs::write(&manifest, "preserve invalid metadata verbatim").unwrap();
-
-        let mut config = test_config(65_536);
-        config.root = Some(root.to_string_lossy().into_owned());
-        config.user = "Не изменяй файлы.".into();
-        config.policy = RunPolicy::Auto;
-        let mut state = AgentState::default();
-        let tail = dynamic_tail(
-            &state,
-            config.root.as_deref(),
-            &config.user,
-            &Transcript::default(),
-            "",
-        );
-        assert!(!tail.contains("<project_knowledge_catalog>"));
-        for (id, name, arguments) in [
-            ("read-source", "read_file", json!({"path":"src/App.tsx"})),
-            ("list-source", "list_directory", json!({"path":"src"})),
-        ] {
-            let call = ValidatedCall {
-                id: id.into(),
-                name: name.into(),
-                arguments,
-            };
-            let (value, _) = run_tool(&config, &mut state, &call, &Transcript::default(), false).unwrap();
-            record_safe_read_effect(&config, &mut state, &call, &value);
-        }
-        emit_knowledge_diagnostics(&config, &state);
-
-        assert_eq!(
-            std::fs::read_to_string(&manifest).unwrap(),
-            "preserve invalid metadata verbatim"
-        );
-        assert_eq!(
-            std::fs::read_dir(root.join(".ai-framework"))
-                .unwrap()
-                .count(),
-            1
-        );
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -8474,71 +8180,11 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_tail_contains_memory_and_knowledge_without_plan_state() {
+    fn dynamic_tail_contains_task_memory_without_plan_state() {
         let state = AgentState::default();
         let tail = dynamic_tail(&state, None, "", &Transcript::default(), "");
         assert!(!tail.to_ascii_lowercase().contains("todo"));
         assert!(!tail.contains("model_todo"));
-    }
-
-    #[test]
-    fn project_context_distinguishes_knowledge_paths_from_source_files() {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let root = std::env::temp_dir().join(format!("project-context-paths-{nonce}"));
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(root.join("index.html"), "<main>NEXUS</main>").unwrap();
-        std::fs::write(root.join("package.json"), "{}\n").unwrap();
-        std::fs::write(root.join("check.mjs"), "console.log('check')\n").unwrap();
-        let root_text = root.to_string_lossy().into_owned();
-        let state = AgentState::default();
-        let initial = dynamic_tail(
-            &state,
-            Some(&root_text),
-            "Расскажи об этом проекте",
-            &Transcript::default(),
-            "",
-        );
-        assert!(initial.contains("relative to the private `.ai-framework/` knowledge cache"));
-        assert!(!initial.contains("project/overview.md"));
-        assert!(!initial.contains("tasks/643f2aa9-9110-4df3-8c75-8a66ad6b0804.md"));
-
-        crate::tools::knowledge::observe_tool(
-            &root,
-            "643f2aa9-9110-4df3-8c75-8a66ad6b0804",
-            "Inspect the current project",
-            None,
-            None,
-            "read_file",
-            &json!({"path":"index.html"}),
-            &json!({"path":"index.html", "content":"<main>NEXUS</main>"}),
-        )
-        .unwrap();
-        let populated = dynamic_tail(
-            &state,
-            Some(&root_text),
-            "Расскажи об этом проекте",
-            &Transcript::default(),
-            "",
-        );
-        assert!(populated.contains("project/overview.md"));
-        assert!(populated.contains("tasks/643f2aa9-9110-4df3-8c75-8a66ad6b0804.md"));
-        assert!(populated.contains("Read them only with `project_knowledge_read`"));
-
-        let schemas = tool_schemas(ToolScope::Project);
-        for name in ["project_knowledge_read", "project_knowledge_update"] {
-            let description = schemas
-                .iter()
-                .find(|schema| tool_name(schema) == name)
-                .and_then(|schema| schema.pointer("/function/description"))
-                .and_then(Value::as_str)
-                .unwrap();
-            assert!(description.contains("not from the project filesystem") || description.contains("not in the project filesystem"));
-            assert!(description.contains(".ai-framework"));
-        }
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

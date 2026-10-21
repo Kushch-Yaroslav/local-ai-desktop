@@ -87,7 +87,6 @@ export async function restoreHistoricalTaskScope(scope: { projects: Array<{id:st
 }
 
 const executionTools = ['apply_patch', 'create_file', 'delete_file', 'list_directory', 'read_file', 'replace_text', 'run_terminal', 'write_file'];
-const knowledgeTools = ['project_knowledge_index', 'project_knowledge_read', 'project_knowledge_update'];
 const alwaysAvailableAgentTools = ['observation_index', 'observation_read', 'task_memory'];
 
 /**
@@ -98,6 +97,6 @@ const alwaysAvailableAgentTools = ['observation_index', 'observation_read', 'tas
  */
 export function enabledAgentTools(mode: 'chat' | 'agent', scope: { hasProject: boolean; workspaceRootCount: number }, webMode: 'off' | 'auto'): string[] {
   if (mode !== 'agent') return webMode === 'auto' ? ['web'] : [];
-  const scoped = scope.hasProject ? [...executionTools, ...knowledgeTools] : scope.workspaceRootCount > 0 ? executionTools : [];
+  const scoped = scope.hasProject || scope.workspaceRootCount > 0 ? executionTools : [];
   return [...scoped, ...alwaysAvailableAgentTools, ...(webMode === 'auto' && scope.hasProject ? ['web_project'] : []), ...(webMode === 'auto' ? ['web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back'] : [])].sort();
 }

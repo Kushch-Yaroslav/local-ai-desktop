@@ -36,10 +36,12 @@ export function runRustAgentRuntimeRegression(): void {
   assert.equal(plan.activeMilestoneId, 'goal-1');
   assert.equal(plan.milestones?.[0]?.id, 'goal-1');
   assert.equal(plan.milestones?.[0]?.workPlan.tasks[1]?.id, 'work-2');
-  const knowledgeActivity = { id: 'knowledge', label: 'Project knowledge', detail: 'project_knowledge_read', kind: 'file_read' as const, state: 'completed' as const, output: JSON.stringify({ entries: [{ status: 'ok', path: 'sources/App.tsx', content: 'large cached body' }, { status: 'missing', path: 'tasks/audit.md', message: 'not materialized' }] }) };
-  assert.equal(displayToolResult(knowledgeActivity), 'sources/App.tsx\ntasks/audit.md · missing · not materialized', 'structured knowledge entries must not render as object coercions or cached bodies');
-  assert.match(toolResultSummary(knowledgeActivity) ?? '', /^2 записи знаний/);
-  const partialTerminal = { ...knowledgeActivity, kind: 'terminal' as const, output: JSON.stringify({ command: 'rg api src | head -n 1', exit_code: 141, status: 'partial_success', stdout: 'src/App.tsx:1: api' }) };
+  // Historical SQLite messages may still contain a removed tool call; generic
+  // timeline rendering must remain safe without reactivating its semantics.
+  const legacyToolActivity = { id: 'legacy', label: 'Действие агента', detail: 'project_knowledge_read', kind: 'file_read' as const, state: 'completed' as const, output: JSON.stringify({ entries: [{ path: 'sources/App.tsx' }] }) };
+  assert.doesNotThrow(() => displayToolResult(legacyToolActivity));
+  assert.equal(toolResultSummary(legacyToolActivity), 'project_knowledge_read');
+  const partialTerminal = { ...legacyToolActivity, kind: 'terminal' as const, output: JSON.stringify({ command: 'rg api src | head -n 1', exit_code: 141, status: 'partial_success', stdout: 'src/App.tsx:1: api' }) };
   assert.match(displayToolResult(partialTerminal) ?? '', /частичный результат поиска/);
   const deliverables = { id: 'd', label: 'Требуемый результат', detail: 'deliverables', kind: 'planning' as const, state: 'completed' as const, output: JSON.stringify({ updated: true, deliverables: { items: [
     { id: 'd-001', text: 'режим «с ботом» выбирается в интерфейсе', status: 'verified', task: 'бот', proof: ['ev-002'] },

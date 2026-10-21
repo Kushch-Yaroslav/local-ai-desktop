@@ -105,7 +105,6 @@ impl Permissions {
                 | "delete_file"
                 | "apply_patch"
                 | "download_file"
-                | "project_knowledge_update"
         );
         if file_tool {
             let Some(root) = root else {

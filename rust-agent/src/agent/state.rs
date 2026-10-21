@@ -77,11 +77,6 @@ pub struct AgentState {
     /// tool loop instead of redoing work with the same known-bad input.
     pub failed_tool_calls: BTreeMap<String, usize>,
     pub verify_failures: BTreeMap<String, usize>,
-    /// Observability for optional `.ai-framework` virtual context access.
-    pub knowledge_reads: usize,
-    pub knowledge_writes: usize,
-    pub knowledge_cache_hits: usize,
-    pub knowledge_missing_paths: BTreeMap<String, u64>,
     /// Graceful pause lifecycle (`None` while the run is simply running).
     pub pause: Option<PauseState>,
     /// A steering message was applied this turn, so the model may classify it
@@ -139,14 +134,6 @@ impl AgentState {
         }
     }
 
-    pub fn record_knowledge_read(&mut self) {
-        self.knowledge_reads = self.knowledge_reads.saturating_add(1);
-        self.knowledge_cache_hits = self.knowledge_cache_hits.saturating_add(1);
-    }
-
-    pub fn record_knowledge_write(&mut self) {
-        self.knowledge_writes = self.knowledge_writes.saturating_add(1);
-    }
 }
 
 #[cfg(test)]

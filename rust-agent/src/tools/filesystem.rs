@@ -201,16 +201,8 @@ fn is_runtime_temporary(root: &Path, target: &Path) -> bool {
             && components.first() == Some(&".tmp"))
 }
 
-/// `.ai-framework` is accessed only through the dedicated knowledge tools.
-/// Treating it as application source would make broad repository traversal
-/// recursively audit the cache itself.
-fn is_knowledge_cache(root: &Path, target: &Path) -> bool {
-    if target.components().any(|part| part.as_os_str() == ".local-ai-backups") { return true; }
-    target
-        .strip_prefix(root)
-        .ok()
-        .and_then(|relative| relative.components().next())
-        .is_some_and(|component| component.as_os_str() == ".ai-framework")
+fn is_project_backup(target: &Path) -> bool {
+    target.components().any(|part| part.as_os_str() == ".local-ai-backups")
 }
 /// SHA-256 of a file's current bytes, with its resolved path, or `None` when it
 /// is not a readable file inside the scope. Used to notice that a file changed
@@ -311,7 +303,7 @@ pub fn execute_in(
     match name {
         "list_directory" => {
             let target = scoped(scope, path)?;
-            if is_runtime_temporary(root, &target) || is_knowledge_cache(root, &target) {
+            if is_runtime_temporary(root, &target) || is_project_backup(&target) {
                 return Err(
                     "internal runtime/cache files are excluded from project discovery".to_owned(),
                 );
@@ -321,7 +313,7 @@ pub fn execute_in(
             for entry in fs::read_dir(target).map_err(|e| e.to_string())? {
                 let entry = entry.map_err(|e| e.to_string())?;
                 if is_runtime_temporary(root, &entry.path())
-                    || is_knowledge_cache(root, &entry.path())
+                    || is_project_backup(&entry.path())
                 {
                     complete = false;
                     continue;
@@ -333,7 +325,7 @@ pub fn execute_in(
         }
         "read_file" => {
             let target = scoped(scope, path)?;
-            if is_runtime_temporary(root, &target) || is_knowledge_cache(root, &target) {
+            if is_runtime_temporary(root, &target) || is_project_backup(&target) {
                 return Err(
                     "internal runtime/cache files are excluded from project discovery".to_owned(),
                 );
