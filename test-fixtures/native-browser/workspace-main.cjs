@@ -7,7 +7,8 @@ if(process.env.LOCAL_AI_TEST_SOFTWARE==='1')app.disableHardwareAcceleration();
 app.whenReady().then(async()=>{
  const root=process.env.LOCAL_AI_RUNTIME_ROOT;
  const originalFetch=global.fetch;
- const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true);
+ const fixtureModel=process.env.LOCAL_AI_TEST_MODEL_ID??'qwen3.8:27b-q4_K_M';
+ const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true,fixtureModel);
  ipcMain.handle('settings:setLanguage',(_event,language)=>{
   if(!['en','ru'].includes(language))throw new Error('Invalid language');
   require(resolve('dist/main/services/runtime-settings.js')).saveLanguage(language);
