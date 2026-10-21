@@ -151,3 +151,7 @@ PNG RGB/RGBA декодируется с ограничением размера
 Недоступный preview server и `ERR_FAILED` не равны user-close. Watchers прекращаются при закрытии Page/transport; ошибка финального refresh больше не уничтожает живую сессию. После восстановления сервера явно откройте утверждённый URL. Идентичные ошибки без изменения состояния по-прежнему блокируются anti-loop; подтверждённое пересоздание Page освобождает только browser-failure записи того же project slot. QA evidence/anti-loop не сбрасываются простым reopen.
 
 Адресная проверка: `npm run test:browser-session`. Native/Rust E2E использует scripted provider и не является настоящим Qwen/Vision inference.
+
+## Независимость Browser Tools и Vision
+
+Переключатель **Vision** в параметрах модели активного чата управляет только мультимодальным inference. Все `responsive.vision` / `visual_layout.vision` запросы выполняются в пределах этого разрешения: локальный `on` не обходит Vision Off. При Off/Unsupported screenshots, DOM, functional QA и pixel diagnostics сохраняются, а `visual.analyzed` остаётся false. Auto использует scoped visual criteria/targeted candidates; обычный `screenshot` не вызывает анализ без `analyze:true`. On не создаёт screenshots автоматически. Не подтверждайте визуальное требование по одному capture или общему успешному browser open. Evidence route/viewport/DPR, freshness и Verification Gate не менялись.

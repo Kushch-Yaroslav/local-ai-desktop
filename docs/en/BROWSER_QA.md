@@ -150,3 +150,7 @@ After technical Page/CDP loss, an explicit `open` can recreate the Page once per
 A stopped preview server/`ERR_FAILED` is not user-close. Watchers stop on Page/transport closure; a failed final refresh no longer destroys an otherwise live session. Explicitly reopen the approved URL after server recovery. Identical unchanged failures remain blocked; a confirmed Page recreation releases only browser-failure records for that project slot. Reopen does not reset QA evidence or its anti-loop guard.
 
 Focused checks: `npm run test:browser-session`. The Native/Rust E2E uses a scripted provider, not real Qwen/Vision inference.
+
+## Independent Browser Tools and Vision
+
+The chat model **Vision** control governs multimodal inference only. All `responsive.vision` / `visual_layout.vision` requests remain subject to it: a local `on` cannot bypass Vision Off. With Off/Unsupported, screenshots, DOM, functional QA and pixel diagnostics remain available; `visual.analyzed` stays false. Auto uses scoped visual criteria/targeted candidates; a plain `screenshot` does not request inference without `analyze:true`. On never creates screenshots automatically. A single capture or generic successful browser open does not verify a visual requirement. Evidence route/viewport/DPR, freshness and Verification Gate are unchanged.

@@ -102,3 +102,21 @@ Unmounted disks retain their profiles and paths. Availability is checked on wind
 Click the same profile header again to collapse it, or another header to switch editors. Enter/Space also work. Draft values survive collapse, profile switching and Simple/Advanced changes within the open form. Only explicit Save writes them to disk; closing the settings window does not save drafts.
 
 Reading legacy settings never writes a migration. The first explicit legacy save preserves its original input as `runtime-settings.json.pre-v2.bak`; valid v2 profiles are never reseeded. To roll back, fully close the application and restore that backup. Rebuilds and updates retain the data directory; a separate `LOCAL_AI_RUNTIME_ROOT` intentionally creates an independent environment.
+
+## Vision and MTP: capability, preference and active backend
+
+Expanded chat **Parameters** contains one **Vision: Auto / On / Off** control beside the model, MTP and context. It covers chat image attachments, browser screenshots and QA crops. Browser Tools, DOM, Live Browser, functional QA and deterministic Responsive/Visual Layout diagnostics do not require a multimodal model. Project scope, origin restrictions and browser permissions remain independent.
+
+- **Auto:** sends images when needed: a current attachment/explicit prior-image reference, a scoped visual criterion or targeted diagnostic. A plain screenshot is retained without inference; explicitly request assessment with `web_project` `action:"screenshot", analyze:true`.
+- **On:** permits requested analysis through the existing pipeline; it does not start continuous capture.
+- **Off:** sends no multimodal image payloads. Attachments remain in history. Screenshot capture, DOM and pixel diagnostics still work and do not constitute model image analysis.
+
+Projector inspection checks file availability, image encoder, recognized layout, architecture pairing and output dimension. The backend must advertise `--mmproj`. Unrecognized layouts remain Unknown. Embedded visual tensors alone cannot prove an available backend path; actual initialized multimodal backend evidence can confirm embedded Vision without an external projector. Static compatibility does not imply a loaded model: active capability comes from the selected live backend's `/v1/models` declaration.
+
+MTP separately checks real NextN tensors, architecture/layout and, for external drafts, tokenizer and dimension compatibility. Metadata without a real MTP head is insufficient. External graph/layout validation is currently limited to the supported Qwen integration; an arbitrary speculative model is not an MTP-only sidecar. Backend CLI checks and launch-time file/SHA-256 verification remain required. MTP Off does not use a missing draft; embedded MTP does not need a sidecar.
+
+Disabled controls explain their reason in help. Unknown is uncertainty, not proven incompatibility; Auto/Off may be stored while On requires confirmed compatibility. Detection, backend verification and active state are distinct. MTP counters appear only when actual metrics exist.
+
+Nullable chat preferences are added to SQLite without rewriting existing rows or JSON profiles. Legacy `browserVision` remains the fallback for chats without a choice; profile MTP remains the model default. Legacy Vision Off safely disables every image payload, including attachments that previously bypassed that switch.
+
+Changing Vision neither restarts the backend nor edits a projector/profile. MTP retains the confirmed reload transaction and persists its preference after successful application. Choosing an incompatible model retains the chat preference but does not launch unsupported MTP On. If a supported requested MTP mode differs from the live backend, UI shows pending/reload and generation requires applying it first. Other chats retain their preferences.
