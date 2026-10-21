@@ -17,8 +17,9 @@ function fixture(name: string, architecture='qwen35', heads=1, tensors=true, pay
 function externalFixture(name:string,draft:boolean,token='same'){
  const architecture='qwen3next',fields:Array<[string,string|number|string[]]>=[['general.architecture',architecture],[`${architecture}.context_length`,65536],[`${architecture}.embedding_length`,4],['tokenizer.ggml.model','gpt2'],['tokenizer.ggml.tokens',['a','b']],['tokenizer.ggml.merges',['a b']],['tokenizer.ggml.bos_token_id',1],['tokenizer.ggml.add_bos_token',1],...(draft?[[`${architecture}.nextn_predict_layers`,1]] as Array<[string,number]>:[])];
  if(token!=='same')fields[fields.findIndex(([key])=>key==='tokenizer.ggml.model')][1]=token;
- const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(fields.length),...fields.flatMap(([key,value])=>[text(key),typeof value==='string'?Buffer.concat([u32(8),text(value)]):typeof value==='number'?Buffer.concat([u32(4),u32(value)]):Buffer.concat([u32(9),u32(8),u64(value.length),...value.map(text)])])]);
- const path=join(root,name);writeFileSync(path,header);return path;
+ const tensors:Array<[string,number[],number]>=draft?[['blk.48.nextn.eh_proj.weight',[8,4],0],['blk.48.nextn.enorm.weight',[4],128],['blk.48.nextn.hnorm.weight',[4],160]]:[];
+ const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(tensors.length),u64(fields.length),...fields.flatMap(([key,value])=>[text(key),typeof value==='string'?Buffer.concat([u32(8),text(value)]):typeof value==='number'?Buffer.concat([u32(4),u32(value)]):Buffer.concat([u32(9),u32(8),u64(value.length),...value.map(text)])]),...tensors.flatMap(([key,shape,offset])=>[text(key),u32(shape.length),...shape.map(u64),u32(0),u64(offset)])]);
+ const path=join(root,name);writeFileSync(path,Buffer.concat([header,Buffer.alloc((32-header.length%32)%32),Buffer.alloc(draft?176:0)]));return path;
 }
 async function run(){try{
   const valid=fixture('valid.gguf'), metadataOnly=fixture('metadata.gguf','qwen35',1,false), truncated=fixture('truncated.gguf','qwen35',1,true,false);

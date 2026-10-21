@@ -31,17 +31,22 @@ export function externalMtpCompatibility(targetPath:string,draftPath:string):Mtp
  try{
   const target=readGgufSpeculativeMetadata(targetPath),draft=readGgufSpeculativeMetadata(draftPath);
   const architecture=String(target.values['general.architecture']??''),draftArchitecture=String(draft.values['general.architecture']??'');
+  if(!['qwen3next','qwen35','qwen35moe'].includes(architecture))return {supported:false,state:'unknown',status:'unsupported',architecture,reason:'External MTP graph/layout is not validated for this architecture.'};
   const targetEmbedding=Number(target.values[`${architecture}.embedding_length`]),draftOutput=Number(draft.values[`${draftArchitecture}.embedding_length_out`]??(Number(draft.values[`${draftArchitecture}.nextn_predict_layers`])>0?draft.values[`${draftArchitecture}.embedding_length`]:undefined));
   const draftContext=Number(draft.values[`${draftArchitecture}.context_length`]),targetContext=Number(target.values[`${architecture}.context_length`]);
   const heads=Number(draft.values[`${draftArchitecture}.nextn_predict_layers`]??0);
   if(!architecture||draftArchitecture!==architecture||!(targetEmbedding>0)||draftOutput!==targetEmbedding||!(heads>0)||!(draftContext>=targetContext))
-   return {supported:false,status:'unsupported',architecture: draftArchitecture||architecture,heads,reason:'MTP Draft не подтверждает совпадение архитектуры, embedding, nextn head и контекста с основной GGUF.'};
+   return {supported:false,state:'misconfigured',status:'unsupported',architecture: draftArchitecture||architecture,heads,reason:'MTP Draft не подтверждает совпадение архитектуры, embedding, nextn head и контекста с основной GGUF.'};
+  const tensors=draft.tensors??{}, head=Object.keys(tensors).find(key=>/^blk\.\d+\.nextn\.eh_proj\.weight$/.test(key));
+  const prefix=head?.replace('eh_proj.weight','');
+  if(!head||tensors[head][0]!==targetEmbedding*2||tensors[head][1]!==targetEmbedding||!prefix||!['enorm.weight','hnorm.weight'].every(name=>tensors[prefix+name]?.[0]===targetEmbedding))
+   return {supported:false,state:'misconfigured',status:'unsupported',architecture,heads,reason:'External MTP head tensor layout is missing or incompatible; metadata alone does not prove MTP weights.'};
   for(const key of ['model','tokens','merges','bos_token_id','add_bos_token']){
    const field=`tokenizer.ggml.${key}`;
-   if(!target.tokenizer[field]||target.tokenizer[field]!==draft.tokenizer[field])return {supported:false,status:'unsupported',architecture,heads,reason:`Несовместимый tokenizer MTP Draft: ${field}.`};
+   if(!target.tokenizer[field]||target.tokenizer[field]!==draft.tokenizer[field])return {supported:false,state:'misconfigured',status:'unsupported',architecture,heads,reason:`Несовместимый tokenizer MTP Draft: ${field}.`};
   }
   return {supported:true,status:'available',architecture,heads,reason:'External MTP-only GGUF matches model architecture, dimensions, context and tokenizer. Backend initialization is still required to confirm activation.'};
- }catch(error){return {supported:false,status:'error',reason:`Cannot inspect external MTP Draft: ${error instanceof Error?error.message:String(error)}`};}
+ }catch(error){return {supported:false,state:'misconfigured',status:'error',reason:`Cannot inspect external MTP Draft: ${error instanceof Error?error.message:String(error)}`};}
 }
 export async function prepareExternalMtpDraft(targetPath:string,draftPath:string,maxDraftTokens=2):Promise<{path:string;maxDraftTokens:number;sizeBytes:number;sha256:string}>{
  if(!Number.isInteger(maxDraftTokens)||maxDraftTokens<1||maxDraftTokens>16)throw new Error('MTP n-max must be an integer from 1 to 16.');

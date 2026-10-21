@@ -1,3 +1,4 @@
+import type { VisionQuestion } from '../../shared/model-features';
 import { visualFrame, summarizeVisual } from './visual-layout-qa';
 import { qaHash } from './qa-loop-guard';
 import { randomUUID } from 'node:crypto';
@@ -15,11 +16,11 @@ export interface ScenarioQaOptions {
   responsive?: ResponsiveOptions;
   errors(): string[]; capture(cdp?:QaCdp): Promise<BrowserCapture>;
   navigate?(target: string): Promise<{ authRequired?: boolean }>;
-  analyze?: (capture: BrowserCapture, before?: BrowserCapture, scenario?: { goal: string; temporal: boolean }) => Promise<BrowserVisualResult>;
+  analyze?: (capture: BrowserCapture, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>;
   status?(status: BrowserQaStatus): void;
 }
 class QaBlocked extends Error { constructor(readonly code: 'PRECONDITION_FAILED' | 'UNSUPPORTED_OPERATION' | 'AUTH_REQUIRED' | 'INCONCLUSIVE', message: string) { super(message); } }
-const emptyVisual = (): BrowserVisualResult => ({ analyzed:false,status:'Not Verified',reason:'Browser Vision Off or unavailable; functional evidence only' });
+const emptyVisual = (): BrowserVisualResult => ({ analyzed:false,status:'Not Verified',reason:'Vision Off or unavailable; functional evidence only' });
 const check = (action:string,expected:string,actual:string,status:BrowserQaCheck['status']): BrowserQaCheck => ({action,expected,actual,status});
 const aggregate = (checks:BrowserQaCheck[]): BrowserQaCheck['status'] => checks.some(c=>c.status==='Failed')?'Failed':checks.some(c=>c.status==='Blocked')?'Blocked':checks.length&&checks.every(c=>c.status==='Verified')?'Verified':'Not Verified';
 const matches = (a:QaAssertion, before:unknown, after:unknown) => {
@@ -243,7 +244,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
     checks.push(check('exposed numeric diagnostics','No NaN/Infinity in exposed diagnostics',state.diagnosticInvalid.join(', ')||'None observed',state.diagnosticInvalid.length?'Failed':'Verified'));
     checks.push(check('runtime errors','No observed uncaught errors/console errors/rejections',errors.join('\n')||'None observed',errors.length?'Failed':'Verified'));
     if(results.some(r=>r.viewport)&&!results.some(r=>r.visual))visual={analyzed:false,status:'Not Verified',reason:'Scoped DOM/pixel measurements only; no model image analysis was performed.'};
-    if(options.analyze&&!results.some(r=>r.visual)&&!results.some(r=>r.viewport)){notify({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false});}
+    if(options.analyze&&!results.some(r=>r.visual)&&!results.some(r=>r.viewport)){notify({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false,purpose:'passive'});}
     const result=report(results.length?undefined:'Passive runtime smoke only. Declare scenarios and acceptance criteria to verify application behaviour.',errors.length||state.diagnosticInvalid.length?'FUNCTIONAL_REQUIREMENT_FAILED':(results.find(r=>r.status==='Failed')??results.find(r=>r.reasonCode))?.reasonCode);result.errors=errors;
     if(probes.length)result.reason=`Responsive geometry probes (not CSS breakpoint inference): ${probes.map(p=>`${p.width}px ${p.failed?'defect reproduced':'bounds passed'}`).join('; ')}. Narrowest observed pass/fail bracket is bounded by these observations only.`;
     notify({phase:'complete',report:result});return result;

@@ -1,3 +1,4 @@
+import type { VisionQuestion } from '../../shared/model-features';
 import { loadRuntimeConfiguration } from './runtime-settings';
 import { BrowserVisionProvider } from './browser-vision';
 import type { BrowserQaStatus } from '../../shared/browser-qa';
@@ -168,7 +169,7 @@ export class RustAgentRuntime {
     return send(content, intent).then(() => { if (intent !== 'pause') this.activeQaGuards.get(runId)?.rearm(); });
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     protectedRuntime.endpoint(this.endpoint);
@@ -211,7 +212,8 @@ export class RustAgentRuntime {
     // independently of the async generator's awaited host operation.
     const qaPause = new AbortController();
     const browserConfig = loadRuntimeConfiguration();
-    const vision = browserConfig.browserVision && browserConfig.browserVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model) : undefined;
+    const effectiveVision = visionMode ?? browserConfig.browserVision ?? 'off';
+    const vision = effectiveVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model, effectiveVision) : undefined;
     const qaKey = JSON.stringify([browserObserver?.ownerId, conversationId, logicalTaskId, projects.map(project => project.root)]);
     const guard = this.qaGuards.get(qaKey) ?? new QaLoopGuard();
     // Only an explicit user run/continuation resets QA observations, never a browser reopen.
@@ -219,7 +221,7 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: browserConfig.browserVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: {goal:string;temporal:boolean}) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const qaOptions = { runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;

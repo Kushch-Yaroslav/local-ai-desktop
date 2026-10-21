@@ -82,7 +82,7 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
   const runtimeConfig=effectiveRuntimeConfiguration(),configured=runtimeConfig.models.find(model=>model.id===profile.id);
   const snapshot=configured?{...configured,gpuLayers:profile.gpuLayers??runtimeConfig.gpuLayers,mtpMode:profile.mtpMode??configured.mtpMode,projectorDevice:profile.projectorDevice??configured.projectorDevice}:null;
   const values = {
-    PROFILE_VISION_REQUIRED: effectiveRuntimeConfiguration().browserVision==='on'?'1':'0', PROFILE_FINGERPRINT: runtimeProfileFingerprint(profile.id), PROFILE_MODEL_CONFIG: Buffer.from(JSON.stringify(snapshot)).toString('base64'),
+    PROFILE_VISION_REQUIRED: mmproj ? '1' : '0', PROFILE_FINGERPRINT: runtimeProfileFingerprint(profile.id), PROFILE_MODEL_CONFIG: Buffer.from(JSON.stringify(snapshot)).toString('base64'),
     PROJECTOR_PREFERENCE: profile.projectorPreference ?? '', PROJECTOR_DEVICE: profile.projectorDevice ?? 'auto', VARIANT: profile.id, MODEL: profile.modelPath, MMPROJ: mmproj, RUNTIME_MODEL_ID: profile.id,
     RUNTIME_LABEL: getModelProfile(profile.id)?.displayName ?? profile.id, DEFAULT_LLAMA_CONTEXT: String(profile.normalContext?.initialContextWindow ?? 32_768), MAX_LLAMA_CONTEXT: String(profile.maxContext),
     SPECULATIVE_MODE: mode, DRAFT_MODEL: draft?.path ?? '', DRAFT_KV_SHARED: draft?.kvCache === 'shared' ? '1' : '0',
@@ -100,9 +100,8 @@ if (require.main === module) {
     const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
     if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
     profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath,profile.draft?.path), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
-    if (effectiveRuntimeConfiguration().browserVision === 'on' && (!profile.vision || !profile.mmprojPath)) {
-      throw new Error('Browser Vision On requires a compatible local projector; the current runtime configuration was not changed.');
-    }
+    // Vision is a chat image-input policy, not a prerequisite for loading a text model.
+    // Configured projectors still require successful multimodal initialization at launch.
     const backendFeatures=profile.advanced?await probeBackendFeatures(effectiveRuntimeConfiguration().llamaServerPath):undefined;
     const environment = launchProfileEnvironment(profile,undefined,backendFeatures);
 

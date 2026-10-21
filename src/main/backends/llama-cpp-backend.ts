@@ -194,7 +194,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       kvOffload: this.kvOffload,
     };
   }
-  async supportsVision(model: string): Promise<boolean> { return llamaRuntimeProfile(model)?.vision === true && this.runtimeModelId === model && this.visionEnabled; }
+  async supportsVision(model: string): Promise<boolean> { return this.runtimeModelId === model && this.visionEnabled; }
   async resolveContextWindow(model: string, requested: number, signal?: AbortSignal): Promise<ContextWindow> {
     if (model !== this.runtimeModelId) throw new Error(`llama.cpp launcher запущен с моделью ${this.runtimeModelId}`);
     // The launch setting is a ceiling, not proof that a separately managed

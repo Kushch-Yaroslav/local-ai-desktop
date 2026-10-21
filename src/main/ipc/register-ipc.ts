@@ -1,3 +1,5 @@
+import { visionPreference, mtpPreference, permitsImages, withoutImagePayloads } from '../../shared/model-features';
+import { visionCapability } from '../services/vision-capability';
 import { applyReasoningDefaults } from '../../shared/reasoning-controls';
 import { liveMultimodal } from '../services/browser-vision';
 import type { BrowserVisionMode } from '../../shared/browser-qa';
@@ -229,8 +231,7 @@ async function currentLlamaRuntime(): Promise<LlamaRuntimeState> {
 async function syncLlamaBackend(): Promise<LlamaRuntimeState> {
   const state = await currentLlamaRuntime();
   if (state.status === 'ready' && state.modelId && state.contextWindow) {
-    const profile = llamaRuntimeProfile(state.modelId);
-    const visionEnabled = profile?.vision && (state.speculativeMode !== 'mtp' || profile.visionWithMtp !== false);
+    const visionEnabled = await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`, undefined, state.modelId).catch(() => false);
     try { llamaCpp.updateRuntimeSelection(state.modelId, state.contextWindow, state.kvCacheType ?? initialLlamaKvType, state.kvOffload ?? initialLlamaKvOffload, visionEnabled); } catch { /* an unsupported combination is reported by the launcher state itself */ }
   } else { llamaCpp.clearRuntimeSelection(); }
   return state;
@@ -577,18 +578,9 @@ export function registerIpc(): void {
       const isRuntimeRequest = patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined;
       const { llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload } = resolveLlamaKvSelection(current, patch, modelChanged, initial);
       if (!['f16', 'q8_0'].includes(kvCacheType)) throw new Error('Неподдерживаемый тип KV-cache.');
-      if (isRuntimeRequest && runtimeConfig.browserVision === 'on') {
-        const visionProfile = llamaRuntimeProfile(nextModelId ?? '');
-        if (!visionProfile?.vision || !visionProfile.mmprojPath) {
-          throw new Error(t('Browser Vision включён, но у выбранной модели нет совместимого локального projector. Выберите модель с поддержкой изображений и projector.'));
-        }
-        const modelConfig = runtimeConfig.models.find(model => model.id === nextModelId);
-        const requestedMtp = modelConfig?.mtpMode ?? (modelConfig?.speculative === 'none' ? 'off' : 'auto');
-        const effectiveMtp = await resolveMtpMode(requestedMtp, modelConfig?.modelPath ?? visionProfile.modelPath ?? '', runtimeConfig.llamaServerPath,modelConfig?.mtpDraft?.path);
-        if (effectiveMtp === 'mtp' && visionProfile.visionWithMtp === false) {
-          throw new Error(t('Выбранная модель несовместима с Browser Vision при включённом MTP. Измените настройки модели; MTP автоматически не отключён.'));
-        }
-      }
+      const modelConfig = runtimeConfig.models.find(model => model.id === nextModelId);
+      const preferredMtp = modelConfig ? mtpPreference(current, modelConfig) : 'off';
+      const requestedMtp = preferredMtp === 'on' && modelConfig && !(await mtpCapability(modelConfig.modelPath, runtimeConfig.llamaServerPath, modelConfig.mtpDraft?.path)).supported ? 'off' : preferredMtp;
       runtimeActivation = { conversationId: id, modelId: nextModelId, contextWindow, kvCacheType, kvOffload, phase: 'validating' };
       log('context.activation.requested', runtimeActivation);
       // Discovery is a recommendation, not authorization to load a configuration.
@@ -601,24 +593,15 @@ export function registerIpc(): void {
         }
       }
       if (isRuntimeRequest) patch = { ...patch, llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload };
-      const runtimeDiffers = runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload;
+      const runtimeDiffers = runtime.mtpMode !== requestedMtp || runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload;
       // Re-selecting the stored model is a retry when the server is not running it.
       if (runtimeDiffers && (patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined)) {
         if (activeGenerations.size > 0) throw new Error('Нельзя переключать llama.cpp во время генерации: остановите её или дождитесь завершения.');
         log('llama.runtime.switch.requested', { conversationId: id, from: runtime, to: { modelId: nextModelId, contextWindow, kvCacheType, kvOffload } });
-        const result = await llamaRuntime.switchTo(nextModelId, contextWindow, kvCacheType, kvOffload);
+        const result = await llamaRuntime.switchTo(nextModelId, contextWindow, kvCacheType, kvOffload, undefined, requestedMtp);
         if (result.ok) modelSelectedThisProcess = true;
         await syncLlamaBackend();
         log('llama.runtime.switch.finished', { conversationId: id, ok: result.ok, state: result.state, error: result.ok ? undefined : result.error });
-        if (result.ok && runtimeConfig.browserVision === 'on' && !await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false)) {
-          if (runtime.status === 'ready' && runtime.modelId && runtime.contextWindow) {
-            const rollback = await llamaRuntime.switchTo(runtime.modelId, runtime.contextWindow, runtime.kvCacheType ?? 'f16', runtime.kvOffload ?? true, runtime.projectorDevice, runtime.mtpMode);
-            await syncLlamaBackend();
-            log('browser.vision.load.rollback', { conversationId: id, ok: rollback.ok, restoredModelId: rollback.ok ? runtime.modelId : rollback.state.modelId });
-          }
-          throw new Error(t('После загрузки llama-server не подтвердил поддержку изображений. Запрошенный выбор чата не применён; Browser Vision остаётся ожидающей проверку.'));
-        }
-        // Commit conversation settings only after the backend confirms the switch.
         if (!result.ok) throw new Error(`Не удалось переключить llama.cpp на ${profile.displayName} (${Math.round(contextWindow / 1024)}K, ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}): ${result.error}${result.state.rolledBack ? ` Продолжает работать ${result.state.modelId}.` : result.state.status === 'offline' ? ' llama.cpp сейчас не запущен.' : ''}`);
       }
       if (modelChanged) {
@@ -712,60 +695,63 @@ export function registerIpc(): void {
   });
   // The toolbar polls only live process health. Model paths and GGUF metadata
   // are checked on initialization and when model settings are opened/saved.
-  const mtpStatus = async (modelId: string): Promise<MtpStatus> => {
+  const mtpStatus = async (modelId: string, conversationId?: string): Promise<MtpStatus> => {
     const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
     if (!model) throw new Error(t('Неизвестная модель.'));
     const capability = await mtpCapability(model.modelPath, config.llamaServerPath,model.mtpDraft?.path);
+    capability.state ??= capability.supported ? 'supported' : capability.status === 'error' ? (capability.backendSupported === undefined ? 'backend-unavailable' : 'unknown') : model.mtpDraft ? 'misconfigured' : 'unsupported';
     const state = await currentLlamaRuntime();
-    const requested = model.mtpMode ?? (model.speculative === 'none' ? 'off' : 'auto');
+    const requested = mtpPreference(conversationId ? database.getConversation(conversationId) ?? undefined : undefined, model);
     const active = state.status === 'ready' && state.modelId === modelId;
-    const effective = active && state.speculativeMode === 'mtp' ? 'active' : active && state.mtpFallbackReason ? 'disabled' : requested === 'off' ? 'disabled' : !capability.supported ? capability.status === 'requires-weights' ? 'requires-weights' : capability.status === 'error' ? 'error' : 'unsupported' : !active ? 'unloaded' : state.mtpMode !== requested ? 'reload-required' : 'available';
+    const effective = active && capability.supported && state.mtpMode !== requested ? 'reload-required' : active && state.speculativeMode === 'mtp' ? 'active' : active && state.mtpFallbackReason ? 'disabled' : requested === 'off' ? 'disabled' : !capability.supported ? capability.status === 'requires-weights' ? 'requires-weights' : capability.status === 'error' ? 'error' : 'unsupported' : !active ? 'unloaded' : state.mtpMode !== requested ? 'reload-required' : 'available';
     let diagnostics;
     if (active && state.speculativeMode === 'mtp') {
       try { const response = await fetch(`${llamaCppUrl.replace(/\/$/, '')}/metrics`, { signal: AbortSignal.timeout(1500) }); if (response.ok) diagnostics = parseMtpMetrics((await response.text()).slice(0, 128 * 1024)); } catch { /* Unavailable is not a fabricated zero. */ }
     }
     return { modelId, requested, effective, capability, ...(active && state.mtpMode ? { activeMode: state.mtpMode } : {}), ...(diagnostics ? { diagnostics } : {}), ...(state.mtpFallbackReason ? { error: state.mtpFallbackReason } : {}) };
   };
-  ipcMain.handle('browser-qa:status', async () => {
-    const config = effectiveRuntimeConfiguration();
-    const available = await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false);
+  const featureChat = (id?: string) => {
+    if (id !== undefined && typeof id !== 'string') throw Error('Invalid conversation');
+    const chat = id ? database.getConversation(id) : undefined;
+    if (id && !chat) throw Error('Conversation not found');
+    return chat ?? undefined;
+  };
+  const liveVision = (modelId: string) => liveMultimodal(`${llamaCppUrl}/v1/chat/completions`,undefined,modelId).then(multimodal=>({multimodal}),error=>({multimodal:false,error:`Active backend unavailable: ${String(error)}`}));
+  ipcMain.handle('browser-qa:status', async (_event, conversationId?: string, modelId?: string) => {
+    const config = effectiveRuntimeConfiguration(), chat = featureChat(conversationId);
     const runtime = await currentLlamaRuntime();
-    const mode = config.browserVision ?? 'off';
-    const pending = mode === 'on' && !available && runtime.status !== 'ready';
-    const reason = available ? t('Загруженная модель принимает изображения. Для анализа страниц также требуется разрешение на браузер.')
-      : pending ? t('После загрузки совместимой модели Browser Vision сможет анализировать изображения. Нужен локальный projector.')
-        : runtime.status === 'ready' ? t('Загруженная модель не подтвердила поддержку изображений. Проверьте совместимость модели и наличие локального projector.')
-          : t('Функциональная проверка браузера доступна и без анализа изображений.');
-    return { mode, autonomous: config.autonomousBrowserQa === true, available, pending, reason };
+    const targetId = modelId ?? chat?.modelId ?? runtime.modelId;
+    const profile = config.models.find(model => model.id === targetId);
+    const mode = visionPreference(chat, config);
+    const active = runtime.status === 'ready' && runtime.modelId === targetId;
+    const live = active && targetId ? await liveVision(targetId) : undefined;
+    const capability = profile ? visionCapability(profile, await probeBackendFeatures(config.llamaServerPath), live)
+      : {state:'unknown' as const,detected:false,backendVerified:false,active:false,reason:'Select a saved model profile to inspect image support.'};
+    if(!active&&runtime.activation?.phase==='failed'&&runtime.activation.modelId===targetId){capability.state='initialization-failed';capability.reason=runtime.activation.error??'Model initialization failed';}
+    return {mode,autonomous:config.autonomousBrowserQa===true,capability,available:capability.active,pending:mode!=='off'&&capability.state==='supported'&&!capability.active,reason:capability.reason};
   });
-  ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean) => {
-    if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw new Error(t('Подтвердите применение настроек Browser Vision.'));
-    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error(t('Дождитесь завершения ответа или остановите задачу. Browser Vision не останавливает генерацию автоматически.'));
-    runtimeSelectionBusy = true;
-    try {
-      const config = effectiveRuntimeConfiguration();
-      if (mode === 'on' && mode !== config.browserVision && !await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`).catch(() => false)) {
-        const current = await currentLlamaRuntime(); const profile = current.modelId ? llamaRuntimeProfile(current.modelId) : undefined;
-        // Browser Vision is a persisted preference and may be selected before
-        // any model is loaded. Capability is enforced at the model-load boundary.
-        if (current.status === 'ready') {
-          if (!profile?.vision || !profile.mmprojPath) throw new Error(t('У загруженной модели нет совместимых локальных весов projector. Browser Vision не изменён.'));
-          if (current.speculativeMode === 'mtp' && profile.visionWithMtp === false) throw new Error(t('Эта модель не поддерживает Browser Vision с активным MTP. MTP сохранён, Browser Vision не изменён.'));
-          const result = await llamaRuntime.switchTo(current.modelId!, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice ?? config.imageProcessingDevice ?? 'cpu', current.mtpMode);
-          if (!result.ok) throw new Error(result.error);
-          if (!await liveMultimodal(`${llamaCppUrl}/v1/chat/completions`)) throw new Error(t('После перезагрузки сервер не подтвердил поддержку изображений. Browser Vision не изменён.'));
-        }
-      }
-      saveRuntimeConfiguration({ ...effectiveRuntimeConfiguration(), browserVision: mode, autonomousBrowserQa: autonomous });
-      await syncLlamaBackend();
-    } finally { runtimeSelectionBusy = false; void visionDevice.flush(); }
+  ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean, conversationId?: string, modelId?: string) => {
+    if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw Error('Invalid Vision preference');
+    if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw Error('Wait for the current operation before changing Vision');
+    const config=effectiveRuntimeConfiguration(), chat=featureChat(conversationId);
+    if(mode==='on'&&chat){
+      const target=modelId??chat.modelId,model=config.models.find(model=>model.id===target);
+      if(!model)throw Error('Select a model before enabling Vision');
+      const runtime=await currentLlamaRuntime(),active=runtime.status==='ready'&&runtime.modelId===target;
+      const capability=visionCapability(model,await probeBackendFeatures(config.llamaServerPath),active&&target?await liveVision(target):undefined);
+      if(capability.state!=='supported')throw Error(capability.reason);
+    }
+    if(chat) database.updateConversation(chat.id,{visionMode:mode});
+    // Legacy callers retain their global default; a chat preference never edits a model profile.
+    if(config.autonomousBrowserQa!==autonomous || !chat) saveRuntimeConfiguration({...config,...(!chat?{browserVision:mode}:{}),autonomousBrowserQa:autonomous});
   });
-  ipcMain.handle('mtp:status', (_event, modelId: string) => mtpStatus(modelId));
-  ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean) => {
+  ipcMain.handle('mtp:status', (_event, modelId: string, conversationId?: string) => mtpStatus(modelId, conversationId));
+  ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean, conversationId?: string) => {
     if (!['auto', 'on', 'off'].includes(mode) || confirmed !== true) throw new Error(t('Подтвердите применение настроек MTP.'));
     if (activeGenerations.size || contextDiscoveryBusy || runtimeSelectionBusy) throw new Error('Дождитесь завершения ответа или остановите задачу. MTP не прерывает генерацию автоматически.');
     runtimeSelectionBusy = true;
     try {
+      featureChat(conversationId);
       const config = effectiveRuntimeConfiguration(); const model = config.models.find(model => model.id === modelId);
       if (!model) throw new Error(t('Неизвестная модель.'));
       await resolveMtpMode(mode, model.modelPath, config.llamaServerPath,model.mtpDraft?.path);
@@ -774,11 +760,13 @@ export function registerIpc(): void {
         const result = await llamaRuntime.switchTo(modelId, current.contextWindow!, current.kvCacheType ?? 'f16', current.kvOffload ?? true, current.projectorDevice, mode);
         if (!result.ok) throw new Error(result.error);
       }
-      saveRuntimeConfiguration({ ...config, models: config.models.map(model => model.id === modelId ? { ...model, mtpMode: mode } : model) });
+      const chat=featureChat(conversationId);
+      if(chat)database.updateConversation(chat.id,{mtpMode:mode});
+      else saveRuntimeConfiguration({ ...config, models: config.models.map(model => model.id === modelId ? { ...model, mtpMode: mode } : model) });
       // MTP changes the measured runtime identity and allocation envelope. Preserve historical measurements.
       savedDiscoveryAttempted = null; discoveredContextOptions.clear();
       await syncLlamaBackend();
-      return await mtpStatus(modelId);
+      return await mtpStatus(modelId, conversationId);
     } finally { runtimeSelectionBusy = false; void visionDevice.flush(); }
   });
   ipcMain.handle('runtime:state', currentLlamaRuntime);
@@ -804,7 +792,10 @@ export function registerIpc(): void {
       const kv=profile.defaults?.kvCacheType??(current.modelId===modelId?current.kvCacheType:undefined)??conversation.llamaKvCacheType??'f16';
       const offload=profile.defaults?.kvOffload??(current.modelId===modelId?current.kvOffload:undefined)??conversation.llamaKvOffload??true;
       runtimeActivation={conversationId:conversation.id,modelId,contextWindow:context,kvCacheType:kv,kvOffload:offload,phase:'validating'};
-      const result=await llamaRuntime.switchTo(modelId,context,kv,offload,profile.projectorDevice==='auto'?undefined:profile.projectorDevice,profile.mtpMode,true);
+      const modelConfig=effectiveRuntimeConfiguration().models.find(model=>model.id===modelId);
+      const preference=conversation.mtpMode??profile.mtpMode;
+      const restartMtp=preference==='on'&&modelConfig&&!(await mtpCapability(modelConfig.modelPath,effectiveRuntimeConfiguration().llamaServerPath,modelConfig.mtpDraft?.path)).supported?'off':preference;
+      const result=await llamaRuntime.switchTo(modelId,context,kv,offload,profile.projectorDevice==='auto'?undefined:profile.projectorDevice,restartMtp,true);
       if(!result.ok){runtimeDiagnosticsHistory.unshift({at:new Date().toISOString(),message:result.error});runtimeDiagnosticsHistory.splice(10);runtimeActivation={...runtimeActivation,phase:'failed',error:result.error};throw Error(result.error);}
       modelSelectedThisProcess=true;runtimeActivation=undefined;
       database.updateConversation(conversation.id,{modelId,contextWindow:context,llamaKvCacheType:kv,llamaKvOffload:offload,...(modelId!==conversation.modelId?{thinkingEnabled:profile.defaults?.thinkingEnabled??null,reasoningEffort:profile.defaults?.reasoningEffort??null}:{})});
@@ -974,6 +965,12 @@ export function registerIpc(): void {
       }
     }
     if (activeConversationModel(conversation, runtime) !== request.model) throw new Error('Выберите модель перед отправкой сообщения.');
+    const selectedProfile=effectiveRuntimeConfiguration().models.find(model=>model.id===request.model);
+    if(selectedProfile){
+      const preference=mtpPreference(conversation,selectedProfile);
+      const expected=preference==='off'?'none':await resolveMtpMode(preference==='on'?'auto':preference,selectedProfile.modelPath,effectiveRuntimeConfiguration().llamaServerPath,selectedProfile.mtpDraft?.path);
+      if((runtime.speculativeMode??'none')!==expected)throw Error('Настройка MTP ожидает применения. Примените MTP для этого чата перед отправкой сообщения.');
+    }
     const mode = executionMode(conversation.mode, request.mode);
     generation.mode = mode;
     const triggeringUser = user ?? [...request.messages].reverse().find(message => message.role === 'user');
@@ -1004,16 +1001,18 @@ export function registerIpc(): void {
     if (!current()) return;
     // Runtime capabilities govern routing for every image turn in the active
     // history, rather than guessing from model names.
-    const requestMessages = logicalTaskId ? database.taskHistory(request.conversationId, logicalTaskId, request.messages) : request.messages;
+    const requestMessages = withoutImagePayloads(logicalTaskId ? database.taskHistory(request.conversationId, logicalTaskId, request.messages) : request.messages);
     const requestMessageIds = new Set(requestMessages.map(message => message.id));
     const hasImages = database.listAttachmentsForConversation(request.conversationId).some((attachment) => attachment.kind === 'image' && (!logicalTaskId || requestMessageIds.has(attachment.messageId)));
     const requestUser = user ?? [...request.messages].reverse().find((message) => message.role === 'user');
     const retryAttachmentIds = requestUser ? database.listAttachments(requestUser.id).filter((attachment) => attachment.status === 'pending' || attachment.status === 'cancelled').map((attachment) => attachment.id) : [];
     const nativeImagesRequested = attachmentPipeline.hasNativeImagesForRequest(requestMessages);
-    const nativeVision = nativeImagesRequested && await backend.supportsVision(request.model);
+    const visionMode = visionPreference(conversation,effectiveRuntimeConfiguration());
+    const nativeVision = permitsImages(visionMode,{active: visionMode !== 'off' && nativeImagesRequested && await backend.supportsVision(request.model)},nativeImagesRequested);
+    if(nativeImagesRequested&&!nativeVision)emitAttachment({type:'attachment',activity:{id:'vision-unavailable',label:'Vision',detail:visionMode==='off'?'Vision выключен. Изображение сохранено; анализ не выполнялся.':'Для анализа изображения нужна активная модель с подтверждённым Vision.',status:'error'}});
     const preprocessIds = [...new Set([...attachmentIds, ...retryAttachmentIds])];
     log('attachment.vision-routing', { generationId: generation.id, modelId: request.model, hasImages, nativeImagesRequested, route: nativeVision ? 'native' : nativeImagesRequested ? 'unsupported' : hasImages ? 'deferred' : 'none' });
-    if (preprocessIds.length) await attachmentPipeline.preprocessCurrent(preprocessIds, abort.signal, emitAttachment, nativeVision);
+    if (preprocessIds.length) await attachmentPipeline.preprocessCurrent(preprocessIds, abort.signal, emitAttachment, nativeVision, visionMode === 'off' ? 'Vision выключен. Изображение сохранено без анализа.' : 'Для изображения нужна модель с активным Vision.');
     if (!current()) return;
     await backend.ensureModelAvailable(request.model);
     if (!current()) return;
@@ -1052,7 +1051,7 @@ export function registerIpc(): void {
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); })
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); }, visionMode)
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));

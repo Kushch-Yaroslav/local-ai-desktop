@@ -4,7 +4,7 @@ import type { ContextDiscoveryResult, RuntimeContextEstimate } from './context-e
 export type ChatMode = 'chat' | 'agent';
 export type WebMode = 'off' | 'auto';
 export type MtpMode = 'auto' | 'on' | 'off';
-export type MtpCapability = { supported: boolean; status: 'available' | 'unsupported' | 'requires-weights' | 'error'; reason: string; architecture?: string; heads?: number; backendSupported?: boolean };
+export type MtpCapability = { state?: import('./model-features').FeatureState; supported: boolean; status: 'available' | 'unsupported' | 'requires-weights' | 'error'; reason: string; architecture?: string; heads?: number; backendSupported?: boolean };
 export type MtpDiagnostics = { drafted: number; accepted: number; acceptanceRate?: number; source: 'llama-server metrics'; scope: 'server lifetime' };
 export type MtpStatus = { modelId: string; requested: MtpMode; activeMode?: MtpMode; effective: 'unloaded' | 'available' | 'active' | 'disabled' | 'unsupported' | 'requires-weights' | 'reload-required' | 'error'; capability: MtpCapability; diagnostics?: MtpDiagnostics; error?: string };
 export type BackendId = 'llama-cpp';
@@ -149,6 +149,8 @@ export interface ModelInfo {
 }
 
 export interface Conversation {
+  visionMode?: import('./browser-qa').BrowserVisionMode | null;
+  mtpMode?: MtpMode | null;
   id: string;
   title: string;
   modelId: string | null;
@@ -490,8 +492,8 @@ export interface LocalAiApi {
   webImages: { load(url: string): Promise<RemoteImageData>; openSource(url: string): Promise<void> };
   analysis: { list(conversationId: string): Promise<AnalysisRun[]> };
   models: { list(): Promise<ModelInfo[]> };
-  browserQa: { status(): Promise<{ mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; pending?: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean): Promise<void> };
-  mtp: { status(modelId: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean): Promise<MtpStatus> };
+  browserQa: { status(conversationId?: string, modelId?: string): Promise<{ capability?: import('./model-features').VisionCapability; mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; pending?: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean, conversationId?: string, modelId?: string): Promise<void> };
+  mtp: { status(modelId: string, conversationId?: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean, conversationId?: string): Promise<MtpStatus> };
   runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>>; control(request:{action:'unload'|'restart';conversationId:string;modelId?:string}):Promise<AppSettings> };
   settings: { setLanguage(language: 'en' | 'ru'): Promise<void>; validateDraft(config: Pick<RuntimeConfiguration, 'modelsPath' | 'models'>): Promise<RuntimeDraftAvailability>; resolveExecutable(path: string, selected?: string): Promise<ExecutableResolution>; cancelResolution(): Promise<void>; onLanguageChanged(listener: (language: 'ru' | 'en') => void): () => void; get(): Promise<AppSettings>; save(config: RuntimeConfiguration): Promise<AppSettings>; dismissSetup(): Promise<AppSettings> };
   hardware: { get(): Promise<HardwareStats> };

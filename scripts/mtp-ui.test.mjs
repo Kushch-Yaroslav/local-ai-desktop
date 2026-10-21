@@ -16,7 +16,7 @@ const header=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(tensors.length),u64(m
 await writeFile(gguf,Buffer.concat([header,Buffer.alloc((32-header.length%32)%32),Buffer.alloc(224)]));
 try{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_MODEL:'qwen3.8:27b-q4_K_M',LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
+ app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_LLAMA_CPP_URL:'http://127.0.0.1:19764',LOCAL_AI_TEST_MODEL:'qwen3.8:27b-q4_K_M',LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
  const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();
  const model='qwen3.8:27b-q4_K_M';
  await page.evaluate(async({model,binary,gguf})=>{const settings=await window.localAi.settings.get();const config=settings.setup.config;config.llamaServerPath=binary;config.llamaServerInput=binary;config.models=config.models.map(m=>m.id===model?{...m,modelPath:gguf}:m);await window.localAi.settings.save(config);},{model,binary,gguf});
@@ -28,7 +28,8 @@ try{
  assert.equal((await page.evaluate(model=>window.localAi.mtp.status(model),model)).requested,'auto');
  await mtp.selectOption('off');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Disabled');
- assert.equal((await page.evaluate(model=>window.localAi.settings.get().then(s=>s.setup.config.models.find(m=>m.id===model).mtpMode),model)),'off');
+ assert.equal(await page.evaluate(async()=> (await window.localAi.conversations.list()).find(c=>c.title==='Live Browser workspace').mtpMode),'off');
+ assert.equal((await page.evaluate(model=>window.localAi.settings.get().then(s=>s.setup.config.models.find(m=>m.id===model).mtpMode),model)),'auto','chat override leaves profile defaults unchanged');
  await mtp.selectOption('on');await page.getByRole('button',{name:'Apply and reload',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.mtp-effective')?.textContent==='Active');
  await page.locator('.composer textarea').fill('Read-only inspection.');await page.locator('.send-button:not(.stop)').click();await page.waitForFunction(()=>document.querySelector('.send-button.stop'));
  assert(await mtp.isDisabled());
@@ -43,5 +44,5 @@ try{
  assert.deepEqual(await page.evaluate(id=>window.localAi.messages.list(id),conversationId),messagesBefore,'MTP reload preserves existing chat history');
  await page.locator('.composer textarea').fill('Continue the same read-only task.');await page.locator('.send-button:not(.stop)').click();await page.waitForFunction(()=>document.querySelector('.send-button.stop'));
  await page.waitForTimeout(300);assert(requests.length>=2,'the existing chat can generate after MTP reload');await page.locator('.send-button.stop').click();await page.waitForFunction(()=>!document.querySelector('.send-button.stop'));
- console.log('PASS Electron MTP UI/IPC: confirmation/cancel, persisted Auto/On/Off, actual vs requested state, disabled during generation, server-side rejection without implicit Stop, reload, restored preference and existing chat continuation. Launcher/hardware are fixtures; real MTP is tested separately.');
+ console.log('PASS Electron MTP UI/IPC: confirmation/cancel, persisted Auto/On/Off, actual vs requested state, disabled during generation, server-side rejection without implicit Stop, reload, restored preference and existing chat continuation. Launcher/hardware are fixtures; this is not real model inference.');
 }finally{await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

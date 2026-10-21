@@ -20,7 +20,7 @@ export class AttachmentPipeline {
    * Documents are always extracted locally. Images use the selected model's native
    * vision input when the selected backend advertises it. There is no fallback model.
    */
-  async preprocessCurrent(attachmentIds: string[], signal: AbortSignal, emit: Emit, useNativeVision = false): Promise<void> {
+  async preprocessCurrent(attachmentIds: string[], signal: AbortSignal, emit: Emit, useNativeVision = false, unavailableReason = 'Выбранная модель не поддерживает изображения.'): Promise<void> {
     const current = attachmentIds.map((id) => this.database.getAttachment(id)).filter((item): item is Attachment => Boolean(item));
     const documentAttachments = current.filter((item) => item.kind !== 'image');
     for (const initial of documentAttachments) {
@@ -44,7 +44,7 @@ export class AttachmentPipeline {
       }
       return;
     }
-    for (const image of images) { const failed = this.database.updateAttachment(image.id, { status: 'error', error: 'Выбранная модель не поддерживает изображения.' })!; emit({ type: 'attachment', activity: activity(failed, '✕ Модель не поддерживает изображения') }); }
+    for (const image of images) { const failed = this.database.updateAttachment(image.id, { status: 'error', error: unavailableReason })!; emit({ type: 'attachment', activity: activity(failed, unavailableReason) }); }
   }
 
   /** Insert a temporary block directly before its owning user turn; never into global capability context. */

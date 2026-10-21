@@ -296,7 +296,7 @@ launch_server() {
   if [[ "$PROFILE_VISION_REQUIRED" == "1" ]]; then
     local has_multimodal
     has_multimodal="$(printf '%s' "$models" | ELECTRON_RUN_AS_NODE=1 "$ELECTRON_BIN" -e 'let s="";process.stdin.on("data",c=>s+=c);process.stdin.on("end",()=>{try{const v=JSON.parse(s);process.stdout.write(String([...(v.models??[]),...(v.data??[])].some(m=>m.capabilities?.includes("multimodal"))));}catch{process.stdout.write("false")}})')"
-    if [[ "$has_multimodal" != "true" ]]; then LAUNCH_ERROR="Browser Vision On: backend did not confirm multimodal capability"; stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"; return 1; fi
+    if [[ "$has_multimodal" != "true" ]]; then LAUNCH_ERROR="Vision initialization failed: configured projector did not produce multimodal capability"; stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"; return 1; fi
   fi
   ACTIVE_PROJECTOR_DEVICE=""
   if [[ -n "$MMPROJ" ]]; then
