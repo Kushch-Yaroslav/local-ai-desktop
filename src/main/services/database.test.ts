@@ -115,6 +115,8 @@ export async function runDatabaseMigrationRegression(): Promise<void> {
         { version: 1, id: 'persisted-gallery', type: 'image_gallery', summary: 'Licenses not verified.', images: [{ discoveryId: 'discovery-1', url: 'https://images.example.test/flower.jpg', sourceUrl: 'https://flowers.example.test/peony', sourceDomain: 'flowers.example.test', title: 'Peony', alt: 'Pink peony' }] },
       ],
     });
+    const markdownSource = 'Folder tree:\n```text\n/project/\n├── index.html\n└── check.mjs\n```';
+    const markdownMessage = fresh.addMessage(freshChat.id, 'assistant', markdownSource, 'markdown-message');
     const persistedRun = fresh.createAnalysisRun(freshChat.id, 'fast');
     // `analysis_actions.id` is globally unique storage identity. Agent event
     // ids can repeat across runs (for example, a protocol error), while their
@@ -163,6 +165,7 @@ export async function runDatabaseMigrationRegression(): Promise<void> {
     assert.equal(reopenedFresh.getConversation(freshChat.id)?.reasoningMode, 'fast', 'persisted Auto conversation did not migrate to Fast');
     const loaded = reopenedFresh.listAnalysisRuns(freshChat.id)[0];
     const restoredResponse = reopenedFresh.getMessage(response.id);
+    assert.equal(reopenedFresh.getMessage(markdownMessage.id)?.content, markdownSource, 'Markdown newlines and fenced code were not preserved after database reopen');
     assert.equal(restoredResponse?.thinking, 'I checked the backend timing fields first.', 'message Thinking was not preserved after restart');
     assert.deepEqual(restoredResponse?.thinkingTimeline, [{ id: 'reasoning-1', kind: 'reasoning', content: 'I checked the backend timing fields first.', position: 1 }, { id: 'steering-1', kind: 'steering', messageId: 'steering-message', position: 2, status: 'applied' }, { id: 'plan-event', kind: 'activity', activityId: 'plan-update', position: 3 }], 'message Thinking and steering event order was not preserved after restart');
     assert.equal(reopenedFresh.getMessage('steering-message')?.content, 'Поправка, напиши ещё плюсы и минусы.', 'canonical steering message did not survive database reopen');

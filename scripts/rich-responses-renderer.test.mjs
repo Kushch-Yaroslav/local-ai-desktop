@@ -28,6 +28,14 @@ try {
   await page.addInitScript(({ examples, gallery }) => {
     const chat = { id: 'visuals', title: 'Visual fixture', modelId: 'fixture', mode: 'chat', contextWindow: 32768, reasoningMode: 'fast', createdAt: '', updatedAt: '' };
     const saved = [{ id: 'saved', conversationId: chat.id, role: 'assistant', createdAt: '', content: 'Illustrative report.\n\n|Column|Value|\n|-|-|\n|Preserved Markdown|10|', richArtifacts: [...examples, gallery] }];
+    saved.push(
+      { id: 'markdown-normal-lines', conversationId: chat.id, role: 'assistant', createdAt: '', content: 'Multiline fixture first line\nMultiline fixture second line' },
+      { id: 'markdown-fenced-tree', conversationId: chat.id, role: 'assistant', createdAt: '', content: '```text\n/root/\n├── index.html\n├── check.mjs\n└── package.json\n```' },
+      { id: 'markdown-unfenced-tree', conversationId: chat.id, role: 'assistant', createdAt: '', content: 'Unfenced tree fixture\n/root/\n├── index.html\n└── check.mjs' },
+      { id: 'markdown-inline-code', conversationId: chat.id, role: 'assistant', createdAt: '', content: 'Open `index.html` for this fixture.' },
+      { id: 'markdown-list', conversationId: chat.id, role: 'assistant', createdAt: '', content: '- First fixture item\n- Second fixture item' },
+      { id: 'markdown-one-line-tree', conversationId: chat.id, role: 'assistant', createdAt: '', content: '/root/ ├── index.html — main file ├── check.mjs — tests └── package.json — npm config' },
+    );
     saved.push({ id: 'failed-gallery', conversationId: chat.id, role: 'assistant', createdAt: '', content: 'All four images loaded successfully.' });
     let stream, validator, request, resolveSend, languageListener;
     window.richFixture = {
@@ -45,6 +53,8 @@ try {
       settings: { onLanguageChanged: listener => { languageListener = listener; return () => {}; }, get: async () => ({ uiLanguage: 'ru', modelsPath: '', llamaServerPath: null, llamaRuntime: { status: 'ready', modelId: 'fixture', contextWindow: 32768 } }) },
       hardware: { get: async () => null }, models: { list: async () => [{ id: 'fixture', name: 'Fixture', shortName: 'Fixture', installed: true, supportedContextPresets: [32768], maxContext: 32768, reasoning: { thinkingToggle: true, efforts: [] } }] },
       contextEstimate: async () => ({ unknownReasons: [], configuredMaxTokens: 32768 }), contextDiscoveryStatus: async () => ({ busy: false }),
+      mtp: { status: async modelId => ({ modelId: modelId ?? 'fixture', requested: 'auto', activeMode: 'off', effective: 'unsupported', capability: { state: 'unsupported', supported: false, status: 'unsupported', reason: 'Fixture is text only.' } }) },
+      browserQa: { status: async () => ({ mode: 'off', autonomous: false, capability: { state: 'unsupported', detected: false, backendVerified: false, active: false, reason: 'Fixture is text only.' }, available: false, pending: false, reason: 'Fixture is text only.' }) },
       webImages: { load: async () => ({ dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=', mimeType: 'image/png' }), openSource: async url => { window.richFixture.source = url; } },
       chat: { permissions: async () => ({ mode: 'trusted', trusted_roots: [] }), grants: async () => [], setPermissions: async (_id, mode) => ({ mode, trusted_roots: [] }), revokeApprovals: async () => true, loopControl: async () => {}, onStream: listener => { stream = listener; return () => {}; }, onDiagramValidation: listener => { validator = listener; return () => {}; }, diagramValidationResult: (_id, error) => { window.richFixture.validation = error ?? 'valid'; }, send: value => { request = value; return new Promise(done => { resolveSend = done; }); }, stop: async () => { stream({ type: 'cancelled', conversationId: request.conversationId, generationId: request.generationId }); resolveSend(); } },
     };
@@ -52,6 +62,18 @@ try {
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await page.waitForSelector('.rich-chart .recharts-wrapper');
   await page.waitForSelector('.rich-diagram .mermaid-canvas svg');
+  const normalLines = page.locator('.message-content').filter({ hasText: 'Multiline fixture first line' });
+  await normalLines.waitFor();
+  assert.equal(await normalLines.locator('p').innerText(), 'Multiline fixture first line\nMultiline fixture second line');
+  const fencedTree = page.locator('.message-content').filter({ hasText: '├── index.html' }).filter({ has: page.locator('pre code') }).first();
+  assert.equal(await fencedTree.locator('pre').innerText(), '/root/\n├── index.html\n├── check.mjs\n└── package.json\n');
+  const unfencedTree = page.locator('.message-content').filter({ hasText: 'Unfenced tree fixture' });
+  assert.equal(await unfencedTree.locator('p').innerText(), 'Unfenced tree fixture\n/root/\n├── index.html\n└── check.mjs');
+  const inlineCode = page.locator('.message-content').filter({ hasText: 'Open' }).filter({ has: page.locator('code') });
+  assert.equal(await inlineCode.locator('code').innerText(), 'index.html');
+  assert.equal(await page.locator('.message-content').filter({ hasText: 'First fixture item' }).locator('li').count(), 2);
+  const malformedTree = page.locator('.message-content').filter({ hasText: 'main file' });
+  assert.equal(await malformedTree.locator('p').innerText(), '/root/ ├── index.html — main file ├── check.mjs — tests └── package.json — npm config', 'do not invent line breaks in one-line model output');
   // Exercise the actual language event; uiLanguage is no longer a settings field.
   await page.evaluate(() => window.richFixture.language('ru'));
   await page.waitForFunction(() => document.documentElement.lang === 'ru');
@@ -83,6 +105,16 @@ try {
   await page.waitForSelector('.generation-indicator');
   await page.evaluate(() => window.richFixture.event({ type: 'token', content: 'Streaming answer.' }));
   await page.waitForFunction(() => !document.querySelector('.generation-indicator'));
+  await page.evaluate(() => {
+    window.richFixture.event({ type: 'model-state', state: 'waiting' });
+    window.richFixture.event({ type: 'token', content: '\n```te' });
+    window.richFixture.event({ type: 'token', content: 'xt\r' });
+    window.richFixture.event({ type: 'token', content: '\n/streamed/\n├── index.html\n' });
+    window.richFixture.event({ type: 'token', content: '└── check.mjs\n```' });
+  });
+  const liveTree = page.locator('.message-content').filter({ hasText: 'Streaming answer.' });
+  await page.waitForFunction(() => [...document.querySelectorAll('.message-content pre')].some(pre => pre.textContent?.includes('/streamed/')));
+  assert.equal(await liveTree.locator('pre code').innerText(), '/streamed/\n├── index.html\n└── check.mjs\n');
   const previous = await page.locator('.rich-chart').count();
   await page.evaluate(artifact => window.richFixture.artifact(artifact), examples.find(a => a.type === 'chart'));
   await page.waitForFunction(count => document.querySelectorAll('.rich-chart').length > count, previous);
@@ -144,6 +176,11 @@ try {
   }); assert.equal(narrowCollisions, false, 'narrow/light graph reintroduced commit collisions');
   await crowded.screenshot({ path: '/tmp/rich-git-collision-after.png' });
   await page.screenshot({ path: '/tmp/rich-polish-renderer.png', fullPage: false });
+  await page.reload();
+  await page.waitForSelector('.rich-chart .recharts-wrapper');
+  const restoredTree = page.locator('.message-content').filter({ hasText: 'Unfenced tree fixture' });
+  await restoredTree.waitFor();
+  assert.equal(await restoredTree.locator('p').innerText(), 'Unfenced tree fixture\n/root/\n├── index.html\n└── check.mjs', 'saved message formatting survives renderer reload');
   assert.deepEqual(errors, [], `production renderer errors: ${errors.join(', ')}`);
   console.log('Production Rich Responses renderer: native Mermaid syntax validation, restored report/chart/table/gallery, legacy Markdown table, live artifact before completion, progress, compact preview and source/lightbox controls passed.');
 } finally { await browser?.close(); await new Promise(done => server.close(done)); }

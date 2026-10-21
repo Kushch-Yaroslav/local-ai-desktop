@@ -343,7 +343,7 @@ pub fn prompt_catalog(root: Option<&str>) -> String {
         }
     ));
     format!(
-        "<project_knowledge_catalog>\n{}\nUse project_knowledge_index for paths/freshness and project_knowledge_read for selected documents.\n</project_knowledge_catalog>",
+        "<project_knowledge_catalog storage=\".ai-framework\">\nThese document paths are relative to the private `.ai-framework/` knowledge cache, not to the selected project root. Read them only with `project_knowledge_read`; `read_file` and `list_directory` address ordinary project files.\n{}\nUse project_knowledge_index for paths/freshness and project_knowledge_read for selected documents.\n</project_knowledge_catalog>",
         limit_chars(&available.join("\n"), 1_800)
     )
 }
@@ -802,6 +802,39 @@ mod tests {
             .join(source_cache_path(".env"))
             .exists());
         assert!(!root.join(DIRECTORY).join("project/overview.md").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn prompt_catalog_names_the_cache_namespace_and_does_not_invent_documents() {
+        let root = unique_temp_root("prompt-catalog");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("index.html"), "<main>NEXUS</main>").unwrap();
+        fs::write(root.join("package.json"), "{}\n").unwrap();
+        fs::write(root.join("check.mjs"), "console.log('check')\n").unwrap();
+
+        let initial = prompt_catalog(root.to_str());
+        assert!(initial.contains("relative to the private `.ai-framework/` knowledge cache"));
+        assert!(initial.contains("`read_file` and `list_directory` address ordinary project files"));
+        assert!(!initial.contains("project/overview.md"));
+        assert!(!initial.contains("tasks/"));
+
+        observe_tool(
+            &root,
+            "643f2aa9-9110-4df3-8c75-8a66ad6b0804",
+            "Inspect the current project",
+            None,
+            None,
+            "read_file",
+            &json!({"path":"index.html"}),
+            &json!({"path":"index.html", "content":"<main>NEXUS</main>"}),
+        )
+        .unwrap();
+        let populated = prompt_catalog(root.to_str());
+        assert!(populated.contains("project/overview.md"));
+        assert!(populated.contains("tasks/643f2aa9-9110-4df3-8c75-8a66ad6b0804.md"));
+        assert!(populated.contains("Read them only with `project_knowledge_read`"));
 
         fs::remove_dir_all(root).unwrap();
     }

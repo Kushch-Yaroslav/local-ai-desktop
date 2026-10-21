@@ -620,3 +620,4 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 }
 
 .model-launch-diff {max-width:100%;overflow:auto}.model-launch-diff table{width:100%;text-align:left;border-collapse:collapse}.model-launch-diff td,.model-launch-diff th{padding:6px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}.model-launch-diff small{display:block;color:var(--muted)}
+.message-content p { white-space: pre-wrap; }

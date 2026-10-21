@@ -865,6 +865,13 @@ mod tests {
     }
 
     #[test]
+    fn tool_argument_paths_preserve_model_supplied_backslashes() {
+        let raw = json!([{"id":"read-1","function":{"name":"read_file","arguments":r#"{"path":"project/overview\\.md"}"#}}]);
+        let calls = validate_calls(raw.as_array().unwrap(), Some("tool_calls")).unwrap();
+        assert_eq!(calls[0].arguments["path"], "project/overview\\.md");
+    }
+
+    #[test]
     fn terminal_partial_success_is_an_observation_but_failed_output_is_an_error_observation() {
         let base = std::env::temp_dir().join(format!(
             "terminal-observation-{}-{:?}",

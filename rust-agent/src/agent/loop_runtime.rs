@@ -822,8 +822,8 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
             json!({"type":"function","function":{"name":"list_directory","description":"List a project directory. complete=true means all directory entries are represented; false means internal runtime entries were omitted.","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}),
             json!({"type":"function","function":{"name":"read_file","description":"Read up to 64 KiB of a project file. A truncated result provides next_offset_chars; use that offset or a specific line range for more. An identical read of unchanged bytes and range is cached: reuse its obs- result or observation_read instead of repeating read_file.","parameters":{"type":"object","properties":{"path":{"type":"string"},"start_line":{"type":"integer","minimum":1},"end_line":{"type":"integer","minimum":1},"offset_chars":{"type":"integer","minimum":0}},"required":["path"]}}}),
             json!({"type":"function","function":{"name":"project_knowledge_index","description":"Read the small .ai-framework manifest index and source freshness map. Use it before repeating broad project orientation.","parameters":{"type":"object","properties":{}}}}),
-            json!({"type":"function","function":{"name":"project_knowledge_read","description":"Read selected reusable project observations from .ai-framework: paths is required. Prefer relevant fresh knowledge before broad rereads; do not reread unchanged source only to reconstruct context. Read source for exact current code or a concrete unresolved/verification detail.","parameters":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}}},"required":["paths"]}}}),
-            json!({"type":"function","function":{"name":"project_knowledge_update","description":"Optionally persist durable, reusable semantic project knowledge in .ai-framework. This is never required for normal work. Only use project/, modules/, sources/, or tasks/ markdown paths.","parameters":{"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"mode":{"type":"string","enum":["replace","merge"]}},"required":["path","content"]}},"source_paths":{"type":"array","items":{"type":"string"}}},"required":["updates"]}}}),
+            json!({"type":"function","function":{"name":"project_knowledge_read","description":"Read selected reusable observations from the private .ai-framework knowledge cache, not from the project filesystem. `paths` are relative to .ai-framework (for example project/overview.md); use this tool only for those paths. Use read_file for ordinary project source files. Prefer relevant fresh knowledge before broad rereads; do not reread unchanged source only to reconstruct context. Read source for exact current code or a concrete unresolved/verification detail.","parameters":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"}}},"required":["paths"]}}}),
+            json!({"type":"function","function":{"name":"project_knowledge_update","description":"Optionally persist durable, reusable semantic project knowledge in the private .ai-framework cache, not in the project filesystem. This is never required for normal work. `path` values are relative to .ai-framework and use project/, modules/, sources/, or tasks/ markdown paths.","parameters":{"type":"object","properties":{"updates":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"mode":{"type":"string","enum":["replace","merge"]}},"required":["path","content"]}},"source_paths":{"type":"array","items":{"type":"string"}}},"required":["updates"]}}}),
             json!({"type":"function","function":{"name":"run_terminal","description":"Run an isolated project command. Host process-management shell commands are forbidden in every autonomy mode. Start a development server in foreground with task_action=start; use the returned task_id with task_action=status/stop (command may be empty). A task is owned by this run and cleaned up when it ends. For an acceptance check, use one check per call (optional cd <project> && prefix); chains of checks or || are not evidence. Select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check. For a negative security check, use a scoped assertion script that exits 0 only when the expected denial is observed; a raw nonzero exit cannot verify a deliverable. Finish all source and report writes BEFORE final checks, then only update plan/deliverables metadata. Do not rewrite already-correct factual reports merely to update evidence IDs or dynamic test ports: changed reports stale prior checks.","parameters":{"type":"object","properties":{"task_action":{"type":"string","enum":["start","status","stop"]},"task_id":{"type":"string","description":"Opaque handle valid only in the current generation. After Stop, completion or restart every previous handle is expired and its task was cleaned up. Start a fresh task with task_action=start; never reuse a historical task_id or adopt a PID/port."},"command":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":["command"]}}}),
             json!({"type":"function","function":{"name":"replace_text","description":"For a small edit, replace exactly one literal snippet in an existing file after a fresh read. old_text and new_text are plain source strings, not patch syntax. Include enough exact text to identify one place. Empty, missing or repeated old_text and changes since the last read are refused; write is atomic. Prefer this for one-line edits; use apply_patch for multiple hunks.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}}),
             json!({"type":"function","function":{"name":"write_file","description":"Write the full content of a project file, replacing it. To change part of a file, prefer apply_patch.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}),
@@ -8479,6 +8479,66 @@ mod tests {
         let tail = dynamic_tail(&state, None, "", &Transcript::default(), "");
         assert!(!tail.to_ascii_lowercase().contains("todo"));
         assert!(!tail.contains("model_todo"));
+    }
+
+    #[test]
+    fn project_context_distinguishes_knowledge_paths_from_source_files() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("project-context-paths-{nonce}"));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("index.html"), "<main>NEXUS</main>").unwrap();
+        std::fs::write(root.join("package.json"), "{}\n").unwrap();
+        std::fs::write(root.join("check.mjs"), "console.log('check')\n").unwrap();
+        let root_text = root.to_string_lossy().into_owned();
+        let state = AgentState::default();
+        let initial = dynamic_tail(
+            &state,
+            Some(&root_text),
+            "Расскажи об этом проекте",
+            &Transcript::default(),
+            "",
+        );
+        assert!(initial.contains("relative to the private `.ai-framework/` knowledge cache"));
+        assert!(!initial.contains("project/overview.md"));
+        assert!(!initial.contains("tasks/643f2aa9-9110-4df3-8c75-8a66ad6b0804.md"));
+
+        crate::tools::knowledge::observe_tool(
+            &root,
+            "643f2aa9-9110-4df3-8c75-8a66ad6b0804",
+            "Inspect the current project",
+            None,
+            None,
+            "read_file",
+            &json!({"path":"index.html"}),
+            &json!({"path":"index.html", "content":"<main>NEXUS</main>"}),
+        )
+        .unwrap();
+        let populated = dynamic_tail(
+            &state,
+            Some(&root_text),
+            "Расскажи об этом проекте",
+            &Transcript::default(),
+            "",
+        );
+        assert!(populated.contains("project/overview.md"));
+        assert!(populated.contains("tasks/643f2aa9-9110-4df3-8c75-8a66ad6b0804.md"));
+        assert!(populated.contains("Read them only with `project_knowledge_read`"));
+
+        let schemas = tool_schemas(ToolScope::Project);
+        for name in ["project_knowledge_read", "project_knowledge_update"] {
+            let description = schemas
+                .iter()
+                .find(|schema| tool_name(schema) == name)
+                .and_then(|schema| schema.pointer("/function/description"))
+                .and_then(Value::as_str)
+                .unwrap();
+            assert!(description.contains("not from the project filesystem") || description.contains("not in the project filesystem"));
+            assert!(description.contains(".ai-framework"));
+        }
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
