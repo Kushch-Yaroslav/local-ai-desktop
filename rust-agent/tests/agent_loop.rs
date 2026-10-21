@@ -480,6 +480,27 @@ fn hard_cancel_still_stops_a_pausing_run_without_another_request() {
     assert!(!completed(&workspace.journal_or_empty()));
 }
 
+#[test]
+fn same_relative_path_in_two_projects_is_not_an_unchanged_duplicate() {
+    let fixture = Workspace::new(&[("shared.txt", "primary content")]);
+    let secondary = fixture.base.join("secondary");
+    std::fs::create_dir_all(&secondary).unwrap();
+    std::fs::write(secondary.join("shared.txt"), "secondary content").unwrap();
+    let provider = Provider::start(|request, turn| match turn {
+        0 => Reply::Tools(vec![("read_file", json!({"path":"shared.txt","project":1}))]),
+        1 => Reply::Tools(vec![("read_file", json!({"path":"shared.txt","project":2}))]),
+        _ => {
+            let result = request["messages"].as_array().unwrap().iter().rev().find(|message| message["role"] == "tool").unwrap();
+            assert!(result["content"].as_str().unwrap().contains("secondary content"), "{result}");
+            Reply::Text("Compared both actual project files.".into())
+        }
+    });
+    let mut config = fixture.config(&provider.endpoint, "Read-only compare shared.txt in both projects");
+    config.secondary_root = Some(secondary.to_string_lossy().into_owned());
+    run(config);
+    assert_eq!(provider.requests().len(), 3);
+}
+
 enum Reply {
     Text(String),
     /// Only reasoning, no content and no structured call.

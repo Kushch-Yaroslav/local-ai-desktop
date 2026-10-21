@@ -50,6 +50,15 @@ impl Observation {
     }
 }
 
+pub fn requested_read_range(arguments: &Value) -> String {
+    let start = arguments.get("start_line").and_then(Value::as_u64);
+    let end = arguments.get("end_line").and_then(Value::as_u64);
+    let lines = if start.is_some() || end.is_some() {
+        format!("lines {}-{}", start.unwrap_or(1).max(1), end.map_or("end".into(), |n| n.max(1).to_string()))
+    } else { "all".into() };
+    format!("{lines} offset_chars={}", arguments.get("offset_chars").and_then(Value::as_u64).unwrap_or(0))
+}
+
 fn returned_range(parsed: &Value) -> Option<String> {
     let range = parsed
         .get("start_line")
@@ -378,19 +387,7 @@ impl EvidenceStore {
                                     .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
                             })
                     });
-                    let requested_range = call_args.map(|a| {
-                        let lines = a.get("start_line").and_then(Value::as_u64).map(|start| {
-                            format!(
-                                "lines {}-{}",
-                                start,
-                                a.get("end_line")
-                                    .and_then(Value::as_u64)
-                                    .map_or("end".into(), |n| n.to_string())
-                            )
-                        });
-                        let offset = a.get("offset_chars").and_then(Value::as_u64).unwrap_or(0);
-                        format!("{} offset_chars={offset}", lines.unwrap_or("all".into()))
-                    });
+                    let requested_range = call_args.map(requested_read_range);
                     let returned_range = returned_range(&parsed);
                     let meta = Observation {
                         id: id.clone(),

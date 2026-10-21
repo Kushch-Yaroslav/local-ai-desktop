@@ -41,27 +41,7 @@ fn repeated_file_read_observation(
     let path = call.arguments.get("path")?.as_str()?;
     let root = root?;
     let canonical_root = root.canonicalize().ok()?;
-    let range = format!(
-        "{} offset_chars={}",
-        call.arguments
-            .get("start_line")
-            .and_then(Value::as_u64)
-            .map(|start| {
-                format!(
-                    "lines {}-{}",
-                    start,
-                    call.arguments
-                        .get("end_line")
-                        .and_then(Value::as_u64)
-                        .map_or("end".into(), |end| end.to_string())
-                )
-            })
-            .unwrap_or_else(|| "all".into()),
-        call.arguments
-            .get("offset_chars")
-            .and_then(Value::as_u64)
-            .unwrap_or(0)
-    );
+    let range = crate::agent::evidence::requested_read_range(&call.arguments);
     if let Ok(file) = canonical_root.join(path).canonicalize() {
         if !file.starts_with(&canonical_root) {
             return None;
@@ -210,6 +190,22 @@ mod tests {
             Some(&root)
         )
         .is_ok());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn end_line_only_read_does_not_hide_the_rest_of_the_file() {
+        let base = std::env::temp_dir().join(format!("read-range-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let root = base.join("project");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.txt"), "one\ntwo\nthree\n").unwrap();
+        let mut transcript = Transcript::durable(&base.join("store"), "run", &[], root.to_str()).unwrap();
+        let partial = call("read_file", json!({"path":"a.txt","end_line":1}));
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&partial));
+        transcript.tool_result(&partial.id, &partial.name, json!({"path":"a.txt","content":"one","start_line":1,"end_line":1}).to_string());
+        assert!(repeated_file_read_decision(&partial, &transcript, Some(&root)).is_err());
+        assert!(repeated_file_read_decision(&call("read_file", json!({"path":"a.txt"})), &transcript, Some(&root)).is_ok());
+        assert!(repeated_file_read_decision(&call("read_file", json!({"path":"a.txt","end_line":2})), &transcript, Some(&root)).is_ok());
         std::fs::remove_dir_all(base).unwrap();
     }
 

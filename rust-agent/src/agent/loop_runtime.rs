@@ -4421,6 +4421,10 @@ fn automatically_readable(config:&Config,tool:&ValidatedCall)->bool {
     scoped_tool_config(config,tool).is_ok_and(|scope| scope.permission_decision(tool)==super::permissions::Decision::Read)
 }
 
+fn selected_read_root(config: &Config, tool: &ValidatedCall) -> Option<PathBuf> {
+    scoped_tool_config(config, tool).ok()?.work_root().map(PathBuf::from)
+}
+
 fn can_parallelize_safe_read(
     call: &ValidatedCall,
     prior_batch: &[ValidatedCall],
@@ -4439,6 +4443,8 @@ fn can_parallelize_safe_read(
     !prior_batch.iter().any(|prior| {
         prior.name == "read_file"
             && prior.arguments.get("path").and_then(Value::as_str) == Some(path)
+            && prior.arguments.get("project").and_then(Value::as_u64).unwrap_or(1)
+                == call.arguments.get("project").and_then(Value::as_u64).unwrap_or(1)
     })
 }
 
@@ -5675,7 +5681,7 @@ pub fn run(mut config: Config) {
                     &calls[call_index],
                     &[],
                     &transcript,
-                    config.root.as_deref().map(std::path::Path::new),
+                    selected_read_root(&config, &calls[call_index]).as_deref(),
                 )
                 && automatically_readable(&config,&calls[call_index])
                 && safe_read_only_tool(&calls[call_index].name)
@@ -5694,7 +5700,7 @@ pub fn run(mut config: Config) {
                             candidate,
                             &calls[start..call_index],
                             &transcript,
-                            config.root.as_deref().map(std::path::Path::new),
+                            selected_read_root(&config, candidate).as_deref(),
                         )
                     {
                         break;
@@ -5721,7 +5727,7 @@ pub fn run(mut config: Config) {
                         let natural = (tool.name == "read_file")
                             .then(|| {
                                 let path = tool.arguments.get("path")?.as_str()?;
-                                let root = project_root.as_deref()?;
+                                let root = selected_read_root(&config, tool)?;
                                 std::fs::metadata(root.join(path))
                                     .ok()
                                     .map(|m| m.len() as usize)
@@ -5872,7 +5878,7 @@ pub fn run(mut config: Config) {
                 if let Err(message) = repeated_file_read_decision(
                     tool,
                     &transcript,
-                    config.root.as_deref().map(std::path::Path::new),
+                    selected_read_root(&config, tool).as_deref(),
                 ) {
                     observe_loop(&config,&mut state,&mut transcript,tool,&json!({"unchanged":true,"observation":message}),false);
                     trace_forensics(
