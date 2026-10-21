@@ -5,7 +5,7 @@
 //! makes no judgement about what is relevant.
 use crate::agent::transcript::{Transcript, ValidatedCall};
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn repeated_file_read_decision(
     call: &ValidatedCall,
@@ -83,6 +83,26 @@ fn repeated_file_read_observation(
                     .is_some_and(|source| source == path || source == project_path)
         })
         .map(|observation| observation.id.clone())
+}
+
+/// Return the canonical source and revision for a previously successful read
+/// that caused `repeated_file_read_decision` to reject a duplicate call.
+pub fn unchanged_file_read_revision(
+    call: &ValidatedCall,
+    transcript: &Transcript,
+    root: Option<&Path>,
+) -> Option<(PathBuf, String)> {
+    let id = repeated_file_read_observation(call, transcript, root)?;
+    let canonical_root = root?.canonicalize().ok()?;
+    let observation = transcript.observation(&id)?;
+    if observation.error || observation.tool != "read_file" {
+        return None;
+    }
+    let source = observation
+        .source
+        .as_deref()
+        .and_then(|source| canonical_source_path(source, &canonical_root))?;
+    Some((source, observation.source_revision.clone()?))
 }
 
 fn canonical_source_path(source: &str, root: &Path) -> Option<std::path::PathBuf> {

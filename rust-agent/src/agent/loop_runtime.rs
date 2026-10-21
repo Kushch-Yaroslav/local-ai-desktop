@@ -4555,6 +4555,20 @@ fn record_file_read_snapshot(state: &mut AgentState, scope: &crate::tools::files
     }
 }
 
+fn record_unchanged_read_revision(config: &Config, state: &mut AgentState, transcript: &Transcript, tool: &ValidatedCall) {
+    let Some(root) = selected_read_root(config, tool) else { return; };
+    let Some((file, revision)) = crate::agent::reads::unchanged_file_read_revision(tool, transcript, Some(&root)) else { return; };
+    let grants = config.grants();
+    let scope = crate::tools::filesystem::Scope { root: Path::new(&root), grants: &grants };
+    let Some((current_file, current_revision)) = tool.arguments.get("path").and_then(Value::as_str).and_then(|path| crate::tools::filesystem::file_revision(&scope, path)) else { return; };
+    if current_file == file && current_revision == revision {
+        if let Some(path) = tool.arguments.get("path").and_then(Value::as_str) {
+            state.work_budget.observe_file(path, &revision);
+        }
+        state.note_file_revision(file, revision);
+    }
+}
+
 fn concise_tool_error(message: &str) -> String { crate::tools::failure::concise(message) }
 
 /// Commands that produce evidence a run may spend after the first
@@ -5889,6 +5903,7 @@ pub fn run(mut config: Config) {
                     &transcript,
                     selected_read_root(&config, tool).as_deref(),
                 ) {
+                    record_unchanged_read_revision(&config, &mut state, &transcript, tool);
                     observe_loop(&config,&mut state,&mut transcript,tool,&json!({"unchanged":true,"observation":message}),false);
                     trace_forensics(
                         &config.run_id,
@@ -6488,6 +6503,36 @@ mod tests {
         transcript.tool_result(&tool.id, &tool.name, result.to_string());
         assert_eq!(transcript.observation_for_call(&tool.id).unwrap().source_revision.as_deref(), Some(captured));
         assert!(repeated_file_read_decision(&tool, &transcript, Some(&root)).is_ok(), "external revision must allow a fresh read");
+        drop(transcript);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn unchanged_deduplicated_read_hydrates_freshness_for_a_new_run() {
+        let base = std::env::temp_dir().join(format!("deduplicated-read-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let root = base.join("project");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.txt"), "current bytes").unwrap();
+        let mut config = test_config(65536);
+        config.root = Some(root.to_string_lossy().into_owned());
+        let first = ValidatedCall { id:"first-run".into(), name:"read_file".into(), arguments:json!({"path":"a.txt"}) };
+        let (result, _) = run_safe_read_tool(&config, &first).unwrap();
+        let mut transcript = Transcript::durable(&base.join("store"), "old-run", &[], root.to_str()).unwrap();
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&first));
+        transcript.tool_result(&first.id, &first.name, result.to_string());
+
+        let retry = ValidatedCall { id:"next-run".into(), ..first };
+        assert!(repeated_file_read_decision(&retry, &transcript, Some(&root)).is_err());
+        let mut next_run_state = AgentState::default();
+        record_unchanged_read_revision(&config, &mut next_run_state, &transcript, &retry);
+        let scope = crate::tools::filesystem::Scope { root:&root, grants:&[] };
+        let (file, current_revision) = crate::tools::filesystem::file_revision(&scope, "a.txt").unwrap();
+        assert!(!next_run_state.file_changed_since_seen(&file, &current_revision));
+        assert_eq!(next_run_state.file_revisions.get(&file), Some(&current_revision));
+
+        std::fs::write(root.join("a.txt"), "changed after read").unwrap();
+        let (_, changed_revision) = crate::tools::filesystem::file_revision(&scope, "a.txt").unwrap();
+        assert!(next_run_state.file_changed_since_seen(&file, &changed_revision));
         drop(transcript);
         std::fs::remove_dir_all(base).unwrap();
     }
