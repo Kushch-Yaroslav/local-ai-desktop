@@ -2174,7 +2174,7 @@ fn patch_added_files(patch: &str) -> Vec<String> {
         .collect()
 }
 
-fn mutation_tool(name: &str) -> bool {
+pub(super) fn mutation_tool(name: &str) -> bool {
     matches!(
         name,
         "write_file" | "create_file" | "apply_patch" | "delete_file" | "replace_text" | "download_file"

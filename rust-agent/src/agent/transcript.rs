@@ -563,8 +563,9 @@ impl Transcript {
             .iter()
             .rposition(|entry| matches!(entry, Entry::RunUser(_)))
             .unwrap_or(0);
-        let mut pending = HashMap::<String, bool>::new();
+        let mut pending = HashMap::<String, (bool, bool, bool)>::new();
         let mut streak = 0usize;
+        let mut protected_failure = false;
         for entry in self.entries.iter().skip(start) {
             let Entry::Message(message) = entry else {
                 continue;
@@ -585,26 +586,29 @@ impl Transcript {
                             .pointer("/function/arguments")
                             .and_then(Value::as_str)
                             .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
-                        pending.insert(
-                            id.to_owned(),
-                            call_name == Some(name)
-                                && call_arguments.as_ref() == Some(arguments),
-                        );
+                        let exact = call_name == Some(name) && call_arguments.as_ref() == Some(arguments);
+                        let same_project = call_arguments.as_ref().is_some_and(|args|
+                            args["project"].as_u64().unwrap_or(1) == arguments["project"].as_u64().unwrap_or(1));
+                        let refreshed_input = same_project && call_arguments.as_ref().is_some_and(|args|
+                            call_name == Some("read_file") && super::loop_runtime::mutation_tool(name)
+                                && crate::tools::filesystem::mutation_paths(name, arguments).is_ok_and(|paths| paths.iter().any(|path| Some(path.as_str()) == args["path"].as_str()))
+                            || name == "run_terminal" && call_name.is_some_and(|tool| super::loop_runtime::mutation_tool(tool) || tool == "run_terminal"));
+                        let browser_recovery = name == "web_project" && same_project && call_name == Some("web_project")
+                            && call_arguments.as_ref().is_some_and(|args| args["action"] == "open");
+                        pending.insert(id.to_owned(), (exact, refreshed_input, browser_recovery));
                     }
                 }
                 Some("tool") if message.get("_result_policy").is_none() => {
                     let Some(id) = message.get("tool_call_id").and_then(Value::as_str) else {
                         continue;
                     };
-                    if !pending.remove(id).unwrap_or(false) {
-                        continue;
-                    }
+                    let Some((exact, refreshed_input, browser_recovery)) = pending.remove(id) else { continue; };
                     let result = message
                         .get("content")
                         .and_then(Value::as_str)
                         .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
                     let Some(result) = result else {
-                        streak = 0;
+                        if exact { streak = 0; }
                         continue;
                     };
                     let failed = result.get("error").is_some()
@@ -626,10 +630,16 @@ impl Transcript {
                         );
                     let non_retryable = result.get("retrySameArguments") == Some(&Value::Bool(false))
                         || result.get("stage").and_then(Value::as_str) == Some("validation");
+                    if !failed && !protected_failure && (refreshed_input || browser_recovery && result.pointer("/browser_session/recovered") == Some(&Value::Bool(true))) {
+                        streak = 0;
+                    }
+                    if !exact { continue; }
                     if failed && (count_retryable_failures || non_retryable) {
                         streak = streak.saturating_add(1);
+                        protected_failure |= result.get("approved") == Some(&Value::Bool(false)) || matches!(result["code"].as_str(), Some("PERMISSION_DENIED" | "PROTECTED_RUNTIME_PROCESS" | "MANDATORY_POLICY_BLOCKED"));
                     } else {
                         streak = 0;
+                        protected_failure = false;
                     }
                 }
                 _ => {}
@@ -945,6 +955,51 @@ pub fn validate_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn persisted_retry_guard_respects_scoped_recovery_and_keeps_security_denials() {
+        let mut transcript = Transcript::default();
+        transcript.push_run_user(json!({"role":"user","content":"inspect browser"}));
+        let target = json!({"action":"read","project":1});
+        let mut append = |name: &str, arguments: Value, result: Value| {
+            let call = ValidatedCall {id:format!("call-{}", transcript.entries().len()),name:name.into(),arguments};
+            transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&call));
+            transcript.tool_result(&call.id,name,result.to_string());
+        };
+        for _ in 0..2 { append("web_project",target.clone(),json!({"error":"page closed","retrySameArguments":false})); }
+        append("web_project",json!({"action":"open","project":2}),json!({"browser_session":{"recovered":true}}));
+        assert_eq!(transcript.failed_tool_call_streak("web_project",&target,false),2);
+        let call = ValidatedCall {id:"recovered".into(),name:"web_project".into(),arguments:json!({"action":"open","project":1})};
+        transcript.assistant_tool_turn(String::new(),std::slice::from_ref(&call));
+        transcript.tool_result(&call.id,&call.name,json!({"browser_session":{"recovered":true}}).to_string());
+        assert_eq!(transcript.failed_tool_call_streak("web_project",&target,false),0);
+        for index in 0..2 {
+            let denied = ValidatedCall {id:format!("denied-{index}"),name:"web_project".into(),arguments:target.clone()};
+            transcript.assistant_tool_turn(String::new(),std::slice::from_ref(&denied));
+            transcript.tool_result(&denied.id,&denied.name,json!({"error":"denied","code":"PERMISSION_DENIED","retrySameArguments":false}).to_string());
+        }
+        transcript.assistant_tool_turn(String::new(),std::slice::from_ref(&call));
+        transcript.tool_result(&call.id,&call.name,json!({"browser_session":{"recovered":true}}).to_string());
+        assert_eq!(transcript.failed_tool_call_streak("web_project",&target,false),2,"reconnect cannot erase security denial");
+    }
+
+    #[test]
+    fn retry_streak_is_reset_only_by_a_successful_matching_project_read() {
+        let mut transcript = Transcript::default();
+        transcript.push_run_user(json!({"role":"user","content":"edit file"}));
+        let target = json!({"path":"a.txt","old_text":"old","new_text":"new","project":2});
+        for index in 0..2 {
+            let call = ValidatedCall {id:format!("bad-{index}"),name:"replace_text".into(),arguments:target.clone()};
+            transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&call));
+            transcript.tool_result(&call.id,&call.name,json!({"error":"stale revision","code":"STALE_FILE_REVISION","retrySameArguments":false}).to_string());
+        }
+        for (index, project, result, expected) in [(0,1,json!({"content":"other project"}),2), (1,2,json!({"error":"missing"}),2), (2,2,json!({"content":"new snapshot"}),0)] {
+            let call = ValidatedCall {id:format!("read-{index}"),name:"read_file".into(),arguments:json!({"path":"a.txt","project":project})};
+            transcript.assistant_tool_turn(String::new(),std::slice::from_ref(&call));
+            transcript.tool_result(&call.id,&call.name,result.to_string());
+            assert_eq!(transcript.failed_tool_call_streak("replace_text",&target,true),expected);
+        }
+    }
 
     #[test]
     fn failed_tool_streak_survives_resume_and_resets_after_success_or_new_request() {
