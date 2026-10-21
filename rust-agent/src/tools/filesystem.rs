@@ -331,6 +331,10 @@ pub fn execute_in(
                 );
             }
             let content = read_text(&target)?;
+            let source_revision = {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(content.as_bytes()))
+            };
             let limit = read_limit(object);
             let lines = content.lines().collect::<Vec<_>>();
             let start_line = object
@@ -379,7 +383,7 @@ pub fn execute_in(
                     .map(|(start, end, partial)| (json!(start), json!(end), partial))
                     .unwrap_or((Value::Null, Value::Null, false));
                 Ok((
-                    json!({"path":path,"content":selected,"start_line":returned_start,"end_line":returned_end,"requested_start_line":start,"requested_end_line":end,"starts_mid_line":starts_mid_line,"ends_mid_line":truncated && !selected.ends_with('\n'),"total_lines":lines.len(),"targeted":true,"truncated":truncated,"offset_chars":offset_chars,"next_offset_chars":next_offset_chars,"read_result_limit_bytes":limit}),
+                    json!({"path":path,"source_revision":source_revision,"content":selected,"start_line":returned_start,"end_line":returned_end,"requested_start_line":start,"requested_end_line":end,"starts_mid_line":starts_mid_line,"ends_mid_line":truncated && !selected.ends_with('\n'),"total_lines":lines.len(),"targeted":true,"truncated":truncated,"offset_chars":offset_chars,"next_offset_chars":next_offset_chars,"read_result_limit_bytes":limit}),
                     None,
                 ))
             } else {
@@ -390,7 +394,7 @@ pub fn execute_in(
                     .map(|(start, end, partial)| (json!(start), json!(end), partial))
                     .unwrap_or((Value::Null, Value::Null, false));
                 Ok((
-                    json!({"path":path,"content":chunk,"start_line":start,"end_line":end,"starts_mid_line":starts_mid_line,"ends_mid_line":truncated && !chunk.ends_with('\n'),"total_lines":lines.len(),"targeted":false,"truncated":truncated,"offset_chars":offset_chars,"next_offset_chars":next_offset_chars,"read_result_limit_bytes":limit}),
+                    json!({"path":path,"source_revision":source_revision,"content":chunk,"start_line":start,"end_line":end,"starts_mid_line":starts_mid_line,"ends_mid_line":truncated && !chunk.ends_with('\n'),"total_lines":lines.len(),"targeted":false,"truncated":truncated,"offset_chars":offset_chars,"next_offset_chars":next_offset_chars,"read_result_limit_bytes":limit}),
                     None,
                 ))
             }

@@ -372,7 +372,10 @@ impl EvidenceStore {
                         .or_else(|| call_args.and_then(|a| a.get("path")))
                         .and_then(Value::as_str)
                         .map(str::to_owned);
-                    let source_revision = source.as_ref().and_then(|p| {
+                    // A read result describes its captured bytes, not a later
+                    // file version that may have changed before journal append.
+                    let captured_revision = (tool == "read_file").then(|| parsed["source_revision"].as_str()).flatten();
+                    let source_revision = captured_revision.map(str::to_owned).or_else(|| source.as_ref().and_then(|p| {
                         self.secondary_root
                             .as_ref()
                             .filter(|root| Path::new(p).starts_with(root))
@@ -386,7 +389,7 @@ impl EvidenceStore {
                                     .ok()
                                     .map(|bytes| format!("{:x}", Sha256::digest(bytes)))
                             })
-                    });
+                    }));
                     let requested_range = call_args.map(requested_read_range);
                     let returned_range = returned_range(&parsed);
                     let meta = Observation {

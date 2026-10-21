@@ -4231,7 +4231,7 @@ fn run_scoped_tool_authorized(
                 root: Path::new(root),
                 grants: &grants,
             };
-            if let Some(path) = target.as_deref() {
+            if let Some(path) = target.as_deref().filter(|_| name != "read_file") {
                 if let Some((_, revision)) = crate::tools::filesystem::file_revision(&file_scope, path) {
                     state.work_budget.observe_file(path, &revision);
                 }
@@ -4273,6 +4273,10 @@ fn run_scoped_tool_authorized(
                 _ => Vec::<String>::new(),
             };
             for path in touched {
+                if name == "read_file" {
+                    record_file_read_snapshot(state, &file_scope, &path, &result.0);
+                    continue;
+                }
                 if let Some((file, revision)) =
                     crate::tools::filesystem::file_revision(&file_scope, &path)
                 {
@@ -4516,6 +4520,7 @@ fn record_safe_read_effect(
     config: &Config,
     state: &mut AgentState,
     tool: &ValidatedCall,
+    result: &Value,
 ) {
     let Ok(scoped) = scoped_tool_config(config, tool) else {
         return;
@@ -4533,16 +4538,18 @@ fn record_safe_read_effect(
                         root: Path::new(root),
                         grants: &grants,
                     };
-                    if let Some((file, revision)) =
-                        crate::tools::filesystem::file_revision(&scope, path)
-                    {
-                        state.work_budget.observe_file(path, &revision);
-                        state.note_file_revision(file, revision);
-                    }
+                    record_file_read_snapshot(state, &scope, path, result);
                 }
             }
         }
         _ => {}
+    }
+}
+
+fn record_file_read_snapshot(state: &mut AgentState, scope: &crate::tools::filesystem::Scope<'_>, path: &str, result: &Value) {
+    if let (Ok(file), Some(revision)) = (crate::tools::filesystem::scoped(scope, path), result["source_revision"].as_str()) {
+        state.work_budget.observe_file(path, revision);
+        state.note_file_revision(file, revision.to_owned());
     }
 }
 
@@ -5769,7 +5776,7 @@ pub fn run(mut config: Config) {
                         Ok((value, diff)) => {
                             clear_edit_failures_after_read(&mut state, tool);
                     clear_browser_failures_after_recovery(&mut state,tool,&value);
-                            record_safe_read_effect(&config, &mut state, tool);
+                            record_safe_read_effect(&config, &mut state, tool, &value);
                             observe_loop(&config,&mut state,&mut transcript,tool,&value,false);
                             let content = value.to_string();
                             budget.spend(content.chars().count());
@@ -6438,6 +6445,34 @@ mod tests {
         assert_eq!(state.mutations, 0, "a resumed process starts its local counter at zero");
         assert!(verification_gap(&state).is_some());
         assert!(anonymous_verification_gap(&state));
+    }
+
+    #[test]
+    fn file_change_between_capture_and_bookkeeping_cannot_make_old_read_fresh() {
+        let base = std::env::temp_dir().join(format!("captured-read-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let root = base.join("project");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("a.txt"), "old snapshot").unwrap();
+        let mut config = test_config(65536);
+        config.root = Some(root.to_string_lossy().into_owned());
+        let tool = ValidatedCall { id:"capture".into(), name:"read_file".into(), arguments:json!({"path":"a.txt"}) };
+        let (result, _) = run_safe_read_tool(&config, &tool).unwrap();
+        assert_eq!(result["content"], "old snapshot");
+        let captured = result["source_revision"].as_str().unwrap();
+        std::fs::write(root.join("a.txt"), "external replacement").unwrap();
+        let mut state = AgentState::default();
+        record_safe_read_effect(&config, &mut state, &tool, &result);
+        let scope = crate::tools::filesystem::Scope { root:&root, grants:&[] };
+        let (file, current) = crate::tools::filesystem::file_revision(&scope, "a.txt").unwrap();
+        assert!(state.file_changed_since_seen(&file, &current));
+        assert_eq!(state.file_revisions[&file], captured);
+        let mut transcript = Transcript::durable(&base.join("store"), "run", &[], root.to_str()).unwrap();
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&tool));
+        transcript.tool_result(&tool.id, &tool.name, result.to_string());
+        assert_eq!(transcript.observation_for_call(&tool.id).unwrap().source_revision.as_deref(), Some(captured));
+        assert!(repeated_file_read_decision(&tool, &transcript, Some(&root)).is_ok(), "external revision must allow a fresh read");
+        drop(transcript);
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[test]

@@ -4,7 +4,6 @@
 //! it compares recorded observation metadata and the current file revision and
 //! makes no judgement about what is relevant.
 use crate::agent::transcript::{Transcript, ValidatedCall};
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
@@ -100,7 +99,7 @@ fn canonical_source_path(source: &str, root: &Path) -> Option<std::path::PathBuf
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{json, Value};
     fn call(name: &str, args: Value) -> ValidatedCall {
         ValidatedCall {
             id: "call".into(),
