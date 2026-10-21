@@ -5930,12 +5930,13 @@ pub fn run(mut config: Config) {
                 transcript.tool_result(&tool.id, &tool.name, message); continue;
             }
             let failure_fingerprint = tool_call_fingerprint(tool);
-            let persisted_failure_streak = transcript.failed_tool_call_streak(
-                &tool.name,
-                &tool.arguments,
-                mutation_tool(&tool.name),
-            );
-            if !(tool.name == "web_project" && tool.arguments["action"] == "qa") && !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint, persisted_failure_streak) {
+            // Read/plan/memory calls do not use this guard. Do not rescan and
+            // parse the whole durable transcript for a result they discard.
+            let guarded = !(tool.name == "web_project" && tool.arguments["action"] == "qa")
+                && !transcript.is_finalizing()
+                && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name));
+            if guarded && failed_call_retry_exhausted(&state, &failure_fingerprint,
+                transcript.failed_tool_call_streak(&tool.name, &tool.arguments, mutation_tool(&tool.name))) {
                 let message = "This identical tool call has a deterministic failure or has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
                 emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string() });
                 transcript.tool_result(&tool.id, &tool.name, json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string());
