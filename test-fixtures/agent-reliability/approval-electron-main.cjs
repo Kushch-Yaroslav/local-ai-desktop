@@ -40,6 +40,7 @@ ipcMain.handle('analysis:list', () => []);
 ipcMain.handle('models:list', () => [{ id: 'fixture', name: 'Fixture', shortName: 'Fixture', installed: true, supportedContextPresets: [32768], maxContext: 32768, reasoning: { thinkingToggle: true, efforts: [] } }]);
 ipcMain.handle('settings:get', () => ({ uiLanguage: 'en', modelsPath: '', llamaServerPath: null, llamaRuntime: { status: 'ready', modelId: 'fixture', contextWindow: 32768 } }));
 ipcMain.handle('hardware:get', () => null);
+ipcMain.handle('browser-qa:status', () => ({mode:'off',autonomous:false,available:false}));
 ipcMain.handle('context:estimate', () => ({ unknownReasons: [], configuredMaxTokens: 32768 }));
 ipcMain.handle('context:discovery-status', () => ({ busy: false }));
 ipcMain.handle('chat:diagram-validation-result', (event, id, error) => diagram.reply(event.sender.id, id, error));

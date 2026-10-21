@@ -232,10 +232,12 @@ try {
     await page.getByRole('button', { name: 'Continue anyway', exact: true }).waitFor();
     await page.locator('.autonomy-trigger').click();
     if (!await page.locator('.autonomy-advanced').count()) await page.getByRole('button', { name: 'Advanced settings', exact: true }).click();
-    await page.locator('.session-grant').waitFor();
+    const grant = page.locator('.session-grant').filter({ hasText: 'git config fixture.revocable granted' });
+    await grant.waitFor();
     if (all) await page.getByRole('button', { name: 'Revoke all session permissions', exact: true }).click();
-    else await page.locator('.session-grant').getByRole('button', { name: 'Revoke', exact: true }).click();
-    await page.waitForFunction(() => document.querySelectorAll('.session-grant').length === 0);
+    else await grant.getByRole('button', { name: 'Revoke', exact: true }).click();
+    if (all) await page.waitForFunction(() => document.querySelectorAll('.session-grant').length === 0);
+    else await grant.waitFor({ state: 'detached' });
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Continue anyway', exact: true }).click();
     await page.waitForSelector('.approval-panel');
