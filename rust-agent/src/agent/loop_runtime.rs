@@ -449,6 +449,7 @@ fn project_evidence(
     dynamic: &str,
 ) -> Vec<Value> {
     let mut messages = project(transcript, stable, dynamic);
+    crate::context::evidence_projection::fold_duplicate_rehydrations(&mut messages);
     for message in &mut messages {
         let Some(id) = message.get("_observation_id").and_then(Value::as_str) else {
             continue;

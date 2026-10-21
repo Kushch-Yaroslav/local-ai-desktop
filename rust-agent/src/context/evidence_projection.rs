@@ -3,6 +3,29 @@ use crate::agent::transcript::Transcript;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 
+/// Repeated recovery of the exact same immutable slice must not multiply its
+/// body in the provider context. Keep the latest complete view, preserve every
+/// tool/result pair and never alter canonical history. Changed freshness or
+/// different ranges remain distinct results.
+pub fn fold_duplicate_rehydrations(messages: &mut [Value]) -> usize {
+    use sha2::{Digest, Sha256};
+    let mut seen = HashSet::new();
+    let mut saved = 0;
+    for message in messages.iter_mut().rev() {
+        if message["role"] != "tool" { continue; }
+        let Some(locator) = message.get("_rehydration") else { continue; };
+        let Some(body) = message["content"].as_str() else { continue; };
+        let key = (locator.to_string(), format!("{:x}", Sha256::digest(body.as_bytes())));
+        if seen.insert(key) { continue; }
+        let receipt = format!("[Duplicate observation recovery: {locator}. The identical complete view is retained in a later tool result; canonical history is unchanged.]");
+        if receipt.len() < body.len() {
+            saved += body.len() - receipt.len();
+            message["content"] = json!(receipt);
+        }
+    }
+    saved
+}
+
 pub fn attach_historical_index(
     transcript: &Transcript,
     messages: &mut Vec<Value>,
@@ -176,6 +199,25 @@ mod tests {
     use std::fs;
     use std::sync::atomic::{AtomicUsize, Ordering};
     static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn duplicate_recovery_bodies_shrink_context_without_losing_ranges_or_freshness() {
+        let body = json!({"content":"x".repeat(8000),"live_source_status":"unchanged"}).to_string();
+        let view = |id: &str, offset: usize, body: &str| json!({"role":"tool","tool_call_id":id,"content":body,"_rehydration":{"id":"obs-1","offset_chars":offset,"max_chars":8000}});
+        let mut messages = vec![view("one",0,&body),view("two",0,&body),view("three",0,&body),view("range",100,&body),view("changed",0,&body.replace("unchanged","changed"))];
+        let original = messages.clone();
+        let before = serde_json::to_vec(&messages).unwrap().len();
+        let saved = fold_duplicate_rehydrations(&mut messages);
+        let after = serde_json::to_vec(&messages).unwrap().len();
+        assert!(saved > 15000);
+        assert!(before - after > 15000);
+        assert_eq!(messages[2], original[2], "latest exact view stays readable");
+        assert_eq!(messages[3], original[3], "other ranges are not duplicates");
+        assert_eq!(messages[4], original[4], "freshness transitions stay explicit");
+        for (before, after) in original.iter().zip(&messages) { assert_eq!(before["tool_call_id"],after["tool_call_id"]); }
+        assert_eq!(fold_duplicate_rehydrations(&mut messages),0,"projection is idempotent");
+        println!("duplicate recovery fixture: context bytes {before} -> {after}; raw body bytes saved {saved}");
+    }
 
     fn fixture() -> (std::path::PathBuf, std::path::PathBuf, Transcript) {
         let base = std::env::temp_dir().join(format!(
