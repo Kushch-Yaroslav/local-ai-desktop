@@ -161,6 +161,21 @@ export async function runWorkerExitRegression(): Promise<void> {
     }
   } finally { rmSync(dir, { recursive:true, force:true }); }
 }
+
+export async function runInvalidRequestOwnershipRegression(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-invalid-request-'));
+  try {
+    const script = join(dir, 'fake-runtime.js');
+    // Safety deadline also makes the regression finite on the broken version.
+    writeFileSync(script, '#!/usr/bin/env node\nsetTimeout(() => process.exit(0), 500);\n');
+    chmodSync(script, 0o755);
+    const runtime = new RustAgentRuntime('http://127.0.0.1:1', script);
+    const stream = runtime.stream('model', [message('system', 'no user')], [], new AbortController().signal, 4096, 'fast', 'off', 'invalid-request');
+    await assert.rejects(stream[Symbol.asyncIterator]().next(), /нет текущего сообщения/);
+    assert.equal(runtime.hasRun('invalid-request'), false, 'invalid preparation must not retain a worker control');
+    await assert.rejects(runtime.steer('invalid-request', 'continue'), /не готов|заверш/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
 export async function runWebImageBridgeRegression(): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), 'agent-web-images-'));
   try {
@@ -340,6 +355,7 @@ if (require.main === module) {
     await runSteeringBridgeRegression();
     await runFatalBridgeRegression();
     await runWorkerExitRegression();
+    await runInvalidRequestOwnershipRegression();
     await runWebImageBridgeRegression();
     await runAgentRichArtifactBridgeRegression();
     await runWebCancellationRegression();

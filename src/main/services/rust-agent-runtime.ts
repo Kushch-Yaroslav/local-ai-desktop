@@ -171,6 +171,13 @@ export class RustAgentRuntime {
   async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
+    // Preparation can fail (invalid history/settings). Validate before owning
+    // a worker or registering controls that would otherwise escape cleanup.
+    const current = splitAgentRunHistory(history);
+    const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
+    const browserConfig = loadRuntimeConfiguration();
+    const effectiveVision = visionMode ?? browserConfig.browserVision ?? 'off';
+    const vision = effectiveVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model, effectiveVision) : undefined;
     protectedRuntime.endpoint(this.endpoint);
     const child = spawn(this.binary, [], { stdio: 'pipe', env: protectedRuntime.environment() });
     child.once('spawn', () => protectedRuntime.register(child.pid, 'rust-agent'));
@@ -193,7 +200,6 @@ export class RustAgentRuntime {
     const permissionIdentity = (value: AgentPermissions) => JSON.stringify([value.mode, [...new Set(value.trusted_roots)].sort()]);
     let qaPermissions = permissionIdentity(permissions);
     this.controls.set(runId, payload => new Promise<void>((resolve, reject) => {
-      if(payload.permissions)qaOptions.securityMode=payload.permissions.mode;
       if (signal.aborted || !child.stdin.writable) { reject(new Error('Agent execution ended')); return; }
       const id = randomUUID();
       const timer = setTimeout(() => { controlPending.delete(id); reject(new Error('Runtime control processing timed out; Stop remains available')); }, payload.action ? 30_000 : 5_000);
@@ -210,9 +216,6 @@ export class RustAgentRuntime {
     // Permission dialogs can await for minutes. Consume steering/control acknowledgments
     // independently of the async generator's awaited host operation.
     const qaPause = new AbortController();
-    const browserConfig = loadRuntimeConfiguration();
-    const effectiveVision = visionMode ?? browserConfig.browserVision ?? 'off';
-    const vision = effectiveVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model, effectiveVision) : undefined;
     const qaKey = JSON.stringify([browserObserver?.ownerId, conversationId, logicalTaskId, projects.map(project => project.root)]);
     const guard = this.qaGuards.get(qaKey) ?? new QaLoopGuard();
     // Only an explicit user run/continuation resets QA observations, never a browser reopen.
@@ -255,8 +258,6 @@ export class RustAgentRuntime {
       setTimeout(() => { if (!child.killed && child.exitCode === null) child.kill('SIGTERM'); }, 2_000).unref();
     };
     signal.addEventListener('abort', stop, { once: true });
-    const current = splitAgentRunHistory(history);
-    const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
     const usedAttachmentSources = new Map<string, ArtifactSource>();
     const acceptedArtifacts = new Map<string, RichArtifact>();
     const galleryFailures = new Map<string, Record<string, unknown>>();
