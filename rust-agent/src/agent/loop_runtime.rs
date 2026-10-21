@@ -2888,6 +2888,48 @@ fn connect_with_recovery<T>(
 
 /// Dependency-free OpenAI-compatible SSE transport. Visible content is emitted
 /// at the delta boundary; finalization never becomes the first visible output.
+fn provider_line(reader: &mut impl BufRead, cancelled: &AtomicBool) -> Result<String, String> {
+    let mut line = String::new();
+    loop {
+        if cancelled.load(Ordering::Relaxed) { return Err("cancelled".into()); }
+        match reader.read_line(&mut line) {
+            Ok(0) => return Err("upstream closed while reading HTTP framing".into()),
+            Ok(_) => return Ok(line),
+            Err(error) if matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock) => continue,
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+}
+
+fn provider_exact(reader: &mut impl Read, bytes: &mut [u8], cancelled: &AtomicBool) -> Result<(), String> {
+    let mut offset = 0;
+    while offset < bytes.len() {
+        if cancelled.load(Ordering::Relaxed) { return Err("cancelled".into()); }
+        match reader.read(&mut bytes[offset..]) {
+            Ok(0) => return Err("upstream closed inside an HTTP chunk".into()),
+            Ok(count) => offset += count,
+            Err(error) if matches!(error.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock) => continue,
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Ok(())
+}
+
+/// Network and HTTP chunk boundaries do not delimit UTF-8 characters.
+fn append_provider_bytes(buffer: &mut String, pending: &mut Vec<u8>, bytes: &[u8]) -> Result<(), String> {
+    pending.extend_from_slice(bytes);
+    match std::str::from_utf8(pending) {
+        Ok(text) => { buffer.push_str(text); pending.clear(); }
+        Err(error) if error.error_len().is_none() => {
+            let end = error.valid_up_to();
+            buffer.push_str(std::str::from_utf8(&pending[..end]).expect("validated UTF-8 prefix"));
+            pending.drain(..end);
+        }
+        Err(error) => return Err(format!("invalid provider UTF-8: {error}")),
+    }
+    Ok(())
+}
+
 fn stream_call(
     endpoint: &str,
     payload: &Value,
@@ -2968,31 +3010,7 @@ fn stream_call(
         .set_read_timeout(Some(std::time::Duration::from_millis(100)))
         .map_err(|error| error.to_string())?;
     let mut reader = BufReader::new(stream);
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => return Err("upstream closed before HTTP status".into()),
-            Ok(_) => break,
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) && cancelled.load(Ordering::Relaxed) =>
-            {
-                return Err("cancelled".into())
-            }
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) =>
-            {
-                continue
-            }
-            Err(error) => return Err(error.to_string()),
-        }
-    }
+    let line = provider_line(&mut reader, cancelled)?;
     if !line.contains(" 200 ") {
         let status = line.trim().to_owned();
         let mut response = String::new();
@@ -3001,28 +3019,7 @@ fn stream_call(
     }
     let mut chunked = false;
     loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => return Err("upstream closed while reading HTTP headers".into()),
-            Ok(_) => {}
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) && cancelled.load(Ordering::Relaxed) =>
-            {
-                return Err("cancelled".into())
-            }
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) =>
-            {
-                continue
-            }
-            Err(error) => return Err(error.to_string()),
-        }
+        let line = provider_line(&mut reader, cancelled)?;
         if line == "\r\n" || line == "\n" {
             break;
         }
@@ -3037,38 +3034,25 @@ fn stream_call(
     turn.tool_names = payload.get("tools").and_then(Value::as_array).into_iter().flatten()
         .filter_map(|tool| tool.pointer("/function/name").and_then(Value::as_str).map(str::to_owned)).collect();
     let mut buffer = String::new();
+    let mut utf8_pending = Vec::new();
     if chunked {
         loop {
             if cancelled.load(Ordering::Relaxed) {
                 return Err("cancelled".into());
             }
-            line.clear();
-            match reader.read_line(&mut line) {
-                Ok(_) => {}
-                Err(error)
-                    if matches!(
-                        error.kind(),
-                        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                    ) =>
-                {
-                    continue
-                }
-                Err(error) => return Err(error.to_string()),
-            }
-            let size = usize::from_str_radix(line.trim(), 16)
+            let line = provider_line(&mut reader, cancelled)?;
+            let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16)
                 .map_err(|error| format!("invalid chunk size: {error}"))?;
             if size == 0 {
                 break;
             }
+            if size > 16 * 1024 * 1024 { return Err("provider HTTP chunk exceeds 16 MiB".into()); }
             let mut bytes = vec![0; size];
-            reader
-                .read_exact(&mut bytes)
-                .map_err(|error| error.to_string())?;
+            provider_exact(&mut reader, &mut bytes, cancelled)?;
             let mut crlf = [0; 2];
-            reader
-                .read_exact(&mut crlf)
-                .map_err(|error| error.to_string())?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
+            provider_exact(&mut reader, &mut crlf, cancelled)?;
+            if crlf != *b"\r\n" { return Err("invalid HTTP chunk terminator".into()); }
+            append_provider_bytes(&mut buffer, &mut utf8_pending, &bytes)?;
             consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)?;
         }
     } else {
@@ -3092,10 +3076,11 @@ fn stream_call(
             if count == 0 {
                 break;
             }
-            buffer.push_str(&String::from_utf8_lossy(&bytes[..count]));
+            append_provider_bytes(&mut buffer, &mut utf8_pending, &bytes[..count])?;
             consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)?;
         }
     }
+    if !utf8_pending.is_empty() { return Err("upstream closed inside a UTF-8 character".into()); }
     // Some OpenAI-compatible local servers close the connection immediately
     // after the final data frame without a trailing blank event separator.
     // Treat that final complete frame as SSE rather than silently losing its
@@ -3135,9 +3120,10 @@ fn consume_sse(
     emit_visible: bool,
     emit_content: bool,
 ) -> Result<(), String> {
-    while let Some(end) = buffer.find("\n\n") {
+    while let Some((end, separator)) = buffer.find("\n\n").map(|end| (end, 2))
+        .into_iter().chain(buffer.find("\r\n\r\n").map(|end| (end, 4))).min_by_key(|(end, _)| *end) {
         let block = buffer[..end].replace('\r', "");
-        buffer.drain(..end + 2);
+        buffer.drain(..end + separator);
         for line in block
             .lines()
             .filter_map(|line| line.strip_prefix("data:").map(str::trim_start))
@@ -3151,6 +3137,9 @@ fn consume_sse(
             trace_forensics(run_id, "raw_sse_frame", json!({"frame":line}));
             let value: Value =
                 serde_json::from_str(line).map_err(|error| format!("invalid SSE JSON: {error}"))?;
+            if let Some(error) = value.get("error").filter(|error| !error.is_null()) {
+                return Err(format!("provider stream error: {}", error.to_string().chars().take(2000).collect::<String>()));
+            }
             if let Some(usage) = value.get("usage") {
                 turn.prompt_tokens = usage
                     .get("prompt_tokens")
@@ -6148,6 +6137,15 @@ fn is_context_overflow(error: &str) -> bool {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn provider_stream_errors_are_not_empty_model_replies() {
+        let mut turn = StreamedTurn::default();
+        let mut frame = "data: {\"error\":{\"message\":\"model unloaded\"}}\n\n".to_owned();
+        let error = consume_sse(&mut frame, &mut turn, "fixture", false, false).unwrap_err();
+        assert!(error.contains("model unloaded"));
+        assert!(turn.calls.is_empty());
+    }
+
+    #[test]
     fn loop_repair_rearms_then_pauses_after_two_failed_attempts() {
         use super::super::control::{LoopCommand, LoopAction};
         let config = test_config(32768);
@@ -6518,6 +6516,53 @@ mod tests {
             Some(&root)
         ));
         std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn sse_accepts_crlf_event_boundaries_during_streaming() {
+        let mut turn = StreamedTurn::default();
+        let mut frame = format!("data: {}\r\n\r\n", json!({"choices":[{"delta":{"content":"Привет"}}]}));
+        consume_sse(&mut frame, &mut turn, "fixture", false, false).unwrap();
+        flush_content(&mut turn, "fixture", false);
+        assert_eq!(turn.content, "Привет");
+        assert!(frame.is_empty());
+    }
+
+    #[test]
+    fn provider_chunk_boundaries_preserve_utf8_and_survive_slow_partial_chunks() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}/v1/chat/completions", listener.local_addr().unwrap());
+        let worker = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = BufReader::new(socket.try_clone().unwrap());
+            let mut length = 0;
+            loop {
+                let mut line = String::new();
+                request.read_line(&mut line).unwrap();
+                if line == "\r\n" { break; }
+                if let Some(value) = line.strip_prefix("Content-Length: ") { length = value.trim().parse::<usize>().unwrap(); }
+            }
+            request.read_exact(&mut vec![0; length]).unwrap();
+            socket.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n").unwrap();
+            let frame = format!("data: {}\n\n", json!({"choices":[{"delta":{"content":"Привет 🌍"},"finish_reason":"stop"}]}));
+            let split = frame.find('П').unwrap() + 1;
+            for part in [&frame.as_bytes()[..split], &frame.as_bytes()[split..]] {
+                socket.write_all(format!("{:x};fixture=yes\r\n", part.len()).as_bytes()).unwrap();
+                let mid = part.len() / 2;
+                socket.write_all(&part[..mid]).unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(140));
+                socket.write_all(&part[mid..]).unwrap();
+                socket.write_all(b"\r\n").unwrap();
+            }
+            socket.write_all(b"0\r\n\r\n").unwrap();
+        });
+        let result = stream_call(&endpoint, &json!({}), "fixture", 0, &AtomicBool::new(false), &Arc::new(AtomicBool::new(false)), None, false, false);
+        // Join before asserting so failures cannot leave an unowned test server.
+        let joined = worker.join();
+        let turn = result.unwrap();
+        joined.unwrap();
+        assert_eq!(turn.content, "Привет 🌍");
+        assert_eq!(turn.finish_reason, "stop");
     }
 
     #[test]
