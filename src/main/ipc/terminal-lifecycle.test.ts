@@ -95,6 +95,7 @@ async function run(): Promise<void> {
   const originalLoad = loader._load;
   loader._load = (name, ...args) => name === 'electron' ? { ipcMain: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler) } } : originalLoad(name, ...args);
   const { ensureAppDirectories } = await import('../services/paths'); ensureAppDirectories();
+  const { seedAgentFixtureModels } = await import('../services/agent-fixtures.test'); await seedAgentFixtureModels(root);
   const { Database } = await import('../services/database');
   const { LlamaRuntimeController } = await import('../services/llama-runtime-controller');
   const { LlamaCppBackend } = await import('../backends/llama-cpp-backend');

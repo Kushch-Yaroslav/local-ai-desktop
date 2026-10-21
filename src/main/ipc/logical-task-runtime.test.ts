@@ -71,6 +71,7 @@ async function run() {
   const loader = Module as unknown as { _load: (name: string, ...args: unknown[]) => unknown }; const load = loader._load;
   loader._load = (name, ...args) => name === 'electron' ? { ipcMain: { handle: (key: string, fn: (...args: unknown[]) => unknown) => handlers.set(key, fn) } } : load(name, ...args);
   const { paths, ensureAppDirectories } = await import('../services/paths'); ensureAppDirectories();
+  const { seedAgentFixtureModels } = await import('../services/agent-fixtures.test'); await seedAgentFixtureModels(root);
   const { Database } = await import('../services/database'); const db = new Database();
   const { agentEvidenceDir } = await import('../services/agent-evidence');
   const { LlamaRuntimeController } = await import('../services/llama-runtime-controller');

@@ -20,7 +20,8 @@ export async function contextProfileFixture(root: string, realElectron = false, 
   // fixture must behave identically in a clean source snapshot and after restart.
   const runtimeSettings = await import('../services/runtime-settings');
   if (!existsSync(runtimeSettings.settingsFile)) {
-    const config = runtimeSettings.normalizeConfiguration({ ...runtimeSettings.loadRuntimeConfiguration(), models: {} });
+    const { agentFixtureModels } = await import('../services/agent-fixtures.test');
+    const config = runtimeSettings.normalizeConfiguration({ ...runtimeSettings.loadRuntimeConfiguration(), models: agentFixtureModels(join(root, 'fixture-models')) });
     const modelsPath = join(root, 'fixture-models'); mkdirSync(modelsPath, { recursive: true });
     const u64 = (n: number) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
     const text = (s: string) => Buffer.concat([u64(Buffer.byteLength(s)), Buffer.from(s)]);
@@ -97,7 +98,7 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     observedContextTokens: state.contextWindow, status: 'estimated', activeKvCacheType: state.kvCacheType, activeKvOffload: true,
     memoryBaseline: incompleteTelemetry ? null : { hostAvailableBytes: 50 * GiB, deviceAvailableBytes: 24 * GiB }, memoryHeadroom: { hostBytes: 40 * GiB, deviceBytes: 3 * GiB },
     unknownReasons: [], vramBudget: budget(), modelFileSizeBytes: 10 * GiB, observedResidentBytes: null, observedDeviceResidentBytes: null, hardwareSafeTokens: 262144, source: 'startup-log', estimator: null,
-    allocationEvidence: { contextTokens: state.contextWindow ?? 32768, sequenceSlots: 1, speculativeSlots: 1, speculativeMode: 'mtp', kvTypeK: state.kvCacheType ?? 'f16', kvTypeV: state.kvCacheType ?? 'f16', speculativeKvTypeK: state.kvCacheType ?? 'f16', speculativeKvTypeV: state.kvCacheType ?? 'f16', unknownReasons: [], allocations: { kv: { device: GiB }, speculativeKv: { device: 0 }, weights: { device: 19 * GiB }, compute: { device: 0 }, speculativeWeights: { device: 0 }, speculativeCompute: { device: 0 }, output: { device: 0 }, ssm: { device: 0 } } },
+    allocationEvidence: { contextTokens: state.contextWindow ?? 32768, sequenceSlots: 1, speculativeSlots: 1, speculativeMode: 'none', kvTypeK: state.kvCacheType ?? 'f16', kvTypeV: state.kvCacheType ?? 'f16', speculativeKvTypeK: state.kvCacheType ?? 'f16', speculativeKvTypeV: state.kvCacheType ?? 'f16', unknownReasons: [], allocations: { kv: { device: GiB }, speculativeKv: { device: 0 }, weights: { device: 19 * GiB }, compute: { device: 0 }, speculativeWeights: { device: 0 }, speculativeCompute: { device: 0 }, output: { device: 0 }, ssm: { device: 0 } } },
   }) as RuntimeContextEstimate;
   LlamaRuntimeController.prototype.state = async () => state;
   LlamaRuntimeController.prototype.switchTo = async (id, contextWindow, kvCacheType = 'f16', kvOffload = true, _projectorDevice, mtpMode) => {
@@ -107,7 +108,7 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     if (loadDelayMs) await new Promise(resolve=>setTimeout(resolve,loadDelayMs));
     if (mismatch) return { ok: false, state, error: 'fixture configuration mismatch' };
     if (startupFailure && contextWindow !== 16384) { state = { ...state, rolledBack: true, error: 'fixture CUDA out of memory' }; return { ok: false, state, error: state.error! }; }
-    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'off' ? 'none' : 'mtp', ...(mtpMode ? { mtpMode } : {}),...(v2?{profileFingerprint:(await import('../services/runtime-profile-identity')).runtimeProfileFingerprint(id),profileConfiguration:configured,launchArguments:['/fixture/llama-server','--gpu-layers',String(configured?.gpuLayers)]}:{}) };
+    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'on' ? 'mtp' : 'none', ...(mtpMode ? { mtpMode } : {}),...(v2?{profileFingerprint:(await import('../services/runtime-profile-identity')).runtimeProfileFingerprint(id),profileConfiguration:configured,launchArguments:['/fixture/llama-server','--gpu-layers',String(configured?.gpuLayers)]}:{}) };
     return { ok: true, state };
   };
   if(v2)LlamaRuntimeController.prototype.unload=async()=>{state={status:'stopped',modelId:null,contextWindow:null};return {ok:true,state};};
@@ -121,7 +122,7 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     const measured = nearBoundary ? createVramBudget(24 * GiB, (1142 + llmMiB) * 1024 ** 2, (24576 - 1142 - llmMiB - 457) * 1024 ** 2, llmMiB * 1024 ** 2) : budget();
     return { modelId, contextWindow, kvCacheType, kvOffload: true, discoveredAt: new Date().toISOString(), memoryBaseline: { hostAvailableBytes: 50 * GiB, deviceAvailableBytes: 24 * GiB }, measuredHeadroom: { hostBytes: 40 * GiB, deviceBytes: measured.freeBytes }, vramBudget: measured };
   };
-  const key = contextDiscoveryKey(buildContextDiscoveryIdentity({ modelId, modelFingerprint: 'fixture-size:mtime', projectorFingerprint: llamaRuntimeProfile(modelId)!.mmprojPath ? 'fixture-size:mtime' : null, runtimeFingerprint: '/fixture/llama-server:fixture-size:mtime', arguments: args(), speculative: 'mtp', hardLimit: 262144, gpu: { name: 'Fixture GPU', vramTotalBytes: 24 * GiB }, hostReserveBytes: 8 * GiB }));
+  const key = contextDiscoveryKey(buildContextDiscoveryIdentity({ modelId, modelFingerprint: 'fixture-size:mtime', projectorFingerprint: llamaRuntimeProfile(modelId)!.mmprojPath ? 'fixture-size:mtime' : null, runtimeFingerprint: '/fixture/llama-server:fixture-size:mtime', arguments: args(), speculative: 'none', hardLimit: 262144, gpu: { name: 'Fixture GPU', vramTotalBytes: 24 * GiB }, hostReserveBytes: 8 * GiB }));
   if (!db.loadLatestContextDiscoveryOptions(modelId).length) db.saveContextDiscoveryOptions(key.key, key.serialized, [option(fp16, 'f16'), option(q8, 'q8_0')]);
   discovery.discoverContextBoundary = async deps => {
     deps.progress('fixture probing', 1);
