@@ -1,0 +1,201 @@
+{
+  "generatedAt": "2026-10-21",
+  "testType": "real local LLM inference through the production llama.cpp launcher and Local AI Desktop Rust Agent Runtime in an isolated Electron fixture",
+  "environment": {
+    "gpu": "NVIDIA RTX 3090 24 GiB",
+    "cpu": "AMD Ryzen 7 5700X3D 8C/16T",
+    "ram": "64 GiB",
+    "llamaCpp": "0.4.1-dev d1d3c33",
+    "vision": "Off",
+    "mtp": "Off for all stress scenarios",
+    "runtimeRoot": "Temporary /tmp runtime per run; user runtime was read-only"
+  },
+  "models": [
+    {
+      "name": "Qwen3.6-35B-A3B",
+      "gguf": "/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+      "architecture": "qwen35moe",
+      "configuration": {
+        "context": 65536,
+        "kv": "q8_0 K/V; GPU offload enabled",
+        "gpuLayers": 8,
+        "cpuMoeLayers": 32,
+        "threads": 8,
+        "threadsBatch": 8,
+        "batch": 1024,
+        "microbatch": 128,
+        "flashAttention": true,
+        "mmap": true,
+        "mtp": "Off",
+        "projector": "none for text-only scenarios"
+      },
+      "memorySnapshotAfterLoad": {
+        "freeGpuMiB": 18957,
+        "availableRamBytes": 56723697664,
+        "isPeakMeasurement": false
+      },
+      "runs": [
+        {
+          "scenario": "B: bug fix",
+          "result": "passed; case-insensitive filter fixed and node --test passed both in-agent and in a post-run check",
+          "elapsedMs": 187025,
+          "toolCalls": 5,
+          "successfulToolCalls": 4,
+          "failedToolCalls": 1,
+          "duplicateSuccessfulCalls": 0,
+          "fileReads": 2,
+          "edits": "one run_terminal sed edit",
+          "browserActions": 0,
+          "lastTurnInputTokens": 14605,
+          "lastTurnOutputTokens": 145,
+          "lastTurnDecodeTokensPerSecond": 9.24,
+          "maxObservedContextTokens": 14814,
+          "note": "The initial test command correctly failed against the intentionally broken baseline; the model fixed the implementation and the later test command passed."
+        },
+        {
+          "scenario": "D: Browser QA at 390x844",
+          "result": "passed; Verification Gate report status Verified, no horizontal overflow after the fix",
+          "elapsedMs": 359969,
+          "toolCalls": 8,
+          "successfulToolCalls": 6,
+          "failedToolCalls": 2,
+          "duplicateSuccessfulCalls": 0,
+          "fileReads": 1,
+          "edits": "one replace_text; two malformed apply_patch calls were rejected without writing",
+          "browserActions": 3,
+          "verificationReports": 1,
+          "lastTurnInputTokens": 23036,
+          "lastTurnOutputTokens": 298,
+          "lastTurnDecodeTokensPerSecond": 8.17,
+          "maxObservedContextTokens": 22424,
+          "vision": "Not run by instruction; DOM/layout evidence only"
+        },
+        {
+          "scenario": "E/F: planned task, Pause, resume in same chat",
+          "result": "passed after resume; implementation test passed",
+          "pauseRun": {
+            "elapsedMs": 127358,
+            "toolCalls": 3,
+            "successfulToolCalls": 2,
+            "failedToolCalls": 1,
+            "lastTurnInputTokens": 11806,
+            "lastTurnOutputTokens": 77,
+            "lastTurnDecodeTokensPerSecond": 10.34,
+            "maxObservedContextTokens": 13330,
+            "pauseCheckpoint": "plan and task memory were persisted; one attempted read path was mistyped and rejected"
+          },
+          "resumeRun": {
+            "elapsedMs": 332987,
+            "toolCalls": 16,
+            "successfulToolCalls": 13,
+            "failedToolCalls": 3,
+            "duplicateSuccessfulCalls": 0,
+            "fileReads": 2,
+            "edits": "one write_file",
+            "browserActions": 0,
+            "lastTurnInputTokens": 18597,
+            "lastTurnOutputTokens": 230,
+            "lastTurnDecodeTokensPerSecond": 9.02,
+            "maxObservedContextTokens": 18634,
+            "projectTest": "node --test: 1 passed, 0 failed",
+            "failedOperations": [
+              "replace_text was correctly refused because this run had not established a current file revision",
+              "the unchanged read was redirected to its stored observation",
+              "delete_file of the recovery backup was correctly denied by filesystem security"
+            ]
+          }
+        },
+        {
+          "scenario": "F: consecutive browser run in the same chat",
+          "result": "passed; second Agent Run used the still-live project preview on the same Native WebContentsView and captured a screenshot without open/reload/navigation",
+          "nativeViewId": 2,
+          "browserSession": "the run-scoped browser session ID changed (b24e2c55-9392-4bc9-9a80-235738062dbc to 77d19991-a8bc-4b12-a7d3-aaa7dcccbcf1); the same Native WebContentsView and live project-preview route were reused",
+          "elapsedMs": 105848,
+          "toolCalls": 3,
+          "successfulToolCalls": 2,
+          "failedToolCalls": 1,
+          "failedOperation": "model requested a 390x844 crop outside the current 554x703 Native view; runtime rejected it, then the model captured the full view",
+          "captureViewport": "554x703 native Electron view",
+          "vision": "Off; screenshot captured but no multimodal inference",
+          "lastTurnInputTokens": 20067,
+          "lastTurnOutputTokens": 481,
+          "lastTurnDecodeTokensPerSecond": 9.07,
+          "maxObservedContextTokens": 20345
+        }
+      ]
+    },
+    {
+      "name": "Qwen3-Coder-Next 80B Q4_K_M",
+      "gguf": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "configuration": {
+        "context": 65536,
+        "kv": "q8_0 K/V; GPU offload enabled",
+        "gpuLayers": 48,
+        "cpuMoeLayers": 32,
+        "threads": 8,
+        "threadsBatch": 8,
+        "batch": 2048,
+        "microbatch": 512,
+        "flashAttention": true,
+        "mmap": true,
+        "mtp": "Off",
+        "projector": "none"
+      },
+      "memorySnapshotAfterLoad": {
+        "freeGpuMiB": 4257,
+        "availableRamBytes": 58037727232,
+        "isPeakMeasurement": false
+      },
+      "runs": [
+        {
+          "scenario": "A: project research",
+          "result": "passed; file/function/test claims matched the inspected temporary fixture",
+          "elapsedMs": 85733,
+          "toolCalls": 6,
+          "successfulToolCalls": 6,
+          "failedToolCalls": 0,
+          "duplicateSuccessfulCalls": 0,
+          "fileReads": 3,
+          "edits": 0,
+          "browserActions": 0,
+          "lastTurnInputTokens": 14595,
+          "lastTurnOutputTokens": 412,
+          "lastTurnDecodeTokensPerSecond": 31.07,
+          "maxObservedContextTokens": 15011
+        },
+        {
+          "scenario": "B: bug fix in the same chat after A",
+          "result": "passed; observation recovery reused findings from A, implementation was changed and agent plus post-run node --test passed",
+          "elapsedMs": 94877,
+          "toolCalls": 6,
+          "successfulToolCalls": 4,
+          "failedToolCalls": 2,
+          "duplicateSuccessfulCalls": 0,
+          "fileReads": 0,
+          "edits": "one run_terminal sed/mv edit",
+          "browserActions": 0,
+          "lastTurnInputTokens": 17208,
+          "lastTurnOutputTokens": 83,
+          "lastTurnDecodeTokensPerSecond": 31.14,
+          "maxObservedContextTokens": 17472,
+          "failedOperations": [
+            "two exact repeated read_file attempts were blocked and directed to observation_read; both bodies were then recovered successfully"
+          ]
+        }
+      ]
+    }
+  ],
+  "runtimeDefect": {
+    "finding": "A successful unchanged read deduplicated from conversation history did not populate the new run's file_revisions state. A following replace_text was refused as STALE_FILE_REVISION even when the live bytes still matched the historical observation.",
+    "fix": "On a successful unchanged-read deduplication, the runtime now verifies the stored observation's canonical source and revision against the live scoped file, then hydrates per-run freshness. Missing/error observations and changed bytes remain untrusted.",
+    "regressionTest": "unchanged_deduplicated_read_hydrates_freshness_for_a_new_run",
+    "realRetest": "Qwen3.6 Pause/Resume task completed and tests passed. The model first got the expected stale-edit refusal, then hit the unchanged-read redirect and chose write_file; it did not attempt replace_text a second time. The safe state-transfer path is verified by the Rust regression test, not claimed as a measured reduction in real tool-call count."
+  },
+  "limitations": [
+    "No MTP-On, Vision-On, or reasoning-control comparisons were run; all scenarios explicitly used MTP Off and Vision Off.",
+    "No peak VRAM/RAM sampler ran. Memory values are post-load snapshots, not peak allocation measurements.",
+    "Decode tok/s is the backend's latest turn telemetry, not a multi-repeat benchmark or whole-run average.",
+    "Pause/Resume was tested on a controlled small project; Stop during active inference and a real user permission dialog were not exercised in this run.",
+    "Browser screenshot capture and DOM QA ran in Electron Chromium; this is not a physical mobile-device test."
+  ]
+}
