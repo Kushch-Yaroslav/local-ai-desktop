@@ -1,6 +1,7 @@
 use crate::agent::evidence::{EvidenceStore, Observation};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Append-only canonical agent conversation. Compaction records a projection
@@ -548,6 +549,95 @@ impl Transcript {
         &self.entries
     }
 
+    /// Count consecutive failures for one exact call in the current user
+    /// request. This recovers the retry guard after Pause/Resume without
+    /// treating a corrected call or a later successful attempt as a failure.
+    pub fn failed_tool_call_streak(
+        &self,
+        name: &str,
+        arguments: &Value,
+        count_retryable_failures: bool,
+    ) -> usize {
+        let start = self
+            .entries
+            .iter()
+            .rposition(|entry| matches!(entry, Entry::RunUser(_)))
+            .unwrap_or(0);
+        let mut pending = HashMap::<String, bool>::new();
+        let mut streak = 0usize;
+        for entry in self.entries.iter().skip(start) {
+            let Entry::Message(message) = entry else {
+                continue;
+            };
+            match message.get("role").and_then(Value::as_str) {
+                Some("assistant") => {
+                    for call in message
+                        .get("tool_calls")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                    {
+                        let Some(id) = call.get("id").and_then(Value::as_str) else {
+                            continue;
+                        };
+                        let call_name = call.pointer("/function/name").and_then(Value::as_str);
+                        let call_arguments = call
+                            .pointer("/function/arguments")
+                            .and_then(Value::as_str)
+                            .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
+                        pending.insert(
+                            id.to_owned(),
+                            call_name == Some(name)
+                                && call_arguments.as_ref() == Some(arguments),
+                        );
+                    }
+                }
+                Some("tool") if message.get("_result_policy").is_none() => {
+                    let Some(id) = message.get("tool_call_id").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    if !pending.remove(id).unwrap_or(false) {
+                        continue;
+                    }
+                    let result = message
+                        .get("content")
+                        .and_then(Value::as_str)
+                        .and_then(|raw| serde_json::from_str::<Value>(raw).ok());
+                    let Some(result) = result else {
+                        streak = 0;
+                        continue;
+                    };
+                    let failed = result.get("error").is_some()
+                        || result
+                            .get("exit_code")
+                            .and_then(Value::as_i64)
+                            .is_some_and(|code| code != 0)
+                        || result
+                            .get("timed_out")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                        || result
+                            .get("cancelled")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                        || matches!(
+                            result.get("status").and_then(Value::as_str),
+                            Some("error" | "failed" | "timed_out" | "cancelled")
+                        );
+                    let non_retryable = result.get("retrySameArguments") == Some(&Value::Bool(false))
+                        || result.get("stage").and_then(Value::as_str) == Some("validation");
+                    if failed && (count_retryable_failures || non_retryable) {
+                        streak = streak.saturating_add(1);
+                    } else {
+                        streak = 0;
+                    }
+                }
+                _ => {}
+            }
+        }
+        streak
+    }
+
     pub fn compaction_boundary(&self) -> Option<usize> {
         self.entries.iter().rev().find_map(|entry| match entry {
             Entry::Compaction { covers, .. } => Some(*covers),
@@ -855,6 +945,75 @@ pub fn validate_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_tool_streak_survives_resume_and_resets_after_success_or_new_request() {
+        let root = std::env::temp_dir().join(format!(
+            "failed-tool-streak-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut transcript = Transcript::durable(&root, "resume-test", &[], None).unwrap();
+        transcript.push_run_user(json!({"role":"user","content":"edit the file"}));
+        let call = ValidatedCall {
+            id: "failed-1".into(),
+            name: "apply_patch".into(),
+            arguments: json!({"patch":"bad patch"}),
+        };
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&call));
+        transcript.tool_result(
+            &call.id,
+            &call.name,
+            json!({"error":"patch did not match","retrySameArguments":false}).to_string(),
+        );
+        assert_eq!(
+            transcript.failed_tool_call_streak(&call.name, &call.arguments, true),
+            1
+        );
+
+        let mut retry = call.clone();
+        retry.id = "failed-2".into();
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&retry));
+        transcript.tool_result(
+            &retry.id,
+            &retry.name,
+            json!({"error":"patch did not match","retrySameArguments":false}).to_string(),
+        );
+        drop(transcript);
+        let mut transcript = Transcript::durable(&root, "resume-test", &[], None).unwrap();
+        assert_eq!(
+            transcript.failed_tool_call_streak(&call.name, &call.arguments, true),
+            2,
+            "the same failure must still be visible after a runtime is reconstructed"
+        );
+        assert_eq!(
+            transcript.failed_tool_call_streak(&call.name, &json!({"patch":"corrected"}), true),
+            0,
+            "corrected arguments get a fresh retry window"
+        );
+
+        let mut success = call.clone();
+        success.id = "success".into();
+        transcript.assistant_tool_turn(String::new(), std::slice::from_ref(&success));
+        transcript.tool_result(&success.id, &success.name, json!({"applied":true}).to_string());
+        assert_eq!(
+            transcript.failed_tool_call_streak(&call.name, &call.arguments, true),
+            0,
+            "a successful attempt clears the failure streak"
+        );
+
+        transcript.push_run_user(json!({"role":"user","content":"new request"}));
+        assert_eq!(
+            transcript.failed_tool_call_streak(&call.name, &call.arguments, true),
+            0,
+            "a new user request starts a separate failure window"
+        );
+        drop(transcript);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn malformed_and_truncated_calls_cannot_be_executed() {

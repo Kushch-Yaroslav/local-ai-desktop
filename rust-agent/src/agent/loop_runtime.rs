@@ -2252,13 +2252,20 @@ fn present_answer(
     crate::agent::presentation::project_answer_with_prefix(content, prefix, &references)
 }
 
+fn has_project_changes(state: &AgentState) -> bool {
+    state.mutations > 0
+        || state.work_budget.has_changed_code()
+        || !state.task_memory.verification.changed.is_empty()
+        || state.task_memory.verification.unknown_epoch > 0
+}
+
 fn anonymous_verification_gap(state: &AgentState) -> bool {
     let ledger = &state.task_memory.verification;
     let mut need = ledger.effective_need(None);
     // A stopped unregistered implementation still needs a check on Continue,
     // even if the caller has no saved Task Memory projection.
     if need == Need::Readback && state.work_budget.has_changed_code() { need = Need::Runtime; }
-    state.task_memory.deliverables.is_empty() && (state.mutations > 0 || state.work_budget.has_changed_code())
+    state.task_memory.deliverables.is_empty() && has_project_changes(state)
         && state.can_verify && need != Need::Readback
         && (ledger.best_passing(need).is_none() || ledger.blocking_failure(&state.task_memory.deliverables).is_some())
 }
@@ -3936,8 +3943,13 @@ fn clear_browser_failures_after_recovery(state:&mut AgentState,tool:&ValidatedCa
     });
 }
 
-fn failed_call_retry_exhausted(state: &AgentState, fingerprint: &str) -> bool {
+fn failed_call_retry_exhausted(
+    state: &AgentState,
+    fingerprint: &str,
+    persisted_streak: usize,
+) -> bool {
     state.failed_tool_calls.get(fingerprint).copied().unwrap_or(0) >= 2
+        || persisted_streak >= 2
 }
 
 fn run_scoped_tool_authorized(
@@ -4555,7 +4567,7 @@ fn verification_budget(strategy: Strategy) -> usize {
 /// applies only to runs that changed the project and can execute commands, and
 /// it asks for the cheapest check that settles it, not for exhaustive testing.
 fn verification_gap(state: &AgentState) -> Option<String> {
-    if state.mutations == 0 || !state.can_verify || state.verification_closed {
+    if !has_project_changes(state) || !state.can_verify || state.verification_closed {
         return None;
     }
     let ledger = &state.task_memory.verification;
@@ -5914,7 +5926,12 @@ pub fn run(mut config: Config) {
                 transcript.tool_result(&tool.id, &tool.name, message); continue;
             }
             let failure_fingerprint = tool_call_fingerprint(tool);
-            if !(tool.name == "web_project" && tool.arguments["action"] == "qa") && !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint) {
+            let persisted_failure_streak = transcript.failed_tool_call_streak(
+                &tool.name,
+                &tool.arguments,
+                mutation_tool(&tool.name),
+            );
+            if !(tool.name == "web_project" && tool.arguments["action"] == "qa") && !transcript.is_finalizing() && (crate::tools::web::is_host_tool(&tool.name) || tool.name == "run_terminal" || mutation_tool(&tool.name)) && failed_call_retry_exhausted(&state, &failure_fingerprint, persisted_failure_streak) {
                 let message = "This identical tool call has a deterministic failure or has failed twice without changed arguments. It was not run again. Use a corrected call only if you can change the failing input; otherwise explain the blocker and finish.";
                 emit(&config.run_id, Event::ToolError { id: tool.id.clone(), name: tool.name.clone(), message: json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string() });
                 transcript.tool_result(&tool.id, &tool.name, json!({"error":message,"code":"DUPLICATE_FAILED_OPERATION","retrySameArguments":false}).to_string());
@@ -6406,6 +6423,20 @@ mod tests {
     }
 
     #[test]
+    fn resumed_project_changes_keep_the_verification_gate_active() {
+        let mut saved = crate::agent::verification::Verification::default();
+        saved.note_change(Some("src/lib.rs"));
+        let restored = serde_json::from_value(serde_json::to_value(saved).unwrap()).unwrap();
+        let mut state = AgentState::default();
+        state.task_memory.verification = restored;
+        state.task_memory.verification.start_run();
+        state.can_verify = true;
+        assert_eq!(state.mutations, 0, "a resumed process starts its local counter at zero");
+        assert!(verification_gap(&state).is_some());
+        assert!(anonymous_verification_gap(&state));
+    }
+
+    #[test]
     fn parallel_reads_route_repeated_successes_and_missing_paths_through_the_guard() {
         let base = std::env::temp_dir().join(format!(
             "parallel-read-guard-{}-{:?}",
@@ -6656,20 +6687,20 @@ mod tests {
         let one="web_project:{\"action\":\"read\",\"project\":1}";
         let two="web_project:{\"action\":\"read\",\"project\":2}";
         for key in [one,two,"run_terminal:danger","denied:scope"]{state.failed_tool_calls.insert(key.into(),2);}
-        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":false}}));assert!(failed_call_retry_exhausted(&state,one));
-        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":true}}));assert!(!failed_call_retry_exhausted(&state,one));
-        for key in [two,"run_terminal:danger","denied:scope"]{assert!(failed_call_retry_exhausted(&state,key));}
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":false}}));assert!(failed_call_retry_exhausted(&state,one,0));
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":true}}));assert!(!failed_call_retry_exhausted(&state,one,0));
+        for key in [two,"run_terminal:danger","denied:scope"]{assert!(failed_call_retry_exhausted(&state,key,0));}
     }
 
     #[test]
     fn an_identical_tool_call_is_allowed_two_failed_attempts_then_closes_the_retry_loop() {
         let mut state = AgentState::default();
-        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}"));
+        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}",0));
         state.failed_tool_calls.insert("web_image_search:{\"query\":\"flowers\"}".into(), 1);
-        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}"), "one bounded recovery retry should remain");
+        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}",0), "one bounded recovery retry should remain");
         state.failed_tool_calls.insert("web_image_search:{\"query\":\"flowers\"}".into(), 2);
-        assert!(failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}"), "repeated identical failures should stop re-execution");
-        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"sunflowers\"}"), "a corrected request must remain available");
+        assert!(failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"flowers\"}",0), "repeated identical failures should stop re-execution");
+        assert!(!failed_call_retry_exhausted(&state, "web_image_search:{\"query\":\"sunflowers\"}",0), "a corrected request must remain available");
     }
 
     #[test]
