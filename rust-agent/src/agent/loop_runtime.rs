@@ -1307,14 +1307,15 @@ fn apply_plan(state: &mut AgentState, arguments: &Value) -> Result<(Value, bool)
                 .map(|steps| {
                     steps
                         .iter()
-                        .filter_map(|step| {
+                        .enumerate()
+                        .map(|(index, step)| {
                             step.as_str().map(str::to_owned).or_else(|| {
                                 step.get("text").and_then(Value::as_str).map(str::to_owned)
-                            })
+                            }).ok_or_else(|| format!("steps[{index}] must be a string or an object with text; no plan was changed"))
                         })
-                        .collect::<Vec<_>>()
+                        .collect::<Result<Vec<_>, String>>()
                 })
-                .ok_or_else(|| "steps is required: an array of short one-line steps".to_owned())?;
+                .ok_or_else(|| "steps is required: an array of short one-line steps".to_owned())??;
             candidate.set(&steps)?;
         }
         "add" => candidate.add(&required_text(arguments, "text")?, text_arg("after"))?,
@@ -6445,6 +6446,20 @@ mod tests {
         assert_eq!(state.mutations, 0, "a resumed process starts its local counter at zero");
         assert!(verification_gap(&state).is_some());
         assert!(anonymous_verification_gap(&state));
+    }
+
+    #[test]
+    fn malformed_plan_replacement_never_silently_drops_steps_or_changes_saved_plan() {
+        let mut state = AgentState::default();
+        apply_plan(&mut state, &json!({"action":"set","steps":["existing step"]})).unwrap();
+        let before = state.task_memory.plan.clone();
+        for bad in [Value::Null, json!(12), json!({"label":"missing text"})] {
+            let error = apply_plan(&mut state, &json!({"action":"set","steps":["valid",bad]})).unwrap_err();
+            assert!(error.contains("steps[1]"));
+            assert_eq!(state.task_memory.plan, before);
+        }
+        apply_plan(&mut state, &json!({"action":"set","steps":["valid",{"text":"historical object form"}]})).unwrap();
+        assert_eq!(state.task_memory.plan.steps.len(), 2);
     }
 
     #[test]
