@@ -176,6 +176,31 @@ export async function runInvalidRequestOwnershipRegression(): Promise<void> {
     await assert.rejects(runtime.steer('invalid-request', 'continue'), /не готов|заверш/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
+
+export async function runRejectedSecurityControlRegression(): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), 'agent-security-control-'));
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const script = join(dir, 'worker.js'), received = join(dir, 'reply.json');
+    writeFileSync(script, `#!/usr/bin/env node
+const fs=require('node:fs'),out=e=>process.stdout.write(JSON.stringify(e)+'\\n');
+require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+ const r=JSON.parse(line);
+ if(r.type==='run')out({type:'thinking_delta',content:'ready'});
+ if(r.type==='control'){out({type:'control_rejected',id:r.id,message:'fixture rejected'});out({type:'host_tool_call',id:'open',name:'web_project',arguments:{action:'open'}});}
+ if(r.type==='host_tool_result'){fs.writeFileSync(${JSON.stringify(received)},JSON.stringify(r.result));out({type:'final'});}
+});`);
+    chmodSync(script, 0o755);
+    const runtime = new RustAgentRuntime('', script);
+    let approvals = 0;
+    for await (const event of runtime.stream('fixture', [message('user', 'inspect')], [{id:'p1',slot:1,root:dir,label:'Fixture'}], controller.signal,4096,'fast','auto','rejected-control',undefined,undefined,true,undefined,[],undefined,async () => { approvals++; return {approved:false,reason:'user_rejected'}; })) {
+      if (event.type === 'thinking') await assert.rejects(runtime.control('rejected-control',{permissions:{mode:'autonomous',trusted_roots:[]}}), /fixture rejected/);
+    }
+    assert.equal(controller.signal.aborted,false);
+    assert.equal(approvals,1,'rejected control cannot change browser preview authorization');
+    assert.equal(JSON.parse(readFileSync(received,'utf8')).code,'PERMISSION_DENIED');
+  } finally { clearTimeout(timer); rmSync(dir,{recursive:true,force:true}); }
+}
 export async function runWebImageBridgeRegression(): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), 'agent-web-images-'));
   try {
@@ -356,6 +381,7 @@ if (require.main === module) {
     await runFatalBridgeRegression();
     await runWorkerExitRegression();
     await runInvalidRequestOwnershipRegression();
+    await runRejectedSecurityControlRegression();
     await runWebImageBridgeRegression();
     await runAgentRichArtifactBridgeRegression();
     await runWebCancellationRegression();
