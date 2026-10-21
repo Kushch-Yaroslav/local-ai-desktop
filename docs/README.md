@@ -21,6 +21,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [AppArmor security review](apparmor-security-review.md)
 - [Bubblewrap installation and acceptance](bwrap-installation-acceptance.md)
 - [Agent runtime and workspace protection](runtime-self-protection.md)
+- [Persistent model profiles and profile UI verification](model-profile-persistence-verification.md)
 - [Browser session reliability and permission persistence verification](browser-session-reliability-verification.md)
 - [Native Live Browser and progress-aware QA architecture](native-browser-qa-architecture.md) · [verification and performance](native-browser-qa-verification.md)
 - [P1 MTP technical analysis](v0.3-p1-mtp-analysis.md) · [measured verification](v0.3-p1-mtp-verification.md) · [early reasoning interruption analysis](v0.3-p1-interrupt-analysis.md)

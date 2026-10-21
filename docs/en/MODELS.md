@@ -90,3 +90,15 @@ Full GPU placement and partial CPU/GPU offload have different memory and speed c
 Historical prompts, tasks, runtime versions, filled-context size and measurement methods were not standardized. Generation speed does not measure reasoning quality or Agent reliability. Qwen3.8 MTP acceleration was observed in individual tests, not guaranteed. GPT-OSS-120B is a preliminary user record, not an official benchmark. Git history is preserved.
 
 See [Getting started](GETTING_STARTED.md), [Features](FEATURES.md) and the [Scenario QA report](../scenario-aware-qa-verification.md).
+
+## Profile persistence and file availability
+
+User GGUF profiles live in `runtime-settings.json` (the path is shown at the bottom of Models and runtime); the chat selection lives in SQLite. A fresh installation has an empty model list. Historical Qwen compatibility entries are not automatically installed user profiles. Existing profiles and old chat model IDs remain intact.
+
+Restart restores profiles without another Save or a running llama-server. Ready to load describes file availability; Loaded describes an active backend. Metadata inspection and capability detection remain separate: unknown metadata neither deletes a profile nor proves technical capabilities. Launch validation still applies.
+
+Unmounted disks retain their profiles and paths. Availability is checked on window focus and every 10 seconds, without saving settings. Select the first shard of a split GGUF and keep all required parts beside it. The profile list shows unavailable paths and their specific error.
+
+Click the same profile header again to collapse it, or another header to switch editors. Enter/Space also work. Draft values survive collapse, profile switching and Simple/Advanced changes within the open form. Only explicit Save writes them to disk; closing the settings window does not save drafts.
+
+Reading legacy settings never writes a migration. The first explicit legacy save preserves its original input as `runtime-settings.json.pre-v2.bak`; valid v2 profiles are never reseeded. To roll back, fully close the application and restore that backup. Rebuilds and updates retain the data directory; a separate `LOCAL_AI_RUNTIME_ROOT` intentionally creates an independent environment.
