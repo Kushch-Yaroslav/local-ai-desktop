@@ -56,6 +56,8 @@ try {
     };
     const settings = { llamaRuntime: { status: 'ready', modelId: 'fixture', contextWindow: 32768, kvCacheType: 'q8_0', kvOffload: true }, modelsPath: '', llamaServerPath: null };
     window.localAi = {
+      browserQa: { status: async () => ({mode:'off',autonomous:false,available:false}) },
+      mtp: { status: async () => ({modelId:'fixture',requested:'off',effective:'disabled',capability:{supported:false,status:'unsupported',reason:'Fixture'}}) },
       conversations: { list: async () => chats, update: async (id, patch) => Object.assign(chats.find((chat) => chat.id === id), patch) },
       messages: { list: async (id) => messages.get(id) ?? [], regenerate: async id => branch(id), edit: async (id, content) => branch(id, content) }, analysis: { list: async (id) => runs.get(id) ?? [] },
       agentPlans: { get: async (id) => plans.get(id) ?? null },
@@ -70,6 +72,8 @@ try {
     };
   });
   await page.goto(`http://127.0.0.1:${server.address().port}`);
+  const parameters = page.locator('.panel-mode-toggle');
+  if (await parameters.getAttribute('aria-expanded') === 'false') await parameters.click();
   await page.locator('.autonomy-trigger').waitFor();
   await page.locator('.autonomy-trigger').click();
   assert.equal(await page.locator('.autonomy-option').count(),2,'only Ask and scoped Autopilot are exposed, including legacy fixture settings');
@@ -122,12 +126,15 @@ try {
   assert.equal(await page.locator('.conversation .agent-status-panel, .conversation .task-plan-panel').count(), 0);
   assert.equal(await page.locator('.conversation .agent-timeline-action').filter({ hasText: '140/160' }).count(), 0, 'budget updates must not create timeline cards');
   assert.equal(await page.locator('.agent-timeline-action.planning').count(), 0, 'successful status snapshots must not duplicate into the timeline');
+  // Start the follow-scroll scenario at the bottom. Earlier focus/panel
+  // interactions may have intentionally moved the reader away from it.
+  await page.locator('.conversation').evaluate(node => { node.scrollTop=node.scrollHeight;node.dispatchEvent(new Event('scroll')); });
   await page.evaluate(() => {
     for (let index = 0; index < 35; index++) window.statusFixture.thinking(`Reasoning paragraph ${index}.\n\n`, index + 65);
     window.statusFixture.action({ id: 'terminal', kind: 'terminal', label: 'Terminal', state: 'completed', output: JSON.stringify({ command: 'npm test', exit_code: 0, stdout: 'Tests passed' }), timelinePosition: 110 });
   });
   await page.waitForSelector('.agent-timeline-thought');
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => { const node=document.querySelector('.conversation');return node.scrollHeight-node.scrollTop-node.clientHeight<96; }, undefined, {timeout:5000});
   const scroll = () => page.evaluate(() => { const node = document.querySelector('.conversation'); return { top: node.scrollTop, remaining: node.scrollHeight - node.scrollTop - node.clientHeight }; });
   assert((await scroll()).remaining < 96, 'stream should keep following at the bottom');
   await page.evaluate(() => { for (const [index, stage] of ['detected', 'soft_recovery', 'paused', 'repair_requested', 'context_excluded', 'recovery_attempted', 'recovery_failed', 'paused', 'continued', 'recovery_succeeded'].entries()) window.statusFixture.loop(stage, 111 + index); });
@@ -224,7 +231,7 @@ try {
   assert.equal(await page.locator('.message.assistant').last().locator('.agent-timeline-thought').count(), 0, 'no model reasoning means no fabricated Thinking section');
 
   await page.getByRole('button', { name: /Regenerate task/ }).click();
-  const thinkingControl = page.locator('.control').filter({ has: page.locator('select option[value="on"]') }).locator('select');
+  const thinkingControl = page.getByRole('combobox', { name: /^(Размышления|Thinking)$/ });
   assert.equal(await thinkingControl.inputValue(), 'off');
   await send('Run the stopped-regenerate fixture');
   await page.locator('.send-button.stop').click();

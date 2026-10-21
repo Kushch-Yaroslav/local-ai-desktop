@@ -95,6 +95,7 @@ export function App() {
     } : {});
   }), []);
   const endRef = useRef<HTMLDivElement>(null); const conversationRef = useRef<HTMLElement>(null); const followStream = useRef(true);
+  const lastScrollTop = useRef(0);
   const [editingId, setEditingId] = useState<string | null>(null); const [editingText, setEditingText] = useState('');
   const [agentClock, setAgentClock] = useState(() => Date.now());
   const active = conversations.find((item) => item.id === activeId);
@@ -103,7 +104,7 @@ export function App() {
   useEffect(() => window.localAi.chat.onDiagramValidation(({ id, source }) => {
     void validateMermaidSource(source).then(() => window.localAi.chat.diagramValidationResult(id), (error: unknown) => window.localAi.chat.diagramValidationResult(id, error instanceof Error ? error.message : String(error)));
   }), []);
-  useLayoutEffect(() => { followStream.current = true; }, [activeId]);
+  useLayoutEffect(() => { followStream.current = true; lastScrollTop.current = conversationRef.current?.scrollTop ?? 0; }, [activeId]);
   // Following the stream must not read layout in the commit phase: `scrollHeight` forces a synchronous style
   // recalculation and layout of the whole conversation, which grows with the run. One scroll per frame is
   // scheduled instead; the browser needs that layout for painting anyway, so the follow costs nothing extra.
@@ -127,7 +128,16 @@ export function App() {
     return () => observer.disconnect();
   }, [scheduleBottomFollow]);
   useEffect(() => () => { if (scrollFrame.current !== null) window.cancelAnimationFrame(scrollFrame.current); }, []);
-  const updateFollowState = () => { const element = conversationRef.current; if (element) followStream.current = element.scrollHeight - element.scrollTop - element.clientHeight < 96; };
+  const updateFollowState = () => {
+    const element = conversationRef.current;
+    if (!element) return;
+    const top = element.scrollTop;
+    if (element.scrollHeight - top - element.clientHeight < 96) followStream.current = true;
+    // Content/viewport growth can emit scroll before our scheduled frame. A
+    // larger bottom gap alone is not an upward scroll by the reader.
+    else if (top < lastScrollTop.current - 1) followStream.current = false;
+    lastScrollTop.current = top;
+  };
   const legacyAgentPlan = useAppStore(state => state.legacyAgentPlan);
   const rendered = useMemo(() => withRunHistory(messages, analysisRuns), [messages, analysisRuns]);
   const embeddedSteeringIds = steeringMessageIds(rendered);
