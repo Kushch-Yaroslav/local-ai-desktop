@@ -2958,7 +2958,11 @@ fn task_scoped_tests_do_not_prove_sibling_integrity_claims() {
     config.workspace_roots = vec![workspace.root.to_string_lossy().into_owned()];
     config.task_memory = Some(json!({"entries":[],"verification":{"epoch":1,"records":[],"code_changed":true,"changed":{source.to_string_lossy().into_owned():1}}}));
     run(config);
-    assert_eq!(provider.requests().len(), 7, "missing integrity capability must not cause a verification loop");
+    let requests = provider.requests();
+    assert_eq!(requests.len(), 8, "the restored modification ledger reviews the reachable unverified behaviour once, never loops on integrity");
+    let guidance = requests.last().unwrap()["messages"].as_array().unwrap().iter().filter_map(|message| message["content"].as_str()).collect::<Vec<_>>().join("\n");
+    assert!(guidance.contains("implemented but not verified: c task-b behaviour"));
+    assert!(!guidance.contains("implemented but not verified: b"), "missing integrity capability cannot be repaired with another test");
     assert!(completed(&workspace.journal()));
     assert_eq!(std::fs::read_to_string(&sentinel).unwrap(), "fixture sentinel\n");
 }
