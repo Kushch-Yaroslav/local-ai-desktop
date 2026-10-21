@@ -8,6 +8,7 @@ Start with the guides for your language. The release notes describe what changed
 - [English user guide](en/USER_GUIDE.md) · [Russian: руководство пользователя](ru/USER_GUIDE.md)
 - [English features](en/FEATURES.md) · [Russian: возможности](ru/FEATURES.md)
 - [English model guide](en/MODELS.md) · [Russian: модели](ru/MODELS.md)
+- [HyperNova 60B tuning notes (RU)](ru/HYPERNOVA_60B_TUNING.md) · [Comet 60B compatibility report (RU)](ru/COMET_60B_TUNING.md)
 - [Browser QA, responsive and visual layout checks (EN)](en/BROWSER_QA.md) · [Браузерная QA, адаптивность и визуальные проверки (RU)](ru/BROWSER_QA.md)
 - [English roadmap](en/ROADMAP.md) · [Russian: планы развития](ru/ROADMAP.md)
 - [v0.2.1 release notes (EN)](releases/v0.2.1.md) · [примечания v0.2.1 (RU)](releases/v0.2.1.ru.md)
