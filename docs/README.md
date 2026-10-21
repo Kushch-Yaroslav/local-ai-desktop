@@ -22,6 +22,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [AppArmor security review](apparmor-security-review.md)
 - [Bubblewrap installation and acceptance](bwrap-installation-acceptance.md)
 - [Agent runtime and workspace protection](runtime-self-protection.md)
+- [Agent Runtime V2 deep reliability audit (RU)](ru/AGENT_RUNTIME_V2_DEEP_AUDIT.md)
 - [Persistent model profiles and profile UI verification](model-profile-persistence-verification.md)
 - [Browser session reliability and permission persistence verification](browser-session-reliability-verification.md)
 - [Native Live Browser and progress-aware QA architecture](native-browser-qa-architecture.md) · [verification and performance](native-browser-qa-verification.md)

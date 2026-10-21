@@ -1,0 +1,194 @@
+{
+  "date": "2026-10-21",
+  "branch": "improvement/v0.3-agent-runtime-deep-audit",
+  "productionCommit": "6790cad",
+  "method": "Scripted LLM providers; real temporary filesystem/SQLite/Chromium/Electron. No real model inference.",
+  "rust": {
+    "unitPassed": 304,
+    "agentLoopPassed": 95,
+    "agentLoopIgnored": 1,
+    "runtimeProtectionPassed": 3,
+    "toolSecurityPassed": 5,
+    "totalPassed": 407,
+    "failed": 0,
+    "splitRun": "Final full suite skips one long trajectory, which passed separately on the same production code. Other suites were not skipped.",
+    "longTrajectory": {
+      "distinctFiles": 310,
+      "durationSeconds": 113.32
+    }
+  },
+  "quality": {
+    "typecheck": "passed",
+    "eslint": "passed",
+    "npmRunBuild": "passed",
+    "buildWarning": "Existing Vite large-chunk warning"
+  },
+  "contextFixture": {
+    "beforeBytes": 40854,
+    "afterBytes": 25118,
+    "savedBytes": 15736,
+    "scope": "Exact duplicated recovery slices only; not a real LLM latency benchmark"
+  },
+  "host": [
+    {
+      "test": "dist/main/services/rust-agent-runtime.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 2234
+    },
+    {
+      "test": "dist/main/services/agent-workspace.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 751
+    },
+    {
+      "test": "dist/main/services/approval-broker.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 208
+    },
+    {
+      "test": "dist/main/services/autonomy-session.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 26
+    },
+    {
+      "test": "dist/main/services/database.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 2108
+    },
+    {
+      "test": "dist/main/services/run-recovery.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 1087
+    },
+    {
+      "test": "dist/main/services/protected-runtime.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 1404
+    },
+    {
+      "test": "dist/main/tools/tool-security.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 122
+    },
+    {
+      "test": "dist/main/ipc/stop-history.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 1438
+    },
+    {
+      "test": "dist/main/ipc/terminal-lifecycle.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 1983
+    },
+    {
+      "test": "dist/main/ipc/logical-task-runtime.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 24996
+    },
+    {
+      "test": "dist/main/ipc/context-profiles.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 5871
+    },
+    {
+      "test": "dist/shared/generation-guard.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 30
+    },
+    {
+      "test": "dist/main/services/browser-vision.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 129
+    },
+    {
+      "test": "dist/main/web/qa-loop-guard.test.js",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 81
+    }
+  ],
+  "browser": [
+    {
+      "test": "scripts/browser-session-reliability.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 3872
+    },
+    {
+      "test": "scripts/browser-session-native-electron.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 42109
+    },
+    {
+      "test": "scripts/scenario-qa.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 16703
+    },
+    {
+      "test": "scripts/scenario-qa-electron.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 2804
+    },
+    {
+      "test": "scripts/scenario-gate-runtime.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 10466
+    },
+    {
+      "test": "scripts/responsive-qa.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9932
+    },
+    {
+      "test": "scripts/visual-layout-qa.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 19319
+    },
+    {
+      "test": "scripts/visual-layout-native-electron.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 11082
+    },
+    {
+      "test": "scripts/agent-status-renderer.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 9041
+    },
+    {
+      "test": "scripts/agent-approval-electron.test.mjs",
+      "code": 0,
+      "timedOut": false,
+      "durationMs": 52159
+    }
+  ],
+  "resolvedInitialFailures": [
+    "Fixtures assumed automatically seeded Qwen profiles",
+    "Fixtures lacked current Browser QA/Vision/MTP status APIs",
+    "Fixtures expected one session grant and always-expanded controls",
+    "Old integration assertion omitted restored Verification Gate review",
+    "Real renderer follow-scroll lost following during content growth"
+  ],
+  "dataSafety": "User runtime, GGUF, model profiles and projects were not modified. All test data was temporary."
+}
