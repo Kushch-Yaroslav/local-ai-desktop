@@ -1,0 +1,34 @@
+// Filesystem/process-restart tests; tiny synthetic GGUF headers, no inference.
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,readFile,rename} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import {execFileSync} from 'node:child_process';
+import {join,resolve} from 'node:path';
+const root=await mkdtemp('/tmp/lad-profile-files-');process.env.LOCAL_AI_RUNTIME_ROOT=root;
+const require=createRequire(import.meta.url);
+const settings=require('../dist/main/services/runtime-settings.js');
+const {ggufFileAvailability}=require('../dist/main/services/gguf-artifacts.js');
+await mkdir(join(root,'models'));
+const first=join(root,'models/model-00001-of-00002.gguf'),second=first.replace('00001','00002');
+const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;},u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;},str=s=>Buffer.concat([u64(Buffer.byteLength(s)),Buffer.from(s)]);
+const bytes=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(1),str('general.architecture'),u32(8),str('qwen3next')]);
+await writeFile(first,bytes);await writeFile(second,bytes);
+const sidecar=join(root,'models/draft.gguf');await writeFile(sidecar,bytes);
+const id='custom:123e4567-e89b-42d3-a456-426614174099',config={...settings.loadRuntimeConfiguration(),modelsPath:join(root,'models'),llamaServerPath:null,models:[{id,displayName:'Roundtrip',modelPath:first,mmprojPath:sidecar,family:'qwen',gpuLayers:48,supportsTools:true,toolCallingMode:'manual',speculative:'mtp',mtpMode:'on',mtpDraft:{path:sidecar,maxDraftTokens:2,sizeBytes:bytes.length,sha256:'a'.repeat(64)},advanced:{mode:'gpu-layers',cpuMoe:'first',cpuMoeLayers:32,threads:8,threadsBatch:8,batchSize:2048,ubatchSize:512,flashAttention:'on',loadMode:'mmap',tensorOverrides:[{pattern:'foo',buffer:'CPU'}]},defaults:{contextWindow:65536,kvCacheType:'q8_0',kvOffload:true,thinkingEnabled:false,reasoningEffort:null}}]};
+const saved=settings.saveRuntimeConfiguration(config),before=await readFile(settings.settingsFile,'utf8');
+const child=()=>JSON.parse(execFileSync(process.execPath,['-e',`console.log(JSON.stringify(require(${JSON.stringify(resolve('dist/main/services/runtime-settings.js'))}).loadRuntimeConfiguration()))`],{env:process.env,encoding:'utf8'}));
+assert.deepEqual(child(),saved,'separate process restores every supported field');
+await rename(second,second+'.offline');
+assert.equal(settings.runtimeSetup().models[0].installed,false);assert.equal(ggufFileAvailability(first).status,'unavailable');
+assert.deepEqual(child(),saved,'missing required shard/draft/projector never removes settings');
+await rename(second+'.offline',second);
+assert.equal(settings.runtimeSetup().models[0].installed,true);assert.deepEqual(child(),saved);
+await rename(first,first+'.offline');assert.equal(settings.runtimeSetup().models[0].installed,false);assert.deepEqual(child(),saved);
+await rename(first+'.offline',first);assert.equal(settings.runtimeSetup().models[0].installed,true);
+assert.equal(await readFile(settings.settingsFile,'utf8'),before,'hydration/recovery do not write migrations');
+// Metadata parsing is not a file-presence check: report its failure separately.
+const incomplete=join(root,'models/metadata-error.gguf');await writeFile(incomplete,bytes.subarray(0,8));
+const draft=settings.runtimeDraftAvailability({modelsPath:root,models:[{id,modelPath:incomplete}]});
+assert.equal(draft.models[0].installed,true);assert.equal(draft.models[0].inspection.status,'error');
+await writeFile(incomplete,'not GGUF');assert.equal(ggufFileAvailability(incomplete).status,'invalid');
+console.log(JSON.stringify({result:'PASS',root,checks:['full advanced/MTP/projector/family roundtrip','process restart','split dependency missing/restored','no writes on hydration','metadata error separate from file presence','bad header rejected']}));

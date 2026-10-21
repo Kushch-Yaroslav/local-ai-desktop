@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { RuntimeConfiguration, RuntimeModelConfiguration, RuntimeDraftAvailability } from '../../shared/types';
 import { searchPreference } from '../../shared/search-settings';
@@ -7,7 +7,7 @@ import { builtinModelCatalog } from '../models/model-catalog';
 import { inspectModel } from '../models/gguf-profile';
 import { modelFamilies } from '../../shared/model-profiles';
 import { normalizeAdvanced,normalizeModelDefaults } from '../../shared/model-configuration';
-import { verifyGgufArtifacts } from './gguf-artifacts';
+import { ggufFileAvailability, verifyGgufArtifacts } from './gguf-artifacts';
 import { readGgufSpeculativeMetadata } from './gguf-speculative';
 
 export const settingsFile = join(paths.configDirectory, 'runtime-settings.json');
@@ -105,7 +105,7 @@ export function normalizeConfiguration(raw: unknown): RuntimeConfiguration {
       return normalizeModel({ ...model, ...paths }, modelsPath);
     });
     for (const id of Object.keys(old)) if (!builtins.has(id)) throw new Error(`Неизвестная модель в старых настройках: ${id}.`);
-  } else if (value.models === undefined) models = seededModels(modelsPath);
+  } else if (value.models === undefined) models = [];
   else throw new Error('Некорректный список моделей.');
   if (value.llamaServerInput !== undefined && (typeof value.llamaServerInput !== 'string' || value.llamaServerInput.length > 4096 || /[\0\r\n]/.test(value.llamaServerInput))) throw new Error('Некорректный путь к llama-server или папке.');
   if (value.browserVision !== undefined && !['off','auto','on'].includes(String(value.browserVision))) throw new Error('Invalid Browser Vision mode');
@@ -122,7 +122,7 @@ export function normalizeConfiguration(raw: unknown): RuntimeConfiguration {
 export function loadRuntimeConfiguration(file = settingsFile): RuntimeConfiguration {
   const legacyServer = resolve(paths.root, '../llama.cpp/build-cuda/bin/llama-server');
   const defaults = { llamaServerPath: process.env.LOCAL_AI_LLAMA_SERVER_PATH ?? (existsSync(legacyServer) ? legacyServer : null),
-    modelsPath: paths.models, gpuLayers: 999, setupDismissed: false, models: seededModels(paths.models) };
+    modelsPath: paths.models, gpuLayers: 999, setupDismissed: false, models: [] };
   if (!existsSync(file)) return normalizeConfiguration({ ...defaults, schemaVersion: 2, imageProcessingDevice: 'cpu' });
   try {
     const saved: unknown = JSON.parse(readFileSync(file, 'utf8'));
@@ -135,7 +135,7 @@ export function loadRuntimeConfiguration(file = settingsFile): RuntimeConfigurat
 
 export function effectiveRuntimeConfiguration(): RuntimeConfiguration {
   try { return loadRuntimeConfiguration(); }
-  catch { return normalizeConfiguration({ llamaServerPath: null, modelsPath: paths.models, gpuLayers: 999, setupDismissed: false, schemaVersion: 2, models: seededModels(paths.models) }); }
+  catch { return normalizeConfiguration({ llamaServerPath: null, modelsPath: paths.models, gpuLayers: 999, setupDismissed: false, schemaVersion: 2, models: [] }); }
 }
 
 export function configuredModel(id: string, config = effectiveRuntimeConfiguration()): RuntimeModelConfiguration | undefined { return config.models.find((model) => model.id === id); }
@@ -163,13 +163,15 @@ export function runtimeDraftAvailability(raw: unknown): RuntimeDraftAvailability
     if (typeof path !== 'string' || !path || path.length > 4096) return false;
     // Absolute paths stay independent of an incomplete/changed base folder.
     if (!base && !path.startsWith('/') && !path.startsWith('~')) return false;
-    try { return validGguf(expandPath(path, base)); } catch { return false; }
+    try { return ggufFileAvailability(expandPath(path, base)).status === 'ready'; } catch { return false; }
   };
   let folderExists = false;
   try { folderExists = Boolean(base && statSync(base, { throwIfNoEntry: false })?.isDirectory()); } catch { /* Unreadable folder. */ }
   return { folderExists, models: value.models.map((entry) => {
     if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') throw new Error('Некорректные настройки моделей.');
-    return { id: entry.id,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)), mtpDraftMissing:Boolean(entry.mtpDraft?.path&&!check(entry.mtpDraft.path)), mtpDraftInspection:typeof entry.mtpDraft?.path==='string'?inspectModel(expandPath(entry.mtpDraft.path,base),'auto'):undefined };
+    let availability: ReturnType<typeof ggufFileAvailability> | undefined;
+    try { if (typeof entry.modelPath === 'string' && entry.modelPath.trim()) availability = ggufFileAvailability(expandPath(entry.modelPath,base)); } catch { /* Incomplete draft path. */ }
+    return { id: entry.id, availabilityIssue: availability?.issue, fileStatus: availability?.status,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)), mtpDraftMissing:Boolean(entry.mtpDraft?.path&&!check(entry.mtpDraft.path)), mtpDraftInspection:typeof entry.mtpDraft?.path==='string'?inspectModel(expandPath(entry.mtpDraft.path,base),'auto'):undefined };
   }) };
 }
 
@@ -182,9 +184,10 @@ export function runtimeSetup(file = settingsFile) {
   let server: string | null = null;
   try { server = executablePath(config.llamaServerPath ?? 'llama-server'); } catch (error) { issues.push((error as Error).message); }
   const models = config.models.map((model) => {
-    const installed = validGguf(model.modelPath);
+    const availability = ggufFileAvailability(model.modelPath);
+    const installed = availability.status === 'ready';
     const projectorMissing = Boolean(model.mmprojPath && !validGguf(model.mmprojPath));
-    const modelIssue = installed ? undefined : `Не найден читаемый GGUF-файл: ${model.modelPath}`;
+    const modelIssue = installed ? undefined : `${model.modelPath}: ${availability.issue}`;
     const issue = [modelIssue, !server ? 'Сначала выберите исполняемый llama-server.' : undefined,
       projectorMissing ? 'Projector не найден; модель сможет работать без изображений, если очистить это поле.' : undefined].filter(Boolean).join(' ');
     const status = !installed ? 'missing-model' : !server ? 'missing-server' : projectorMissing ? 'invalid-projector' : 'ready';
@@ -203,8 +206,10 @@ export function saveRuntimeConfiguration(raw: unknown, file = settingsFile): Run
   if (!statSync(config.modelsPath, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Каталог моделей не найден: ${config.modelsPath}. Выберите существующую папку.`);
   let prior: RuntimeConfiguration | undefined;
   let corruptExistingFile = false;
+  let legacyExistingFile = false;
   try { prior = loadRuntimeConfiguration(file); }
   catch { corruptExistingFile = existsSync(file); }
+  if (prior && existsSync(file)) legacyExistingFile = !Array.isArray(JSON.parse(readFileSync(file, 'utf8')).models);
   for (const model of config.models) {
     for (const key of ['modelPath', 'mmprojPath'] as const) {
       const path = model[key];
@@ -223,7 +228,9 @@ export function saveRuntimeConfiguration(raw: unknown, file = settingsFile): Run
   const temporary = `${file}.${process.pid}.tmp`;
   writeFileSync(temporary, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
   // Preserve malformed user data before an explicit save repairs the settings.
-  // Valid legacy/v2 configurations are migrated in place and never backed up.
+  // Hydration never writes. An explicit legacy migration keeps the exact input
+  // available for rollback, without repeatedly replacing the original backup.
+  if (legacyExistingFile && !existsSync(`${file}.pre-v2.bak`)) copyFileSync(file, `${file}.pre-v2.bak`, constants.COPYFILE_EXCL);
   if (corruptExistingFile) renameSync(file, `${file}.invalid-${Date.now()}.bak`);
   renameSync(temporary, file);
   return config;

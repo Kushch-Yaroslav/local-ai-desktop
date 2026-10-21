@@ -22,7 +22,8 @@ try {
   const freshDeviceFile = join(root, 'fresh-settings.json');
   assert.equal(loadRuntimeConfiguration(freshDeviceFile).imageProcessingDevice, 'cpu');
   const legacyVisionFile = join(root, 'legacy-vision.json');
-  const fresh = loadRuntimeConfiguration(freshDeviceFile);
+  assert.deepEqual(loadRuntimeConfiguration(freshDeviceFile).models, [], "new installs have no registered models");
+  const fresh = normalizeConfiguration({ ...loadRuntimeConfiguration(freshDeviceFile), models: {} });
   delete fresh.imageProcessingDevice;
   fresh.models[0].projectorDevice = 'gpu';
   writeFileSync(legacyVisionFile, JSON.stringify(fresh));
@@ -42,6 +43,7 @@ try {
   assert.equal(defaults.dataRoot, join(home, '.local/share/local-ai-desktop'));
   assert.equal(defaults.cache, join(home, '.cache/local-ai-desktop'));
   assert.equal(defaults.configDirectory, join(home, '.config/local-ai-desktop'));
+  assert.equal(applicationPaths(join(app, 'new-build'), home, {}, () => false).configDirectory, defaults.configDirectory, 'packaged upgrades keep a version-independent settings path');
   assert.equal(defaults.logs, join(home, '.local/state/local-ai-desktop/logs'));
   const xdg = applicationPaths(app, home, { XDG_CONFIG_HOME: '/test/config', XDG_DATA_HOME: '/test/data', XDG_CACHE_HOME: '/test/cache', XDG_STATE_HOME: '/test/state' }, () => false);
   assert.equal(xdg.dataRoot, '/test/data/local-ai-desktop'); assert.equal(xdg.configDirectory, '/test/config/local-ai-desktop');
@@ -79,6 +81,7 @@ try {
   assert.equal(firstMigration.models.find((model) => model.id === qwen36)?.displayName, 'Qwen3.6-35B-A3B');
   const migratedConfig = saveRuntimeConfiguration(firstMigration, legacyFile);
   assert.equal(statSync(legacyFile).mode & 0o777, 0o600);
+  assert.deepEqual(JSON.parse(readFileSync(`${legacyFile}.pre-v2.bak`, 'utf8')), legacy, 'explicit migration preserves the original input for rollback');
   assert.deepEqual(loadRuntimeConfiguration(legacyFile), migratedConfig, 'migration persists once and remains idempotent');
   assert.equal(modelPaths(qwen36, migratedConfig).modelPath, original, 'known chat model identity and custom file path remain stable');
 

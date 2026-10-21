@@ -49,6 +49,7 @@ type State = {
   selectConversation: (id: string) => Promise<void>;
   createConversation: () => Promise<void>;
   updateConversation: (id: string, patch: Partial<Conversation>) => Promise<void>;
+  refreshModels: () => Promise<void>;
   refreshRuntime: () => Promise<void>;
   refreshRuntimeStatus: () => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
@@ -245,6 +246,9 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       await get().refreshRuntime();
       throw error;
     }
+  },
+  refreshModels: async () => {
+    try { set({ models: await window.localAi.models.list() }); } catch { /* Preserve the last list on a transient IPC failure. */ }
   },
   refreshRuntime: async () => {
     try {

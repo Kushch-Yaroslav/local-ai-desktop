@@ -2,11 +2,12 @@ import type { ChatMessage, FinishReason, ModelInfo, StreamEvent } from '../../sh
 import { createHash } from 'node:crypto';
 import { wholeNanoseconds, type ContextWindow, type InferenceDiagnostics, type LlmBackend, type RuntimeContextEvidence, type ToolCallingBackend, type ToolInferenceRequestContext, type ToolInferenceStreamEvent, type ToolMessage } from './types';
 import { getModelProfile, maxOutputTokens, modelInfo, outputBudget, outputSafetyReserveTokens } from '../models/model-registry';
-import { llamaContextPresets, llamaReasoningForInput, llamaRuntimeInstalled, llamaRuntimeProfile, llamaRuntimeProfilesList, reasoningCapability } from '../models/llama-runtime-policy';
+import { llamaContextPresets, llamaReasoningForInput, llamaRuntimeProfile, llamaRuntimeProfilesList, reasoningCapability } from '../models/llama-runtime-policy';
 import { reasoningModeOf, sameReasoningInput, type ReasoningInput } from '../../shared/reasoning-controls';
 import { log } from '../services/logger';
 import type { LlamaKvCacheType } from '../../shared/types';
-import { llamaCapabilityLimit } from '../services/gguf-context';
+import { ggufFileAvailability } from '../services/gguf-artifacts';
+import { effectiveRuntimeConfiguration } from '../services/runtime-settings';
 
 type NativeToolCall = { index?: number; id?: string; type?: string; function?: { name?: string; arguments?: string } };
 type Choice = { finish_reason?: string | null; message?: { content?: string | null; reasoning_content?: string | null; tool_calls?: NativeToolCall[] }; delta?: { content?: string | null; reasoning_content?: string | null; tool_calls?: NativeToolCall[] } };
@@ -137,22 +138,26 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
     let data: ModelsResponse = {};
     try {
       if (this.runtimeModelId) {
-        const response = await fetch(this.url('/v1/models'));
+        const response = await fetch(this.url('/v1/models'), { signal: AbortSignal.timeout(2_000) });
         if (response.ok) data = await response.json() as ModelsResponse;
       }
     } catch { /* offline: only file availability is known */ }
     if (this.runtimeModelId && !getModelProfile(this.runtimeModelId)) throw new Error(`llama.cpp запущен с неизвестной моделью: ${this.runtimeModelId}`);
     const result: ModelInfo[] = [];
-    for (const runtime of llamaRuntimeProfilesList()) {
-      const profile = getModelProfile(runtime.id);
+    // One persisted snapshot prevents a concurrent save from mixing registries.
+    const configuration = effectiveRuntimeConfiguration();
+    for (const runtime of llamaRuntimeProfilesList(configuration)) {
+      const profile = getModelProfile(runtime.id, configuration);
       if (!profile) continue;
       const active = runtime.id === this.runtimeModelId;
-      const installed = llamaRuntimeInstalled(runtime);
+      const availability = ggufFileAvailability(runtime.modelPath ?? '');
+      const installed = availability.status === 'ready';
       const trainedLimit = active ? data.data?.[0]?.meta?.n_ctx_train : undefined;
-      const capability = Math.min(installed ? await llamaCapabilityLimit(runtime.id) : runtime.maxContext, trainedLimit ?? runtime.maxContext);
+      const capability = Math.min(runtime.maxContext, runtime.inspection?.trainedContext ?? runtime.maxContext, trainedLimit ?? runtime.maxContext);
       result.push({
         ...modelInfo(profile, active && (data.data ?? []).length > 0 ? true : installed, active ? data.data?.[0]?.meta?.size : undefined, capability, profile.supportsReasoning),
         backend: 'llama-cpp',inspection:runtime.inspection,profileDefaults:runtime.defaults,
+        fileStatus: availability.status, modelPath: runtime.modelPath, availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
         supportedContextPresets: llamaContextPresets(runtime.id, capability),
         supportedKvCacheTypes: ['f16', 'q8_0'],
         ...(runtime.normalContext ? { normalContext: runtime.normalContext } : {}),

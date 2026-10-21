@@ -74,12 +74,15 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   useEffect(() => {
     let cancelled = false;
     setAvailabilityError('');
-    const timer = setTimeout(() => {
+    const check = () => {
       void window.localAi.settings.validateDraft(JSON.parse(modelsKey)).then((result) => {
         if (!cancelled) setAvailability({ key: modelsKey, result });
       }, () => { if (!cancelled) setAvailabilityError('Не удалось проверить файлы моделей.'); });
-    }, 300);
-    return () => { cancelled = true; clearTimeout(timer); };
+    };
+    const timer = setTimeout(check, 300);
+    const interval = window.setInterval(check, 10_000);
+    window.addEventListener('focus', check);
+    return () => { cancelled = true; clearTimeout(timer); clearInterval(interval); window.removeEventListener('focus', check); };
   }, [modelsKey]);
   const changeExecutableInput = (path: string) => {
     if (path === inputPath) return;
@@ -186,17 +189,17 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
     <ul className="runtime-model-list">{config.models.map((profile) => {
       const model = draftModels?.models.find((item) => item.id === profile.id);
       const ready = model?.installed && executableStatus === 'valid';
-      const status = !model ? localizeMessage(availabilityError) || t('Проверка файла GGUF…') : !model.installed ? t('Выберите файл модели') : model.projectorMissing ? t('Projector не найден; текст доступен') : !ready ? t('Нужен llama-server') : dirty ? t('Файл доступен — сохраните настройки') : t('Готова к запуску');
+      const status = !model ? localizeMessage(availabilityError) || t('Проверка файла GGUF…') : !model.installed ? (model.fileStatus === 'invalid' ? (ru ? 'Требуется настройка' : 'Needs setup') : (ru ? 'Файл недоступен' : 'File unavailable')) : model.projectorMissing ? t('Projector не найден; текст доступен') : !ready ? t('Нужен llama-server') : dirty ? t('Файл доступен — сохраните настройки') : t('Готова к запуску');
       return <li key={profile.id} className={ready && !dirty ? 'model-ready' : 'model-needs-setup'}>
-        <button className="runtime-model-select" aria-label={tr`Редактировать ${profile.displayName}`} onClick={() => setEditingId(profile.id)}>
-          <strong>{profile.displayName}</strong><span>{status}</span>
+        <button className="runtime-model-select" aria-label={tr`Редактировать ${profile.displayName}`} aria-expanded={editingId === profile.id} aria-controls="runtime-profile-editor" onClick={() => setEditingId(current => current === profile.id ? null : profile.id)}>
+          <strong>{profile.displayName}</strong><span>{status}</span>{model && !model.installed && <small title={profile.modelPath}>{profile.modelPath}<br />{localizeMessage(model.availabilityIssue ?? model.inspection?.reason ?? '')}</small>}
         </button>
         <button aria-label={tr`Удалить профиль ${profile.displayName}`} title={t("Удалить профиль")} onClick={() => remove(profile)}><Trash2 size={16} /></button>
       </li>;
     })}</ul>
     {!config.models.length && <p>{t("Профилей пока нет. Нажмите «Добавить GGUF», чтобы выбрать модель с компьютера.")}</p>}
 
-    {selected && <fieldset className="runtime-model-editor"><legend>{selected.builtin ? t("Настройки профиля") : t("Новый профиль")}</legend>
+    {selected && <fieldset id="runtime-profile-editor" className="runtime-model-editor"><legend>{selected.builtin ? t("Настройки профиля") : t("Новый профиль")}</legend>
       <label>{t("Название в приложении")}<input aria-label={t("Название модели")} maxLength={80} value={selected.displayName} onChange={(event) => updateModel(selected.id, { displayName: event.target.value })} /></label>
       <label>{t("Файл модели GGUF")}<div className="setup-path"><input aria-label={t("Файл модели GGUF")} value={selected.modelPath} onChange={(event) => updateModel(selected.id, { modelPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { modelPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Выберите первый файл модели. Части split GGUF должны лежать рядом.")}</small></label>
       <label>{t("Projector для изображений — необязательно")}<div className="setup-path"><input aria-label={t("Проектор GGUF")} value={selected.mmprojPath} onChange={(event) => updateModel(selected.id, { mmprojPath: event.target.value })} /><button onClick={() => void chooseFile((path) => updateModel(selected.id, { mmprojPath: path }))}>{t("Выбрать…")}</button></div><small>{t("Нужен, чтобы эта модель понимала изображения. Без него остаётся текстовый чат.")}</small></label>

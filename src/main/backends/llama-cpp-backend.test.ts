@@ -8,6 +8,7 @@ import { once } from 'node:events';
 import { nativeImageUrl, LlamaCppBackend, LlamaCppContextExhaustedError, LlamaCppRequestError, validateLlamaMessageSequence } from './llama-cpp-backend';
 import type { ToolMessage } from './types';
 import { llamaReasoningForInput, llamaRuntimeProfiles } from '../models/llama-runtime-policy';
+import { paths } from '../services/paths';
 import { builtinModelCatalog } from '../models/model-catalog';
 import type { RuntimeConfiguration } from '../../shared/types';
 import type { ChatMessage } from '../../shared/types';
@@ -71,6 +72,8 @@ export async function runLlamaCppBackendRegression(): Promise<void> {
   // Availability/context tests use tiny synthetic metadata, never a
   // developer's multi-GB weights or directory structure.
   const fixture = mkdtempSync(join(tmpdir(), 'llama backend models '));
+  const originalLogs = paths.logs;
+  paths.logs = fixture;
   const originalPaths = llamaRuntimeProfiles.map((profile) => Object.getOwnPropertyDescriptor(profile, 'modelPath')!);
   const runtimeSettings = createRequire(__filename)('../services/runtime-settings') as typeof import('../services/runtime-settings');
   const originalConfiguration = Object.getOwnPropertyDescriptor(runtimeSettings, 'effectiveRuntimeConfiguration');
@@ -325,6 +328,7 @@ export async function runLlamaCppBackendRegression(): Promise<void> {
   } finally {
     llamaRuntimeProfiles.forEach((profile, index) => Object.defineProperty(profile, 'modelPath', originalPaths[index]));
     if (originalConfiguration) Object.defineProperty(runtimeSettings, 'effectiveRuntimeConfiguration', originalConfiguration);
+    paths.logs = originalLogs;
     rmSync(fixture, { recursive: true, force: true });
   }
 }

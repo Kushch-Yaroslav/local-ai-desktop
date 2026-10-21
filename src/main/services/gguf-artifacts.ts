@@ -1,4 +1,20 @@
-import { accessSync, constants, statSync } from 'node:fs';
+import { accessSync, closeSync, constants, openSync, readSync, statSync } from 'node:fs';
+
+/** File readiness is independent of backend health and optional metadata capabilities. */
+export function ggufFileAvailability(path: string): { status: 'ready' | 'unavailable' | 'invalid'; issue?: string } {
+  try { verifyGgufArtifacts(path); }
+  catch (error) { return { status: 'unavailable', issue: error instanceof Error ? error.message : String(error) }; }
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, 'r');
+    const header = Buffer.alloc(8);
+    if (readSync(fd, header, 0, 8, 0) !== 8 || header.toString('ascii', 0, 4) !== 'GGUF' || ![2, 3].includes(header.readUInt32LE(4))) {
+      return { status: 'invalid', issue: `Invalid GGUF v2/v3 header: ${path}` };
+    }
+    return { status: 'ready' };
+  } catch (error) { return { status: 'unavailable', issue: error instanceof Error ? error.message : String(error) }; }
+  finally { if (fd !== undefined) closeSync(fd); }
+}
 
 /** llama.cpp's conventional split GGUF naming; the first shard is the launch path. */
 export function ggufArtifactPaths(path: string): string[] {

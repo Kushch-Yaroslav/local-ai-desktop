@@ -20,7 +20,7 @@ export async function contextProfileFixture(root: string, realElectron = false, 
   // fixture must behave identically in a clean source snapshot and after restart.
   const runtimeSettings = await import('../services/runtime-settings');
   if (!existsSync(runtimeSettings.settingsFile)) {
-    const config = runtimeSettings.loadRuntimeConfiguration();
+    const config = runtimeSettings.normalizeConfiguration({ ...runtimeSettings.loadRuntimeConfiguration(), models: {} });
     const modelsPath = join(root, 'fixture-models'); mkdirSync(modelsPath, { recursive: true });
     const u64 = (n: number) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
     const text = (s: string) => Buffer.concat([u64(Buffer.byteLength(s)), Buffer.from(s)]);

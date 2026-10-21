@@ -123,6 +123,9 @@ export interface AgentTelemetry {
 }
 
 export interface ModelInfo {
+  fileStatus?: 'ready' | 'unavailable' | 'invalid';
+  modelPath?: string;
+  availabilityIssue?: string;
   inspection?: import('./model-profiles').ModelInspection;
   profileDefaults?: import('./model-profiles').ModelProfileDefaults;
   supportedKvCacheTypes?: LlamaKvCacheType[];
@@ -227,7 +230,7 @@ export interface HardwareStats {
 }
 
 export type ExecutableValidation = { status: 'not-configured' | 'valid' | 'missing' | 'not-executable' | 'unsupported' | 'failed'; path?: string };
-export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; projectorMissing: boolean; mtpDraftMissing: boolean; inspection?:import('./model-profiles').ModelInspection; mtpDraftInspection?:import('./model-profiles').ModelInspection }> };
+export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; availabilityIssue?: string; fileStatus?: 'ready' | 'unavailable' | 'invalid'; projectorMissing: boolean; mtpDraftMissing: boolean; inspection?:import('./model-profiles').ModelInspection; mtpDraftInspection?:import('./model-profiles').ModelInspection }> };
 export type ExecutableResolution = { status: ExecutableValidation['status'] | 'multiple' | 'not-found' | 'incomplete' | 'cancelled'; path?: string; candidates: string[]; kind?: 'file' | 'directory'; incomplete?: boolean; selectedMissing?: boolean; reasons?: string[] };
 
 export interface RuntimeConfiguration {
