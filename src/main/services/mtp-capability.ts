@@ -14,7 +14,7 @@ export function embeddedMtpCapability(path: string): MtpCapability {
     const architecture = String(metadata.values['general.architecture'] ?? '');
     if (!['qwen35', 'qwen35moe'].includes(architecture)) return { supported: false, status: 'unsupported', architecture, reason: `Embedded MTP is not validated for architecture ${architecture || 'unknown'}.` };
     const heads = Number(metadata.values[`${architecture}.nextn_predict_layers`] ?? 0);
-    if (heads !== 1) return { supported: false, status: heads === 0 ? 'requires-weights' : 'unsupported', architecture, heads, reason: heads === 0 ? 'This GGUF has no embedded MTP head. Compatible additional weights would be required; automatic downloads are disabled.' : 'This backend integration supports one Qwen MTP head.' };
+    if (heads !== 1) return { supported: false, status: heads === 0 ? 'requires-weights' : 'unsupported', architecture, heads, reason: heads === 0 ? 'This GGUF has no embedded MTP head. Compatible additional weights would be required; automatic downloads are disabled.' : 'This backend integration supports one embedded MTP head for the validated architecture.' };
     const block = Number(metadata.values[`${architecture}.block_count`]) - 1;
     const embedding = Number(metadata.values[`${architecture}.embedding_length`]);
     const tensors = Object.assign({}, ...ggufArtifactPaths(path).map(file => readGgufSpeculativeMetadata(file).tensors ?? {})) as Record<string, number[]>;
@@ -23,7 +23,7 @@ export function embeddedMtpCapability(path: string): MtpCapability {
     if (!tensors['blk.0.attn_norm.weight'] || !projection || projection[0] !== embedding * 2 || projection[1] !== embedding || !['enorm.weight', 'hnorm.weight'].every(name => tensors[prefix + name]?.[0] === embedding)) {
       return { supported: false, status: 'requires-weights', architecture, heads, reason: 'GGUF metadata declares MTP but the full target/embedded head tensors are missing or incompatible.' };
     }
-    return { supported: true, status: 'available', architecture, heads, reason: 'Embedded Qwen MTP tensors verified. Activation still requires successful backend initialization.' };
+    return { supported: true, status: 'available', architecture, heads, reason: `Embedded ${architecture} MTP tensor layout verified. Activation still requires successful backend initialization.` };
   } catch (error) { return { supported: false, status: 'error', reason: `Cannot inspect MTP weights: ${error instanceof Error ? error.message : String(error)}` }; }
 }
 /** External draft-mtp is accepted only when the GGUF pair proves architecture, dimensions, context and tokenizer compatibility. */

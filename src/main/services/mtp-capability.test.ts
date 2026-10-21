@@ -27,6 +27,7 @@ async function run(){try{
   assert.equal(embeddedMtpCapability(metadataOnly).status,'requires-weights');
   assert(!embeddedMtpCapability(truncated).supported,'tensor headers without payload cannot prove weights');
   assert(!embeddedMtpCapability(fixture('unsupported.gguf','llama')).supported);
+  assert(!embeddedMtpCapability(fixture('nemotron-moe.gguf','nemotron_h_moe')).supported,'metadata alone must not claim embedded Nemotron H MTP backend support');
   assert(!embeddedMtpCapability(fixture('many-heads.gguf','qwen35',2)).supported);
   const server=join(root,'server');writeFileSync(server,"#!/bin/sh\nprintf '%s\\n' '--spec-type none,draft-mtp'\n",{mode:0o700});
   const plain=join(root,'plain');writeFileSync(plain,"#!/bin/sh\nprintf '%s\\n' '--model --ctx-size --port'\n",{mode:0o700});
