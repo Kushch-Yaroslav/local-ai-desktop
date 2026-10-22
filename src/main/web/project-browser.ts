@@ -1,3 +1,6 @@
+import { inspectResponsive } from './responsive-qa';
+import { selectionOverlay, groundRegion } from './visual-selection';
+import type { VisualRect, VisualRegion } from '../../shared/visual-debugging';
 import type { VisionQuestion } from '../../shared/model-features';
 import { installQaInstrumentation, qaSteps, runBrowserQa, screenshotHash, keyboardActions, keyboardStep } from './browser-qa';
 import type { BrowserCapture, BrowserQaReport, BrowserQaStatus, BrowserVisualResult } from '../../shared/browser-qa';
@@ -140,6 +143,7 @@ export class ProjectBrowserSession {
     return this.origin&&this.origin!==staticOrigin&&args.url===undefined?{...args,path:undefined,url:new URL('/'+String(args.path??'index.html').replace(/^\//,''),this.origin).href}:args;
   }
   beginRun(observer: ProjectBrowserObserver, qaOptions: ProjectQaOptions = {}) {
+    void this.clearSelection();
     this.qaOptions = qaOptions;
     if (!qaOptions.guard) this.fallbackGuard.rearm();
     this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
@@ -151,10 +155,106 @@ export class ProjectBrowserSession {
     await this.releaseInput();
     this.ownership = 'user'; this.observer?.ownership?.('user');
   }
-  async pauseRun() { this.ownership = 'paused'; await this.releaseInput(); this.observer?.ownership?.('paused'); }
+  async pauseRun() { await this.clearSelection(); this.ownership = 'paused'; await this.releaseInput(); this.observer?.ownership?.('paused'); }
   private bindObserver() {
-    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), close: reason => this.close(false,reason??'user_closed') });
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), close: reason => this.close(false,reason??'user_closed') });
     this.observer?.ownership?.(this.ownership);
+  }
+  private selectionActive = false;
+  get visualSelecting(){return this.selectionActive;}
+  private selectionBound = false;
+  private selectionCallback?: (region: VisualRegion) => Promise<void>;
+  private selectionRegions: VisualRegion[] = [];
+  private selectionGroup = 'group-1';
+  async visualSelection(enabled: boolean, regions: VisualRegion[], callback?: (region: VisualRegion) => Promise<void>, groupId='group-1') {
+    return this.exclusive(async () => {
+      if (!this.reusable || this.ownership !== 'user') throw new Error('Visual Selection requires user ownership');
+      const page=this.page!;
+      if (!this.selectionBound) {
+        await page.exposeBinding('__ladRegionSelect', async (source, rect: VisualRect|null) => {
+          if (source.page!==page || source.frame!==page.mainFrame() || !this.selectionActive || this.ownership!=='user') return;
+          if(rect===null){await this.clearSelection();return;}
+          await this.exclusive(async () => {
+            if(!this.selectionActive || this.ownership!=='user')return;
+            const region=await this.visualCapture(rect,this.selectionGroup);
+            await this.selectionCallback?.(region);
+            this.selectionRegions.push(region);
+            if(this.selectionActive)await selectionOverlay(page,true,this.selectionRegions);
+          });
+        });
+        this.selectionBound=true;
+      }
+      this.selectionActive=enabled;this.selectionCallback=callback;this.selectionRegions=[...regions];this.selectionGroup=groupId;
+      await selectionOverlay(page,enabled,regions);
+    });
+  }
+  private async clearSelection() {
+    this.selectionActive=false;this.selectionCallback=undefined;
+    if(this.page&&!this.page.isClosed())await selectionOverlay(this.page,false).catch(()=>undefined);
+  }
+  private async visualCapture(rect: VisualRect, groupId: string): Promise<VisualRegion> {
+    const page=this.page!;
+    if(!rect || !['x','y','width','height'].every(key=>Number.isFinite(rect[key as keyof VisualRect])) || rect.x<0 || rect.y<0 || rect.width<4 || rect.height<4 || rect.width>4096 || rect.height>4096)throw new Error('Invalid selection bounds');
+    const evidence=await groundRegion(page,rect);
+    if(new URL(evidence.url).origin!==this.origin || rect.x+rect.width>evidence.viewport.width+1 || rect.y+rect.height>evidence.viewport.height+1)throw new Error('Selection outside approved viewport');
+    const id='region-'+randomUUID().slice(0,8);
+    const region:VisualRegion={...evidence,sourceHints:Array.from(this.servedRevisions).slice(0,12).map(([path,sha256])=>({path,sha256})),id,conversationId:'',projectId:this.qaOptions.projectId??'',projectRoot:this.root,groupId,createdAt:new Date().toISOString()};
+    await mkdir(this.captureDirectory,{recursive:true,mode:0o700});
+    const path=join(this.captureDirectory,id+'.png');
+    // All editable controls are masked; selector frames must never enter evidence.
+    await page.evaluate(()=>{const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='hidden';});
+    try {
+      let bytes:Buffer;
+      if(this.native){
+        // Electron's CDP screenshot clip does not account for WebContents zoom.
+        // Capture the same native surface in DIP, with CSS privacy masks painted first.
+        await page.evaluate(()=>{
+          const host=document.createElement('div');host.id='__lad-capture-mask';host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none';
+          const shadow=host.attachShadow({mode:'closed'});
+          for(const control of document.querySelectorAll('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')){
+            const b=control.getBoundingClientRect();if(!b.width||!b.height)continue;
+            const mask=document.createElement('div');mask.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;background:#ff00ff;`;shadow.append(mask);
+          }
+          document.documentElement.append(host);
+        });
+        await Promise.race([page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))),new Promise<never>((_,reject)=>{const timer=setTimeout(()=>reject(new Error('Privacy mask paint timed out')),1500);timer.unref();})]);
+        const zoom=this.native.contents.getZoomFactor();
+        const image=await this.native.contents.capturePage({x:Math.floor(rect.x*zoom),y:Math.floor(rect.y*zoom),width:Math.ceil(rect.width*zoom),height:Math.ceil(rect.height*zoom)});
+        bytes=image.toPNG();
+      }else bytes=await page.screenshot({type:'png',clip:evidence.rect,scale:'css',timeout:10000,mask:[page.locator('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')]});
+      await writeFile(path,bytes,{mode:0o600});region.screenshotPath=path;
+    } catch { region.diagnostics.push('Crop unavailable; DOM evidence retained'); }
+    finally{await page.evaluate(()=>{document.getElementById('__lad-capture-mask')?.remove();const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='';}).catch(()=>undefined);}
+    return region;
+  }
+  async visualReveal(region: VisualRegion) {
+    return this.exclusive(async()=>{
+      if(this.ownership!=='user'||!this.page||new URL(region.url).origin!==this.origin||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
+      await this.clearSelection();
+      if(this.page.url()!==region.url)await this.page.goto(region.url,{waitUntil:'load'});
+      const anchor=region.anchors.find(a=>a.confidence>=.8);
+      if(anchor && await this.page.locator(anchor.selector).count()===1)await this.page.locator(anchor.selector).scrollIntoViewIfNeeded();
+      else await this.page.evaluate(p=>scrollTo(p.x,p.y),region.scroll);
+      // Reopen selection for an explicitly requested reference; Escape exits.
+      this.selectionActive=true;await selectionOverlay(this.page,true,[region]);
+    });
+  }
+  async visualDetect(): Promise<VisualRegion[]> {
+    return this.exclusive(async()=>{
+      if(this.ownership!=='user'||!this.page)throw new Error('Detection requires user ownership');
+      await this.clearSelection();
+      const inspection=await inspectResponsive(this.page);
+      const regions:VisualRegion[]=[];
+      for(const finding of inspection.findings.filter(f=>f.rect).slice(0,12)) {
+        const b=finding.rect!,x=Math.max(0,b.x),y=Math.max(0,b.y);
+        const rect={x,y,width:Math.min(b.x+b.width,inspection.viewport.width)-x,height:Math.min(b.y+b.height,inspection.viewport.height)-y};
+        if(rect.width<4||rect.height<4)continue;
+        const region=await this.visualCapture(rect,'auto-'+randomUUID().slice(0,8));const anchor=region.anchors[0];
+        if(anchor?.classes?.length){region.groupId='auto-'+screenshotHash(Buffer.from(finding.kind+':'+anchor.tag+':'+anchor.classes.join('.'))).slice(0,8);region.diagnostics.push('Shared tag/class candidate group; common source component remains unconfirmed');}
+        region.diagnostics.push(`Responsive QA candidate: ${finding.kind}: ${finding.detail}`);regions.push(region);
+      }
+      return regions;
+    });
   }
   private async releaseInput() {
     await this.native?.releaseInput();
@@ -239,6 +339,7 @@ export class ProjectBrowserSession {
   constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver, private qaOptions: ProjectQaOptions = {}, private readonly isolatedQa=false) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
+    await this.clearSelection();
     const isolated=responsiveRequest(args)&&!this.isolatedQa&&Boolean(this.page);
     if(signal.aborted)return {error:'Browser operation cancelled',code:'BROWSER_OPERATION_CANCELLED',retrySameArguments:false,browser_session:this.stateIdentity};
     const cancel = () => { if(!isolated)void this.close(false,'operation_cancelled'); };
@@ -543,6 +644,7 @@ export class ProjectBrowserSession {
     this.page.on('framenavigated', frame => {
       if(this.closed)return;
       if (frame === this.page?.mainFrame() && frame.url() !== 'about:blank') {
+        this.selectionActive=false;this.selectionCallback=undefined;
         try { if (new URL(frame.url()).origin === this.origin) { this.lastAllowedUrl = frame.url(); this.endReason='live';this.blockedNavigation = false; this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
         this.note(this.blocked, `Navigation outside approved origin: ${frame.url()}`);
         if (frame.url() === 'chrome-error://chromewebdata/' && this.blockedNavigation && this.lastAllowedUrl && !this.recoveringNavigation && !this.navigationRecoveryUsed) {
@@ -585,6 +687,7 @@ export class ProjectBrowserSession {
     return this.closing ??= Promise.resolve().then(() => this.dispose(refresh));
   }
   private async dispose(refresh: boolean) {
+    await this.clearSelection();
     if (refresh && !this.closed) {
       await this.watcher?.flush();
       await this.exclusive(async () => {

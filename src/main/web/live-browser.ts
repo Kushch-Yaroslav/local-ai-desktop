@@ -9,14 +9,14 @@ export interface ProjectBrowserObserver {
   renew?():ProjectBrowserObserver;
   createPage?(origin: string): Promise<NativeProjectPage>;
   createQaPage?(origin: string): Promise<NativeProjectPage>;
-  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; close(reason?:string): Promise<void> }): void;
+  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; close(reason?:string): Promise<void> }): void;
   ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
   action(action: BrowserAction): void;
   closed(reason?:string): void;
 }
 interface Entry {
-  controls?: { input(input: BrowserInput): Promise<void>; close(reason?:string): Promise<void> };
+  controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; close(reason?:string): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; native?: NativeProjectPage;
   ended: boolean; visibility?: (visible: boolean) => void;
 }
@@ -42,7 +42,7 @@ export class LiveBrowserHub {
     if (this.owners.has(owner.id)) return;
     this.owners.add(owner.id);
     owner.once('destroyed', () => { this.viewers.delete(owner.id); this.owners.delete(owner.id); for (const [id, item] of this.entries) if (item.owner === owner) { void this.end(item); this.entries.delete(id); } });
-    owner.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) { this.viewers.delete(owner.id); for (const item of this.entries.values()) if (item.owner === owner) this.reconcile(item); } });
+    owner.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) { this.viewers.delete(owner.id); for (const item of this.entries.values()) if (item.owner === owner) { void item.controls?.suspend?.(); this.reconcile(item); } } });
   }
   observer(owner: WebContents, conversationId: string, generationId: string): ProjectBrowserObserver {
     let entry: Entry | undefined;
@@ -96,7 +96,7 @@ export class LiveBrowserHub {
     this.trackOwner(owner);
     const previous = this.viewers.get(owner.id);
     this.viewers.set(owner.id, { conversationId, visible, ...(previous?.conversationId === conversationId ? { bounds: previous.bounds } : {}) });
-    for (const item of this.entries.values()) if (item.owner === owner) { this.reconcile(item); if (item.state.conversationId === conversationId) this.send(item, { type: 'state', state: item.state }); }
+    for (const item of this.entries.values()) if (item.owner === owner) { if(previous?.conversationId!==conversationId&&item.state.conversationId!==conversationId)void item.controls?.suspend?.(); this.reconcile(item); if (item.state.conversationId === conversationId) this.send(item, { type: 'state', state: item.state }); }
   }
   layout(owner: WebContents, sessionId: unknown, bounds: unknown) {
     if (bounds === null && ![...this.entries.values()].some(item => item.owner === owner && !item.ended && item.state.sessionId === sessionId)) return;

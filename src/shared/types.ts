@@ -197,6 +197,7 @@ export interface ChatMessage {
   createdAt: string;
   attachments?: Attachment[];
   projectReferences?: ProjectReference[];
+  regionReferences?: import('./visual-debugging').VisualRegion[];
   /** Native model reasoning, when the backend exposes it. It is never inferred from tool activity. */
   thinking?: string;
   /** Ordered reasoning/activity references for Agent turns. Older messages omit this. */
@@ -467,6 +468,7 @@ export type StreamEvent =
   | { type: 'error'; message: string; details?: string };
 
 export interface LocalAiApi {
+  visualDebug: import('./visual-debugging').VisualDebugApi;
   liveBrowser?: import('./live-browser').LiveBrowserApi;
   conversations: {
     list(): Promise<Conversation[]>;

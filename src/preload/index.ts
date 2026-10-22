@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { LocalAiApi } from '../shared/types';
 
 const api: LocalAiApi = {
+  visualDebug: {
+    open: (id, url) => ipcRenderer.invoke('visual-debug:open', id, url),
+    document: id => ipcRenderer.invoke('visual-debug:document', id),
+    command: (id, command) => ipcRenderer.invoke('visual-debug:command', id, command),
+  },
   liveBrowser: {
     input: (sessionId, input) => ipcRenderer.invoke('live-browser:input', sessionId, input),
     close: sessionId => ipcRenderer.invoke('live-browser:close', sessionId),

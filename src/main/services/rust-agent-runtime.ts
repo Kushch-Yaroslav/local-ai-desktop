@@ -3,7 +3,7 @@ import { loadRuntimeConfiguration } from './runtime-settings';
 import { BrowserVisionProvider } from './browser-vision';
 import type { BrowserQaStatus } from '../../shared/browser-qa';
 import type { ProjectBrowserObserver } from '../web/live-browser';
-import { ProjectBrowserSession, projectBrowserTool } from '../web/project-browser';
+import { ProjectBrowserSession, projectBrowserTool, loopbackTarget } from '../web/project-browser';
 import { QaLoopGuard } from '../web/qa-loop-guard';
 import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
@@ -85,7 +85,7 @@ export function splitAgentRunHistory(history: ChatMessage[]): { user: string; im
 }
 
 function imageReferences(message: ChatMessage): string[] {
-  return (message.attachments ?? []).filter(attachment => attachment.kind === 'image').map(attachment => attachment.id);
+  return [...(message.attachments ?? []).filter(attachment => attachment.kind === 'image').map(attachment => attachment.id),...(message.regionReferences??[]).filter(r=>r.screenshotPath).map(r=>r.id)];
 }
 
 const status = (value: unknown): AgentPlanStepStatus => value === 'completed' || value === 'abandoned' || value === 'in_progress' ? value : 'pending';
@@ -161,6 +161,25 @@ export class RustAgentRuntime {
   control(runId: string, payload: { permissions?: AgentPermissions; action?: LoopAction; signature?: string; reasoning?: { mode: ReasoningMode; options: Record<string, Record<string, unknown>>; selection: import('../../shared/conversation-settings').EffectiveModeState } }): Promise<void> { return this.controls.get(runId)?.(payload) ?? Promise.reject(new Error('Agent execution is unavailable')); }
   private readonly steering = new Map<string, (content: string, intent?: SteeringIntent) => Promise<void>>();
   constructor(private readonly endpoint: string, private readonly binary = agentRuntimePath(), private readonly web = new WebBrowserService(), private readonly readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>) {}
+
+  /** Uses exactly the same owner/conversation pool as web_project. Manual consent is not an agent grant. */
+  async openManualPreview(project: AgentProject, conversationId: string, observer: ProjectBrowserObserver, url?: string) {
+    const key=JSON.stringify([observer.ownerId,conversationId]);
+    const requestedOrigin=url&&/^https?:/.test(url)?loopbackTarget(url).origin:undefined;
+    if(url&&url.includes(':')&&!requestedOrigin)throw new Error('Only project-relative paths and explicit loopback preview URLs are allowed');
+    const prior=this.previews.get(key);
+    if(prior?.root===project.root&&prior.session.reusable&&!url){await prior.session.finishRun(false);return;}
+    let session=prior?.root===project.root&&prior.session.reusable&&(!requestedOrigin||requestedOrigin===prior.session.stateIdentity.origin)?prior.session:undefined;
+    if(!session){await prior?.session.close();session=new ProjectBrowserSession(project.root,join(paths.cache,'browser-captures','manual-'+randomUUID()),undefined,observer,{projectId:project.id,securityMode:'strict'});this.previews.set(key,{root:project.root,session});}
+    const result=await session.execute({action:'open',...(url?(requestedOrigin?{url}:{path:url}):{path:'index.html'})},new AbortController().signal,async()=>({approved:true,reason:'once'}));
+    await session.finishRun(false);
+    if(result&&typeof result==='object'&&'error' in result)throw new Error(String(result.error));
+  }
+  manualPreview(ownerId: number, conversationId: string, root: string): ProjectBrowserSession {
+    const preview=this.previews.get(JSON.stringify([ownerId,conversationId]));
+    if(!preview?.session.reusable||preview.root!==root)throw new Error('Open the current project browser first');
+    return preview.session;
+  }
 
   steer(runId: string, content: string, intent?: SteeringIntent): Promise<void> {
     const send = this.steering.get(runId);
@@ -246,6 +265,8 @@ export class RustAgentRuntime {
     let projectBrowser: ProjectBrowserSession | undefined;
     const previewKey = browserObserver?.ownerId !== undefined && conversationId ? JSON.stringify([browserObserver.ownerId, conversationId]) : undefined;
     let previewProject: string | undefined;
+    const existingPreview=previewKey?this.previews.get(previewKey):undefined;
+    if(existingPreview?.session.reusable)await existingPreview.session.visualSelection(false,[]).catch(()=>undefined);
     let browserRecoveries=0;
     const closeWeb = async () => { await Promise.allSettled([projectBrowser?.close(!signal.aborted), session?.then(browser => browser.close(), () => undefined)]); };
     const abortWeb = () => { void session?.then(browser => browser.close(), () => undefined); };
