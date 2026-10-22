@@ -934,9 +934,9 @@ export function registerIpc(): void {
     if(url!==undefined&&(typeof url!=='string'||url.length>2048))throw new Error(t('Недопустимый URL preview.'));
     if(manualOpens.has(id))return;
     manualOpens.add(id);
-    try{const saved=visualDebugging.document(id,project.id);let live=false;try{live=rustAgent.manualPreview(event.sender.id,id,project.root).reusable;}catch{ /* closed */ }const target=url??(!live?saved.previewUrls?.[0]:undefined);await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),target);if(target?.startsWith('http://')){saved.previewUrls=[target,...(saved.previewUrls??[]).filter(u=>u!==target)].slice(0,6);database.saveVisualDocument(id,project.id,saved);}}finally{manualOpens.delete(id);}
+    try{const saved=visualDebugging.document(id,project.id);liveBrowsers.restore(event.sender,id,saved.workspace);let live=false;try{live=rustAgent.manualPreview(event.sender.id,id,project.root).reusable;}catch{ /* closed */ }const target=url??(!live?saved.previewUrls?.[0]:undefined);await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),target);if(target?.startsWith('http://')){saved.previewUrls=[target,...(saved.previewUrls??[]).filter(u=>u!==target)].slice(0,6);database.saveVisualDocument(id,project.id,saved);}}finally{manualOpens.delete(id);}
   });
-  ipcMain.handle('visual-debug:document',(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false,currentUrl:string|undefined;try{const session=rustAgent.manualPreview(event.sender.id,id,project.root);selectionActive=session.visualSelecting;currentUrl=session.currentUrl;}catch{ /* no live preview */ }const document=visualDebugging.document(id,project.id);if(currentUrl){try{loopbackTarget(currentUrl);if(!document.previewUrls?.includes(currentUrl)){document.previewUrls=[currentUrl,...(document.previewUrls??[])].slice(0,6);database.saveVisualDocument(id,project.id,document);}}catch{ /* not an approved loopback preview */ }}return {...document,selectionActive,currentUrl};});
+  ipcMain.handle('visual-debug:document',(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false,currentUrl:string|undefined;try{const session=rustAgent.manualPreview(event.sender.id,id,project.root);selectionActive=session.visualSelecting;currentUrl=session.currentUrl;}catch{ /* no live preview */ }visualDebugging.reconcileSelection(id,project.id,selectionActive);const document=visualDebugging.document(id,project.id);if(currentUrl){try{loopbackTarget(currentUrl);if(!document.previewUrls?.includes(currentUrl)){document.previewUrls=[currentUrl,...(document.previewUrls??[])].slice(0,6);database.saveVisualDocument(id,project.id,document);}}catch{ /* not an approved loopback preview */ }}return {...document,selectionActive,currentUrl};});
   ipcMain.handle('visual-debug:command',async(event,id:string,command:VisualCommand)=>{
     const {project}=visualScope(id,command?.action!=='reveal');
     let session:ReturnType<typeof rustAgent.manualPreview>|undefined;try{session=rustAgent.manualPreview(event.sender.id,id,project.root);}catch{ /* history crop can be viewed without a live Page */ }
@@ -944,7 +944,15 @@ export function registerIpc(): void {
   });
   ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
   ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));
-  ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => liveBrowsers.watch(event.sender, conversationId, visible));
+  ipcMain.handle('live-browser:workspace',async(event,sessionId:unknown,settings:unknown)=>{
+    const result=await liveBrowsers.workspace(event.sender,sessionId,settings);
+    const {project}=visualScope(result.conversationId),document=database.visualDocument(result.conversationId,project.id);
+    document.workspace=result.settings;database.saveVisualDocument(result.conversationId,project.id,document);
+  });
+  ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => {
+    if(typeof conversationId==='string'){const chat=database.getConversation(conversationId);if(chat?.primaryProjectId)liveBrowsers.restore(event.sender,conversationId,database.visualDocument(conversationId,chat.primaryProjectId).workspace);}
+    return liveBrowsers.watch(event.sender, conversationId, visible);
+  });
   ipcMain.handle('live-browser:layout', (event, sessionId: unknown, bounds: unknown) => liveBrowsers.layout(event.sender, sessionId, bounds));
   ipcMain.handle('chat:send', async (event, request: ChatRequest) => {
     const requestStarted = performance.now();
@@ -1011,9 +1019,12 @@ export function registerIpc(): void {
     const validReferences = (references: ProjectReference[] | undefined): ProjectReference[] => (references ?? []).filter((reference) => selectedProjects.some((project) => project.id === reference.projectId && project.slot === reference.projectSlot && project.root === reference.projectPath) && (reference.kind === 'file' || reference.kind === 'folder') && Boolean(reference.relativePath));
     if (user) {
       user.projectReferences = validReferences(user.projectReferences);
-      const ids=[...(user.regionReferences??[]).slice(0,12).map(r=>r.id),...Array.from(user.content.matchAll(/#(region-[a-f0-9]{8})\b/g),match=>match[1])].slice(0,12);
+      const ids=[...(user.regionReferences??[]).slice(0,12).map(r=>r.id),...Array.from(user.content.matchAll(/#(region-[a-f0-9]{8}(?:-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})?)(?![a-zA-Z0-9-])/g),match=>match[1])].slice(0,12);
       const stored=selectedProjects.flatMap(p=>database.visualDocument(request.conversationId,p.id).regions);
       user.regionReferences=stored.filter(r=>ids.includes(r.id)&&r.conversationId===request.conversationId&&selectedProjects.some(p=>p.id===r.projectId&&p.root===r.projectRoot));
+      for(const project of selectedProjects){const refs=user.regionReferences.filter(r=>r.projectId===project.id);if(!refs.length)continue;
+        try{const grounded=await rustAgent.manualPreview(event.sender.id,request.conversationId,project.root).visualGround(refs);user.regionReferences=user.regionReferences.map(r=>grounded.find(g=>g.id===r.id)??r);}catch{ /* Original evidence remains timestamped; no current geometry is invented. */ }
+      }
       database.addMessage(request.conversationId, 'user', user.content, user.id, user.projectReferences, { logicalTaskId });
       database.setRegionReferences(user.id,request.conversationId,user.regionReferences);
       if(logicalTaskId)for(const project of selectedProjects){

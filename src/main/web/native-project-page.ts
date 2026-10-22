@@ -1,5 +1,8 @@
+import {t} from '../../shared/locale';
+import {cssToPresentation,cssScreenshotClip} from '../../shared/browser-coordinates';
+import {defaultBrowserWorkspace,type BrowserWorkspaceSettings,type BrowserWorkspaceState} from '../../shared/live-browser';
 import { randomUUID } from 'node:crypto';
-import { BrowserWindow, WebContentsView, session, type WebContents, type Rectangle } from 'electron';
+import { BrowserWindow, WebContentsView, View, screen, session, type WebContents, type Rectangle } from 'electron';
 import { chromium, type Browser, type BrowserContext, type Page, type ConnectOverCDPTransport } from 'playwright-core';
 
 /** In-process, one-target CDP transport. No TCP listener or application targets. */
@@ -9,7 +12,7 @@ class ViewTransport implements ConnectOverCDPTransport {
   private attached = false;
   private closed = false;
   private readonly children = new Set<string>();
-  constructor(private readonly contents: WebContents, private readonly target: Record<string, unknown>, private readonly disconnect: () => void) {
+  constructor(private readonly contents: WebContents, private readonly target: Record<string, unknown>, private readonly disconnect: () => void, private readonly inputScale:()=>number=()=>1) {
     contents.debugger.on('message', this.message);
     contents.debugger.once('detach', this.detached);
   }
@@ -41,6 +44,9 @@ class ViewTransport implements ConnectOverCDPTransport {
     }
     if (sessionId !== 'native-page' && !this.children.has(sessionId)) throw new Error('CDP session outside native view');
     if (method.startsWith('Browser.') || method.startsWith('Target.') && !['Target.setAutoAttach', 'Target.detachFromTarget'].includes(method)) throw new Error(`CDP target escape blocked: ${method}`);
+    // CDP input scales with Emulation image scale, but already accounts for browser zoom.
+    // Pan lives in the parent View, so it must NOT be subtracted from agent CSS coordinates.
+    if(method==='Input.dispatchMouseEvent'&&typeof params.x==='number'&&typeof params.y==='number'){const p=cssToPresentation({x:params.x,y:params.y},this.inputScale());params={...params,...p};}
     return this.contents.debugger.sendCommand(method, params, sessionId === 'native-page' ? undefined : sessionId);
   }
   close() {
@@ -58,6 +64,11 @@ export interface NativeProjectPage {
   page: Page; context: BrowserContext; browser: Browser; contents: WebContents;
   handleRequests(handler: (url: string, method: string, signal: AbortSignal) => Promise<{ status: number; headers: Record<string,string>; body: Buffer }>): void;
   layout(bounds: Rectangle | undefined): void;
+  workspace(settings:BrowserWorkspaceSettings):Promise<void>;
+  revealCss?(rect:{x:number;y:number;width:number;height:number}):Promise<void>;
+  onWorkspace?(callback:(state:BrowserWorkspaceState)=>void):void;
+  workspaceState?():BrowserWorkspaceState|undefined;
+  captureCss?(rect:{x:number;y:number;width:number;height:number},dpr:number):Promise<Buffer>;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
   highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string}>): void;
@@ -121,7 +132,8 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   });
   contents.setIgnoreMenuShortcuts(true);
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
-  view.setVisible(false); window.contentView.addChildView(view);
+  const container=new View();container.setBounds({x:0,y:0,width:800,height:600});container.addChildView(view);
+  view.setVisible(false); window.contentView.addChildView(container);
   // Native hit-test shield: blocks physical pointer input without cancelling
   // Playwright's CDP mouse events or freezing the underlying compositor.
   const shieldSession = session.fromPartition(`native-shield-${randomUUID()}`, { cache: false });
@@ -149,7 +161,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     networkAbort.abort(); requestHandler = undefined;
     // Publish the shared promise before CDP/page-close callbacks can reenter.
     closing = Promise.resolve().then(async () => {
-      if (!window.isDestroyed()) { window.contentView.removeChildView(shield); window.contentView.removeChildView(view); }
+      if (!window.isDestroyed()) { window.contentView.removeChildView(shield); container.removeChildView(view); window.contentView.removeChildView(container); }
       transport?.close();
       await Promise.all([closeContents(shield.webContents),closeContents(contents),browser?.close().catch(() => undefined)]);
       for (const scheme of protocols) isolated.protocol.unhandle(scheme); protocols.clear();
@@ -166,38 +178,72 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     contents.debugger.attach('1.3');
     await contents.debugger.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true });
     const { targetInfo } = await contents.debugger.sendCommand('Target.getTargetInfo');
+    let settings:BrowserWorkspaceSettings=structuredClone(defaultBrowserWorkspace),actual:BrowserWorkspaceState|undefined;
+    let changed:((state:BrowserWorkspaceState)=>void)|undefined;
+    let bounds:Rectangle|undefined,applied='',serial=Promise.resolve();
     transport = new ViewTransport(contents, { ...targetInfo, type: 'page', browserContextId: 'native-project', attached: true }, () => {
       isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
       if (!destroyed) { unavailable?.('Native browser connection closed'); void close(); }
-    });
+    },()=>actual?.displayScale??1);
     browser = await chromium.connectOverCDP(transport, { timeout: 15000, noDefaults: true });
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
     let highlightTimer:ReturnType<typeof setTimeout>|undefined;
     const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string}>)=>{
       clearTimeout(highlightTimer);if(destroyed||contents.isDestroyed()||shield.webContents.isDestroyed())return;
-      const zoom=contents.getZoomFactor();
+      const zoom=contents.getZoomFactor()*(actual?.displayScale??1),pan=actual?.settings.pan??{x:0,y:0};
       const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
-      void shield.webContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,x:b.x*zoom,y:b.y*zoom,width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
+      void shield.webContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
       if(rects.length)highlightTimer=setTimeout(()=>highlight([]),2200);
     };
+    const apply=async()=>{
+      if(destroyed||window.isDestroyed()||!bounds)return;
+      const zoom=contents.getZoomFactor(),ownerZoom=owner.getZoomFactor(),size=window.getContentBounds();
+      const x=Math.max(0,Math.round(bounds.x*ownerZoom)),y=Math.max(0,Math.round(bounds.y*ownerZoom));
+      const panel={width:Math.max(0,Math.min(Math.round(bounds.width*ownerZoom),size.width-x)),height:Math.max(0,Math.min(Math.round(bounds.height*ownerZoom),size.height-y))};
+      const drawable=panel.width>=32&&panel.height>=32;
+      const viewport=settings.viewport==='auto'?{width:Math.max(1,Math.round(panel.width/zoom)),height:Math.max(1,Math.round(panel.height/zoom))}:settings.viewport;
+      const scale=settings.scale==='fit'?Math.max(.001,Math.min(panel.width/(viewport.width*zoom),panel.height/(viewport.height*zoom))):settings.scale;
+      const surface={width:Math.ceil(viewport.width*zoom*scale),height:Math.ceil(viewport.height*zoom*scale)};
+      const pan={x:Math.min(settings.pan.x,Math.max(0,(surface.width-panel.width)/(zoom*scale))),y:Math.min(settings.pan.y,Math.max(0,(surface.height-panel.height)/(zoom*scale)))};
+      const dpr=screen.getDisplayMatching(window.getBounds()).scaleFactor;
+      const next:BrowserWorkspaceState={settings:{...settings,pan},viewport,panel,surface,displayScale:scale,browserZoom:zoom,deviceScaleFactor:dpr,...(!drawable?{error:t('Недостаточно места для браузера: сверните панель настроек.')}:{})};
+      const key=JSON.stringify([viewport,scale,zoom,dpr,settings.viewport==='auto']);
+      if(key!==applied){
+        highlight([]);
+        if(settings.viewport==='auto'&&settings.scale==='fit')await contents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
+        else await contents.debugger.sendCommand('Emulation.setDeviceMetricsOverride',{width:Math.round(viewport.width*zoom),height:Math.round(viewport.height*zoom),deviceScaleFactor:dpr,mobile:false,scale});
+        applied=key;
+      }
+      if(destroyed||!bounds)return;
+      container.setBounds({x,y,...panel});
+      const offset=cssToPresentation({x:0,y:0},zoom*scale,pan);
+      view.setBounds({x:Math.round(offset.x),y:Math.round(offset.y),...surface});
+      shield.setBounds({x,y,...panel});
+      settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable&&ownerState!=='user');
+      changed?.(next);
+    };
+    let queued=false;
+    const schedule=()=>{if(queued)return serial;queued=true;serial=serial.catch(()=>undefined).then(async()=>{queued=false;await apply();}).catch(error=>{if(actual)changed?.({...actual,error:String(error)});});return serial;};
+    contents.on('zoom-changed',()=>{void schedule();});
     return { browser, context, page, contents, close, releaseInput, highlight,
+      workspaceState:()=>actual,
+      async revealCss(rect){if(!actual||settings.scale==='fit')return;const factor=actual.displayScale*actual.browserZoom;
+        const pan={...actual.settings.pan},width=actual.panel.width/factor,height=actual.panel.height/factor;
+        if(rect.x<pan.x||rect.x+rect.width>pan.x+width)pan.x=Math.max(0,rect.x+rect.width/2-width/2);
+        if(rect.y<pan.y||rect.y+rect.height>pan.y+height)pan.y=Math.max(0,rect.y+rect.height/2-height/2);
+        settings={...settings,pan};await schedule();
+      },
+      async captureCss(rect,dpr){const result=await contents.debugger.sendCommand('Page.captureScreenshot',{format:'png',clip:cssScreenshotClip(rect,contents.getZoomFactor(),dpr),captureBeyondViewport:true});return Buffer.from(result.data,'base64');},
+      onWorkspace(callback){changed=callback;if(actual)callback(actual);},
+      async workspace(value){settings=structuredClone(value);await schedule();},
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
-      layout(bounds) {
+      layout(value) {
+        bounds=value;
         if (destroyed || window.isDestroyed()) return;
-        if (!bounds) { void releaseInput(); contents.setBackgroundThrottling(ownerState !== 'agent'); visible = false; view.setVisible(false); shield.setVisible(false); return; }
-        contents.setBackgroundThrottling(false);
-        const zoom = owner.getZoomFactor();
-        bounds = {x:bounds.x*zoom,y:bounds.y*zoom,width:bounds.width*zoom,height:bounds.height*zoom};
-        const size = window.getContentBounds();
-        const x = Math.max(0, Math.round(bounds.x)), y = Math.max(0, Math.round(bounds.y));
-        const width = Math.max(0, Math.min(Math.round(bounds.width), size.width - x));
-        const height = Math.max(0, Math.min(Math.round(bounds.height), size.height - y));
-        if (width < 32 || height < 32) { visible = false; view.setVisible(false); shield.setVisible(false); return; }
-        visible = true;
-        view.setBounds({ x, y, width, height }); shield.setBounds({ x, y, width, height });
-        view.setVisible(true); shield.setVisible(ownerState !== 'user');
+        if (!value) { void releaseInput(); contents.setBackgroundThrottling(ownerState !== 'agent'); visible=false;view.setVisible(false);shield.setVisible(false);return; }
+        void schedule();
       },
     };
   } catch (error) { await close(); throw error; }

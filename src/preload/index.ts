@@ -8,6 +8,7 @@ const api: LocalAiApi = {
     command: (id, command) => ipcRenderer.invoke('visual-debug:command', id, command),
   },
   liveBrowser: {
+    workspace:(sessionId,settings)=>ipcRenderer.invoke('live-browser:workspace',sessionId,settings),
     input: (sessionId, input) => ipcRenderer.invoke('live-browser:input', sessionId, input),
     close: sessionId => ipcRenderer.invoke('live-browser:close', sessionId),
     watch: (conversationId, visible) => ipcRenderer.invoke('live-browser:watch', conversationId, visible),

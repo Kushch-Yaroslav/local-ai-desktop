@@ -1,3 +1,4 @@
+import {validateBrowserWorkspace,type BrowserWorkspaceSettings} from '../../shared/live-browser';
 import { randomUUID } from 'node:crypto';
 import type { WebContents, Rectangle } from 'electron';
 import type { Page } from 'playwright-core';
@@ -24,6 +25,7 @@ interface Entry {
 export class LiveBrowserHub {
   private readonly entries = new Map<string, Entry>();
   private readonly viewers = new Map<number, { conversationId: string | null; visible: boolean; bounds?: Rectangle }>();
+  private readonly preferences = new Map<string,BrowserWorkspaceSettings>();
   private readonly owners = new Set<number>();
   private key(owner: number, conversation: string) { return `${owner}:${conversation}`; }
   private send(entry: Entry, event: LiveBrowserEvent) {
@@ -41,7 +43,7 @@ export class LiveBrowserHub {
   private trackOwner(owner: WebContents) {
     if (this.owners.has(owner.id)) return;
     this.owners.add(owner.id);
-    owner.once('destroyed', () => { this.viewers.delete(owner.id); this.owners.delete(owner.id); for (const [id, item] of this.entries) if (item.owner === owner) { void this.end(item); this.entries.delete(id); } });
+    owner.once('destroyed', () => { this.viewers.delete(owner.id); this.owners.delete(owner.id);for(const key of this.preferences.keys())if(key.startsWith(`${owner.id}:`))this.preferences.delete(key); for (const [id, item] of this.entries) if (item.owner === owner) { void this.end(item); this.entries.delete(id); } });
     owner.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) { this.viewers.delete(owner.id); for (const item of this.entries.values()) if (item.owner === owner) { void item.controls?.suspend?.(); this.reconcile(item); } } });
   }
   observer(owner: WebContents, conversationId: string, generationId: string): ProjectBrowserObserver {
@@ -71,7 +73,7 @@ export class LiveBrowserHub {
           if (!item.ended) { item.state = {...item.state,status:'error',ownership:'unavailable',error}; this.send(item,{type:'state',state:item.state}); }
         });
         if (item.ended) { await native.close(); throw new Error('Browser closed during creation'); }
-        item.native = native; this.reconcile(item); return native;
+        item.native = native;native.onWorkspace?.(workspace=>{this.preferences.set(this.key(owner.id,conversationId),workspace.settings);item.state={...item.state,workspace};this.send(item,{type:'state',state:item.state});});const saved=this.preferences.get(this.key(owner.id,conversationId));if(saved)await native.workspace(saved);this.reconcile(item); return native;
       }, createQaPage: async (origin:string) => {
         const {createNativeProjectPage}=await import('./native-project-page');
         // Hidden, scoped to this owner; never registered as the user's Live Browser.
@@ -105,6 +107,16 @@ export class LiveBrowserHub {
     if (bounds !== null && (!bounds || typeof bounds !== 'object' || !['x','y','width','height'].every(key => typeof (bounds as Record<string, unknown>)[key] === 'number' && Number.isFinite((bounds as Record<string, number>)[key]) && Math.abs((bounds as Record<string, number>)[key]) <= 16384))) throw new Error('Invalid native browser bounds');
     viewer.bounds = bounds === null ? undefined : bounds as Rectangle;
     this.reconcile(item);
+  }
+  restore(owner:WebContents,conversationId:string,settings?:BrowserWorkspaceSettings){
+    const key=this.key(owner.id,conversationId);if(settings&&!this.preferences.has(key))this.preferences.set(key,validateBrowserWorkspace(settings));
+  }
+  async workspace(owner:WebContents,sessionId:unknown,settings:unknown){
+    const item=this.authorizedEntry(owner,sessionId);
+    if(item.state.ownership!=='user'||!item.native)throw new Error('Browser viewport requires user ownership');
+    const value=validateBrowserWorkspace(settings);
+    await item.native.workspace(value);const applied=item.native.workspaceState?.()?.settings??value;this.preferences.set(this.key(owner.id,item.state.conversationId),applied);
+    return {conversationId:item.state.conversationId,settings:applied};
   }
   async input(owner: WebContents, sessionId: unknown, input: unknown) {
     const entry = this.authorizedEntry(owner, sessionId);

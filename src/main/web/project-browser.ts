@@ -211,42 +211,32 @@ export class ProjectBrowserSession {
     if(!rect || !['x','y','width','height'].every(key=>Number.isFinite(rect[key as keyof VisualRect])) || rect.x<0 || rect.y<0 || rect.width<4 || rect.height<4 || rect.width>4096 || rect.height>4096)throw new Error('Invalid selection bounds');
     const evidence=await groundRegion(page,rect);
     if(new URL(evidence.url).origin!==this.origin || rect.x+rect.width>evidence.viewport.width+1 || rect.y+rect.height>evidence.viewport.height+1)throw new Error('Selection outside approved viewport');
-    const id='region-'+randomUUID().slice(0,8);
+    const id='region-'+randomUUID();
     const region:VisualRegion={...evidence,sourceHints:Array.from(this.servedRevisions).slice(0,12).map(([path,sha256])=>({path,sha256})),id,conversationId:'',projectId:this.qaOptions.projectId??'',projectRoot:this.root,groupId,createdAt:new Date().toISOString()};
     await mkdir(this.captureDirectory,{recursive:true,mode:0o700});
     const path=join(this.captureDirectory,id+'.png');
     // All editable controls are masked; selector frames must never enter evidence.
     await page.evaluate(()=>{const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='hidden';});
     try {
-      let bytes:Buffer;
-      if(this.native){
-        // Electron's CDP screenshot clip does not account for WebContents zoom.
-        // Capture the same native surface in DIP, with CSS privacy masks painted first.
-        await page.evaluate(()=>{
-          const host=document.createElement('div');host.id='__lad-capture-mask';host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none';
-          const shadow=host.attachShadow({mode:'closed'});
-          for(const control of document.querySelectorAll('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')){
-            const b=control.getBoundingClientRect();if(!b.width||!b.height)continue;
-            const mask=document.createElement('div');mask.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;background:#ff00ff;`;shadow.append(mask);
-          }
-          document.documentElement.append(host);
-        });
-        await Promise.race([page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))),new Promise<never>((_,reject)=>{const timer=setTimeout(()=>reject(new Error('Privacy mask paint timed out')),1500);timer.unref();})]);
-        const zoom=this.native.contents.getZoomFactor();
-        const image=await this.native.contents.capturePage({x:Math.floor(rect.x*zoom),y:Math.floor(rect.y*zoom),width:Math.ceil(rect.width*zoom),height:Math.ceil(rect.height*zoom)});
-        bytes=image.toPNG();
-      }else bytes=await page.screenshot({type:'png',clip:evidence.rect,scale:'css',timeout:10000,mask:[page.locator('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')]});
+      const bytes=await this.privacyCapture(async()=>this.native?.captureCss?this.native.captureCss(evidence.rect,evidence.dpr):page.screenshot({type:'png',clip:evidence.rect,scale:'css',timeout:10000,mask:[page.locator('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')]}));
       await writeFile(path,bytes,{mode:0o600});region.screenshotPath=path;
     } catch { region.diagnostics.push('Crop unavailable; DOM evidence retained'); }
     finally{await page.evaluate(()=>{document.getElementById('__lad-capture-mask')?.remove();const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='';}).catch(()=>undefined);}
     return region;
+  }
+  async visualGround(regions:VisualRegion[]):Promise<VisualRegion[]>{
+    if(!this.reusable||!this.page)return regions;
+    const safe=regions.filter(r=>r.projectRoot===this.root).map(r=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect}))}));
+    const inspect=(regions:VisualRegion[],project:typeof projectVisualRegion)=>regions.map(r=>{const result=project(r);return {id:r.id,live:{url:location.href,viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,scroll:{x:scrollX,y:scrollY},...result,observedAt:new Date().toISOString()}};});
+    const results=await this.page.evaluate<ReturnType<typeof inspect>>(`(${inspect.toString()})(${JSON.stringify(safe)},${projectVisualRegion.toString()})`);
+    return regions.map(r=>({...r,live:results.find(result=>result.id===r.id)?.live}));
   }
   async visualReveal(region: VisualRegion, siblings: VisualRegion[]=[region]) {
     const page=this.page;
     if(!this.reusable||!page||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
     const epoch=this.visualEpoch;
     const currentUrl=page.url(),needsNavigation=currentUrl!==region.url;
-    const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
+    const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,screenshotOnly:!region.anchors.length,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
     if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
     // While the agent owns the page, read geometry without scrolling or changing its DOM.
     const data={region,siblings,scroll:!view.scrollDeferred};
@@ -262,7 +252,7 @@ export class ProjectBrowserSession {
     if(epoch!==this.visualEpoch)return {...view,stale:true,diagnostics:['Selection changed while viewing; highlight cancelled']};
     view.stale=result.stale;
     if(result.stale)view.diagnostics.push('Anchor stale: '+result.reason+'. Original crop only; live coordinates were not drawn.');
-    if(this.ownership==='user')await selectionOverlay(page,true,siblings,true);else this.native?.highlight?.(result.boxes);
+    if(this.ownership==='user'){if(result.boxes[0])await this.native?.revealCss?.(result.boxes[0]);if(epoch!==this.visualEpoch||this.ownership!=='user')return {...view,stale:true,diagnostics:['Selection changed while focusing; highlight cancelled']};await selectionOverlay(page,true,siblings,true);}else this.native?.highlight?.(result.boxes);
     if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; scrolling is deferred. Highlight is on the native input shield and excluded from page captures');
     return view;
   }
@@ -300,7 +290,7 @@ export class ProjectBrowserSession {
       if (this.ownership !== 'user' || !this.reusable) throw new Error('Browser control returned to agent');
       const page = this.page!;
       const bounded = (value: unknown, limit: number) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= limit;
-      if (input.kind === 'pointer' && ['down', 'up', 'move'].includes(input.phase) && bounded(input.x, 1280) && bounded(input.y, 900) && input.x >= 0 && input.y >= 0) {
+      if (input.kind === 'pointer' && ['down', 'up', 'move'].includes(input.phase) && bounded(input.x, 4096) && bounded(input.y, 4096) && input.x >= 0 && input.y >= 0) {
         await page.mouse.move(input.x, input.y);
         if (input.phase === 'down') await page.mouse.down();
         if (input.phase === 'up') await page.mouse.up();
@@ -547,6 +537,23 @@ export class ProjectBrowserSession {
       return await child.execute({...args,scenarios,...(this.origin===staticOrigin?{path:target.pathname+target.search+target.hash,url:undefined}:{url:target.href,path:undefined})},operation,async()=>({approved:true,reason:'once'}),actionId);
     } finally {await child.close();this.responsiveSession=undefined;}
   }
+  private async privacyCapture<T>(capture:()=>Promise<T>):Promise<T>{
+    const page=this.page!;
+    const hidden=await page.evaluate(()=>{
+      const hidden=Array.from(document.querySelectorAll<HTMLElement>('#__lad-visual-selection,#__lad-visual-highlight')).map(node=>({id:node.id,visibility:node.style.visibility}));for(const saved of hidden){document.getElementById(saved.id)!.style.visibility='hidden';}
+      document.getElementById('__lad-capture-mask')?.remove();
+      const host=document.createElement('div');host.id='__lad-capture-mask';host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none';
+      const shadow=host.attachShadow({mode:'closed'});
+      for(const control of document.querySelectorAll('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')){
+        const b=control.getBoundingClientRect();if(!b.width||!b.height)continue;const mask=document.createElement('div');mask.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;background:#ff00ff;`;shadow.append(mask);
+      }document.documentElement.append(host);void host.getBoundingClientRect();return hidden;
+    });
+    try{
+      // CDP screenshot performs a compositor capture after this DOM/layout task.
+      // Hidden QA pages deliberately have no rAF; waiting for it would deadlock privacy capture.
+      return await capture();
+    }finally{await page.evaluate(hidden=>{document.getElementById('__lad-capture-mask')?.remove();for(const saved of hidden){const node=document.getElementById(saved.id);if(node)node.style.visibility=saved.visibility;}},hidden).catch(()=>undefined);}
+  }
   private async qaMetrics():Promise<QaCdp> {
     if(!this.native)return this.page!.context().newCDPSession(this.page!);
     // Fixed commands on this owned target only. Never relax the Native transport's browser-wide CDP prohibition.
@@ -568,17 +575,20 @@ export class ProjectBrowserSession {
     } else if (args.clip !== undefined) region = args.clip as typeof region;
     if (!region || ![region.x, region.y, region.width, region.height].every(Number.isFinite) || region.x < 0 || region.y < 0 || region.width < 1 || region.height < 1 || region.x + region.width > viewport.width || region.y + region.height > viewport.height) throw new Error('Screenshot region must fit the current viewport');
     const documentRegion={...region,x:region.x+metrics.scroll.x,y:region.y+metrics.scroll.y};
+    const bytes=await this.privacyCapture(async()=>{
     let bytes:Buffer;
-    if(captureSession||metrics.dpr!==1||!this.native&&(region.width>1280||region.height>900)){
+    if(!captureSession&&this.native?.workspaceState?.()&&this.native.captureCss){bytes=await this.native.captureCss(documentRegion,metrics.dpr);}
+    else if(captureSession||metrics.dpr!==1||!this.native&&(region.width>1280||region.height>900)){
       const cdp=captureSession??await this.qaMetrics();
       try {const result=await cdp.send('Page.captureScreenshot',{format:'png',clip:{...documentRegion,scale:Math.min(1,1280/region.width,900/region.height)/metrics.dpr},captureBeyondViewport:false});bytes=Buffer.from(result.data,'base64');}
       finally {if(!captureSession)await cdp.detach().catch(()=>undefined);}
     }else bytes=await page.screenshot({ type: 'png', clip: documentRegion, scale: 'css', timeout: 10000 });
-    if (!captureSession && this.native && metrics.dpr===1 && (region.width>1280||region.height>900)) {
+    if (!captureSession && this.native && (region.width>1280||region.height>900)) {
       const { nativeImage } = await import('electron');
       const scale = Math.min(1280/region.width, 900/region.height);
       bytes = nativeImage.createFromBuffer(bytes).resize({ width:Math.max(1,Math.floor(region.width*scale)), height:Math.max(1,Math.floor(region.height*scale)), quality:'good' }).toPNG();
     }
+    return bytes;});
     if (signal.aborted || this.closed) throw new Error('Capture cancelled');
     if (bytes.length > 2 * 1024 * 1024) throw new Error('Screenshot exceeds 2 MiB budget');
     await mkdir(this.captureDirectory, { recursive: true, mode: 0o700 });

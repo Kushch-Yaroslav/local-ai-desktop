@@ -658,3 +658,13 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .visual-region-view img {display:block;max-width:100%;max-height:120px;object-fit:contain}
 .visual-options {padding-top:3px;font-size:11px}
 .visual-options button {overflow-wrap:anywhere}
+
+.browser-workspace-controls { flex:none; padding:4px 8px; border-bottom:1px solid var(--border); font-size:11px; }
+.browser-workspace-controls summary { cursor:pointer; }
+.browser-workspace-controls > div,.browser-workspace-controls form { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+.browser-workspace-controls input { width:65px; }
+.browser-workspace-controls small { display:block; opacity:.75; }
+.browser-pan-pad { border:1px solid var(--border); padding:4px; cursor:move; }
+.native-browser-surface { display:block; overflow:scroll; scrollbar-gutter:stable; overscroll-behavior:contain; }
+.browser-virtual-surface { pointer-events:none; flex:none; }
+.visual-delete-confirm { border:1px solid var(--border); padding:5px; }

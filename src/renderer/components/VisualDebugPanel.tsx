@@ -9,6 +9,7 @@ function RegionView({view,onNavigate,onOpen,disabled}:{view:VisualRegionView;onN
   return <details className="visual-region-view" open><summary>{t('Просмотр области')}</summary><code>{view.url}</code>
     {view.needsNavigation&&<p role="status">{t('Область создана на другой странице.')} {view.currentUrl&&<code>{view.currentUrl}</code>}<button disabled={disabled} onClick={view.currentUrl?onNavigate:onOpen}>{view.currentUrl?t('Перейти к маршруту'):t('Открыть браузер')}</button></p>}
     {view.deleted?<p role="status">{t('Область удалена. Доступен только сохранённый фрагмент из истории.')}</p>:view.stale&&<p role="status">{t('Привязка устарела. Выберите элемент повторно; ниже исходный фрагмент.')}</p>}
+    {view.screenshotOnly&&<p>{t('Без DOM-привязки: координаты действуют только для исходного viewport. Изменения содержимого не отслеживаются.')}</p>}
     {view.scrollDeferred&&<p role="status">{t('Агент управляет страницей: подсветка доступна, прокрутка отложена.')}</p>}
     {view.cropDataUrl?<img src={view.cropDataUrl} alt={t('Сохранённый фрагмент области')}/>:<small>{t('Сохранённый фрагмент недоступен')}</small>}
   </details>;
@@ -33,7 +34,7 @@ export function VisualDebugPanel({conversationId,interactive}:{conversationId:st
   const enabled=interactive&&!running&&!busy;
   const focus=(region:VisualRegion)=>{void run({action:'reveal',regionId:region.id});};
   const active=document.issues.find(i=>i.id===area);
-  return <details className="visual-debug-panel" open><summary>{t('Визуальная отладка')} · {document.issues.length} {t('областей')}</summary>
+  return <details name="browser-tools" className="visual-debug-panel" open><summary>{t('Визуальная отладка')} · {document.issues.length} {t('областей')}</summary>
     <div className="visual-route"><small>{t('Текущая страница')}</small><code title={document.currentUrl}>{document.currentUrl??t('Браузер закрыт')}</code></div>
     <div className="visual-controls"><select aria-label={t('Режим визуальной отладки')} value={mode} onChange={e=>setMode(e.target.value)}><option value="manual">{t('Ручной')}</option><option value="auto">{t('Авто: DOM-кандидаты')}</option></select>
       {mode==='manual'?<><button disabled={!enabled} onClick={()=>{void (async()=>{const d=await run({action:'new-area'}),created=d?.issues.at(-1);if(created){setArea(created.id);await run({action:'selection',enabled:true,groupId:created.id});}})();}}>{t('Новая область')}</button><button disabled={!enabled||!active} onClick={()=>{void run({action:'selection',enabled:!selecting,groupId:area});}}>{selecting?t('Завершить выделение'):t('Добавить выделения')}</button></>:<button disabled={!enabled} onClick={()=>{void run({action:'detect'});}}>{t('Проверить текущую страницу')}</button>}

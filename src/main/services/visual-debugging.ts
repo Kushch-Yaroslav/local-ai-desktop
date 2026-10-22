@@ -10,6 +10,8 @@ import type { VisualCommand, VisualDocument, VisualRegion } from '../../shared/v
 /** Chat-local evidence, not long-term memory and not a second Verification Ledger. */
 export class VisualDebugging {
   private readonly drafts = new Map<string, import('../../shared/visual-debugging').VisualIssue>();
+  private readonly activatedDrafts=new Set<string>();
+  reconcileSelection(chatId:string,projectId:string,active:boolean){const key=this.key(chatId,projectId);if(!active&&this.activatedDrafts.has(key)){this.activatedDrafts.delete(key);this.drafts.delete(key);}}
   private key(chatId:string,projectId:string){return JSON.stringify([chatId,projectId]);}
   private save(chatId:string,projectId:string,document:VisualDocument){
     // Empty areas are an active UI draft only, never persistent orphan groups.
@@ -18,7 +20,7 @@ export class VisualDebugging {
   constructor(private readonly db: Database) {}
   document(chatId: string, projectId: string) {
     const raw=this.db.visualDocument(chatId,projectId),before=JSON.stringify(raw);
-    raw.issues=raw.issues.filter(i=>i.regionIds.length);
+    normalizeVisualDocument(raw);raw.issues=raw.issues.filter(i=>i.regionIds.length);
     const document=normalizeVisualDocument(raw);if(JSON.stringify(document)!==before)this.save(chatId,projectId,document);
     const draft=this.drafts.get(this.key(chatId,projectId));if(draft&&!document.issues.some(i=>i.id===draft.id))document.issues.push(draft);
     for(const issue of document.issues){
@@ -51,7 +53,7 @@ export class VisualDebugging {
     let document=this.document(chatId,projectId);
     if(command.action==='new-area'){
       if(document.issues.length>=100)throw new Error('Area limit reached');
-      document.issues=document.issues.filter(i=>i.regionIds.length);
+      document.issues=document.issues.filter(i=>i.regionIds.length);this.activatedDrafts.delete(this.key(chatId,projectId));
       const draft:import('../../shared/visual-debugging').VisualIssue={id:'area-'+randomUUID(),explicit:true,number:document.nextAreaNumber,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[],route:'',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
       document.issues.push(draft);this.drafts.set(this.key(chatId,projectId),draft);
       normalizeVisualDocument(document);
@@ -68,6 +70,7 @@ export class VisualDebugging {
       await session!.visualSelection(command.enabled,document.regions,async region=>{
         const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.drafts.delete(this.key(chatId,projectId));this.save(chatId,projectId,latest);
       },command.groupId);
+      if(command.enabled&&this.drafts.get(this.key(chatId,projectId))?.id===command.groupId)this.activatedDrafts.add(this.key(chatId,projectId));
     }else if(command.action==='reveal'||command.action==='navigate'){
       const live=document.regions.find(r=>r.id===command.regionId);
       const region=live??this.db.visualRegionReference(chatId,projectId,command.regionId);if(!region)throw new Error('Unknown region');

@@ -1,3 +1,5 @@
+import {cssToPresentation,presentationToCss} from '../../shared/browser-coordinates';
+import {BrowserWorkspaceControls} from './BrowserWorkspaceControls';
 import { VisualDebugPanel } from './VisualDebugPanel';
 import { useAppStore } from '../store/app-store';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -22,6 +24,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const [ratio, setRatio] = useState(50);
   const [narrow, setNarrow] = useState(false);
   const screen = useRef<HTMLDivElement>(null);
+  const panTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(null), session = useRef<string | null>(null);
   const visible = useRef(false);
@@ -68,7 +71,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
         const box = element.getBoundingClientRect();
         return box.width > 0 && box.height > 0 && (element.getAttribute('aria-modal') === 'true' || rect && box.left < rect.right && box.right > rect.left && box.top < rect.bottom && box.bottom > rect.top);
       });
-      const bounds = rect && !document.hidden && !obscured ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null;
+      const bounds = rect && !document.hidden && !obscured ? { x: rect.x, y: rect.y, width: screen.current!.clientWidth, height: screen.current!.clientHeight } : null;
       const key = JSON.stringify(bounds);
       if (last === key) return;
       last = key;
@@ -90,6 +93,10 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
     if (!interactive || !browser) return;
     void window.localAi.liveBrowser?.input(browser.sessionId, event).then(() => setInputError(null)).catch(error => setInputError(String(error).slice(0, 180)));
   };
+  const workspace=browser?.workspace;
+  const configure=(settings:import('../../shared/live-browser').BrowserWorkspaceSettings)=>{if(browser)void window.localAi.liveBrowser?.workspace(browser.sessionId,settings).catch(e=>setInputError(String(e)));};
+  useLayoutEffect(()=>{const element=screen.current;if(!element||!workspace)return;const factor=workspace.panel.width/Math.max(1,element.clientWidth);const position=cssToPresentation(workspace.settings.pan,workspace.displayScale*workspace.browserZoom/factor);element.scrollLeft=position.x;element.scrollTop=position.y;},[workspace]);
+  useEffect(()=>()=>clearTimeout(panTimer.current),[conversationId]);
   const status = browser?.status;
   const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Браузер закрыт');
   const action = browser?.action;
@@ -110,7 +117,9 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       <div className="live-address"><button disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title={t('Обновить')} aria-label={t('Обновить')} onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || t('Ожидание страницы')}</span></div>
       <form className="visual-preview-url" onSubmit={e=>{e.preventDefault();openBrowser();}}><input aria-label={t('Разрешённый адрес preview')} placeholder={t('Файл проекта index.html или http://127.0.0.1:PORT')} value={previewUrl} onChange={e=>setPreviewUrl(e.target.value)}/><button disabled={running}>{ru?'Открыть URL':'Open URL'}</button></form>
       <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>
-      <div ref={screen} className="live-screen native-browser-surface" tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
+      <BrowserWorkspaceControls state={workspace} disabled={!interactive||running} onChange={configure}/>
+      <div ref={screen} className="live-screen native-browser-surface" onScroll={e=>{if(!workspace||!interactive||running)return;const element=e.currentTarget,factor=workspace.panel.width/Math.max(1,element.clientWidth),pan=presentationToCss({x:element.scrollLeft,y:element.scrollTop},workspace.displayScale*workspace.browserZoom/factor);if(Math.abs(pan.x-workspace.settings.pan.x)<1&&Math.abs(pan.y-workspace.settings.pan.y)<1)return;clearTimeout(panTimer.current);panTimer.current=setTimeout(()=>configure({...workspace.settings,pan}),60);}} tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
+        {workspace&&<div aria-hidden="true" className="browser-virtual-surface" style={{width:workspace.surface.width/(Math.max(1,workspace.panel.width)/Math.max(1,screen.current?.clientWidth??workspace.panel.width)),height:workspace.surface.height/(Math.max(1,workspace.panel.height)/Math.max(1,screen.current?.clientHeight??workspace.panel.height))}}/>}
         {!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}
       </div>
       <footer className="live-footer">{browser&&!interactive&&!running&&<button onClick={openBrowser}>{ru?'Вернуть управление':'Take control'}</button>}<span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership==='recovering'?(ru?'Браузер восстанавливается':'Browser recovering'):browser?.ownership==='blocked'?(ru?'Браузер заблокирован политикой':'Browser blocked by policy'): browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
