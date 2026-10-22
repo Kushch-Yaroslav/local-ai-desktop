@@ -1,5 +1,12 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Удалить выделение': 'Delete selection',
+  'Выделение': 'Selection',
+  'Подтвердить удаление': 'Confirm deletion',
+  'Выделений': 'Selections',
+  'Очистить все области': 'Clear all areas',
+  'Привязка устарела. Выберите элемент повторно; ниже исходный фрагмент.': 'Anchor stale. Select the element again; the original crop is shown below.',
+  'Область удалена. Доступен только сохранённый фрагмент из истории.': 'Area deleted. Only the historical crop is available.',
   "Открыть браузер": "Open browser",
   "Доступно": "Available",
   "Недопустимый чат.": "Invalid conversation",

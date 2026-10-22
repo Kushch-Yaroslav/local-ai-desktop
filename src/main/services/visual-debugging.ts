@@ -9,10 +9,18 @@ import type { VisualCommand, VisualDocument, VisualRegion } from '../../shared/v
 
 /** Chat-local evidence, not long-term memory and not a second Verification Ledger. */
 export class VisualDebugging {
+  private readonly drafts = new Map<string, import('../../shared/visual-debugging').VisualIssue>();
+  private key(chatId:string,projectId:string){return JSON.stringify([chatId,projectId]);}
+  private save(chatId:string,projectId:string,document:VisualDocument){
+    // Empty areas are an active UI draft only, never persistent orphan groups.
+    this.db.saveVisualDocument(chatId,projectId,{...document,issues:document.issues.filter(i=>i.regionIds.length)});
+  }
   constructor(private readonly db: Database) {}
   document(chatId: string, projectId: string) {
     const raw=this.db.visualDocument(chatId,projectId),before=JSON.stringify(raw);
-    const document=normalizeVisualDocument(raw);if(JSON.stringify(document)!==before)this.db.saveVisualDocument(chatId,projectId,document);
+    raw.issues=raw.issues.filter(i=>i.regionIds.length);
+    const document=normalizeVisualDocument(raw);if(JSON.stringify(document)!==before)this.save(chatId,projectId,document);
+    const draft=this.drafts.get(this.key(chatId,projectId));if(draft&&!document.issues.some(i=>i.id===draft.id))document.issues.push(draft);
     for(const issue of document.issues){
       if(!issue.logicalTaskId)continue;
       const memory=this.db.getAgentPlan(chatId,issue.logicalTaskId)?.taskMemory;
@@ -40,23 +48,31 @@ export class VisualDebugging {
     if(!command||typeof command!=='object')throw new Error('Invalid visual command');
     if(command.action!=='reveal'&&!session)throw new Error('Open the current project browser first');
     if(!['selection','reveal'].includes(command.action))await session!.visualSelection(false,[]);
-    let document=normalizeVisualDocument(this.db.visualDocument(chatId,projectId));
+    let document=this.document(chatId,projectId);
     if(command.action==='new-area'){
       if(document.issues.length>=100)throw new Error('Area limit reached');
-      document.issues.push({id:'area-'+randomUUID(),explicit:true,number:document.nextAreaNumber,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[],route:'',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'});
+      document.issues=document.issues.filter(i=>i.regionIds.length);
+      const draft:import('../../shared/visual-debugging').VisualIssue={id:'area-'+randomUUID(),explicit:true,number:document.nextAreaNumber,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[],route:'',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
+      document.issues.push(draft);this.drafts.set(this.key(chatId,projectId),draft);
       normalizeVisualDocument(document);
     }else if(command.action==='color'){
       const area=document.issues.find(i=>i.id===command.areaId);if(!area||!/^#[a-fA-F0-9]{6}$/.test(command.color))throw new Error('Invalid area color');area.color=command.color;normalizeVisualDocument(document);
+    }else if(command.action==='clear'){
+      document.regions=[];document.issues=[];this.drafts.delete(this.key(chatId,projectId));
     }else if(command.action==='delete-area'){
+      if(this.drafts.get(this.key(chatId,projectId))?.id===command.areaId)this.drafts.delete(this.key(chatId,projectId));
       document.regions=document.regions.filter(r=>r.groupId!==command.areaId);document.issues=document.issues.filter(i=>i.id!==command.areaId);
     }else if(command.action==='selection'){
       if(typeof command.enabled!=='boolean'||command.groupId&&!/^[a-zA-Z0-9_-]{1,64}$/.test(command.groupId))throw new Error('Invalid selection group');
+      if(!command.enabled)this.drafts.delete(this.key(chatId,projectId));
       await session!.visualSelection(command.enabled,document.regions,async region=>{
-        const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.db.saveVisualDocument(chatId,projectId,latest);
+        const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.drafts.delete(this.key(chatId,projectId));this.save(chatId,projectId,latest);
       },command.groupId);
     }else if(command.action==='reveal'||command.action==='navigate'){
-      const region=document.regions.find(r=>r.id===command.regionId)??this.db.visualRegionReference(chatId,projectId,command.regionId);if(!region)throw new Error('Unknown region');
-      const view:import('../../shared/visual-debugging').VisualRegionView=command.action==='navigate'?await session!.visualNavigate(region):session?await session.visualReveal(region,document.regions.some(r=>r.groupId===region.groupId)?document.regions.filter(r=>r.groupId===region.groupId):[region]):{regionId:region.id,url:region.url,stale:false,needsNavigation:true,diagnostics:['Open the current project browser first']};
+      const live=document.regions.find(r=>r.id===command.regionId);
+      const region=live??this.db.visualRegionReference(chatId,projectId,command.regionId);if(!region)throw new Error('Unknown region');
+      if(!live&&command.action==='navigate')throw new Error('Region deleted or unavailable');
+      const view:import('../../shared/visual-debugging').VisualRegionView=!live?{regionId:region.id,url:region.url,currentUrl:session?.currentUrl,deleted:true,stale:true,needsNavigation:false,diagnostics:['Region deleted; historical evidence only. No live highlight or navigation.']}:command.action==='navigate'?await session!.visualNavigate(region):session?await session.visualReveal(region,document.regions.some(r=>r.groupId===region.groupId)?document.regions.filter(r=>r.groupId===region.groupId):[region]):{regionId:region.id,url:region.url,stale:false,needsNavigation:true,diagnostics:['Open the current project browser first']};
       if(region.screenshotPath){try{const path=await realpath(region.screenshotPath),cache=resolve(paths.cache,'browser-captures')+sep;if(path.startsWith(cache)&&(await stat(path)).size<=8_000_000)view.cropDataUrl='data:image/png;base64,'+(await readFile(path)).toString('base64');}catch{view.diagnostics.push('Saved crop unavailable');}}
       return {...this.document(chatId,projectId),currentUrl:session?.currentUrl,view};
     }else if(command.action==='delete'){
@@ -75,7 +91,7 @@ export class VisualDebugging {
       for(const region of await session!.visualDetect())this.add(document,region,chatId,projectId);
     }else throw new Error('Unknown visual command');
     if(!['selection','reveal'].includes(command.action)){
-      document.issues=document.issues.filter(i=>i.regionIds.length||i.explicit);normalizeVisualDocument(document);this.db.saveVisualDocument(chatId,projectId,document);
+      document.issues=document.issues.filter(i=>i.regionIds.length||this.drafts.get(this.key(chatId,projectId))?.id===i.id);normalizeVisualDocument(document);this.save(chatId,projectId,document);
       await session!.visualSelection(false,[]);
     }
     document=this.document(chatId,projectId);return document;

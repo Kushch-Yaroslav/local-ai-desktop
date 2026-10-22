@@ -27,6 +27,8 @@ export function Composer() {
   const chat = conversations.find((item) => item.id === activeId);
   useEffect(()=>{setRegionReferences([]);const listener=(event:Event)=>{const detail=(event as CustomEvent<{conversationId:string;regions:VisualRegion[]}>).detail;if(detail.conversationId===activeId)setRegionReferences(old=>[...old,...detail.regions.filter(r=>!old.some(o=>o.id===r.id))].slice(0,12));};window.addEventListener('visual-region-draft',listener);return()=>window.removeEventListener('visual-region-draft',listener);},[activeId,chat?.primaryProjectId]);
 
+  useEffect(()=>{const listener=(event:Event)=>{const detail=(event as CustomEvent<{id:string;document:{regions:VisualRegion[]}}>).detail;if(detail.id===activeId)setRegionReferences(old=>old.filter(r=>detail.document.regions.some(live=>live.id===r.id)));};window.addEventListener('visual-document-updated',listener);return()=>window.removeEventListener('visual-document-updated',listener);},[activeId]);
+
   const modelReady = Boolean(activeConversationModel(chat, settings?.llamaRuntime));
   const projectEnabled = Boolean(chat?.workingDirectory);
   const resetHeight = () => { const textarea = ref.current; if (!textarea) return; manualHeight.current = null; textarea.style.height = ''; textarea.style.overflowY = 'hidden'; };

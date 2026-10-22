@@ -25,11 +25,12 @@ export interface VisualIssue {
   suspectedSourceFiles: string[]; evidenceRefs: string[]; verification: 'Not Verified' | 'Ledger linked';
 }
 export interface VisualDocument { nextAreaNumber?: number; previewUrls?: string[]; currentUrl?: string; view?: VisualRegionView; selectionActive?: boolean; regions: VisualRegion[]; issues: VisualIssue[] }
-export interface VisualRegionView { regionId: string; url: string; currentUrl?: string; stale: boolean; needsNavigation: boolean; scrollDeferred?: boolean; diagnostics: string[]; cropDataUrl?: string }
+export interface VisualRegionView { regionId: string; url: string; currentUrl?: string; stale: boolean; deleted?: boolean; needsNavigation: boolean; scrollDeferred?: boolean; diagnostics: string[]; cropDataUrl?: string }
 export type VisualCommand =
   | {action: 'new-area'}
   | {action: 'color'; areaId: string; color: string}
   | {action: 'delete-area'; areaId: string}
+  | {action: 'clear'}
 
   | {action: 'selection'; enabled: boolean; groupId?: string}
   | {action: 'delete'; regionId: string}

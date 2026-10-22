@@ -173,6 +173,7 @@ export class ProjectBrowserSession {
   private selectionActive = false;
   get visualSelecting(){return this.selectionActive;}
   private selectionBound = false;
+  private visualEpoch = 0;
   private selectionCallback?: (region: VisualRegion) => Promise<void>;
   private selectionRegions: VisualRegion[] = [];
   private selectionGroup = 'group-1';
@@ -200,7 +201,7 @@ export class ProjectBrowserSession {
     });
   }
   private async clearSelection() {
-    this.selectionActive=false;this.selectionCallback=undefined;this.native?.highlight?.([]);
+    this.visualEpoch++;this.selectionRegions=[];this.selectionActive=false;this.selectionCallback=undefined;this.native?.highlight?.([]);
     if(this.page&&!this.page.isClosed())await this.page.evaluate(()=>document.getElementById('__lad-visual-highlight')?.remove()).catch(()=>undefined);
     if(this.page&&!this.page.isClosed())await selectionOverlay(this.page,false).catch(()=>undefined);
   }
@@ -242,6 +243,7 @@ export class ProjectBrowserSession {
   async visualReveal(region: VisualRegion, siblings: VisualRegion[]=[region]) {
     const page=this.page;
     if(!this.reusable||!page||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
+    const epoch=this.visualEpoch;
     const currentUrl=page.url(),needsNavigation=currentUrl!==region.url;
     const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
     if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
@@ -259,6 +261,7 @@ export class ProjectBrowserSession {
       });return {stale,boxes,url:location.href};
     },{region:{url:region.url,rect:region.rect,viewport:region.viewport,anchors:region.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect}))},siblings:siblings.map(r=>({id:r.id,url:r.url,rect:r.rect,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({confidence:a.confidence,selector:a.selector,rect:a.rect}))})),scroll:!view.scrollDeferred});
     if(result.url!==region.url){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
+    if(epoch!==this.visualEpoch)return {...view,stale:true,diagnostics:['Selection changed while viewing; highlight cancelled']};
     view.stale=result.stale;
     if(result.stale)view.diagnostics.push('DOM anchor is stale; saved document coordinates were used');
     if(this.ownership==='user')await page.evaluate(boxes=>{
@@ -686,7 +689,7 @@ export class ProjectBrowserSession {
     this.page.on('framenavigated', frame => {
       if(this.closed)return;
       if (frame === this.page?.mainFrame() && frame.url() !== 'about:blank') {
-        this.selectionActive=false;this.selectionCallback=undefined;
+        this.visualEpoch++;this.selectionRegions=[];this.selectionActive=false;this.selectionCallback=undefined;
         try { if (new URL(frame.url()).origin === this.origin) { this.lastAllowedUrl = frame.url(); this.endReason='live';this.blockedNavigation = false; this.observer?.state('live', frame.url()); return; } } catch { /* Unsupported navigation. */ }
         this.note(this.blocked, `Navigation outside approved origin: ${frame.url()}`);
         if (frame.url() === 'chrome-error://chromewebdata/' && this.blockedNavigation && this.lastAllowedUrl && !this.recoveringNavigation && !this.navigationRecoveryUsed) {
