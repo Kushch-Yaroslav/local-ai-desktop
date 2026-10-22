@@ -1,3 +1,4 @@
+import { visualPromptUrl } from '../../shared/visual-debugging';
 import { inspectResponsive } from './responsive-qa';
 import { selectionOverlay, groundRegion } from './visual-selection';
 import type { VisualRect, VisualRegion } from '../../shared/visual-debugging';
@@ -50,7 +51,7 @@ export const projectBrowserTool: ProjectToolDefinition = { type: 'function', fun
     project: { type: 'integer', enum: [1, 2] },
   }, required: ['action'], additionalProperties: false },
 } };
-const staticOrigin = 'https://project-preview.invalid';
+export const staticOrigin = 'https://project-preview.invalid';
 const responsiveRequest=(args:Record<string,unknown>)=>args.action==='qa'&&(args.responsive!==undefined||Array.isArray(args.scenarios)&&args.scenarios.some(s=>s&&typeof s==='object'&&'viewport' in s));
 const previewCsp = "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'self'";
 const mime: Record<string, string> = { '.html': 'text/html', '.htm': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2' };
@@ -107,7 +108,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { regionContext?:Array<{id:string;groupId:string;url:string}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
@@ -198,7 +199,8 @@ export class ProjectBrowserSession {
     });
   }
   private async clearSelection() {
-    this.selectionActive=false;this.selectionCallback=undefined;
+    this.selectionActive=false;this.selectionCallback=undefined;this.native?.highlight?.([]);
+    if(this.page&&!this.page.isClosed())await this.page.evaluate(()=>document.getElementById('__lad-visual-highlight')?.remove()).catch(()=>undefined);
     if(this.page&&!this.page.isClosed())await selectionOverlay(this.page,false).catch(()=>undefined);
   }
   private async visualCapture(rect: VisualRect, groupId: string): Promise<VisualRegion> {
@@ -236,17 +238,38 @@ export class ProjectBrowserSession {
     finally{await page.evaluate(()=>{document.getElementById('__lad-capture-mask')?.remove();const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='';}).catch(()=>undefined);}
     return region;
   }
-  async visualReveal(region: VisualRegion) {
-    return this.exclusive(async()=>{
-      if(this.ownership!=='user'||!this.page||new URL(region.url).origin!==this.origin||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
-      await this.clearSelection();
-      if(this.page.url()!==region.url)await this.page.goto(region.url,{waitUntil:'load'});
-      const anchor=region.anchors.find(a=>a.confidence>=.8);
-      if(anchor && await this.page.locator(anchor.selector).count()===1)await this.page.locator(anchor.selector).scrollIntoViewIfNeeded();
-      else await this.page.evaluate(p=>scrollTo(p.x,p.y),region.scroll);
-      // Reopen selection for an explicitly requested reference; Escape exits.
-      this.selectionActive=true;await selectionOverlay(this.page,true,[region]);
-    });
+  async visualReveal(region: VisualRegion, siblings: VisualRegion[]=[region]) {
+    const page=this.page;
+    if(!this.reusable||!page||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
+    const currentUrl=page.url(),needsNavigation=currentUrl!==region.url;
+    const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
+    if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
+    // While the agent owns the page, read geometry without scrolling or changing its DOM.
+    const result=await page.evaluate(({region,siblings,scroll})=>{
+      if(location.href!==region.url)return {stale:false,boxes:[],url:location.href};
+      const anchor=region.anchors.find(a=>a.confidence>=.8);let target:Element|null=null;
+      if(anchor){try{const nodes=document.querySelectorAll(anchor.selector);if(nodes.length===1&&nodes[0].tagName.toLowerCase()===anchor.tag)target=nodes[0];}catch{ /* stale selector */ }}
+      const stale=Boolean(anchor&&!target)||!anchor&&(region.viewport.width!==innerWidth||region.viewport.height!==innerHeight);
+      if(scroll){if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else scrollTo(region.rect.x,Math.max(0,region.rect.y-innerHeight/3));}
+      const boxes=siblings.filter(r=>r.url===location.href).map(r=>{
+        let rect={...r.rect,x:r.rect.x-scrollX,y:r.rect.y-scrollY};const a=r.anchors.find(a=>a.confidence>=.8);
+        if(a){try{const nodes=document.querySelectorAll(a.selector);if(nodes.length===1){const b=nodes[0].getBoundingClientRect();rect={x:b.x+(r.rect.x-a.rect.x)*b.width/a.rect.width,y:b.y+(r.rect.y-a.rect.y)*b.height/a.rect.height,width:r.rect.width*b.width/a.rect.width,height:r.rect.height*b.height/a.rect.height};}}catch{ /* use saved document coordinates */ }}
+        return {...rect,color:r.color??'#22d3ee',label:`${r.groupNumber??''} · #${r.id}`};
+      });return {stale,boxes,url:location.href};
+    },{region:{url:region.url,rect:region.rect,viewport:region.viewport,anchors:region.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect}))},siblings:siblings.map(r=>({id:r.id,url:r.url,rect:r.rect,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({confidence:a.confidence,selector:a.selector,rect:a.rect}))})),scroll:!view.scrollDeferred});
+    if(result.url!==region.url){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
+    view.stale=result.stale;
+    if(result.stale)view.diagnostics.push('DOM anchor is stale; saved document coordinates were used');
+    if(this.ownership==='user')await page.evaluate(boxes=>{
+      document.getElementById('__lad-visual-highlight')?.remove();const host=document.createElement('div');host.id='__lad-visual-highlight';host.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483647';const shadow=host.attachShadow({mode:'closed'});
+      for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;background:${b.color}22;box-sizing:border-box;`;shadow.append(node);}document.documentElement.append(host);setTimeout(()=>host.remove(),2200);
+    },result.boxes);else this.native?.highlight?.(result.boxes);
+    if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; scrolling is deferred. Highlight is on the native input shield and excluded from page captures');
+    return view;
+  }
+  async visualNavigate(region: VisualRegion){
+    await this.exclusive(async()=>{if(this.ownership!=='user'||!this.page||region.projectRoot!==this.root||new URL(region.url).origin!==this.origin)throw new Error('Region outside current preview scope');await this.clearSelection();if(this.page.url()!==region.url)await this.page.goto(region.url,{waitUntil:'load'});});
+    return this.visualReveal(region);
   }
   async visualDetect(): Promise<VisualRegion[]> {
     return this.exclusive(async()=>{
@@ -363,6 +386,13 @@ export class ProjectBrowserSession {
     try {
       this.networkBudget = { requests:0, bytes:0, started:Date.now() };
       if (signal.aborted || this.closed || this.page?.isClosed() || this.browser&&!this.browser.isConnected())return {error:'Project browser is unavailable; open it explicitly in an authorized new task, or recreate a lost connection.',code:signal.aborted&&!this.closed?'BROWSER_OPERATION_CANCELLED':'BROWSER_SESSION_UNAVAILABLE',retrySameArguments:!signal.aborted&&['connection_lost','page_closed','renderer_crashed'].includes(this.endReason),browser_session:this.stateIdentity};
+      const references=this.qaOptions.regionContext??[];
+      const expected=references.map(r=>r.url),current=this.page?.url();
+      if(references.length&&['read','screenshot','qa'].includes(String(args.action))&&current){
+        let mismatch=!expected.includes(current);
+        if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>new URL(scenario.target,current).href===r.url))mismatch=true;}
+        if(mismatch)return {error:'REGION_ROUTE_MISMATCH: the current/QA route differs from the selected region. Preserve full URL query and hash; explicitly open the reference URL before analyzing it.',code:'REGION_ROUTE_MISMATCH',current_url:visualPromptUrl(current),region_urls:expected.map(visualPromptUrl),retrySameArguments:false};
+      }
       if (!keyboardActions.has(String(args.action))&&(!responsiveRequest(args)||this.isolatedQa)) await this.releaseInput();
       if (args.action === 'qa' && (!this.page || !responsiveRequest(args)&&(args.path !== undefined || args.url !== undefined)) && !this.denied) {
         const opened = await this.executePage({action:'open', ...(args.path ? {path:args.path} : {}), ...(args.url ? {url:args.url} : {})}, signal, confirm, actionId);
@@ -676,7 +706,7 @@ export class ProjectBrowserSession {
     const page = this.page!;
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
-    return { browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

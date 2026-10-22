@@ -60,6 +60,7 @@ export interface NativeProjectPage {
   layout(bounds: Rectangle | undefined): void;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
+  highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string}>): void;
   close(): Promise<void>;
 }
 
@@ -172,7 +173,15 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     browser = await chromium.connectOverCDP(transport, { timeout: 15000, noDefaults: true });
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
-    return { browser, context, page, contents, close, releaseInput,
+    let highlightTimer:ReturnType<typeof setTimeout>|undefined;
+    const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string}>)=>{
+      clearTimeout(highlightTimer);if(destroyed||contents.isDestroyed()||shield.webContents.isDestroyed())return;
+      const zoom=contents.getZoomFactor();
+      const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
+      void shield.webContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,x:b.x*zoom,y:b.y*zoom,width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
+      if(rects.length)highlightTimer=setTimeout(()=>highlight([]),2200);
+    };
+    return { browser, context, page, contents, close, releaseInput, highlight,
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(bounds) {

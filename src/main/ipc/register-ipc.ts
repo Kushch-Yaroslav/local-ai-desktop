@@ -1,3 +1,4 @@
+import { loopbackTarget } from '../web/project-browser';
 import { VisualDebugging } from '../services/visual-debugging';
 import type { VisualCommand } from '../../shared/visual-debugging';
 import { visionPreference, mtpPreference, permitsImages, withoutImagePayloads } from '../../shared/model-features';
@@ -928,16 +929,18 @@ export function registerIpc(): void {
   };
   const manualOpens=new Set<string>();
   ipcMain.handle('visual-debug:open',async(event,id:string,url?:string)=>{
-    const {project}=visualScope(id,true);
+    const {project}=visualScope(id);
+    if(activeGenerations.has(id)){if(url)throw new Error('Agent owns navigation; wait or pause before changing the route');rustAgent.manualPreview(event.sender.id,id,project.root);return;}
     if(url!==undefined&&(typeof url!=='string'||url.length>2048))throw new Error('Invalid preview URL');
     if(manualOpens.has(id))return;
     manualOpens.add(id);
-    try{await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),url);}finally{manualOpens.delete(id);}
+    try{const saved=visualDebugging.document(id,project.id);let live=false;try{live=rustAgent.manualPreview(event.sender.id,id,project.root).reusable;}catch{ /* closed */ }const target=url??(!live?saved.previewUrls?.[0]:undefined);await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),target);if(target?.startsWith('http://')){saved.previewUrls=[target,...(saved.previewUrls??[]).filter(u=>u!==target)].slice(0,6);database.saveVisualDocument(id,project.id,saved);}}finally{manualOpens.delete(id);}
   });
-  ipcMain.handle('visual-debug:document',(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false;try{selectionActive=rustAgent.manualPreview(event.sender.id,id,project.root).visualSelecting;}catch{ /* no live preview */ }return {...visualDebugging.document(id,project.id),selectionActive};});
+  ipcMain.handle('visual-debug:document',(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false,currentUrl:string|undefined;try{const session=rustAgent.manualPreview(event.sender.id,id,project.root);selectionActive=session.visualSelecting;currentUrl=session.currentUrl;}catch{ /* no live preview */ }const document=visualDebugging.document(id,project.id);if(currentUrl){try{loopbackTarget(currentUrl);if(!document.previewUrls?.includes(currentUrl)){document.previewUrls=[currentUrl,...(document.previewUrls??[])].slice(0,6);database.saveVisualDocument(id,project.id,document);}}catch{ /* not an approved loopback preview */ }}return {...document,selectionActive,currentUrl};});
   ipcMain.handle('visual-debug:command',async(event,id:string,command:VisualCommand)=>{
-    const {project}=visualScope(id,true);
-    return visualDebugging.command(id,project.id,rustAgent.manualPreview(event.sender.id,id,project.root),command);
+    const {project}=visualScope(id,command?.action!=='reveal');
+    let session:ReturnType<typeof rustAgent.manualPreview>|undefined;try{session=rustAgent.manualPreview(event.sender.id,id,project.root);}catch{ /* history crop can be viewed without a live Page */ }
+    return visualDebugging.command(id,project.id,session,command);
   });
   ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
   ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));

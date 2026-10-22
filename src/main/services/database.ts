@@ -513,6 +513,10 @@ export class Database {
   saveVisualDocument(conversationId: string, projectId: string, document: import('../../shared/visual-debugging').VisualDocument): void {
     this.db.prepare('INSERT INTO visual_documents VALUES (?, ?, ?) ON CONFLICT(conversation_id,project_id) DO UPDATE SET document=excluded.document').run(conversationId, projectId, JSON.stringify(document));
   }
+  visualRegionReference(conversationId: string, projectId: string, regionId: string): import('../../shared/visual-debugging').VisualRegion | undefined {
+    const row=this.db.prepare(`SELECT refs.value AS region FROM messages m, json_each(m.region_references) refs WHERE m.conversation_id=? AND json_extract(refs.value,'$.projectId')=? AND json_extract(refs.value,'$.id')=? ORDER BY m.rowid DESC LIMIT 1`).get(conversationId,projectId,regionId) as {region:string}|undefined;
+    return row?JSON.parse(row.region):undefined;
+  }
   setRegionReferences(messageId: string, conversationId: string, regions: import('../../shared/visual-debugging').VisualRegion[]): void {
     this.db.prepare('UPDATE messages SET region_references=? WHERE id=? AND conversation_id=?').run(JSON.stringify(regions),messageId,conversationId);
   }

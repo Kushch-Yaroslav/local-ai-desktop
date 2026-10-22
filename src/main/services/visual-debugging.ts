@@ -1,3 +1,6 @@
+import { readFile, stat, realpath } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
+import { paths } from './paths';
 import { randomUUID } from 'node:crypto';
 import { normalizeVisualDocument } from '../../shared/visual-debugging';
 import type { Database } from './database';
@@ -33,9 +36,10 @@ export class VisualDebugging {
     issue.regionIds.push(region.id);issue.evidenceRefs.push(region.id);
     issue.suspectedSourceFiles=[...new Set([...issue.suspectedSourceFiles,...(region.sourceHints??[]).map(s=>s.path)])].slice(0,12);
   }
-  async command(chatId: string, projectId: string, session: ProjectBrowserSession, command: VisualCommand) {
+  async command(chatId: string, projectId: string, session: ProjectBrowserSession | undefined, command: VisualCommand) {
     if(!command||typeof command!=='object')throw new Error('Invalid visual command');
-    if(!['selection','reveal'].includes(command.action))await session.visualSelection(false,[]);
+    if(command.action!=='reveal'&&!session)throw new Error('Open the current project browser first');
+    if(!['selection','reveal'].includes(command.action))await session!.visualSelection(false,[]);
     let document=normalizeVisualDocument(this.db.visualDocument(chatId,projectId));
     if(command.action==='new-area'){
       if(document.issues.length>=100)throw new Error('Area limit reached');
@@ -47,11 +51,14 @@ export class VisualDebugging {
       document.regions=document.regions.filter(r=>r.groupId!==command.areaId);document.issues=document.issues.filter(i=>i.id!==command.areaId);
     }else if(command.action==='selection'){
       if(typeof command.enabled!=='boolean'||command.groupId&&!/^[a-zA-Z0-9_-]{1,64}$/.test(command.groupId))throw new Error('Invalid selection group');
-      await session.visualSelection(command.enabled,document.regions,async region=>{
+      await session!.visualSelection(command.enabled,document.regions,async region=>{
         const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.db.saveVisualDocument(chatId,projectId,latest);
       },command.groupId);
-    }else if(command.action==='reveal'){
-      const region=document.regions.find(r=>r.id===command.regionId);if(!region)throw new Error('Unknown region');await session.visualReveal(region);
+    }else if(command.action==='reveal'||command.action==='navigate'){
+      const region=document.regions.find(r=>r.id===command.regionId)??this.db.visualRegionReference(chatId,projectId,command.regionId);if(!region)throw new Error('Unknown region');
+      const view:import('../../shared/visual-debugging').VisualRegionView=command.action==='navigate'?await session!.visualNavigate(region):session?await session.visualReveal(region,document.regions.some(r=>r.groupId===region.groupId)?document.regions.filter(r=>r.groupId===region.groupId):[region]):{regionId:region.id,url:region.url,stale:false,needsNavigation:true,diagnostics:['Open the current project browser first']};
+      if(region.screenshotPath){try{const path=await realpath(region.screenshotPath),cache=resolve(paths.cache,'browser-captures')+sep;if(path.startsWith(cache)&&(await stat(path)).size<=8_000_000)view.cropDataUrl='data:image/png;base64,'+(await readFile(path)).toString('base64');}catch{view.diagnostics.push('Saved crop unavailable');}}
+      return {...this.document(chatId,projectId),currentUrl:session?.currentUrl,view};
     }else if(command.action==='delete'){
       document.regions=document.regions.filter(r=>r.id!==command.regionId);
       for(const issue of document.issues){issue.regionIds=issue.regionIds.filter(id=>id!==command.regionId);issue.evidenceRefs=issue.evidenceRefs.filter(id=>id!==command.regionId);}
@@ -65,11 +72,11 @@ export class VisualDebugging {
       const issue=document.issues.find(i=>i.id===command.issueId);if(!issue||typeof command.description!=='string'||command.description.length>1000||!['Detected','Confirmed','In progress','Fixed','Unresolved'].includes(command.status))throw new Error('Invalid issue update; Verified requires Ledger evidence');
       issue.description=command.description;issue.status=command.status;
     }else if(command.action==='detect'){
-      for(const region of await session.visualDetect())this.add(document,region,chatId,projectId);
+      for(const region of await session!.visualDetect())this.add(document,region,chatId,projectId);
     }else throw new Error('Unknown visual command');
     if(!['selection','reveal'].includes(command.action)){
       document.issues=document.issues.filter(i=>i.regionIds.length||i.explicit);normalizeVisualDocument(document);this.db.saveVisualDocument(chatId,projectId,document);
-      await session.visualSelection(false,[]);
+      await session!.visualSelection(false,[]);
     }
     document=this.document(chatId,projectId);return document;
   }

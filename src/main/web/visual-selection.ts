@@ -1,5 +1,6 @@
 import { getLanguage } from '../../shared/locale';
 import type { Page } from 'playwright-core';
+import { visualRoute } from '../../shared/visual-debugging';
 import type { VisualRect, VisualRegion } from '../../shared/visual-debugging';
 import { visualGroupColor } from '../../shared/visual-debugging';
 
@@ -40,22 +41,36 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
 }
 
 export async function groundRegion(page: Page, rect: VisualRect) {
-  return page.evaluate(rect => {
+  const evidence=await page.evaluate(rect => {
     const overlay=document.getElementById('__lad-visual-selection');if(overlay)overlay.style.display='none';
     try {
       const overlap=(b:DOMRect)=>Math.max(0,Math.min(b.right,rect.x+rect.width)-Math.max(b.x,rect.x))*Math.max(0,Math.min(b.bottom,rect.y+rect.height)-Math.max(b.y,rect.y));
       // Bounded intersection scan, no HTML dump and no private control values.
-      const candidates=Array.from(document.querySelectorAll('body *')).slice(0,8000).filter(e=>!e.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive]') && !['SCRIPT','STYLE','NOSCRIPT'].includes(e.tagName)).map(e=>({e,b:e.getBoundingClientRect()})).filter(({b})=>b.width>0&&b.height>0&&overlap(b)>0).sort((a,b)=>Math.abs(a.b.width*a.b.height-rect.width*rect.height)-Math.abs(b.b.width*b.b.height-rect.width*rect.height)).slice(0,4);
+      const visible=(e:Element)=>{const b=e.getBoundingClientRect(),s=getComputedStyle(e);for(let parent=e.parentElement,depth=0;parent&&depth++<12;parent=parent.parentElement){const style=getComputedStyle(parent);if(style.display==='none'||style.visibility!=='visible'||Number(style.opacity)===0)return false;}return b.width>0&&b.height>0&&b.right>0&&b.bottom>0&&b.x<innerWidth&&b.y<innerHeight&&s.display!=='none'&&s.visibility==='visible'&&Number(s.opacity)>0&&!e.closest('[hidden],[aria-hidden=true],[inert]');};
+      const candidates=Array.from(document.querySelectorAll('body *')).slice(0,8000).filter(e=>!e.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive]') && !['SCRIPT','STYLE','NOSCRIPT'].includes(e.tagName)).map(e=>({e,b:e.getBoundingClientRect()})).filter(({e,b})=>b.width>0&&b.height>0&&overlap(b)>0&&visible(e)).sort((a,b)=>Math.abs(a.b.width*a.b.height-rect.width*rect.height)-Math.abs(b.b.width*b.b.height-rect.width*rect.height)).slice(0,4);
       const anchors=candidates.filter(({e})=>!['CANVAS','SVG'].includes(e.tagName.toUpperCase()) && !e.closest('canvas,svg')).map(({e,b})=>{
         let selector=e.id&&e.id.length<=128?'#'+CSS.escape(e.id):e.tagName.toLowerCase()+Array.from(e.classList).filter(c=>c.length<=128).slice(0,3).map(c=>'.'+CSS.escape(c)).join('');
         let unique=false;try{unique=document.querySelectorAll(selector).length===1;}catch{selector=e.tagName.toLowerCase();}
-        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','white-space','width','height','font-size','line-height','padding','box-sizing','color','background-color','max-width','font-weight','text-overflow','flex-wrap','align-items'])styles[key]=style.getPropertyValue(key).slice(0,120);
-        // Only direct text nodes; parent textContent may contain private descendants.
-        const text=Array.from(e.childNodes).filter(n=>n.nodeType===Node.TEXT_NODE).map(n=>n.textContent??'').join(' ').replace(/\s+/g,' ').trim().slice(0,160);
-        return {tag:e.tagName.toLowerCase(),classes:Array.from(e.classList).filter(c=>c.length<=128).slice(0,6),selector,text,rect:{x:b.x+scrollX,y:b.y+scrollY,width:b.width,height:b.height},confidence:unique?.85:.45,diagnostics:[unique?'Unique at capture; may become stale':'Multiple matches; selector is ambiguous','Source component not confirmed'],styles};
+        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','white-space','width','height','font-size','line-height','padding','box-sizing','color','background-color','max-width','font-weight','text-overflow','flex-wrap','align-items'])styles[key]=style.getPropertyValue(key).slice(0,120);
+        // Read bounded descendant text while excluding private controls and sensitive subtrees.
+        const walker=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);let excerpt='',count=0,node:Node|null;
+        while((node=walker.nextNode())&&count++<200&&excerpt.length<240){if(!node.parentElement?.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))excerpt+=' '+node.textContent;}
+        const text=excerpt.replace(/\s+/g,' ').trim().slice(0,240),geometry={clientWidth:e.clientWidth,clientHeight:e.clientHeight,scrollWidth:e.scrollWidth,scrollHeight:e.scrollHeight,visible:visible(e)};
+        const findings:Array<{category:'text-clipping'|'horizontal-overflow'|'vertical-overflow'|'element-overlap'|'unknown';fact:string;candidate:boolean}>=[];
+        if(e.clientWidth>0&&e.scrollWidth>e.clientWidth+1){findings.push({category:'horizontal-overflow',fact:`scrollWidth ${e.scrollWidth} > clientWidth ${e.clientWidth}; overflow-x ${style.overflowX}`,candidate:true});if(text&&['hidden','clip'].includes(style.overflowX))findings.push({category:'text-clipping',fact:`Text extent exceeds the clipping box; white-space ${style.whiteSpace}; text-overflow ${style.textOverflow}. May be intentional.`,candidate:true});}
+        if(e.clientHeight>0&&e.scrollHeight>e.clientHeight+1)findings.push({category:'vertical-overflow',fact:`scrollHeight ${e.scrollHeight} > clientHeight ${e.clientHeight}; overflow-y ${style.overflowY}`,candidate:true});
+        const neighbors=Array.from(e.parentElement?.children??[]).filter(other=>other!==e&&!other.matches('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style')).slice(0,24).filter(visible).slice(0,5).map(other=>{
+          const r=other.getBoundingClientRect(),left=Math.max(b.x,r.x),top=Math.max(b.y,r.y),right=Math.min(b.right,r.right),bottom=Math.min(b.bottom,r.bottom),intersects=right-left>1&&bottom-top>1;
+          const hit=intersects?document.elementFromPoint((left+right)/2,(top+bottom)/2):null;
+          if(intersects&&hit&&(hit===other||other.contains(hit)))findings.push({category:'element-overlap',fact:`Visible sibling ${other.tagName.toLowerCase()} intersects on both axes and covers the intersection hit point; intent needs confirmation.`,candidate:true});
+          return {tag:other.tagName.toLowerCase(),rect:{x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height},visible:true,intersects};
+        });
+        if(!findings.length)findings.push({category:'unknown',fact:'No deterministic defect established; styling mismatch requires a baseline or explicit visual confirmation.',candidate:true});
+        return {tag:e.tagName.toLowerCase(),name:(e.getAttribute('aria-label')??text).slice(0,240),classes:Array.from(e.classList).filter(c=>c.length<=128).slice(0,6),selector,text,geometry,findings,neighbors,rect:{x:b.x+scrollX,y:b.y+scrollY,width:b.width,height:b.height},confidence:unique?.85:.45,diagnostics:[unique?'Unique at capture; may become stale':'Multiple matches; selector is ambiguous','Source component not confirmed'],styles};
       });
       const first=candidates[0]?.e;const screenshotOnly=Boolean(first&&first.closest('canvas,svg'));
       return {url:location.href,route:location.pathname,viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,scroll:{x:scrollX,y:scrollY},rect:{...rect,x:rect.x+scrollX,y:rect.y+scrollY},anchors:screenshotOnly?[]:anchors,snapshot:`${performance.timeOrigin}:${document.querySelectorAll('*').length}`,diagnostics:screenshotOnly?['Screenshot-only Canvas/SVG region; no source mapping']:['DOM candidates are hints, not verified source mappings']};
     }finally{if(overlay)overlay.style.display='';}
   },rect);
+  return {...evidence,route:visualRoute(evidence.url)};
 }
