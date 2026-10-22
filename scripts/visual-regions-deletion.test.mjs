@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url),{Database}=require('../dist/main/se
 const {cssToPresentation,presentationToCss}=require('../dist/shared/browser-coordinates.js'),{validateBrowserWorkspace}=require('../dist/shared/live-browser.js');
 const db=new Database(join(root,'test.db')),chat=db.createConversation(),service=new VisualDebugging(db);
 let reveals=0,capture;
-const session={visualSelection:async(enabled,_regions,callback)=>{if(enabled)capture=callback;},visualReveal:async()=>{reveals++;return {stale:false,needsNavigation:false,diagnostics:[]};}};
+const session={visualDisplay:async()=>({visible:true,bindings:[]}),visualSelection:async(enabled,_regions,callback)=>{if(enabled)capture=callback;},visualReveal:async()=>{reveals++;return {stale:false,needsNavigation:false,diagnostics:[]};}};
 const region={id:'region-12345678',groupId:'legacy-group',conversationId:chat.id,projectId:'p',projectRoot:'/tmp/project',url:'https://project-preview.invalid/index.html?x=1#/catalog',route:'/index.html?x=1#/catalog',viewport:{width:800,height:600},dpr:1,scroll:{x:0,y:0},rect:{x:10,y:10,width:40,height:20},anchors:[],createdAt:new Date().toISOString(),snapshot:'legacy',diagnostics:[]};
 const issue={id:region.groupId,number:9,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[region.id],route:region.route,suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
 db.saveVisualDocument(chat.id,'p',{regions:[region],issues:[issue]});db.addMessage(chat.id,'user','Historical region','old-message');db.setRegionReferences('old-message',chat.id,[region]);

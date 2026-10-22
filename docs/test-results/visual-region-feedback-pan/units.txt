@@ -1,0 +1,3 @@
+PASS immutable deleted references/no browser reveal, draft persistence/suspension, monotonic numbering, restart/clear, coordinate roundtrips and bounded workspace validation.
+PASS legacy region identity migration, monotonic area numbering, colors/SQLite, immutable history references, full query/hash routing, credential redaction, RU/EN and fallback.
+PASS region persistence/context, crop image payload hydration, Vision policy matrix, foreign chat rejection, current unqualified Ledger proof and stale/qualified rejection.

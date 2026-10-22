@@ -1,0 +1,28 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Unhandled error during full application shutdown
++ actual - expected
+
++ [
++   "TypeError: Cannot read properties of undefined (reading 'removeListener')\n" +
++     '    at detachPan (/media/yaroslav/DATA/local-ai-desktop/dist/main/web/native-project-page-before-shutdown-fix.js:373:204)\n' +
++     '    at /media/yaroslav/DATA/local-ai-desktop/dist/main/web/native-project-page-before-shutdown-fix.js:211:24'
++ ]
+- []
+
+    at file:///media/yaroslav/DATA/local-ai-desktop/scripts/native-browser-shutdown-electron.test.mjs:20:9 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    "TypeError: Cannot read properties of undefined (reading 'removeListener')\n" +
+      '    at detachPan (/media/yaroslav/DATA/local-ai-desktop/dist/main/web/native-project-page-before-shutdown-fix.js:373:204)\n' +
+      '    at /media/yaroslav/DATA/local-ai-desktop/dist/main/web/native-project-page-before-shutdown-fix.js:211:24'
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

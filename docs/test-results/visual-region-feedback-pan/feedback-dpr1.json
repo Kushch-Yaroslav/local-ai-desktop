@@ -1,0 +1,530 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-region-feedback-lXkRsr",
+  "project": "/tmp/lad-region-feedback-project-jP5pJf",
+  "dpr2": false,
+  "nativeId": 2,
+  "raster": {
+    "frames": 180,
+    "darkFrames": 0,
+    "minLuma": 240
+  },
+  "pan": {
+    "before": {
+      "x": 700,
+      "y": 150
+    },
+    "after": {
+      "x": 796,
+      "y": 198
+    }
+  },
+  "trace": [
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 425,
+          "width": 589,
+          "height": 474
+        }
+      ],
+      "at": 1792696419551
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 411,
+          "width": 589,
+          "height": 488
+        }
+      ],
+      "at": 1792696423308
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 425,
+          "width": 589,
+          "height": 474
+        }
+      ],
+      "at": 1792696424704
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 474,
+          "width": 589,
+          "height": 425
+        }
+      ],
+      "at": 1792696424905
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": "fit",
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425024
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.3067708333333333
+      },
+      "at": 1792696425024
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425047
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696425047
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425069
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696425069
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425090
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696425090
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": "fit",
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425111
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.3067708333333333
+      },
+      "at": 1792696425111
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 400,
+            "y": 100
+          }
+        }
+      ],
+      "at": 1792696425131
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696425132
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 485,
+          "width": 514,
+          "height": 364
+        }
+      ],
+      "at": 1792696425162
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 502,
+          "width": 514,
+          "height": 347
+        }
+      ],
+      "at": 1792696425246
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 1000,
+            "y": 180
+          }
+        }
+      ],
+      "at": 1792696425323
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425562
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696425595
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1536,
+        "height": 864,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696425595
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696426093
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696426094
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696426622
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 2400,
+        "height": 1350,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696426622
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 700,
+            "y": 150
+          }
+        }
+      ],
+      "at": 1792696427580
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 1,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696427580
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696429285
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696429583
+    },
+    {
+      "key": "ownership",
+      "args": [
+        "agent"
+      ],
+      "at": 1792696429588
+    },
+    {
+      "key": "ownership",
+      "args": [
+        "user"
+      ],
+      "at": 1792696430091
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696430313
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696430318
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696430352
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696430399
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696430408
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 365,
+          "width": 514,
+          "height": 484
+        }
+      ],
+      "at": 1792696430409
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 502,
+          "width": 514,
+          "height": 347
+        }
+      ],
+      "at": 1792696430424
+    }
+  ],
+  "checks": [
+    "persistent immediate/after 2.4s frames",
+    "React repeated-class identity",
+    "partial DOM boxes vs real closed-shadow borders",
+    "Fit/100/50/pan/resize",
+    "checkbox emphasis and hide without SQLite mutation",
+    "right-side focus",
+    "crop/red-blue/private pixels across zoom80/100/125",
+    "actual X11 middle drag/no website scroll/no middle events",
+    "selection coexistence",
+    "stale identity/ghost-free delete/history/reload",
+    "single Native Page/origin security"
+  ]
+}

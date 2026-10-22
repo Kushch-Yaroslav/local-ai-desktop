@@ -1,0 +1,537 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-region-feedback-2rNls6",
+  "project": "/tmp/lad-region-feedback-project-jo6299",
+  "dpr2": true,
+  "nativeId": 2,
+  "pan": {
+    "before": {
+      "x": 700,
+      "y": 150
+    },
+    "after": {
+      "x": 796,
+      "y": 198
+    }
+  },
+  "trace": [
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 428.5,
+          "width": 589,
+          "height": 173
+        }
+      ],
+      "at": 1792696434502
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 414,
+          "width": 589,
+          "height": 187
+        }
+      ],
+      "at": 1792696434626
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 428.5,
+          "width": 589,
+          "height": 173
+        }
+      ],
+      "at": 1792696437084
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 896,
+          "y": 478.5,
+          "width": 589,
+          "height": 123
+        }
+      ],
+      "at": 1792696437314
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": "fit",
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696437754
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.11388888888888889
+      },
+      "at": 1792696437754
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696437863
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696437863
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696437885
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696437885
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696437906
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696437906
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": "fit",
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696437929
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.11388888888888889
+      },
+      "at": 1792696437929
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 400,
+            "y": 100
+          }
+        }
+      ],
+      "at": 1792696437950
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696437950
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 490,
+          "width": 514,
+          "height": 359
+        }
+      ],
+      "at": 1792696437975
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 490,
+          "width": 514,
+          "height": 111
+        }
+      ],
+      "at": 1792696437983
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 502.5,
+          "width": 514,
+          "height": 99
+        }
+      ],
+      "at": 1792696438078
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 1000,
+            "y": 180
+          }
+        }
+      ],
+      "at": 1792696438155
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696438471
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696438721
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1536,
+        "height": 864,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696438722
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696439685
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696439685
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 0.5,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696440449
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 2400,
+        "height": 1350,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 0.5
+      },
+      "at": 1792696440449
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 700,
+            "y": 150
+          }
+        }
+      ],
+      "at": 1792696441124
+    },
+    {
+      "key": "Emulation.setDeviceMetricsOverride",
+      "params": {
+        "width": 1920,
+        "height": 1080,
+        "deviceScaleFactor": 2,
+        "mobile": false,
+        "scale": 1
+      },
+      "at": 1792696441124
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696443018
+    },
+    {
+      "key": "workspace",
+      "args": [
+        {
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "scale": 1,
+          "pan": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      ],
+      "at": 1792696443300
+    },
+    {
+      "key": "ownership",
+      "args": [
+        "agent"
+      ],
+      "at": 1792696443305
+    },
+    {
+      "key": "ownership",
+      "args": [
+        "user"
+      ],
+      "at": 1792696443808
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696444027
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696444031
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696444066
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696444105
+    },
+    {
+      "key": "layout",
+      "args": [
+        null
+      ],
+      "at": 1792696444121
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 367,
+          "width": 514,
+          "height": 234
+        }
+      ],
+      "at": 1792696444121
+    },
+    {
+      "key": "layout",
+      "args": [
+        {
+          "x": 821,
+          "y": 502.5,
+          "width": 514,
+          "height": 99
+        }
+      ],
+      "at": 1792696444136
+    }
+  ],
+  "checks": [
+    "persistent immediate/after 2.4s frames",
+    "React repeated-class identity",
+    "partial DOM boxes vs real closed-shadow borders",
+    "Fit/100/50/pan/resize",
+    "checkbox emphasis and hide without SQLite mutation",
+    "right-side focus",
+    "crop/red-blue/private pixels across zoom80/100/125",
+    "actual X11 middle drag/no website scroll/no middle events",
+    "selection coexistence",
+    "stale identity/ghost-free delete/history/reload",
+    "single Native Page/origin security"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "result": "PASS",
+  "results": [
+    {
+      "mode": "native-close",
+      "id": 2,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "shield-first",
+      "id": 5,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "window-destroy",
+      "id": 8,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "debugger-detach",
+      "id": 11,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "active-pan-window",
+      "id": 14,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "window-destroy",
+      "id": 17,
+      "same": true,
+      "closed": true
+    },
+    {
+      "mode": "application-close"
+    }
+  ]
+}

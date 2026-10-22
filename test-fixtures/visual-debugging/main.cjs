@@ -14,6 +14,7 @@ app.whenReady().then(async()=>{
  ipcMain.handle('settings:setLanguage',(_event,language)=>{require(resolve('dist/main/services/runtime-settings.js')).saveLanguage(language);require(resolve('dist/shared/locale.js')).setLanguage(language);window.webContents.send('settings:language',language);});
  const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));
  const events=[];const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='chat:stream')events.push(event);return send(channel,event,...rest);};
+ const Session=require(resolve('dist/main/web/project-browser.js')).ProjectBrowserSession,display=Session.prototype.visualDisplay;Session.prototype.visualDisplay=function(...args){global.visualFixture.session=this;return display.apply(this,args);};
  global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,
   entry(){return [...liveBrowsers.entries.values()].find(e=>e.state.conversationId===fixture.chat.id&&!e.ended)},
   async drag(selector){const page=this.entry().page,b=await page.locator(selector).boundingBox();if(!b)throw Error('Missing target');await page.mouse.move(b.x+1,b.y+1);await page.mouse.down();await page.mouse.move(b.x+b.width-1,b.y+b.height-1,{steps:5});await page.mouse.up();},

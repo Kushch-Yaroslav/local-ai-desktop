@@ -1,0 +1,8 @@
+{
+  "build": "PASS npm run build (Rust build, TypeScript, Vite, Electron TypeScript)",
+  "lint": "PASS npm run lint",
+  "rust": "408 passed, 1 ignored",
+  "realQwen": false,
+  "provider": "scripted local provider only",
+  "userRuntimeChanged": false
+}

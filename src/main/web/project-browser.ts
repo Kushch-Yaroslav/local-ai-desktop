@@ -572,17 +572,20 @@ export class ProjectBrowserSession {
   }
   private async privacyCapture<T>(capture:()=>Promise<T>):Promise<T>{
     const page=this.page!;
-    const hidden=await page.evaluate(()=>{
+    // Cover rounding and antialiasing at native compositor crop edges, including tiny Fit.
+    const presentation=this.native?.workspaceState?.();
+    const padding=presentation?2/(presentation.browserZoom*presentation.displayScale):2;
+    const hidden=await page.evaluate(padding=>{
       const hidden=Array.from(document.querySelectorAll<HTMLElement>('#__lad-visual-selection,#__lad-visual-highlight,#__lad-visual-regions')).map(node=>({id:node.id,visibility:node.style.visibility}));for(const saved of hidden){document.getElementById(saved.id)!.style.visibility='hidden';}
       document.getElementById('__lad-capture-mask')?.remove();
       const host=document.createElement('div');host.id='__lad-capture-mask';host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none';
       const shadow=host.attachShadow({mode:'closed'});
       for(const control of document.querySelectorAll('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')){
-        const b=control.getBoundingClientRect();if(!b.width||!b.height)continue;const mask=document.createElement('div');mask.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;background:#ff00ff;`;shadow.append(mask);
+        const b=control.getBoundingClientRect();if(!b.width||!b.height)continue;const mask=document.createElement('div');mask.style.cssText=`position:absolute;left:${b.x-padding}px;top:${b.y-padding}px;width:${b.width+2*padding}px;height:${b.height+2*padding}px;background:#ff00ff;`;shadow.append(mask);
       }document.documentElement.append(host);void host.getBoundingClientRect();return hidden;
-    });
+    },padding);
     try{
-      // CDP screenshot performs a compositor capture after this DOM/layout task.
+      // Capture follows this privacy DOM/layout task; native and CDP paths share masks.
       // Hidden QA pages deliberately have no rAF; waiting for it would deadlock privacy capture.
       return await capture();
     }finally{await page.evaluate(hidden=>{document.getElementById('__lad-capture-mask')?.remove();for(const saved of hidden){const node=document.getElementById(saved.id);if(node)node.style.visibility=saved.visibility;}},hidden).catch(()=>undefined);}

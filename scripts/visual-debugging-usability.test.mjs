@@ -7,7 +7,7 @@ const {Database}=require('../dist/main/services/database.js'),{VisualDebugging}=
 const {visualRoute,visualPromptUrl,visualTurnContext}=require('../dist/shared/visual-debugging.js');
 const ts=require('typescript'),{english}=require('../dist/shared/translations.js');
 const {areaLabel,visualStatusLabel,visualDescription}=require('../dist/shared/visual-debugging-i18n.js');const {setLanguage,t}=require('../dist/shared/locale.js');
-const db=new Database(join(root,'test.db')),chat=db.createConversation(),service=new VisualDebugging(db),session={visualSelection:async()=>undefined};
+const db=new Database(join(root,'test.db')),chat=db.createConversation(),service=new VisualDebugging(db),session={visualDisplay:async()=>({visible:true,bindings:[]}),visualSelection:async()=>undefined};
 const url='http://127.0.0.1:3000/index.html?lang=ru#/catalog?sort=price';
 const region={id:'region-12345678',groupId:'group-1',conversationId:chat.id,projectId:'p',projectRoot:'/tmp/test',url,route:'/index.html',rect:{x:0,y:0,width:60,height:20},viewport:{width:800,height:600},dpr:1,scroll:{x:0,y:0},anchors:[],createdAt:new Date().toISOString(),snapshot:'legacy',diagnostics:[]};
 const issue={id:'group-1',description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[region.id],route:'/index.html',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
