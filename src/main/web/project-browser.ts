@@ -180,6 +180,7 @@ export class ProjectBrowserSession {
     return this.exclusive(async () => {
       if (!this.reusable || this.ownership !== 'user') throw new Error('Visual Selection requires user ownership');
       const page=this.page!;
+      await this.clearSelection();if(enabled)this.preserveForUser();
       if (!this.selectionBound) {
         await page.exposeBinding('__ladRegionSelect', async (source, rect: VisualRect|null) => {
           if (source.page!==page || source.frame!==page.mainFrame() || !this.selectionActive || this.ownership!=='user') return;
@@ -262,7 +263,7 @@ export class ProjectBrowserSession {
     if(result.stale)view.diagnostics.push('DOM anchor is stale; saved document coordinates were used');
     if(this.ownership==='user')await page.evaluate(boxes=>{
       document.getElementById('__lad-visual-highlight')?.remove();const host=document.createElement('div');host.id='__lad-visual-highlight';host.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483647';const shadow=host.attachShadow({mode:'closed'});
-      for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;background:${b.color}22;box-sizing:border-box;`;shadow.append(node);}document.documentElement.append(host);setTimeout(()=>host.remove(),2200);
+      for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;background:${b.color}22;box-sizing:border-box;`;const label=document.createElement('span');label.style.cssText='background:#111;color:#fff;font:12px sans-serif;padding:2px';label.textContent=b.label;node.append(label);shadow.append(node);}document.documentElement.append(host);setTimeout(()=>host.remove(),2200);
     },result.boxes);else this.native?.highlight?.(result.boxes);
     if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; scrolling is deferred. Highlight is on the native input shield and excluded from page captures');
     return view;
@@ -418,6 +419,7 @@ export class ProjectBrowserSession {
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
       if (['read', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher && !responsiveRequest(args)) { await this.watcher.flush(); await this.refresh(); }
+      signal.throwIfAborted();
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
@@ -429,7 +431,7 @@ export class ProjectBrowserSession {
           this.observer?.state('loading', url.href);
           await this.start();
         }
-        this.errors.length = 0; this.blocked.length = 0; this.servedRevisions.clear();
+        signal.throwIfAborted();this.errors.length = 0; this.blocked.length = 0; this.servedRevisions.clear();
         this.observer?.state('loading', url.href);
         const response = await this.page!.goto(url.href, { waitUntil: 'load' });
         if(response && [401,403].includes(response.status()))return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
@@ -442,12 +444,12 @@ export class ProjectBrowserSession {
           if (typeof args.selector !== 'string' || !args.selector.trim() || args.selector.length > 500) throw new Error('A bounded CSS selector is required');
           const target = this.page.locator(args.selector).first();
           await target.scrollIntoViewIfNeeded();
-          const box = await target.boundingBox();
+          const box = await target.boundingBox();signal.throwIfAborted();
           if (args.action === 'click') await target.click();
           else {
             if (!await target.evaluate(element => element.matches('input:not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]),textarea') || (element as HTMLElement).isContentEditable === true)) return {error:'fill requires an editable input, textarea or contenteditable element. For Canvas use key, keydown, keyup or hold; never add hidden inputs to simulate keyboard.',code:'NOT_EDITABLE',retrySameArguments:false};
             if (typeof args.value !== 'string' || args.value.length > 4000) throw new Error('fill requires value of at most 4000 characters');
-            await target.fill(args.value);
+            signal.throwIfAborted();await target.fill(args.value);
           }
           this.observer?.action({ kind: String(args.action), ...(box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : {}), at: Date.now() });
         } else if (args.action === 'scroll') {

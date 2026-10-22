@@ -1,5 +1,7 @@
 # Visual Debugging v0.3 foundation
 
+Historical foundation report. Current UX/lifecycle changes and real Qwen evidence: [Visual Debugging usability verification](visual-debugging-usability-verification.md).
+
 Implementation branch: `feature/v0.3-visual-debugging-grounding`.
 Integration plan: [visual-debugging-plan.md](implementation/visual-debugging-plan.md).
 

@@ -18,7 +18,7 @@ export interface VisualRegion {
 }
 export type VisualIssueStatus = 'Detected' | 'Confirmed' | 'In progress' | 'Fixed' | 'Verified' | 'Unresolved';
 export interface VisualIssue {
-  explicit?: boolean; number?: number; color?: string;
+  generatedDescription?: boolean; explicit?: boolean; number?: number; color?: string;
   logicalTaskId?: string;
   id: string; description: string; severity: 'suspect' | 'minor' | 'major';
   status: VisualIssueStatus; regionIds: string[]; route: string;
@@ -57,6 +57,7 @@ export function normalizeVisualDocument(document: VisualDocument): VisualDocumen
   }
   document.nextAreaNumber=next;
   for(const region of document.regions){region.route=visualRoute(region.url);const area=document.issues.find(i=>i.id===region.groupId);if(area){region.groupNumber=area.number;region.color=area.color;}}
+  for(const area of document.issues){const first=document.regions.find(r=>r.groupId===area.id);if(first)area.route=first.route;}
   return document;
 }
 export function areaColor(number: number): string {

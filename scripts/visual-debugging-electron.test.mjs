@@ -53,11 +53,12 @@ try{
  doc=(await info()).regions;assert(doc.regions.at(-1).scroll.y>=600);assert(doc.regions.at(-1).rect.y>600);
  await command({action:'selection',enabled:false});assert.equal((await info()).snapshot.overlay,false);
  await app.evaluate(()=>global.visualFixture.window.setContentSize(1200,900));
- await command({action:'reveal',regionId:region1.id});assert.equal((await info()).snapshot.overlay,true);
+ const revealed=await command({action:'reveal',regionId:region1.id});assert(revealed.view);assert.equal((await info()).snapshot.overlay,false,'Read-only reveal must not enable authoring');
  await command({action:'selection',enabled:false});
  const detected=await command({action:'detect'});assert(detected.regions.some(r=>r.groupId.startsWith('auto-')));assert(detected.issues.every(i=>i.status==='Detected'));assert(detected.regions.length<=15);
  // UI draft references, no JSON/base64 in the textarea.
  await ui.waitForFunction(()=>document.querySelectorAll('.visual-region-list>div').length>=2);
+ await ui.locator('.visual-area').first().locator(':scope > details > summary').click();
  await ui.getByRole('checkbox',{name:`Select ${region1.id}`,exact:true}).check();
  await ui.getByRole('button',{name:'To chat → agent',exact:true}).click();
  assert(await ui.locator('.composer .visual-region-chip').count()||await ui.locator('.attachment-draft .visual-region-chip').count());

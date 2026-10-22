@@ -1,15 +1,17 @@
-const {app,BrowserWindow}=require('electron');
+const {app,BrowserWindow,ipcMain}=require('electron');
 const {resolve,join}=require('node:path');
 const root=process.env.LOCAL_AI_RUNTIME_ROOT;
 if(!root||!root.startsWith('/tmp/'))throw Error('A temporary runtime is required');
 app.setPath('userData',join(root,'electron'));
 app.whenReady().then(async()=>{
- const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true);
- await require(resolve('dist/main/services/llama-runtime-controller.js')).LlamaRuntimeController.prototype.switchTo(fixture.modelId,32768);
+ const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true,process.env.LOCAL_AI_TEST_MODEL_ID??'qwen3.8:27b-q4_K_M');
+ const controller=require(resolve('dist/main/services/llama-runtime-controller.js')).LlamaRuntimeController;controller.prototype.unload=async()=>{fixture.set({cold:true});return {ok:true,state:fixture.state()};};
+ await controller.prototype.switchTo(fixture.modelId,32768);
  const settings=require(resolve('dist/main/services/runtime-settings.js'));settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),autonomousBrowserQa:false,browserVision:'off'});
  const project=process.env.LOCAL_AI_TEST_PROJECT_ROOT;if(!project?.startsWith('/tmp/'))throw Error('A separate temporary project is required');
  fixture.db.updateConversation(fixture.chat.id,{title:'Visual Debugging demo',mode:'agent',workingDirectory:project,webMode:'auto',visionMode:'off'});
  const window=new BrowserWindow({width:1500,height:1000,webPreferences:{preload:resolve('dist/preload/index.js'),sandbox:true,contextIsolation:true,nodeIntegration:false}});
+ ipcMain.handle('settings:setLanguage',(_event,language)=>{require(resolve('dist/main/services/runtime-settings.js')).saveLanguage(language);require(resolve('dist/shared/locale.js')).setLanguage(language);window.webContents.send('settings:language',language);});
  const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));
  const events=[];const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='chat:stream')events.push(event);return send(channel,event,...rest);};
  global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,

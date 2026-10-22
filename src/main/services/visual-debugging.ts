@@ -70,7 +70,7 @@ export class VisualDebugging {
       for(const r of moved){r.groupId=command.groupId;this.add(document,r,chatId,projectId);}
     }else if(command.action==='issue'){
       const issue=document.issues.find(i=>i.id===command.issueId);if(!issue||typeof command.description!=='string'||command.description.length>1000||!['Detected','Confirmed','In progress','Fixed','Unresolved'].includes(command.status))throw new Error('Invalid issue update; Verified requires Ledger evidence');
-      issue.description=command.description;issue.status=command.status;
+      issue.description=command.description;issue.generatedDescription=false;issue.status=command.status;
     }else if(command.action==='detect'){
       for(const region of await session!.visualDetect())this.add(document,region,chatId,projectId);
     }else throw new Error('Unknown visual command');

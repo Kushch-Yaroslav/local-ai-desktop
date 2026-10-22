@@ -921,17 +921,17 @@ export function registerIpc(): void {
   });
   const visualDebugging=new VisualDebugging(database);
   const visualScope=(id: string, mutation=false)=>{
-    if(typeof id!=='string')throw new Error('Invalid conversation');
+    if(typeof id!=='string')throw new Error(t('Недопустимый чат.'));
     const chat=database.getConversation(id);
-    if(!chat?.workingDirectory||!chat.primaryProjectId||chat.webMode!=='auto')throw new Error('Select a registered project and enable Browser Tools');
-    if(mutation&&activeGenerations.has(id))throw new Error('Wait for the agent or use Stop/Pause before changing Visual Selection');
+    if(!chat?.workingDirectory||!chat.primaryProjectId||chat.webMode!=='auto')throw new Error(t('Выберите зарегистрированный проект и включите инструменты браузера.'));
+    if(mutation&&activeGenerations.has(id))throw new Error(t('Редактирование областей доступно после завершения или паузы агента.'));
     return {chat,project:{id:chat.primaryProjectId,root:chat.workingDirectory,slot:1 as const,label:'Current project'}};
   };
   const manualOpens=new Set<string>();
   ipcMain.handle('visual-debug:open',async(event,id:string,url?:string)=>{
     const {project}=visualScope(id);
-    if(activeGenerations.has(id)){if(url)throw new Error('Agent owns navigation; wait or pause before changing the route');rustAgent.manualPreview(event.sender.id,id,project.root);return;}
-    if(url!==undefined&&(typeof url!=='string'||url.length>2048))throw new Error('Invalid preview URL');
+    if(activeGenerations.has(id)){if(url)throw new Error(t('Агент управляет навигацией: дождитесь ответа или приостановите задачу.'));rustAgent.manualPreview(event.sender.id,id,project.root);return;}
+    if(url!==undefined&&(typeof url!=='string'||url.length>2048))throw new Error(t('Недопустимый URL preview.'));
     if(manualOpens.has(id))return;
     manualOpens.add(id);
     try{const saved=visualDebugging.document(id,project.id);let live=false;try{live=rustAgent.manualPreview(event.sender.id,id,project.root).reusable;}catch{ /* closed */ }const target=url??(!live?saved.previewUrls?.[0]:undefined);await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),target);if(target?.startsWith('http://')){saved.previewUrls=[target,...(saved.previewUrls??[]).filter(u=>u!==target)].slice(0,6);database.saveVisualDocument(id,project.id,saved);}}finally{manualOpens.delete(id);}

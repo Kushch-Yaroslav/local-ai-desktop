@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {createRequire} from 'node:module';
+const root=await mkdtemp('/tmp/lad-visual-migration-');process.env.LOCAL_AI_RUNTIME_ROOT=root;const require=createRequire(import.meta.url);
+const {Database}=require('../dist/main/services/database.js'),{VisualDebugging}=require('../dist/main/services/visual-debugging.js');
+const {visualRoute,visualPromptUrl,visualTurnContext}=require('../dist/shared/visual-debugging.js');
+const ts=require('typescript'),{english}=require('../dist/shared/translations.js');
+const {areaLabel,visualStatusLabel,visualDescription}=require('../dist/shared/visual-debugging-i18n.js');const {setLanguage,t}=require('../dist/shared/locale.js');
+const db=new Database(join(root,'test.db')),chat=db.createConversation(),service=new VisualDebugging(db),session={visualSelection:async()=>undefined};
+const url='http://127.0.0.1:3000/index.html?lang=ru#/catalog?sort=price';
+const region={id:'region-12345678',groupId:'group-1',conversationId:chat.id,projectId:'p',projectRoot:'/tmp/test',url,route:'/index.html',rect:{x:0,y:0,width:60,height:20},viewport:{width:800,height:600},dpr:1,scroll:{x:0,y:0},anchors:[],createdAt:new Date().toISOString(),snapshot:'legacy',diagnostics:[]};
+const issue={id:'group-1',description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[region.id],route:'/index.html',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
+db.saveVisualDocument(chat.id,'p',{regions:[region],issues:[issue]});const message=db.addMessage(chat.id,'user','Old reference');db.setRegionReferences(message.id,chat.id,[region]);
+let d=service.document(chat.id,'p');assert.equal(d.regions[0].id,region.id);assert.equal(d.issues[0].id,'group-1');assert.equal(d.issues[0].number,1);assert.equal(d.regions[0].route,'/index.html?lang=ru#/catalog?sort=price');assert.equal(d.issues[0].route,d.regions[0].route);
+d=await service.command(chat.id,'p',session,{action:'new-area'});const second=d.issues.at(-1);assert.equal(second.number,2);assert.notEqual(second.color,d.issues[0].color);
+await service.command(chat.id,'p',session,{action:'color',areaId:'group-1',color:'#facc15'});assert.equal(new VisualDebugging(new Database(join(root,'test.db'))).document(chat.id,'p').issues[0].color,'#facc15');
+await service.command(chat.id,'p',session,{action:'delete-area',areaId:'group-1'});assert.equal(db.visualRegionReference(chat.id,'p',region.id).id,region.id,'Immutable old history reference must remain recoverable');d=await service.command(chat.id,'p',session,{action:'new-area'});assert.equal(d.issues.at(-1).number,3,'Deleted area numbers cannot be reassigned');assert.notEqual(d.issues.at(-1).id,'group-1');
+assert.equal(visualRoute(url),'/index.html?lang=ru#/catalog?sort=price');const sanitized=visualPromptUrl(url+'&access_token=PRIVATE');assert(sanitized.includes('sort=price'));assert(sanitized.includes('lang=ru'));assert(!sanitized.includes('PRIVATE'));assert(visualTurnContext([region]).includes('index.html?lang=ru#/catalog?sort=price'));
+for(const [locale,area,detected,description]of [['ru','Область 3','Обнаружено','Предполагаемый дефект'],['en','Area 3','Detected','Visual issue candidate']]){setLanguage(locale);assert.equal(areaLabel(3),area);assert.equal(visualStatusLabel('Detected'),detected);assert.equal(visualDescription(issue),description);assert.equal(t('unknown fallback label'),'unknown fallback label');assert.equal(visualDescription({description:'User-authored description'}),'User-authored description');}
+for(const file of ['src/renderer/components/VisualDebugPanel.tsx','src/renderer/components/LiveBrowser.tsx','src/renderer/components/BrowserQaControls.tsx','src/shared/visual-debugging-i18n.ts']){
+ const source=ts.createSourceFile(file,await readFile(file,'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+ const visit=node=>{if(ts.isCallExpression(node)&&node.expression.getText(source)==='t'&&node.arguments[0]&&ts.isStringLiteral(node.arguments[0])){const key=node.arguments[0].text.trim();if(/[а-яё]/i.test(key))assert(english[key],`${file}: missing English translation for ${key}`);}if(ts.isTaggedTemplateExpression(node)&&node.tag.getText(source)==='tr'&&ts.isTemplateExpression(node.template)){const key=node.template.head.text+node.template.templateSpans.map((span,index)=>`{${index}}${span.literal.text}`).join('');assert(english[key],`${file}: missing template translation ${key}`);}ts.forEachChild(node,visit);};visit(source);
+}
+assert.equal(visualDescription({description:'Visual issue candidate: my own explanation',generatedDescription:false}),'Visual issue candidate: my own explanation');
+setLanguage('ru');for(const [wire,label]of Object.entries({Detected:'Обнаружено',Confirmed:'Подтверждено','In progress':'В работе',Fixed:'Исправлено',Verified:'Проверено',Unresolved:'Не решено'}))assert.equal(visualStatusLabel(wire),label);setLanguage('en');for(const wire of ['Detected','Confirmed','In progress','Fixed','Verified','Unresolved'])assert.equal(visualStatusLabel(wire),wire);
+assert.equal(issue.status,'Detected','Translation must not rewrite the protocol enum');
+console.log('PASS legacy region identity migration, monotonic area numbering, colors/SQLite, immutable history references, full query/hash routing, credential redaction, RU/EN and fallback.');

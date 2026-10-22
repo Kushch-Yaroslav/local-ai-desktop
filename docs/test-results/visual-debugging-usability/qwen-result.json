@@ -1,0 +1,42 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-visual-real-qwen-UkidvS",
+  "project": "/tmp/lad-visual-real-qwen-project-CUvLO0",
+  "model": "/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+  "provider": "real Qwen3.6-35B-A3B, Vision Off",
+  "serverPid": 52397,
+  "wallSeconds": 55.705,
+  "issue": {
+    "id": "area-86e1fac6-ff8a-46a3-9b0b-ea745bf8c926",
+    "explicit": true,
+    "number": 1,
+    "description": "Visual issue candidate",
+    "severity": "suspect",
+    "status": "Verified",
+    "regionIds": [
+      "region-32579b62"
+    ],
+    "route": "/index.html?currency=UAH#/shop?sort=price",
+    "suspectedSourceFiles": [
+      "/tmp/lad-visual-real-qwen-project-CUvLO0/index.html"
+    ],
+    "evidenceRefs": [
+      "region-32579b62",
+      "ev-002"
+    ],
+    "verification": "Ledger linked",
+    "color": "#22d3ee",
+    "logicalTaskId": "b2024104-b301-42cf-9046-22f4bbc861f9"
+  },
+  "geometry": [
+    {
+      "clientWidth": 181,
+      "scrollWidth": 181
+    },
+    {
+      "clientWidth": 151,
+      "scrollWidth": 151
+    }
+  ],
+  "final": "## Итог\n\n**Причина:** `.checkout` имел `width: 60px` вместе с `overflow: hidden` и `white-space: nowrap` — это принудительно сжимало текст (до 181px) в 60-пиксельный блок, вызывая горизонтальное обрезание. Это **не оверлап** (элементы не пересекались — `<p id=\"unrelated\">` на другой строке по Y); проблема была исключительно в текстовом клиппинге одного элемента.\n\n**Исправление:** Удалён `width: 60px` из `.checkout`-правила. Кнопки теперь авто-расширяются по содержимому, текст «Complete purchase securely» и «Continue shopping now» полностью виден. `#unrelated` сохранён без изменений.\n\n**Верификация:** web_project QA на маршруте `/index.html?currency=UAH#/shop?sort=price` (viewport 1440×900, desktop) — layout value = 0 на обоих снимках (ev-002), runtime errors = none. Deliverable `area-86e1fac6-ff8a-46a3-9b0b-ea745bf8c926` — **verified**.\n\n**Vision** — Off (не выполнялся; подтверждение основано на DOM-измерениях и runtime-диагностике).\n\n**Agent V2 status:** Browser QA: Verified. Visual analysis: Not Verified."
+}
