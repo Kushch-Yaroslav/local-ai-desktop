@@ -4,7 +4,6 @@ import { useAppStore } from '../store/app-store';
 import { useLocale } from '../use-locale';
 import { ControlField } from './ControlField';
 import { localizeMessage, t } from '../../shared/locale';
-import { isComputerVisionAvailable } from '../../shared/computer-vision';
 type Status=Awaited<ReturnType<typeof window.localAi.browserQa.status>>;
 
 export function VisionControl({modelId,onStatusChange}:{modelId?:string|null;onStatusChange?:(status:Status|undefined)=>void}){
@@ -28,13 +27,8 @@ export function VisionControl({modelId,onStatusChange}:{modelId?:string|null;onS
 
 export function ComputerVisionControl({ visionStatus }: { visionStatus?: Status }) {
  const ru=useLocale()==='ru';
- const featureImplemented=false;
- const visionSupported=visionStatus?.capability?.state==='supported';
- const effectiveVisionEnabled=Boolean(visionStatus?.available&&visionStatus.mode!=='off');
- const available=isComputerVisionAvailable({featureImplemented,visionSupported,effectiveVisionEnabled});
- return <ControlField label={ru?'Компьютерное зрение':'Computer Vision'} className="computer-vision-field" status={<small className="feature-coming-soon">{ru?'Скоро':'Coming soon'}</small>} help={ru?'Будущая функция для более точного визуального анализа интерфейса. Она позволит выделять проблемные области на скриншоте и сопоставлять их с DOM и исходным кодом. Может повысить точность поиска визуальных ошибок, но потребует больше времени и вычислительных ресурсов. Для работы понадобится поддержка Vision.':'A future feature for more precise visual interface analysis. It will identify problem areas in screenshots and match them to DOM elements and source code. It may improve visual bug finding but will require more time and compute. Vision support is required.'}>
-  <div className="qa-toggle computer-vision-toggle"><button type="button" role="switch" aria-label={ru?'Компьютерное зрение':'Computer Vision'} aria-checked={available} disabled={!available}><i/>{ru?'Выкл.':'Off'}</button><small>{ru?'Функция ещё не реализована':'Feature not implemented yet'}</small></div>
- </ControlField>;
+ const ready=useAppStore(s=>Boolean(s.conversations.find(c=>c.id===s.activeId)?.workingDirectory)&&!s.generationOwnerId);
+ return <ControlField label="Visual Debugging" className="computer-vision-field" help={ru?'Выделяйте области в Native Browser, связывайте их с DOM и отправляйте агенту. Manual работает без Vision. Auto проверяет переполнение только текущей страницы.':'Select Native Browser regions, ground them in DOM and send them to the agent. Manual works without Vision. Auto checks overflow on the current page only.'}><button type="button" disabled={!ready} onClick={()=>window.dispatchEvent(new Event('visual-open-browser'))}>{ru?'Открыть браузер':'Open browser'}</button><small>{visionStatus?.available?'Vision available':'DOM / CSS / geometry'}</small></ControlField>;
 }
 
 /** Functional QA policy is independent from model image capabilities. */

@@ -1,3 +1,4 @@
+import { visualTurnContext } from '../../shared/visual-debugging';
 import { readFile } from 'node:fs/promises';
 import type { Attachment, ChatMessage, ProjectReference, StreamEvent, ToolActivity } from '../../shared/types';
 import { AttachmentService, attachmentDisplayName, imageMimeType } from './attachment-service';
@@ -54,6 +55,7 @@ export class AttachmentPipeline {
       const attachments = this.database.listAttachments(message.id).filter((attachment) => includeImageDescriptions || attachment.kind !== 'image');
       if (attachments.length) contextualized.push({ id: `attachments-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: attachmentTurnContext(attachments) });
       if (message.projectReferences?.length) contextualized.push({ id: `project-references-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: projectReferenceTurnContext(message.projectReferences) });
+      if (message.regionReferences?.length) contextualized.push({id:`regions-${message.id}`,conversationId:message.conversationId,role:'system',createdAt:message.createdAt,content:visualTurnContext(message.regionReferences)});
       contextualized.push(message);
     }
     return contextualized;
@@ -71,12 +73,17 @@ export class AttachmentPipeline {
       if (message.role !== 'user') { prepared.push(message); continue; }
       if (!nativeImageMessageIds.has(message.id)) { prepared.push(message); continue; }
       const images = this.database.listAttachments(message.id).filter((attachment) => attachment.kind === 'image');
-      if (!images.length) { prepared.push(message); continue; }
+      const regions=this.database.getMessage(message.id)?.regionReferences??[];
+      if (!images.length && !regions.some(r=>r.screenshotPath)) { prepared.push(message); continue; }
       const encoded: string[] = [];
       for (const image of images) {
         if (signal.aborted) throw new DOMException('Attachment preparation cancelled', 'AbortError');
         try { encoded.push(`data:${imageMimeType(image.filename)};base64,${(await readFile(image.storageRef)).toString('base64')}`); }
         catch (error) { throw new Error(`Не удалось подготовить ${attachmentDisplayName(image)} для нативного vision: ${error instanceof Error ? error.message : String(error)}`); }
+      }
+      for(const region of regions.slice(0,12)){
+        if(signal.aborted)throw new DOMException('Attachment preparation cancelled','AbortError');
+        if(region.screenshotPath){try{const bytes=await readFile(region.screenshotPath);if(bytes.length<=8_000_000)encoded.push(`data:image/png;base64,${bytes.toString('base64')}`);}catch{ /* DOM evidence remains available */ }}
       }
       prepared.push({ ...message, images: encoded });
     }
@@ -88,6 +95,7 @@ export class AttachmentPipeline {
     const current = userMessages.at(-1);
     if (!current) return new Set();
     const selected = new Set<string>();
+    if(this.database.getMessage(current.id)?.regionReferences?.some(r=>r.screenshotPath))selected.add(current.id);
     if (this.database.listAttachments(current.id).some((attachment) => attachment.kind === 'image')) selected.add(current.id);
     if (!refersToPriorImage(current.content)) return selected;
     const prior = userMessages.slice(0, -1).reverse().find((message) => this.database.listAttachments(message.id).some((attachment) => attachment.kind === 'image'));

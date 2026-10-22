@@ -24,7 +24,7 @@ type ConversationRow = {
   web_mode: WebMode;
   created_at: string; updated_at: string;
 };
-type MessageRow = { logical_task_id?: string | null; id: string; conversation_id: string; role: ChatMessage['role']; content: string; thinking: string | null; thinking_timeline: string | null; task_plan: string | null; generation_stats: string | null; rich_artifacts: string | null; created_at: string };
+type MessageRow = { region_references?: string | null; logical_task_id?: string | null; id: string; conversation_id: string; role: ChatMessage['role']; content: string; thinking: string | null; thinking_timeline: string | null; task_plan: string | null; generation_stats: string | null; rich_artifacts: string | null; created_at: string };
 type ProjectReferenceRow = { id: string; message_id: string; position: number; project_id: string; project_slot: 1 | 2; project_path: string; project_label: string; relative_path: string; kind: ProjectReferenceKind };
 type AttachmentRow = { id: string; message_id: string; position: number; kind: AttachmentKind; mime_type: string; filename: string; size: number; storage_ref: string; status: AttachmentStatus; extracted_text: string | null; structured_data: string | null; vision_analysis: string | null; error: string | null; metadata: string | null; created_at: string; updated_at: string };
 type AnalysisRunRow = { logical_task_id?: string | null; generation_id?: string | null; triggering_message_id?: string | null; archived?: number; task_snapshot?: string | null; id: string; conversation_id: string; assistant_message_id: string | null; reasoning_mode: ReasoningMode; status: AnalysisRun['status']; action_count: number; created_at: string; completed_at: string | null; timeline?: string | null; partial_output?: string | null; error?: string | null; rich_artifacts?: string | null };
@@ -95,6 +95,7 @@ const mapMessage = (row: MessageRow, attachments?: Attachment[], projectReferenc
     id: row.id, conversationId: row.conversation_id, role: row.role, content: row.content, createdAt: row.created_at,
     attachments,
     projectReferences,
+    regionReferences: row.region_references ? JSON.parse(row.region_references) : undefined,
     ...(row.thinking?.trim() ? { thinking: row.thinking } : {}),
     ...(thinkingTimeline?.length ? { thinkingTimeline } : {}),
     ...(taskPlan ? { taskPlan } : {}),
@@ -187,6 +188,8 @@ export class Database {
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN primary_project_id TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN secondary_working_directory TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN secondary_project_id TEXT'); } catch { /* Existing databases already have this column. */ }
+    this.db.exec('CREATE TABLE IF NOT EXISTS visual_documents (conversation_id TEXT NOT NULL, project_id TEXT NOT NULL, document TEXT NOT NULL, PRIMARY KEY(conversation_id, project_id)) STRICT');
+    try { this.db.exec('ALTER TABLE messages ADD COLUMN region_references TEXT'); } catch { /* migration already applied */ }
     try { this.db.exec('ALTER TABLE messages ADD COLUMN thinking TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE messages ADD COLUMN thinking_timeline TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE messages ADD COLUMN task_plan TEXT'); } catch { /* Existing databases already have this column. */ }
@@ -357,6 +360,7 @@ export class Database {
     this.db.prepare('DELETE FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
     this.db.prepare('DELETE FROM project_references WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
     this.db.prepare('DELETE FROM messages WHERE conversation_id=?').run(id);
+    this.db.prepare('DELETE FROM visual_documents WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM conversations WHERE id=?').run(id);
     return attachments;
   }
@@ -500,6 +504,17 @@ export class Database {
     for (const [position, reference] of projectReferences.entries()) this.db.prepare('INSERT INTO project_references (id, message_id, position, project_id, project_slot, project_path, project_label, relative_path, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(reference.id, message.id, position, reference.projectId, reference.projectSlot, reference.projectPath, reference.projectLabel, reference.relativePath, reference.kind);
     this.db.prepare('UPDATE conversations SET updated_at=? WHERE id=?').run(message.createdAt, conversationId);
     return { ...message, projectReferences };
+  }
+
+  visualDocument(conversationId: string, projectId: string): import('../../shared/visual-debugging').VisualDocument {
+    const row = this.db.prepare('SELECT document FROM visual_documents WHERE conversation_id=? AND project_id=?').get(conversationId, projectId) as {document:string} | undefined;
+    return row ? JSON.parse(row.document) : {regions:[], issues:[]};
+  }
+  saveVisualDocument(conversationId: string, projectId: string, document: import('../../shared/visual-debugging').VisualDocument): void {
+    this.db.prepare('INSERT INTO visual_documents VALUES (?, ?, ?) ON CONFLICT(conversation_id,project_id) DO UPDATE SET document=excluded.document').run(conversationId, projectId, JSON.stringify(document));
+  }
+  setRegionReferences(messageId: string, conversationId: string, regions: import('../../shared/visual-debugging').VisualRegion[]): void {
+    this.db.prepare('UPDATE messages SET region_references=? WHERE id=? AND conversation_id=?').run(JSON.stringify(regions),messageId,conversationId);
   }
 
   listProjectReferences(messageId: string): ProjectReference[] {

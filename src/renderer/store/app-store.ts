@@ -54,7 +54,7 @@ type State = {
   refreshRuntimeStatus: () => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   refreshHardware: () => Promise<void>;
-  sendMessage: (content: string, files?: File[], projectReferences?: ProjectReference[]) => Promise<void>;
+  sendMessage: (content: string, files?: File[], projectReferences?: ProjectReference[], regionReferences?: import('../../shared/visual-debugging').VisualRegion[]) => Promise<void>;
   steer: (content: string, intent?: SteeringIntent) => Promise<boolean>;
   steeringStatus: 'accepted' | 'applied' | null;
   approveAction: (decision: ApprovalDecision) => Promise<void>;
@@ -276,7 +276,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     if (remaining[0]) await get().selectConversation(remaining[0].id); else await get().createConversation();
   },
   refreshHardware: async () => set({ hardware: await window.localAi.hardware.get() }),
-  sendMessage: async (content, files = [], projectReferences = []) => {
+  sendMessage: async (content, files = [], projectReferences = [], regionReferences = []) => {
     if (get().generationConversationId || branchRegenerationPending) { set({ error: t("Уже выполняется генерация или подготовка повтора. Дождитесь завершения или остановите её в активном чате.") }); return; }
     const { activeId, conversations, messages, settings, continuationTaskId } = get();
     if (!activeId || (!content.trim() && files.length === 0)) return;
@@ -285,7 +285,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const userId = crypto.randomUUID();
     let imageIndex = 0;
     const attached: Attachment[] = files.map((file, index) => { const isImage = isImageFile(file); return { id: crypto.randomUUID(), messageId: userId, index, kind: isImage ? 'image' : file.name.endsWith('.pdf') ? 'pdf' : /\.(xlsx|xls)$/i.test(file.name) ? 'spreadsheet' : file.name.endsWith('.docx') ? 'document' : 'text', mimeType: file.type || 'application/octet-stream', filename: file.name, size: file.size, storageRef: '', status: 'pending', metadata: isImage ? { imageNumber: ++imageIndex } : undefined, createdAt: now(), updatedAt: now() }; });
-    const user: ChatMessage = { id: userId, conversationId: activeId, role: 'user', content: content.trim() || t("Вложения"), createdAt: now(), attachments: attached, projectReferences };
+    const user: ChatMessage = { id: userId, conversationId: activeId, role: 'user', content: content.trim() || t("Вложения"), createdAt: now(), attachments: attached, projectReferences, regionReferences };
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
     set({ agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: chat?.mode === 'agent' ? { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } : null });
     try {

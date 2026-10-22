@@ -629,3 +629,17 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 
 .model-launch-diff {max-width:100%;overflow:auto}.model-launch-diff table{width:100%;text-align:left;border-collapse:collapse}.model-launch-diff td,.model-launch-diff th{padding:6px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}.model-launch-diff small{display:block;color:var(--muted)}
 .message-content p { white-space: pre-wrap; }
+
+.visual-debug-panel { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size:12px; max-height:280px; overflow:auto; }
+.visual-debug-panel summary {cursor:pointer;font-weight:600}
+.visual-controls,.visual-preview-url {display:flex;flex-wrap:wrap;gap:5px;padding:5px 0}
+.visual-controls input {width:100px}
+.visual-preview-url {padding:4px 10px}
+.visual-preview-url input {flex:1;min-width:100px}
+.visual-region-chip {display:inline-flex;border:1px solid;border-radius:5px;max-width:100%;gap:3px}
+.visual-region-chip button {font-size:11px;background:transparent;color:inherit;cursor:pointer;border:0;padding:3px}
+.visual-region-list>div {display:flex;gap:5px;align-items:center;padding:3px 0;flex-wrap:wrap}
+.visual-issue {display:flex;gap:4px;flex-wrap:wrap;padding:4px 0}
+.visual-issue input {max-width:180px}
+.visual-capabilities {font-size:11px;opacity:.8;margin:5px 0}
+.live-manual-open {display:flex;gap:6px;align-items:center;margin:4px 12px;align-self:flex-end;font-size:12px;cursor:pointer}

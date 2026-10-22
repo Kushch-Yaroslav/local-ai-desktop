@@ -1,3 +1,5 @@
+import { VisualDebugging } from '../services/visual-debugging';
+import type { VisualCommand } from '../../shared/visual-debugging';
 import { visionPreference, mtpPreference, permitsImages, withoutImagePayloads } from '../../shared/model-features';
 import { visionCapability } from '../services/vision-capability';
 import { applyReasoningDefaults } from '../../shared/reasoning-controls';
@@ -916,6 +918,27 @@ export function registerIpc(): void {
     if (generation?.id !== runId || generation.mode !== 'agent' || !['correct', 'continue', 'pause', 'correct_resume', 'continue_anyway'].includes(action) || typeof signature !== 'string') throw new Error('Управление циклом недоступно');
     await rustAgent.control(runId, { action, signature });
   });
+  const visualDebugging=new VisualDebugging(database);
+  const visualScope=(id: string, mutation=false)=>{
+    if(typeof id!=='string')throw new Error('Invalid conversation');
+    const chat=database.getConversation(id);
+    if(!chat?.workingDirectory||!chat.primaryProjectId||chat.webMode!=='auto')throw new Error('Select a registered project and enable Browser Tools');
+    if(mutation&&activeGenerations.has(id))throw new Error('Wait for the agent or use Stop/Pause before changing Visual Selection');
+    return {chat,project:{id:chat.primaryProjectId,root:chat.workingDirectory,slot:1 as const,label:'Current project'}};
+  };
+  const manualOpens=new Set<string>();
+  ipcMain.handle('visual-debug:open',async(event,id:string,url?:string)=>{
+    const {project}=visualScope(id,true);
+    if(url!==undefined&&(typeof url!=='string'||url.length>2048))throw new Error('Invalid preview URL');
+    if(manualOpens.has(id))return;
+    manualOpens.add(id);
+    try{await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),url);}finally{manualOpens.delete(id);}
+  });
+  ipcMain.handle('visual-debug:document',(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false;try{selectionActive=rustAgent.manualPreview(event.sender.id,id,project.root).visualSelecting;}catch{ /* no live preview */ }return {...visualDebugging.document(id,project.id),selectionActive};});
+  ipcMain.handle('visual-debug:command',async(event,id:string,command:VisualCommand)=>{
+    const {project}=visualScope(id,true);
+    return visualDebugging.command(id,project.id,rustAgent.manualPreview(event.sender.id,id,project.root),command);
+  });
   ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
   ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));
   ipcMain.handle('live-browser:watch', (event, conversationId: unknown, visible: unknown) => liveBrowsers.watch(event.sender, conversationId, visible));
@@ -983,7 +1006,19 @@ export function registerIpc(): void {
     const primaryProject = conversation.workingDirectory && conversation.primaryProjectId ? { id: conversation.primaryProjectId, slot: 1 as const, root: conversation.workingDirectory, label: `Project 1 — ${projectDirectoryName(conversation.workingDirectory)}` } : null;
     const selectedProjects: AgentProject[] = primaryProject ? [primaryProject, ...(conversation.secondaryWorkingDirectory && conversation.secondaryProjectId ? [{ id: conversation.secondaryProjectId, slot: 2 as const, root: conversation.secondaryWorkingDirectory, label: `Project 2 — ${projectDirectoryName(conversation.secondaryWorkingDirectory)}` }] : [])] : [];
     const validReferences = (references: ProjectReference[] | undefined): ProjectReference[] => (references ?? []).filter((reference) => selectedProjects.some((project) => project.id === reference.projectId && project.slot === reference.projectSlot && project.root === reference.projectPath) && (reference.kind === 'file' || reference.kind === 'folder') && Boolean(reference.relativePath));
-    if (user) { user.projectReferences = validReferences(user.projectReferences); database.addMessage(request.conversationId, 'user', user.content, user.id, user.projectReferences, { logicalTaskId }); }
+    if (user) {
+      user.projectReferences = validReferences(user.projectReferences);
+      const ids=[...(user.regionReferences??[]).slice(0,12).map(r=>r.id),...Array.from(user.content.matchAll(/#(region-[a-f0-9]{8})\b/g),match=>match[1])].slice(0,12);
+      const stored=selectedProjects.flatMap(p=>database.visualDocument(request.conversationId,p.id).regions);
+      user.regionReferences=stored.filter(r=>ids.includes(r.id)&&r.conversationId===request.conversationId&&selectedProjects.some(p=>p.id===r.projectId&&p.root===r.projectRoot));
+      database.addMessage(request.conversationId, 'user', user.content, user.id, user.projectReferences, { logicalTaskId });
+      database.setRegionReferences(user.id,request.conversationId,user.regionReferences);
+      if(logicalTaskId)for(const project of selectedProjects){
+        const visual=database.visualDocument(request.conversationId,project.id);
+        for(const issue of visual.issues)if(user.regionReferences.some(r=>r.groupId===issue.id))issue.logicalTaskId=logicalTaskId;
+        database.saveVisualDocument(request.conversationId,project.id,visual);
+      }
+    }
     if (logicalTaskId && triggeringUser) {
       database.bindMessageTask(triggeringUser.id, request.conversationId, logicalTaskId);
       run = database.createAnalysisRun(request.conversationId, conversation.reasoningMode, { logicalTaskId, generationId: generation.id, triggeringMessageId: triggeringUser.id });
@@ -1002,6 +1037,7 @@ export function registerIpc(): void {
     // Runtime capabilities govern routing for every image turn in the active
     // history, rather than guessing from model names.
     const requestMessages = withoutImagePayloads(logicalTaskId ? database.taskHistory(request.conversationId, logicalTaskId, request.messages) : request.messages);
+    for(const message of requestMessages)message.regionReferences=database.getMessage(message.id)?.regionReferences?.filter(r=>selectedProjects.some(p=>p.id===r.projectId&&p.root===r.projectRoot));
     const requestMessageIds = new Set(requestMessages.map(message => message.id));
     const hasImages = database.listAttachmentsForConversation(request.conversationId).some((attachment) => attachment.kind === 'image' && (!logicalTaskId || requestMessageIds.has(attachment.messageId)));
     const requestUser = user ?? [...request.messages].reverse().find((message) => message.role === 'user');
