@@ -9,14 +9,14 @@ export interface ProjectBrowserObserver {
   renew?():ProjectBrowserObserver;
   createPage?(origin: string): Promise<NativeProjectPage>;
   createQaPage?(origin: string): Promise<NativeProjectPage>;
-  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; close(reason?:string): Promise<void> }): void;
+  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> }): void;
   ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
   action(action: BrowserAction): void;
   closed(reason?:string): void;
 }
 interface Entry {
-  controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; close(reason?:string): Promise<void> };
+  controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; native?: NativeProjectPage;
   ended: boolean; visibility?: (visible: boolean) => void;
 }
@@ -114,6 +114,10 @@ export class LiveBrowserHub {
     await entry.controls.input(input as BrowserInput);
   }
   async close(owner: WebContents, sessionId: unknown) { await this.end(this.authorizedEntry(owner, sessionId)); }
+  async policyChanged(owner: WebContents, conversationId: string) {
+    const entry=this.entries.get(this.key(owner.id,conversationId));
+    if(entry&&!entry.ended)await entry.controls?.policyChanged?.();
+  }
   async closeConversation(owner: WebContents, conversationId: string, reason='policy_changed') { const entry = this.entries.get(this.key(owner.id, conversationId)); if (entry) await this.end(entry,reason); }
   private authorizedEntry(owner: WebContents, sessionId: unknown) {
     const entry = [...this.entries.values()].find(item => item.owner === owner && !item.ended && item.state.sessionId === sessionId);

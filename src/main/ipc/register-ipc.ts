@@ -899,14 +899,14 @@ export function registerIpc(): void {
   ipcMain.handle('chat:revoke-approvals', (_event, conversationId: string, generationId: string, grantId?: string) => {
     const generation = activeGenerations.get(conversationId);
     if (!database.getConversation(conversationId) || generation && generation.id !== generationId) return false;
-    approvalBroker.revoke(conversationId, grantId); void liveBrowsers.closeConversation(_event.sender, conversationId); return true;
+    approvalBroker.revoke(conversationId, grantId); void liveBrowsers.policyChanged(_event.sender, conversationId); return true;
   });
   ipcMain.handle('chat:permissions', (_event, id: string) => autonomySessions.get(id));
   ipcMain.handle('chat:grants', (_event, id: string, runId: string) => database.getConversation(id) && (!activeGenerations.has(id) || activeGenerations.get(id)?.id === runId) ? approvalBroker.list(id,_event.sender.id) : []);
   ipcMain.handle('chat:set-permissions', async (event, id: string, mode: AutonomyMode, trust: boolean) => {
     const conversation = database.listConversations().find(item => item.id === id);
     if (!conversation) throw new Error('Чат недоступен');
-    if(normalizeAutonomyMode(mode)!==autonomySessions.get(id).mode){approvalBroker.revoke(id);await liveBrowsers.closeConversation(event.sender,id);}
+    if(normalizeAutonomyMode(mode)!==autonomySessions.get(id).mode){approvalBroker.revoke(id);await liveBrowsers.policyChanged(event.sender,id);}
     const permissions = await autonomySessions.set(id, mode, [conversation.workingDirectory, conversation.secondaryWorkingDirectory].filter((root): root is string => Boolean(root)), trust === true, async () => false);
     approvalBroker.context(id,{mode:permissions.mode,roots:[conversation.workingDirectory,conversation.secondaryWorkingDirectory].filter((root):root is string=>Boolean(root)).sort()});
     const generation = activeGenerations.get(id);

@@ -168,9 +168,10 @@ export class RustAgentRuntime {
     const requestedOrigin=url&&/^https?:/.test(url)?loopbackTarget(url).origin:undefined;
     if(url&&url.includes(':')&&!requestedOrigin)throw new Error('Only project-relative paths and explicit loopback preview URLs are allowed');
     const prior=this.previews.get(key);
-    if(prior?.root===project.root&&prior.session.reusable&&!url){await prior.session.finishRun(false);return;}
+    if(prior?.root===project.root&&prior.session.reusable&&!url){prior.session.preserveForUser();await prior.session.finishRun(false);return;}
     let session=prior?.root===project.root&&prior.session.reusable&&(!requestedOrigin||requestedOrigin===prior.session.stateIdentity.origin)?prior.session:undefined;
     if(!session){await prior?.session.close();session=new ProjectBrowserSession(project.root,join(paths.cache,'browser-captures','manual-'+randomUUID()),undefined,observer,{projectId:project.id,securityMode:'strict'});this.previews.set(key,{root:project.root,session});}
+    session.preserveForUser();
     const result=await session.execute({action:'open',...(url?(requestedOrigin?{url}:{path:url}):{path:'index.html'})},new AbortController().signal,async()=>({approved:true,reason:'once'}));
     await session.finishRun(false);
     if(result&&typeof result==='object'&&'error' in result)throw new Error(String(result.error));
@@ -491,12 +492,12 @@ export class RustAgentRuntime {
       if (!signal.aborted && terminalFinal) yield { type: 'done', finishReason: terminalFinishReason };
       else if (!signal.aborted && !terminalFailure && !terminalStopped && !terminalPaused) yield { type: 'error', message: 'Rust Agent Runtime V2 ended without a terminal final response', details: processError ? String(processError) : stderr.trim() || 'The runtime closed before emitting a final event.' };
     } finally {
-      if ((terminalFinal || terminalPaused || terminalStopped || signal.aborted) && browserObserver && previewKey && projectBrowser?.reusable) {
+      if ((terminalFinal || terminalPaused || terminalStopped || signal.aborted || projectBrowser?.userManaged) && browserObserver && previewKey && projectBrowser?.reusable) {
         await (terminalPaused ? projectBrowser.pauseRun() : projectBrowser.finishRun(!signal.aborted && terminalFinal)).catch(() => projectBrowser?.close());
         if (projectBrowser.reusable) {
           this.previews.delete(previewKey);
           this.previews.set(previewKey, { root: projects.find(p => p.id === previewProject)!.root, session: projectBrowser });
-          while (this.previews.size > 8) { const [key, old] = this.previews.entries().next().value!; this.previews.delete(key); await old.session.close(); }
+          while (this.previews.size > 8) { const candidate=[...this.previews].find(([,item])=>!item.session.userManaged);if(!candidate)break;const [key,old]=candidate;this.previews.delete(key);await old.session.close(); }
         }
         await session?.then(browser => browser.close(), () => undefined);
       } else await closeWeb();

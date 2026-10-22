@@ -130,6 +130,15 @@ export class ProjectBrowserSession {
   private ownership: 'agent' | 'user' | 'paused' = 'agent';
   private authorized = false;
   private previewApproved=false;
+  private userSession=false;
+  private operationAbort?: AbortController;
+  get userManaged(){return this.userSession;}
+  get currentUrl(){return this.page&&!this.page.isClosed()?this.page.url():undefined;}
+  preserveForUser(){this.userSession=true;}
+  async policyChanged(){
+    this.authorized=false;this.denied=undefined;this.operationAbort?.abort();
+    await this.exclusive(async()=>{await this.clearSelection();await this.releaseInput();if(this.reusable){this.ownership='user';this.observer?.ownership?.('user');}});
+  }
   private denied?: string;
   private readonly heldKeys = new Set<string>();
   private responsiveSession?: ProjectBrowserSession;
@@ -155,9 +164,9 @@ export class ProjectBrowserSession {
     await this.releaseInput();
     this.ownership = 'user'; this.observer?.ownership?.('user');
   }
-  async pauseRun() { await this.clearSelection(); this.ownership = 'paused'; await this.releaseInput(); this.observer?.ownership?.('paused'); }
+  async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership); }
   private bindObserver() {
-    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), close: reason => this.close(false,reason??'user_closed') });
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
     this.observer?.ownership?.(this.ownership);
   }
   private selectionActive = false;
@@ -342,12 +351,13 @@ export class ProjectBrowserSession {
     await this.clearSelection();
     const isolated=responsiveRequest(args)&&!this.isolatedQa&&Boolean(this.page);
     if(signal.aborted)return {error:'Browser operation cancelled',code:'BROWSER_OPERATION_CANCELLED',retrySameArguments:false,browser_session:this.stateIdentity};
-    const cancel = () => { if(!isolated)void this.close(false,'operation_cancelled'); };
+    const controller=new AbortController();this.operationAbort=controller;
+    const cancel = () => { controller.abort();if(!isolated&&!this.userSession)void this.close(false,'operation_cancelled');else {void this.releaseInput();void this.native?.contents.debugger.sendCommand('Page.stopLoading').catch(()=>undefined);} };
     signal.addEventListener('abort', cancel, { once: true });
-    const operationSignal = AbortSignal.any([signal, this.abort.signal]);
+    const operationSignal = AbortSignal.any([signal, this.abort.signal,controller.signal]);
     const operation=()=>{this.authorized=false;this.navigationRecoveryUsed=false;return this.executePage(args,operationSignal,confirm,actionId);};
     try { return await (isolated&&this.page?operation():this.exclusive(operation)); }
-    finally { signal.removeEventListener('abort', cancel); }
+    finally { signal.removeEventListener('abort', cancel);if(this.operationAbort===controller)this.operationAbort=undefined; }
   }
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
