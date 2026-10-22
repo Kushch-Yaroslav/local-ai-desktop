@@ -505,6 +505,7 @@ export async function shutdownRuntime(): Promise<void> {
   log('runtime.shutdown.started', { backend: 'llama-cpp', activeGenerations: active.length });
   for (const generation of active) generation.abort.abort();
   await Promise.allSettled(active.map((generation) => waitFor(generation.settled, 4_000)));
+  await liveBrowsers.shutdownAll('app_shutdown');
   log('runtime.shutdown.finished', { backend: 'llama-cpp' });
 }
 

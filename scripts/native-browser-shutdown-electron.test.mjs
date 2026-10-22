@@ -15,9 +15,10 @@ try{
   assert.deepEqual(await app.evaluate(()=>global.shutdownFixture.errors),[],`Unhandled shutdown error: ${mode}`);
   results.push({mode,id,...closed});
  }
- await app.evaluate(()=>global.shutdownFixture.open());
+ await app.evaluate(()=>global.shutdownFixture.openViaHub());
  await app.close();
  assert.deepEqual(JSON.parse(await readFile(join(root,'shutdown-errors.json'),'utf8')),[],'Unhandled error during full application shutdown');
+ assert.deepEqual(JSON.parse(await readFile(join(root,'ordered-shutdown.json'),'utf8')),{pageDestroyed:true,closeCalls:1,closeFinished:true,errors:[]},'Application quit must await session cleanup before process exit');
  results.push({mode:'application-close'});
  await writeFile(join(root,'result.json'),JSON.stringify({result:'PASS',results},null,2));
  console.log(JSON.stringify({result:'PASS',root,results}));

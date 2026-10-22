@@ -23,16 +23,16 @@ export function RegionChip({region,onRemove}:{region:VisualRegion;onRemove?:()=>
 }
 
 export function VisualDebugPanel({conversationId,interactive}:{conversationId:string|null;interactive:boolean}){
-  useLocale();const projectId=useAppStore(s=>s.conversations.find(c=>c.id===conversationId)?.primaryProjectId),running=useAppStore(s=>Boolean(s.generationOwnerId));
+  useLocale();const project=useAppStore(s=>s.conversations.find(c=>c.id===conversationId)),projectId=project?.primaryProjectId,projectEnabled=Boolean(projectId&&project?.workingDirectory&&project.webMode==='auto'),running=useAppStore(s=>Boolean(s.generationOwnerId));
   const [document,setDocument]=useState<VisualDocument>({regions:[],issues:[]}),[selected,setSelected]=useState<string[]>([]),[area,setArea]=useState(''),[selecting,setSelecting]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[mode,setMode]=useState('manual'),[view,setView]=useState<VisualRegionView>(),[vision,setVision]=useState(false),[pendingDelete,setPendingDelete]=useState<{command:VisualCommand;label:string;count:number}>();
   useEffect(()=>{let alive=true;setSelected([]);setArea('');setView(undefined);setDocument({regions:[],issues:[]});setSelecting(false);
-    const poll=()=>{if(conversationId)void window.localAi.visualDebug.document(conversationId).then(d=>{if(alive){setDocument(d);setSelecting(Boolean(d.selectionActive));setArea(old=>d.issues.some(i=>i.id===old)?old:d.issues[0]?.id??'');}}).catch(()=>undefined);};poll();const timer=setInterval(poll,1200);
-    void window.localAi.browserQa.status(conversationId??undefined).then(s=>{if(alive)setVision(s.available&&s.mode!=='off');}).catch(()=>undefined);
-    let lastFeedback=0;const off=window.localAi.liveBrowser?.onEvent(e=>{if(e.state.conversationId===conversationId&&e.state.visualFeedback&&e.state.visualFeedback.at!==lastFeedback){lastFeedback=e.state.visualFeedback.at;poll();}});
+    const poll=()=>{if(conversationId&&projectEnabled)void window.localAi.visualDebug.document(conversationId).then(d=>{if(alive){setDocument(d);setSelecting(Boolean(d.selectionActive));setArea(old=>d.issues.some(i=>i.id===old)?old:d.issues[0]?.id??'');}}).catch(()=>undefined);};if(!projectEnabled)setDocument({regions:[],issues:[]});poll();const timer=setInterval(poll,1200);
+    if(projectEnabled)void window.localAi.browserQa.status(conversationId??undefined).then(s=>{if(alive)setVision(s.available&&s.mode!=='off');}).catch(()=>undefined);
+    let lastFeedback=0;const off=window.localAi.liveBrowser?.onEvent(e=>{if(projectEnabled&&e.state.conversationId===conversationId&&e.state.visualFeedback&&e.state.visualFeedback.at!==lastFeedback){lastFeedback=e.state.visualFeedback.at;poll();}});
     return()=>{alive=false;clearInterval(timer);off?.();};
-  },[conversationId,projectId]);
+  },[conversationId,projectEnabled]);
   const run=async(cmd:VisualCommand)=>{if(!conversationId)return;const mutation=!['reveal','display'].includes(cmd.action);if(mutation)setBusy(true);setError('');try{const d=await window.localAi.visualDebug.command(conversationId,cmd);setDocument(d);setSelected(ids=>ids.filter(id=>d.regions.some(r=>r.id===id)));if(d.view)setView(d.view);if(cmd.action==='selection')setSelecting(cmd.enabled);else if(mutation)setSelecting(false);window.dispatchEvent(new CustomEvent('visual-document-updated',{detail:{id:conversationId,document:d}}));return d;}catch(e){setError(localizeMessage(String(e)));}finally{if(mutation)setBusy(false);}};
-  useEffect(()=>{if(conversationId)void window.localAi.visualDebug.command(conversationId,{action:'display',selectedIds:selected}).catch(()=>undefined);},[conversationId,selected]);
+  useEffect(()=>{if(conversationId&&projectEnabled)void window.localAi.visualDebug.command(conversationId,{action:'display',selectedIds:selected}).catch(()=>undefined);},[conversationId,projectEnabled,selected]);
   const enabled=interactive&&!running&&!busy;
   const focus=(region:VisualRegion)=>{void run({action:'reveal',regionId:region.id});};
   const active=document.issues.find(i=>i.id===area);

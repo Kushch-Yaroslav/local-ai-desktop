@@ -4,5 +4,8 @@
   "rust": "408 passed, 1 ignored",
   "realQwen": false,
   "provider": "scripted local provider only",
-  "userRuntimeChanged": false
+  "userRuntimeChanged": false,
+  "shutdownOrdered": "PASS: Browser Hub controls close completed and native WebContents destroyed before app.exit",
+  "projectlessVisualPolling": "PASS: component gates visual/browser QA polling on registered project scope and webMode auto",
+  "nativeBacktrace": "Unavailable in this environment"
 }

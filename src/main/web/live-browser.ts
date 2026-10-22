@@ -20,7 +20,7 @@ export interface ProjectBrowserObserver {
 interface Entry {
   controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; native?: NativeProjectPage;
-  ended: boolean; visibility?: (visible: boolean) => void;
+  ended: boolean; ending?:Promise<void>; visibility?: (visible: boolean) => void;
 }
 /** Owns the native surface for the SAME Playwright Page. No frame transport. */
 export class LiveBrowserHub {
@@ -44,7 +44,7 @@ export class LiveBrowserHub {
   private trackOwner(owner: WebContents) {
     if (this.owners.has(owner.id)) return;
     this.owners.add(owner.id);
-    owner.once('destroyed', () => { this.viewers.delete(owner.id); this.owners.delete(owner.id);for(const key of this.preferences.keys())if(key.startsWith(`${owner.id}:`))this.preferences.delete(key); for (const [id, item] of this.entries) if (item.owner === owner) { void this.end(item); this.entries.delete(id); } });
+    owner.once('destroyed', () => { this.viewers.delete(owner.id); this.owners.delete(owner.id);for(const key of this.preferences.keys())if(key.startsWith(`${owner.id}:`))this.preferences.delete(key); for (const [id, item] of this.entries) if (item.owner === owner) { void this.end(item).finally(()=>this.entries.delete(id)); } });
     owner.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) { this.viewers.delete(owner.id); for (const item of this.entries.values()) if (item.owner === owner) { void item.controls?.suspend?.(); this.reconcile(item); } } });
   }
   observer(owner: WebContents, conversationId: string, generationId: string): ProjectBrowserObserver {
@@ -138,14 +138,20 @@ export class LiveBrowserHub {
     if (typeof sessionId !== 'string' || !entry) throw new Error('Browser session is closed or belongs to another window');
     return entry;
   }
-  private async end(entry: Entry, reason='user_closed') {
-    if (entry.ended) return;
+  async shutdownAll(reason='app_shutdown') {
+    await Promise.allSettled([...this.entries.values()].map(entry=>this.end(entry,reason)));
+  }
+  private end(entry: Entry, reason='user_closed'):Promise<void> {
+    if(entry.ending)return entry.ending;
+    if(entry.ended)return Promise.resolve();
     entry.ended = true; this.reconcile(entry); entry.visibility = undefined;
     entry.state = { ...entry.state, ownership: 'closed', status: entry.state.status === 'error' ? 'error' : 'ended' };
     this.send(entry, { type: 'state', state: entry.state });
     const controls = entry.controls; entry.controls = undefined;
-    await controls?.close(reason).catch(() => undefined); await entry.native?.close();
-    entry.native = undefined; entry.page = undefined;
+    entry.ending=(async()=>{try{await controls?.close(reason);}catch{/* Continue closing the native compositor even when Page cleanup failed. */}
+      try{await entry.native?.close();}finally{entry.native=undefined;entry.page=undefined;}
+    })();
+    return entry.ending;
   }
 }
 export const liveBrowsers = new LiveBrowserHub();

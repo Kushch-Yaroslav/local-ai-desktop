@@ -10,7 +10,7 @@
 
 **Неточная привязка.** На повторяющихся React-карточках селекторы `.buy` и `.label` неоднозначны; единственный уверенный кандидат мог оказаться широким `main`. Теперь строится проверяемый уникальный structural selector с guard по безопасному тексту и контексту. Это подсказка DOM grounding, не доказательство связи с исходным компонентом. При исчезновении/неоднозначности anchor рамка не переносится на случайный элемент.
 
-**Ошибка закрытия из пользовательского скриншота.** При полном выходе `shield.webContents` уже мог быть недоступен, когда `detachPan` пытался снять listener. Ошибка воспроизведена и исправлена сохранением WebContents identity и безопасным порядком закрытия. Подробности: [отчёт закрытия](native-browser-shutdown-verification.md).
+**Ошибка закрытия.** Последний скриншот был launcher popup после `Electron exited status=139`, а не JavaScript exception. Лог содержал такой exit три раза и перед последним X11 `DrawableError`; production `before-quit` не дожидался закрытия Browser Hub sessions, затем вызывал `app.exit`. Теперь shutdown ждёт закрытия sessions, Page, Native WebContents и CDP. Тест завершает зарегистрированную Hub session до exit. Отдельная ошибка `detachPan` после уничтожения shield также исправлена сохранением ссылки на WebContents. Лог показывает более поздний запуск с `status=0`; исходный launcher popup оставался от предыдущего сбоя. Подробности: [отчёт закрытия](native-browser-shutdown-verification.md).
 
 ## Реализация
 
@@ -38,7 +38,7 @@ Crop живой страницы копируется из compositor с пер�
 
 Полный список результатов и измерений: [JSON/логи](test-results/visual-region-feedback-pan/).
 
-- `native-browser-shutdown-electron`: полный выход, повторный close, window destroy, shield-first, debugger detach и активный pan. До исправления — точное исключение `removeListener`; после — без uncaught exception/unhandled rejection.
+- `native-browser-shutdown-electron`: полный выход с активной Browser Hub session, повторный close, window destroy, shield-first, debugger detach и активный pan. До фикса listener был воспроизведён `removeListener`; после shutdown ждёт `WebContents.isDestroyed()` и завершение controls до `app.exit`, без uncaught exception/unhandled rejection.
 - `visual-region-feedback-electron` при DPR 1 и 2: реальный React fixture, одновременные рамки разных групп, partial selection, Fit/50/100, resize/pan, checkbox, show/hide без SQLite write, focus справа, crop red/blue pixels, privacy pixels при browser zoom 80/100/125, отказ SQLite, удаление/history/reload, stale identity и scope security.
 - Физический middle-button drag проверяется X11/XTest, а не JS pointer-event имитацией. Pan изменился с (700,150) на (796,198); CSS viewport 1920×1080, browser zoom, document scroll и region IDs сохранились. После mouseup движение прекратилось. Проверены конфликт с selection и read-only pan при agent ownership.
 - Растровая проверка при DPR 1: 180 кадров, 0 тёмных, минимальная яркость 240 после исправления. Это измерение конкретного fixture/системы, не гарантия отсутствия любого GPU-сбоя на любом драйвере.
