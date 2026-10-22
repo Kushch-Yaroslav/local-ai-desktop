@@ -82,7 +82,8 @@ export class VisualDebugging {
       if(!live&&command.action==='navigate')throw new Error('Region deleted or unavailable');
       const view:import('../../shared/visual-debugging').VisualRegionView=!live?{regionId:region.id,url:region.url,currentUrl:session?.currentUrl,deleted:true,stale:true,needsNavigation:false,diagnostics:['Region deleted; historical evidence only. No live highlight or navigation.']}:command.action==='navigate'?await session!.visualNavigate(region):session?await session.visualReveal(region,document.regions.some(r=>r.groupId===region.groupId)?document.regions.filter(r=>r.groupId===region.groupId):[region]):{regionId:region.id,url:region.url,stale:false,needsNavigation:true,diagnostics:['Open the current project browser first']};
       if(region.screenshotPath){try{const path=await realpath(region.screenshotPath),cache=resolve(paths.cache,'browser-captures')+sep;if(path.startsWith(cache)&&(await stat(path)).size<=8_000_000)view.cropDataUrl='data:image/png;base64,'+(await readFile(path)).toString('base64');}catch{view.diagnostics.push('Saved crop unavailable');}}
-      return {...this.document(chatId,projectId),currentUrl:session?.currentUrl,view};
+      const latest=this.document(chatId,projectId);
+      return {...latest,currentUrl:session?.currentUrl,view,display:await session?.visualDisplay(latest.regions)};
     }else if(command.action==='delete'){
       document.regions=document.regions.filter(r=>r.id!==command.regionId);
       for(const issue of document.issues){issue.regionIds=issue.regionIds.filter(id=>id!==command.regionId);issue.evidenceRefs=issue.evidenceRefs.filter(id=>id!==command.regionId);}

@@ -27,7 +27,7 @@ export async function visualRegionsOverlay(page:Page,regions:VisualRegion[],enab
     };
     const tick=(now:number)=>{if(now-last>=100){last=now;draw();}frame=requestAnimationFrame(tick);};
     const redraw=()=>{dirty=true;draw();};addEventListener('scroll',redraw,true);addEventListener('resize',redraw);
-    scope.__ladVisualRegions={update:d=>{if(JSON.stringify(data)===JSON.stringify(d))return;const changed=JSON.stringify(data.regions)!==JSON.stringify(d.regions);data=d;if(changed)dirty=true;draw();},read:()=>current,stop:()=>{cancelAnimationFrame(frame);observer.disconnect();removeEventListener('scroll',redraw,true);removeEventListener('resize',redraw);host?.remove();delete scope.__ladVisualRegions;}};
+    scope.__ladVisualRegions={update:d=>{if(JSON.stringify(data)===JSON.stringify(d)){draw();return;}const changed=JSON.stringify(data.regions)!==JSON.stringify(d.regions);data=d;if(changed)dirty=true;draw();},read:()=>current,stop:()=>{cancelAnimationFrame(frame);observer.disconnect();removeEventListener('scroll',redraw,true);removeEventListener('resize',redraw);host?.remove();delete scope.__ladVisualRegions;}};
     draw();frame=requestAnimationFrame(tick);return current;
   };
   const data={enabled,selected,author,regions:regions.map(r=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect,identity:a.identity})),color:r.color,label:`${getLanguage()==='ru'?'Область':'Area'} ${r.groupNumber??'?'} · #${r.id.slice(7,15)}`}))};

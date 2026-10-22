@@ -104,9 +104,10 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   };
   const pressed = new Map<string, { key:string; code:string }>();
   const buttons = new Map<string, { x:number; y:number; button:string }>();
-  let release = Promise.resolve();
+  let release = Promise.resolve();let endPan:(()=>void)|undefined;
+  let detachPan:(()=>void)|undefined;
   const releaseInput = () => {
-    const keys = [...pressed.values()]; pressed.clear();
+    endPan?.();const keys = [...pressed.values()]; pressed.clear();
     const pointer = [...buttons.values()]; buttons.clear();
     release = release.then(async () => {
       if (contents.isDestroyed() || !contents.debugger.isAttached()) return;
@@ -142,9 +143,12 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   shieldSession.setPermissionCheckHandler(() => false);
   shieldSession.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.url !== shieldUrl }));
   const shield = new WebContentsView({ webPreferences: { session: shieldSession, sandbox: true, contextIsolation: true, nodeIntegration: false, devTools: false, navigateOnDragDrop: false } });
+  // A destroyed View no longer exposes webContents. Keep the EventEmitter identity
+  // for listener cleanup when Electron destroys child views before CDP detaches.
+  const shieldContents = shield.webContents;
   shield.setBackgroundColor('#00000000'); shield.setVisible(false);
-  shield.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  shield.webContents.on('will-navigate', event => event.preventDefault());
+  shieldContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  shieldContents.on('will-navigate', event => event.preventDefault());
   window.contentView.addChildView(shield);
   let transport: ViewTransport | undefined;
   let browser: Browser | undefined;
@@ -157,13 +161,14 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   const close = (): Promise<void> => {
     if (closing) return closing;
     destroyed = true;
-    isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
-    networkAbort.abort(); requestHandler = undefined;
-    // Publish the shared promise before CDP/page-close callbacks can reenter.
+    // Publish before any cleanup can synchronously trigger CDP/page-close callbacks.
     closing = Promise.resolve().then(async () => {
+      endPan?.();detachPan?.();
+      isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
+      networkAbort.abort(); requestHandler = undefined;
       if (!window.isDestroyed()) { window.contentView.removeChildView(shield); container.removeChildView(view); window.contentView.removeChildView(container); }
       transport?.close();
-      await Promise.all([closeContents(shield.webContents),closeContents(contents),browser?.close().catch(() => undefined)]);
+      await Promise.all([closeContents(shieldContents),closeContents(contents),browser?.close().catch(() => undefined)]);
       for (const scheme of protocols) isolated.protocol.unhandle(scheme); protocols.clear();
       await isolated.closeAllConnections().catch(() => undefined);
       await isolated.clearStorageData().catch(() => undefined);
@@ -173,7 +178,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   };
   try {
     for (const scheme of ['http','https']) { isolated.protocol.handle(scheme,handleRequest); protocols.add(scheme); }
-    await shield.webContents.loadURL(shieldUrl);
+    await shieldContents.loadURL(shieldUrl);
     await contents.loadURL('about:blank');
     contents.debugger.attach('1.3');
     await contents.debugger.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true });
@@ -190,11 +195,11 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
     let highlighted:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>=[],highlightKey='';
     const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>)=>{
-      highlighted=rects;if(destroyed||contents.isDestroyed()||shield.webContents.isDestroyed())return;
+      highlighted=rects;if(destroyed||contents.isDestroyed()||shieldContents.isDestroyed())return;
       const zoom=contents.getZoomFactor()*(actual?.displayScale??1),pan=actual?.settings.pan??{x:0,y:0};
       const key=JSON.stringify([rects,zoom,pan]);if(key===highlightKey)return;highlightKey=key;
       const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');if(b.id)node.dataset.regionId=b.id;node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:${b.selected?5:3}px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
-      void shield.webContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
+      void shieldContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
 
     };
     const apply=async()=>{
@@ -220,11 +225,38 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       const offset=cssToPresentation({x:0,y:0},zoom*scale,pan);
       view.setBounds({x:Math.round(offset.x),y:Math.round(offset.y),...surface});
       shield.setBounds({x,y,...panel});
-      settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable&&ownerState!=='user');
+      settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable&&(ownerState!=='user'||Boolean(gesture)));
       highlight(highlighted);changed?.(next);
     };
     let queued=false;
     const schedule=()=>{if(queued)return serial;queued=true;serial=serial.catch(()=>undefined).then(async()=>{queued=false;await apply();}).catch(error=>{if(actual)changed?.({...actual,error:String(error)});});return serial;};
+    let gesture:{point:{x:number;y:number};pan:{x:number;y:number}}|undefined;
+    let panTimer:ReturnType<typeof setTimeout>|undefined,panWatch:ReturnType<typeof setInterval>|undefined;
+    endPan=()=>{if(!gesture)return;gesture=undefined;clearTimeout(panTimer);clearInterval(panWatch);panWatch=undefined;panTimer=undefined;if(!destroyed&&!shieldContents.isDestroyed()&&!window.isDestroyed())shield.setVisible(visible&&ownerState!=='user');if(!destroyed)void schedule();};
+    const middle=(event:Electron.Event,input:Electron.MouseInputEvent)=>{
+      if(input.button==='middle'&&(input.type==='mouseDown'||input.type==='mouseUp')){
+        event.preventDefault();buttons.delete('middle');
+        if(input.type==='mouseUp'){endPan?.();return;}
+        if(gesture||!actual||!visible||actual.surface.width<=actual.panel.width&&actual.surface.height<=actual.panel.height)return;
+        // Global DIP survives movement of the child View beneath the pointer.
+        gesture={point:screen.getCursorScreenPoint(),pan:{...actual.settings.pan}};
+        panWatch=setInterval(()=>{if(window.isDestroyed()){endPan?.();return;}const cursor=screen.getCursorScreenPoint(),b=window.getBounds();if(cursor.x<b.x||cursor.y<b.y||cursor.x>=b.x+b.width||cursor.y>=b.y+b.height)endPan?.();},100);panWatch.unref();
+        void shieldContents.executeJavaScript(`document.body.style.cursor='grabbing'`).catch(()=>undefined);shield.setVisible(true);return;
+      }
+      if(!gesture)return;
+      event.preventDefault();
+      if(input.type==='mouseLeave')return; // the shield receives the continuing captured drag
+      if(input.type!=='mouseMove'||!actual)return;
+      const point=screen.getCursorScreenPoint(),factor=actual.browserZoom*actual.displayScale;
+      gesture.pan={x:Math.max(0,Math.min((actual.surface.width-actual.panel.width)/factor,gesture.pan.x-(point.x-gesture.point.x)/factor)),y:Math.max(0,Math.min((actual.surface.height-actual.panel.height)/factor,gesture.pan.y-(point.y-gesture.point.y)/factor))};
+      gesture.point=point;settings={...settings,pan:{...gesture.pan}};
+      if(!panTimer)panTimer=setTimeout(()=>{panTimer=undefined;void schedule();},16);
+    };
+    const projectMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState==='user')middle(e,i);};
+    const shieldMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState!=='user'&&i.button==='middle')e.preventDefault();middle(e,i);};const ownerMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(gesture&&i.type==='mouseUp'&&i.button==='middle'){e.preventDefault();endPan?.();}};
+    contents.on('before-mouse-event',projectMouse);shieldContents.on('before-mouse-event',shieldMouse);owner.on('before-mouse-event',ownerMouse);
+    const blur=()=>endPan?.();contents.on('blur',blur);window.on('blur',blur);
+    detachPan=()=>{clearInterval(panWatch);contents.removeListener('blur',blur);window.removeListener('blur',blur);contents.removeListener('before-mouse-event',projectMouse);shieldContents.removeListener('before-mouse-event',shieldMouse);owner.removeListener('before-mouse-event',ownerMouse);};
     contents.on('zoom-changed',()=>{void schedule();});
     return { browser, context, page, contents, close, releaseInput, highlight,
       workspaceState:()=>actual,
@@ -246,7 +278,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
       async workspace(value){settings=structuredClone(value);await schedule();},
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
-      ownership(value) { if (destroyed) return; if (value !== 'user') void releaseInput(); ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
+      ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(value) {
         bounds=value;
         if (destroyed || window.isDestroyed()) return;

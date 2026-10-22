@@ -719,7 +719,7 @@ export class ProjectBrowserSession {
     await installQaInstrumentation(this.page);
     this.endReason='live';
     this.page.on('crash', () => {this.endReason='renderer_crashed'; this.observer?.state('error', undefined, 'Browser renderer crashed'); void this.close(false,'renderer_crashed'); });
-    this.page.on('close', () => { if(!this.closed)this.endReason='page_closed';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
+    this.page.on('close', () => {clearInterval(this.displayTimer);this.displayTimer=undefined; if(!this.closed)this.endReason='page_closed';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
     this.bindObserver();
     if(!this.isolatedQa)this.browser.on('disconnected', () => { if(!this.closed)this.endReason='connection_lost';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(this.endReason); });
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
