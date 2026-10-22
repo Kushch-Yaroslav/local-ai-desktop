@@ -1,3 +1,4 @@
+import {projectVisualRegion} from '../../shared/browser-coordinates';
 import { visualPromptUrl } from '../../shared/visual-debugging';
 import { inspectResponsive } from './responsive-qa';
 import { selectionOverlay, groundRegion } from './visual-selection';
@@ -248,26 +249,20 @@ export class ProjectBrowserSession {
     const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
     if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
     // While the agent owns the page, read geometry without scrolling or changing its DOM.
-    const result=await page.evaluate(({region,siblings,scroll})=>{
-      if(location.href!==region.url)return {stale:false,boxes:[],url:location.href};
-      const anchor=region.anchors.find(a=>a.confidence>=.8);let target:Element|null=null;
-      if(anchor){try{const nodes=document.querySelectorAll(anchor.selector);if(nodes.length===1&&nodes[0].tagName.toLowerCase()===anchor.tag)target=nodes[0];}catch{ /* stale selector */ }}
-      const stale=Boolean(anchor&&!target)||!anchor&&(region.viewport.width!==innerWidth||region.viewport.height!==innerHeight);
-      if(scroll){if(target)target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else scrollTo(region.rect.x,Math.max(0,region.rect.y-innerHeight/3));}
-      const boxes=siblings.filter(r=>r.url===location.href).map(r=>{
-        let rect={...r.rect,x:r.rect.x-scrollX,y:r.rect.y-scrollY};const a=r.anchors.find(a=>a.confidence>=.8);
-        if(a){try{const nodes=document.querySelectorAll(a.selector);if(nodes.length===1){const b=nodes[0].getBoundingClientRect();rect={x:b.x+(r.rect.x-a.rect.x)*b.width/a.rect.width,y:b.y+(r.rect.y-a.rect.y)*b.height/a.rect.height,width:r.rect.width*b.width/a.rect.width,height:r.rect.height*b.height/a.rect.height};}}catch{ /* use saved document coordinates */ }}
-        return {...rect,color:r.color??'#22d3ee',label:`${r.groupNumber??''} · #${r.id}`};
-      });return {stale,boxes,url:location.href};
-    },{region:{url:region.url,rect:region.rect,viewport:region.viewport,anchors:region.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect}))},siblings:siblings.map(r=>({id:r.id,url:r.url,rect:r.rect,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({confidence:a.confidence,selector:a.selector,rect:a.rect}))})),scroll:!view.scrollDeferred});
+    const data={region,siblings,scroll:!view.scrollDeferred};
+    // Pass only safe page geometry, never host paths or source file contents.
+    const safe=(r:VisualRegion)=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect}))});
+    const inspect=({region,siblings,scroll}:typeof data,project:typeof projectVisualRegion)=>{
+      const before=project(region);
+      if(scroll&&!before.stale){const anchor=region.anchors.find(a=>a.confidence>=.8);if(anchor)document.querySelector(anchor.selector)?.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else scrollTo(region.rect.x,Math.max(0,region.rect.y-innerHeight/3));}
+      return {stale:before.stale,reason:before.reason,url:location.href,boxes:siblings.flatMap(r=>{const result=project(r);return result.rect?[{...result.rect,color:r.color??'#22d3ee',label:`${r.groupNumber??''} · #${r.id}`}]:[];})};
+    };
+    const result=await page.evaluate<ReturnType<typeof inspect>>(`(${inspect.toString()})(${JSON.stringify({region:safe(region),siblings:siblings.map(safe),scroll:data.scroll})},${projectVisualRegion.toString()})`);
     if(result.url!==region.url){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
     if(epoch!==this.visualEpoch)return {...view,stale:true,diagnostics:['Selection changed while viewing; highlight cancelled']};
     view.stale=result.stale;
-    if(result.stale)view.diagnostics.push('DOM anchor is stale; saved document coordinates were used');
-    if(this.ownership==='user')await page.evaluate(boxes=>{
-      document.getElementById('__lad-visual-highlight')?.remove();const host=document.createElement('div');host.id='__lad-visual-highlight';host.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2147483647';const shadow=host.attachShadow({mode:'closed'});
-      for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;background:${b.color}22;box-sizing:border-box;`;const label=document.createElement('span');label.style.cssText='background:#111;color:#fff;font:12px sans-serif;padding:2px';label.textContent=b.label;node.append(label);shadow.append(node);}document.documentElement.append(host);setTimeout(()=>host.remove(),2200);
-    },result.boxes);else this.native?.highlight?.(result.boxes);
+    if(result.stale)view.diagnostics.push('Anchor stale: '+result.reason+'. Original crop only; live coordinates were not drawn.');
+    if(this.ownership==='user')await selectionOverlay(page,true,siblings,true);else this.native?.highlight?.(result.boxes);
     if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; scrolling is deferred. Highlight is on the native input shield and excluded from page captures');
     return view;
   }

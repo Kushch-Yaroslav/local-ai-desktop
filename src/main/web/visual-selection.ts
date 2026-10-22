@@ -1,3 +1,4 @@
+import {projectVisualRegion} from '../../shared/browser-coordinates';
 import { getLanguage } from '../../shared/locale';
 import type { Page } from 'playwright-core';
 import { visualRoute } from '../../shared/visual-debugging';
@@ -5,13 +6,14 @@ import type { VisualRect, VisualRegion } from '../../shared/visual-debugging';
 import { visualGroupColor } from '../../shared/visual-debugging';
 
 /** Executed inside the native project page. No application APIs or filesystem access. */
-export async function selectionOverlay(page: Page, enabled: boolean, regions: VisualRegion[] = []) {
-  await page.evaluate(({ enabled, regions }) => {
-    const state = window as unknown as { __ladSelection?: () => void; __ladRegionSelect?: (rect: VisualRect|null) => Promise<void> };
-    state.__ladSelection?.();
+export async function selectionOverlay(page: Page, enabled: boolean, regions: VisualRegion[] = [], transient=false) {
+  const install=({ enabled, regions, transient }: {enabled:boolean;regions:Array<VisualRegion&{label:string;color:string}>;transient:boolean}, project:typeof projectVisualRegion) => {
+    const state = window as unknown as { __ladSelection?: () => void; __ladHighlight?:()=>void; __ladRegionSelect?: (rect: VisualRect|null) => Promise<void> };
+    if(transient)state.__ladHighlight?.();else {state.__ladSelection?.();state.__ladHighlight?.();}
     if (!enabled) return;
-    const host = document.createElement('div'); host.id = '__lad-visual-selection';
+    const host = document.createElement('div'); host.id = transient?'__lad-visual-highlight':'__lad-visual-selection';
     host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;cursor:crosshair;touch-action:none;';
+    if(transient)host.style.pointerEvents='none';
     const shadow = host.attachShadow({mode:'closed'});
     const layer = document.createElement('div'); shadow.append(layer);
     let start: {x:number;y:number} | undefined;
@@ -20,24 +22,25 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
       node.style.cssText = `position:absolute;pointer-events:none;box-sizing:border-box;border:3px solid ${color};box-shadow:0 0 0 1px #fff,0 0 0 2px #111;background:${color}22;left:${rect.x}px;top:${rect.y}px;width:${rect.width}px;height:${rect.height}px;color:#fff;font:12px sans-serif;`;
       const badge=document.createElement('span');badge.style.cssText=`background:#111;color:#fff;border:2px solid ${color};padding:2px 4px;font-weight:bold;`; badge.textContent=label;node.append(badge);layer.append(node);
     };
-    const draw = () => { layer.replaceChildren(); for (const r of regions) {
+    let signature='';
+    const draw = () => { const boxes=[]; for (const r of regions) {
       if (r.url !== location.href) continue;
-      let rect = {...r.rect, x:r.rect.x-scrollX,y:r.rect.y-scrollY};
-      const anchor = r.anchors[0];
-      if (anchor && anchor.confidence >= .8) {
-        try { const nodes=document.querySelectorAll(anchor.selector);if(nodes.length===1){const b=nodes[0].getBoundingClientRect();const sx=b.width/anchor.rect.width,sy=b.height/anchor.rect.height;rect={x:b.x+(r.rect.x-anchor.rect.x)*sx,y:b.y+(r.rect.y-anchor.rect.y)*sy,width:r.rect.width*sx,height:r.rect.height*sy};} } catch { /* stale selector */ }
-      } else if (r.viewport.width !== innerWidth || r.viewport.height !== innerHeight) continue;
-      box(rect, `${r.label} · #${r.id}`, r.color);
-    } };
-    const cleanup = () => { host.remove();removeEventListener('scroll',draw,true);removeEventListener('resize',draw);removeEventListener('keydown',key,true);delete state.__ladSelection; };
-    const key = (event: KeyboardEvent) => {if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();if(start){start=undefined;draw();}else {cleanup();void state.__ladRegionSelect?.(null).catch(()=>undefined);}}};
+      const result=project(r);
+      if(result.rect)boxes.push({rect:result.rect,label:`${r.label} · #${r.id}`,color:r.color});
+    }const next=JSON.stringify(boxes);if(next===signature&&!start)return;signature=next;layer.replaceChildren();for(const b of boxes)box(b.rect,b.label,b.color); };
+    let frame=0,last=0;const tick=(time:number)=>{if(time-last>=100&&!start){last=time;draw();}frame=requestAnimationFrame(tick);};
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const cleanup = () => { clearTimeout(timer);cancelAnimationFrame(frame);host.remove();removeEventListener('scroll',draw,true);removeEventListener('resize',draw);removeEventListener('keydown',key,true);if(transient)delete state.__ladHighlight;else delete state.__ladSelection; };
+    const key = (event: KeyboardEvent) => {if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();if(start){start=undefined;signature='';draw();}else {cleanup();void state.__ladRegionSelect?.(null).catch(()=>undefined);}}};
     host.onpointerdown = event => {if(event.button!==0)return;event.preventDefault();start={x:event.clientX,y:event.clientY};host.setPointerCapture(event.pointerId);};
     host.onpointermove = event => {if(!start)return;draw();box({x:Math.min(start.x,event.clientX),y:Math.min(start.y,event.clientY),width:Math.abs(event.clientX-start.x),height:Math.abs(event.clientY-start.y)},'Selection','#fff');};
-    host.onpointerup = event => {if(!start)return;const rect={x:Math.min(start.x,event.clientX),y:Math.min(start.y,event.clientY),width:Math.abs(event.clientX-start.x),height:Math.abs(event.clientY-start.y)};start=undefined;draw();if(rect.width>=4&&rect.height>=4)void state.__ladRegionSelect?.(rect).catch(()=>undefined);};
-    host.onpointercancel=()=>{start=undefined;draw();};
+    host.onpointerup = event => {if(!start)return;const rect={x:Math.min(start.x,event.clientX),y:Math.min(start.y,event.clientY),width:Math.abs(event.clientX-start.x),height:Math.abs(event.clientY-start.y)};start=undefined;signature='';draw();if(rect.width>=4&&rect.height>=4)void state.__ladRegionSelect?.(rect).catch(()=>undefined);};
+    host.onpointercancel=()=>{start=undefined;signature='';draw();};
     host.onwheel=event=>{event.preventDefault();window.scrollBy(event.deltaX,event.deltaY);};
-    document.documentElement.append(host);state.__ladSelection=cleanup;addEventListener('scroll',draw,true);addEventListener('resize',draw);addEventListener('keydown',key,true);draw();
-  }, {enabled, regions:regions.map(r=>({id:r.id,url:r.url,viewport:r.viewport,rect:r.rect,anchors:r.anchors.map(a=>({selector:a.selector,confidence:a.confidence,rect:a.rect})),color:r.color??visualGroupColor(r.groupId),label:`${getLanguage()==='ru'?'Область':'Area'} ${r.groupNumber??regions.findIndex(item=>item.groupId===r.groupId)+1}`}))});
+    document.documentElement.append(host);if(transient)state.__ladHighlight=cleanup;else state.__ladSelection=cleanup;frame=requestAnimationFrame(tick);if(transient)timer=setTimeout(cleanup,2200);addEventListener('scroll',draw,true);addEventListener('resize',draw);if(!transient)addEventListener('keydown',key,true);draw();
+  };
+  const data={enabled, transient, regions:regions.map(r=>({id:r.id,url:r.url,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,rect:r.rect,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect})),color:r.color??visualGroupColor(r.groupId),label:`${getLanguage()==='ru'?'Область':'Area'} ${r.groupNumber??regions.findIndex(item=>item.groupId===r.groupId)+1}`}))};
+  await page.evaluate(`(${install.toString()})(${JSON.stringify(data)},${projectVisualRegion.toString()})`);
 }
 
 export async function groundRegion(page: Page, rect: VisualRect) {
