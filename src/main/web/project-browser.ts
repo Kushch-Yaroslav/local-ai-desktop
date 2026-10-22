@@ -1,3 +1,4 @@
+import {visualRegionsOverlay} from './visual-regions-overlay';
 import {projectVisualRegion} from '../../shared/browser-coordinates';
 import { visualPromptUrl } from '../../shared/visual-debugging';
 import { inspectResponsive } from './responsive-qa';
@@ -139,7 +140,7 @@ export class ProjectBrowserSession {
   preserveForUser(){this.userSession=true;}
   async policyChanged(){
     this.authorized=false;this.denied=undefined;this.operationAbort?.abort();
-    await this.exclusive(async()=>{await this.clearSelection();await this.releaseInput();if(this.reusable){this.ownership='user';this.observer?.ownership?.('user');}});
+    await this.exclusive(async()=>{await this.clearSelection();await this.releaseInput();if(this.reusable){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();}});
   }
   private denied?: string;
   private readonly heldKeys = new Set<string>();
@@ -164,12 +165,40 @@ export class ProjectBrowserSession {
     if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); }).catch(error=>{if(!this.closed)this.observer?.state('error',undefined,`Preview refresh failed; reopen the approved URL: ${String(error).slice(0,200)}`);});
     if (!this.reusable || !this.previewApproved) { await this.close(); return; }
     await this.releaseInput();
-    this.ownership = 'user'; this.observer?.ownership?.('user');
+    this.ownership = 'user'; this.observer?.ownership?.('user');void this.refreshVisualDisplay();
   }
-  async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership); }
+  async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership);void this.refreshVisualDisplay(); }
   private bindObserver() {
     this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
-    this.observer?.ownership?.(this.ownership);
+    this.observer?.ownership?.(this.ownership);void this.refreshVisualDisplay();
+  }
+  private displayedRegions:VisualRegion[]=[];
+  private displayEnabled=true;
+  private displaySelected:string[]=[];
+  private displayState:import('../../shared/visual-debugging').VisualDisplayState={visible:true,bindings:[]};
+  private displayTimer?:ReturnType<typeof setInterval>;
+  private displayWork?:Promise<void>;
+  private displayRevision=0;
+  private feedback(kind:'pending'|'saved'|'error',regionId?:string,detail?:string){this.displayState.feedback={kind,regionId,detail,at:Date.now()};this.observer?.visual?.(this.displayState.feedback);}
+  get visualDisplayState(){return this.displayState;}
+  async visualDisplay(regions:VisualRegion[]=this.displayedRegions,enabled=this.displayEnabled,selected=this.displaySelected){
+    if(JSON.stringify([this.displayedRegions,this.displayEnabled,this.displaySelected])!==JSON.stringify([regions,enabled,selected]))this.displayRevision++;
+    this.displayedRegions=[...regions];this.displayEnabled=enabled;this.displaySelected=selected.filter(id=>regions.some(r=>r.id===id));
+    this.displayState.visible=enabled;
+    await this.refreshVisualDisplay();
+    if(!this.displayTimer&&regions.length){this.displayTimer=setInterval(()=>{void this.refreshVisualDisplay().catch(()=>undefined);},200);this.displayTimer.unref();}
+    if(!regions.length){clearInterval(this.displayTimer);this.displayTimer=undefined;}
+    return this.displayState;
+  }
+  private refreshVisualDisplay():Promise<void>{
+    if(this.displayWork)return this.displayWork;
+    if(!this.page||this.page.isClosed()||this.closed)return Promise.resolve();
+    this.displayWork=(async()=>{for(let attempt=0;attempt<2;attempt++){
+      const revision=this.displayRevision,page=this.page;if(!page||page.isClosed()||this.closed)return;
+      const state=await visualRegionsOverlay(page,this.displayedRegions,this.displayEnabled,this.displaySelected,this.ownership==='user');
+      this.displayState.bindings=state.bindings;if(this.ownership!=='user')this.native?.highlight?.(this.displayEnabled?state.boxes:[]);
+      if(revision===this.displayRevision)break;
+    }})().finally(()=>{this.displayWork=undefined;});return this.displayWork;
   }
   private selectionActive = false;
   get visualSelecting(){return this.selectionActive;}
@@ -189,10 +218,12 @@ export class ProjectBrowserSession {
           if(rect===null){await this.clearSelection();return;}
           await this.exclusive(async () => {
             if(!this.selectionActive || this.ownership!=='user')return;
-            const region=await this.visualCapture(rect,this.selectionGroup);
-            await this.selectionCallback?.(region);
-            this.selectionRegions.push(region);
-            if(this.selectionActive)await selectionOverlay(page,true,this.selectionRegions);
+            this.feedback('pending');
+            try{const region=await this.visualCapture(rect,this.selectionGroup);
+              if(!this.selectionCallback)throw new Error('Selection cancelled before saving');
+              await this.selectionCallback(region);this.selectionRegions.push(region);
+              this.feedback('saved',region.id);return {id:region.id};
+            }catch(error){this.feedback('error',undefined,String(error));throw error;}
           });
         });
         this.selectionBound=true;
@@ -219,14 +250,14 @@ export class ProjectBrowserSession {
     await page.evaluate(()=>{const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='hidden';});
     try {
       const bytes=await this.privacyCapture(async()=>this.native?.captureCss?this.native.captureCss(evidence.rect,evidence.dpr):page.screenshot({type:'png',clip:evidence.rect,scale:'css',timeout:10000,mask:[page.locator('input,textarea,select,[contenteditable],[data-private],[data-sensitive]')]}));
-      await writeFile(path,bytes,{mode:0o600});region.screenshotPath=path;
+      await writeFile(path,bytes,{mode:0o600});region.screenshotPath=path;region.crop={width:bytes.readUInt32BE(16),height:bytes.readUInt32BE(20),space:this.native?'native-presentation':'css'};
     } catch { region.diagnostics.push('Crop unavailable; DOM evidence retained'); }
     finally{await page.evaluate(()=>{document.getElementById('__lad-capture-mask')?.remove();const host=document.getElementById('__lad-visual-selection');if(host)host.style.visibility='';}).catch(()=>undefined);}
     return region;
   }
   async visualGround(regions:VisualRegion[]):Promise<VisualRegion[]>{
     if(!this.reusable||!this.page)return regions;
-    const safe=regions.filter(r=>r.projectRoot===this.root).map(r=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect}))}));
+    const safe=regions.filter(r=>r.projectRoot===this.root).map(r=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect,identity:a.identity}))}));
     const inspect=(regions:VisualRegion[],project:typeof projectVisualRegion)=>regions.map(r=>{const result=project(r);return {id:r.id,live:{url:location.href,viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,scroll:{x:scrollX,y:scrollY},...result,observedAt:new Date().toISOString()}};});
     const results=await this.page.evaluate<ReturnType<typeof inspect>>(`(${inspect.toString()})(${JSON.stringify(safe)},${projectVisualRegion.toString()})`);
     return regions.map(r=>({...r,live:results.find(result=>result.id===r.id)?.live}));
@@ -236,12 +267,12 @@ export class ProjectBrowserSession {
     if(!this.reusable||!page||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
     const epoch=this.visualEpoch;
     const currentUrl=page.url(),needsNavigation=currentUrl!==region.url;
-    const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,screenshotOnly:!region.anchors.length,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
+    const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,reason:undefined as string|undefined,screenshotOnly:!region.anchors.length,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
     if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
     // While the agent owns the page, read geometry without scrolling or changing its DOM.
     const data={region,siblings,scroll:!view.scrollDeferred};
     // Pass only safe page geometry, never host paths or source file contents.
-    const safe=(r:VisualRegion)=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect}))});
+    const safe=(r:VisualRegion)=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,color:r.color,groupNumber:r.groupNumber,anchors:r.anchors.map(a=>({tag:a.tag,confidence:a.confidence,selector:a.selector,rect:a.rect,identity:a.identity}))});
     const inspect=({region,siblings,scroll}:typeof data,project:typeof projectVisualRegion)=>{
       const before=project(region);
       if(scroll&&!before.stale){const anchor=region.anchors.find(a=>a.confidence>=.8);if(anchor)document.querySelector(anchor.selector)?.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});else scrollTo(region.rect.x,Math.max(0,region.rect.y-innerHeight/3));}
@@ -250,10 +281,12 @@ export class ProjectBrowserSession {
     const result=await page.evaluate<ReturnType<typeof inspect>>(`(${inspect.toString()})(${JSON.stringify({region:safe(region),siblings:siblings.map(safe),scroll:data.scroll})},${projectVisualRegion.toString()})`);
     if(result.url!==region.url){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
     if(epoch!==this.visualEpoch)return {...view,stale:true,diagnostics:['Selection changed while viewing; highlight cancelled']};
-    view.stale=result.stale;
+    view.stale=result.stale;view.reason=result.reason;
     if(result.stale)view.diagnostics.push('Anchor stale: '+result.reason+'. Original crop only; live coordinates were not drawn.');
-    if(this.ownership==='user'){if(result.boxes[0])await this.native?.revealCss?.(result.boxes[0]);if(epoch!==this.visualEpoch||this.ownership!=='user')return {...view,stale:true,diagnostics:['Selection changed while focusing; highlight cancelled']};await selectionOverlay(page,true,siblings,true);}else this.native?.highlight?.(result.boxes);
-    if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; scrolling is deferred. Highlight is on the native input shield and excluded from page captures');
+    if(result.boxes[0])await this.native?.revealCss?.(result.boxes[0]);
+    if(epoch!==this.visualEpoch)return {...view,stale:true,reason:'selection-changed',diagnostics:['Selection changed while focusing; highlight cancelled']};
+    await this.visualDisplay(this.displayedRegions.length?this.displayedRegions:siblings,true,[region.id]);
+    if(view.scrollDeferred)view.diagnostics.push('Agent owns navigation; document scrolling is deferred. Presentation pan and shield annotations remain available.');
     return view;
   }
   async visualNavigate(region: VisualRegion){
@@ -390,7 +423,7 @@ export class ProjectBrowserSession {
       if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
       if (!this.authorized && (args.action === 'open' || this.page)) {
         const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
-        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
+        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
         const automatic=this.qaOptions.securityMode==='autonomous'&&Boolean(this.qaOptions.projectId);
         if(automatic)log('agent.browser.preview.auto-approved',{projectId:this.qaOptions.projectId,root:this.root,origin:proposed,mode:'autonomous',capability:'read-only-local-preview'});
         const decision = automatic?{approved:true,reason:'once' as const}:await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'browser_preview', preview:{projectId:this.qaOptions.projectId??this.root,origin:proposed},actionId,
@@ -402,7 +435,7 @@ export class ProjectBrowserSession {
         }
         this.authorized = true;this.previewApproved=true;
       }
-      if(!responsiveRequest(args)||this.isolatedQa){this.ownership='agent';this.observer?.ownership?.('agent');}
+      if(!responsiveRequest(args)||this.isolatedQa){this.ownership='agent';this.observer?.ownership?.('agent');await this.refreshVisualDisplay();}
       if(args.analyze!==undefined&&typeof args.analyze!=='boolean')throw Error('analyze must be boolean');
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
@@ -412,7 +445,7 @@ export class ProjectBrowserSession {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
         if (url.origin !== (this.origin??staticOrigin) && args.url === undefined) throw new Error('Invalid project path');
-        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
+        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
         const newPage = !this.origin;
         if (!this.origin) {
           this.origin = url.origin;
@@ -516,7 +549,7 @@ export class ProjectBrowserSession {
       this.observer?.state('live', this.page!.url());
       return await this.read();
     } catch (error) {
-      if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');}
+      if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();}
       // Failed startup cannot leave a half-initialized reusable session.
       const code=String(error).includes('Screenshot limit reached')?'SCREENSHOT_LIMIT':this.endReason==='user_closed'?'BROWSER_USER_CLOSED':this.endReason==='operation_cancelled'?'BROWSER_OPERATION_CANCELLED':['connection_lost','renderer_crashed'].includes(this.endReason)?'BROWSER_CONNECTION_LOST':this.endReason==='page_closed'?'BROWSER_PAGE_CLOSED':this.endReason==='policy_changed'?'BROWSER_POLICY_CHANGED':this.endReason==='preview_unavailable'?'BROWSER_PREVIEW_UNAVAILABLE':signal.aborted?'BROWSER_OPERATION_CANCELLED':!this.page&&this.origin?'BROWSER_UNAVAILABLE':'PROJECT_BROWSER_FAILED';
       if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
@@ -540,7 +573,7 @@ export class ProjectBrowserSession {
   private async privacyCapture<T>(capture:()=>Promise<T>):Promise<T>{
     const page=this.page!;
     const hidden=await page.evaluate(()=>{
-      const hidden=Array.from(document.querySelectorAll<HTMLElement>('#__lad-visual-selection,#__lad-visual-highlight')).map(node=>({id:node.id,visibility:node.style.visibility}));for(const saved of hidden){document.getElementById(saved.id)!.style.visibility='hidden';}
+      const hidden=Array.from(document.querySelectorAll<HTMLElement>('#__lad-visual-selection,#__lad-visual-highlight,#__lad-visual-regions')).map(node=>({id:node.id,visibility:node.style.visibility}));for(const saved of hidden){document.getElementById(saved.id)!.style.visibility='hidden';}
       document.getElementById('__lad-capture-mask')?.remove();
       const host=document.createElement('div');host.id='__lad-capture-mask';host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none';
       const shadow=host.attachShadow({mode:'closed'});
@@ -583,10 +616,10 @@ export class ProjectBrowserSession {
       try {const result=await cdp.send('Page.captureScreenshot',{format:'png',clip:{...documentRegion,scale:Math.min(1,1280/region.width,900/region.height)/metrics.dpr},captureBeyondViewport:false});bytes=Buffer.from(result.data,'base64');}
       finally {if(!captureSession)await cdp.detach().catch(()=>undefined);}
     }else bytes=await page.screenshot({ type: 'png', clip: documentRegion, scale: 'css', timeout: 10000 });
-    if (!captureSession && this.native && (region.width>1280||region.height>900)) {
+    if (!captureSession && this.native && (bytes.readUInt32BE(16)>1280||bytes.readUInt32BE(20)>900)) {
       const { nativeImage } = await import('electron');
-      const scale = Math.min(1280/region.width, 900/region.height);
-      bytes = nativeImage.createFromBuffer(bytes).resize({ width:Math.max(1,Math.floor(region.width*scale)), height:Math.max(1,Math.floor(region.height*scale)), quality:'good' }).toPNG();
+      const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20);const scale = Math.min(1280/width, 900/height);
+      bytes = nativeImage.createFromBuffer(bytes).resize({ width:Math.max(1,Math.floor(width*scale)), height:Math.max(1,Math.floor(height*scale)), quality:'good' }).toPNG();
     }
     return bytes;});
     if (signal.aborted || this.closed) throw new Error('Capture cancelled');
@@ -737,6 +770,7 @@ export class ProjectBrowserSession {
     return this.closing ??= Promise.resolve().then(() => this.dispose(refresh));
   }
   private async dispose(refresh: boolean) {
+    clearInterval(this.displayTimer);this.displayTimer=undefined;this.displayedRegions=[];
     await this.clearSelection();
     if (refresh && !this.closed) {
       await this.watcher?.flush();

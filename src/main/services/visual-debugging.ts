@@ -48,10 +48,14 @@ export class VisualDebugging {
   }
   async command(chatId: string, projectId: string, session: ProjectBrowserSession | undefined, command: VisualCommand) {
     if(!command||typeof command!=='object')throw new Error('Invalid visual command');
-    if(command.action!=='reveal'&&!session)throw new Error('Open the current project browser first');
-    if(!['selection','reveal'].includes(command.action))await session!.visualSelection(false,[]);
+    if(!['reveal','display'].includes(command.action)&&!session)throw new Error('Open the current project browser first');
+    if(!['selection','reveal','display'].includes(command.action))await session!.visualSelection(false,[]);
     let document=this.document(chatId,projectId);
-    if(command.action==='new-area'){
+    if(command.action==='display'){
+      if(command.enabled!==undefined&&typeof command.enabled!=='boolean'||command.selectedIds!==undefined&&(!Array.isArray(command.selectedIds)||command.selectedIds.length>100||!command.selectedIds.every(id=>typeof id==='string')))throw new Error('Invalid visual display state');
+      const display=await session?.visualDisplay(document.regions,command.enabled,command.selectedIds);
+      return {...document,display};
+    }else if(command.action==='new-area'){
       if(document.issues.length>=100)throw new Error('Area limit reached');
       document.issues=document.issues.filter(i=>i.regionIds.length);this.activatedDrafts.delete(this.key(chatId,projectId));
       const draft:import('../../shared/visual-debugging').VisualIssue={id:'area-'+randomUUID(),explicit:true,number:document.nextAreaNumber,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[],route:'',suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
@@ -68,10 +72,11 @@ export class VisualDebugging {
       if(typeof command.enabled!=='boolean'||command.groupId&&!/^[a-zA-Z0-9_-]{1,64}$/.test(command.groupId))throw new Error('Invalid selection group');
       if(!command.enabled)this.drafts.delete(this.key(chatId,projectId));
       await session!.visualSelection(command.enabled,document.regions,async region=>{
-        const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.drafts.delete(this.key(chatId,projectId));this.save(chatId,projectId,latest);
+        const latest=this.document(chatId,projectId);this.add(latest,region,chatId,projectId);normalizeVisualDocument(latest);this.drafts.delete(this.key(chatId,projectId));this.save(chatId,projectId,latest);await session!.visualDisplay(latest.regions);
       },command.groupId);
       if(command.enabled&&this.drafts.get(this.key(chatId,projectId))?.id===command.groupId)this.activatedDrafts.add(this.key(chatId,projectId));
     }else if(command.action==='reveal'||command.action==='navigate'){
+      if(session)await session.visualDisplay(document.regions);
       const live=document.regions.find(r=>r.id===command.regionId);
       const region=live??this.db.visualRegionReference(chatId,projectId,command.regionId);if(!region)throw new Error('Unknown region');
       if(!live&&command.action==='navigate')throw new Error('Region deleted or unavailable');
@@ -93,10 +98,10 @@ export class VisualDebugging {
     }else if(command.action==='detect'){
       for(const region of await session!.visualDetect())this.add(document,region,chatId,projectId);
     }else throw new Error('Unknown visual command');
-    if(!['selection','reveal'].includes(command.action)){
+    if(!['selection','reveal','display'].includes(command.action)){
       document.issues=document.issues.filter(i=>i.regionIds.length||this.drafts.get(this.key(chatId,projectId))?.id===i.id);normalizeVisualDocument(document);this.save(chatId,projectId,document);
       await session!.visualSelection(false,[]);
     }
-    document=this.document(chatId,projectId);return document;
+    document=this.document(chatId,projectId);const display=await session?.visualDisplay(document.regions);return {...document,display};
   }
 }

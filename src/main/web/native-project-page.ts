@@ -1,5 +1,5 @@
 import {t} from '../../shared/locale';
-import {cssToPresentation,cssScreenshotClip} from '../../shared/browser-coordinates';
+import {cssToPresentation} from '../../shared/browser-coordinates';
 import {defaultBrowserWorkspace,type BrowserWorkspaceSettings,type BrowserWorkspaceState} from '../../shared/live-browser';
 import { randomUUID } from 'node:crypto';
 import { BrowserWindow, WebContentsView, View, screen, session, type WebContents, type Rectangle } from 'electron';
@@ -71,7 +71,7 @@ export interface NativeProjectPage {
   captureCss?(rect:{x:number;y:number;width:number;height:number},dpr:number):Promise<Buffer>;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
-  highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string}>): void;
+  highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>): void;
   close(): Promise<void>;
 }
 
@@ -188,13 +188,14 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     browser = await chromium.connectOverCDP(transport, { timeout: 15000, noDefaults: true });
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
-    let highlightTimer:ReturnType<typeof setTimeout>|undefined;
-    const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string}>)=>{
-      clearTimeout(highlightTimer);if(destroyed||contents.isDestroyed()||shield.webContents.isDestroyed())return;
+    let highlighted:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>=[],highlightKey='';
+    const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>)=>{
+      highlighted=rects;if(destroyed||contents.isDestroyed()||shield.webContents.isDestroyed())return;
       const zoom=contents.getZoomFactor()*(actual?.displayScale??1),pan=actual?.settings.pan??{x:0,y:0};
-      const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:4px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
+      const key=JSON.stringify([rects,zoom,pan]);if(key===highlightKey)return;highlightKey=key;
+      const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');if(b.id)node.dataset.regionId=b.id;node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:${b.selected?5:3}px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
       void shield.webContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
-      if(rects.length)highlightTimer=setTimeout(()=>highlight([]),2200);
+
     };
     const apply=async()=>{
       if(destroyed||window.isDestroyed()||!bounds)return;
@@ -210,7 +211,6 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       const next:BrowserWorkspaceState={settings:{...settings,pan},viewport,panel,surface,displayScale:scale,browserZoom:zoom,deviceScaleFactor:dpr,...(!drawable?{error:t('Недостаточно места для браузера: сверните панель настроек.')}:{})};
       const key=JSON.stringify([viewport,scale,zoom,dpr,settings.viewport==='auto']);
       if(key!==applied){
-        highlight([]);
         if(settings.viewport==='auto'&&settings.scale==='fit')await contents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');
         else await contents.debugger.sendCommand('Emulation.setDeviceMetricsOverride',{width:Math.round(viewport.width*zoom),height:Math.round(viewport.height*zoom),deviceScaleFactor:dpr,mobile:false,scale});
         applied=key;
@@ -221,7 +221,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       view.setBounds({x:Math.round(offset.x),y:Math.round(offset.y),...surface});
       shield.setBounds({x,y,...panel});
       settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable&&ownerState!=='user');
-      changed?.(next);
+      highlight(highlighted);changed?.(next);
     };
     let queued=false;
     const schedule=()=>{if(queued)return serial;queued=true;serial=serial.catch(()=>undefined).then(async()=>{queued=false;await apply();}).catch(error=>{if(actual)changed?.({...actual,error:String(error)});});return serial;};
@@ -234,7 +234,15 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
         if(rect.y<pan.y||rect.y+rect.height>pan.y+height)pan.y=Math.max(0,rect.y+rect.height/2-height/2);
         settings={...settings,pan};await schedule();
       },
-      async captureCss(rect,dpr){const result=await contents.debugger.sendCommand('Page.captureScreenshot',{format:'png',clip:cssScreenshotClip(rect,contents.getZoomFactor(),dpr),captureBeyondViewport:true});return Buffer.from(result.data,'base64');},
+      async captureCss(rect){
+        // Copy the live compositor surface. CDP captureScreenshot temporarily changes
+        // its capture viewport and visibly blanks this attached WebContentsView.
+        const scroll=await page.evaluate(()=>({x:scrollX,y:scrollY}));
+        const scale=contents.getZoomFactor()*(actual?.displayScale??1),x=(rect.x-scroll.x)*scale,y=(rect.y-scroll.y)*scale;
+        if(x<0||y<0)throw new Error('Crop moved outside the visible viewport');
+        const image=await contents.capturePage({x:Math.floor(x),y:Math.floor(y),width:Math.max(1,Math.ceil(rect.width*scale)),height:Math.max(1,Math.ceil(rect.height*scale))});
+        if(image.isEmpty())throw new Error('Native compositor crop unavailable');return image.toPNG();
+      },
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
       async workspace(value){settings=structuredClone(value);await schedule();},
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },

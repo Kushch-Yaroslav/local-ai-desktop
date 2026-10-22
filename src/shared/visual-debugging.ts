@@ -1,5 +1,6 @@
 export interface VisualRect { x: number; y: number; width: number; height: number }
 export interface VisualAnchor {
+  identity?:{text:string;context:string};
   classes?: string[];
   name?: string;
   geometry?: {clientWidth:number;clientHeight:number;scrollWidth:number;scrollHeight:number;visible:boolean};
@@ -15,6 +16,7 @@ export interface VisualRegion {
   live?:{url:string;viewport:{width:number;height:number};dpr:number;scroll:{x:number;y:number};rect?:VisualRect;stale:boolean;reason?:string;observedAt:string};
   groupNumber?: number; color?: string;
   sourceHints?: Array<{path:string;sha256:string}>;
+  crop?:{width:number;height:number;space:'native-presentation'|'css'};
   screenshotPath?: string; createdAt: string; snapshot: string; diagnostics: string[];
 }
 export type VisualIssueStatus = 'Detected' | 'Confirmed' | 'In progress' | 'Fixed' | 'Verified' | 'Unresolved';
@@ -25,9 +27,13 @@ export interface VisualIssue {
   status: VisualIssueStatus; regionIds: string[]; route: string;
   suspectedSourceFiles: string[]; evidenceRefs: string[]; verification: 'Not Verified' | 'Ledger linked';
 }
-export interface VisualDocument { workspace?:import('./live-browser').BrowserWorkspaceSettings; nextAreaNumber?: number; previewUrls?: string[]; currentUrl?: string; view?: VisualRegionView; selectionActive?: boolean; regions: VisualRegion[]; issues: VisualIssue[] }
-export interface VisualRegionView { regionId: string; url: string; currentUrl?: string; stale: boolean; screenshotOnly?:boolean; deleted?: boolean; needsNavigation: boolean; scrollDeferred?: boolean; diagnostics: string[]; cropDataUrl?: string }
+export interface VisualBindingState {id:string;stale:boolean;reason?:string;kind:'dom'|'ambiguous'|'screenshot'}
+export interface VisualSelectionFeedback {kind:'pending'|'saved'|'error';at:number;regionId?:string;detail?:string}
+export interface VisualDisplayState {visible:boolean;bindings:VisualBindingState[];feedback?:VisualSelectionFeedback}
+export interface VisualDocument { display?:VisualDisplayState; workspace?:import('./live-browser').BrowserWorkspaceSettings; nextAreaNumber?: number; previewUrls?: string[]; currentUrl?: string; view?: VisualRegionView; selectionActive?: boolean; regions: VisualRegion[]; issues: VisualIssue[] }
+export interface VisualRegionView { regionId: string; url: string; currentUrl?: string; stale: boolean; reason?:string; screenshotOnly?:boolean; deleted?: boolean; needsNavigation: boolean; scrollDeferred?: boolean; diagnostics: string[]; cropDataUrl?: string }
 export type VisualCommand =
+  | {action:'display';enabled?:boolean;selectedIds?:string[]}
   | {action: 'new-area'}
   | {action: 'color'; areaId: string; color: string}
   | {action: 'delete-area'; areaId: string}
