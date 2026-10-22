@@ -1,0 +1,1 @@
+PASS real Native Electron/CDP: isolated responsive viewports, unchanged active identity/navigation/input/size, no extra windows, cache, Stop/Pause cleanup, RU/EN QA panel. No real Vision/LLM inference.

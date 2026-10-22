@@ -66,6 +66,7 @@
     "test:live-browser:auto-qwen": "npm run build && cross-env LOCAL_AI_TEST_AUTO_RELOAD=1 node scripts/live-browser-qwen.test.mjs",
     "test:scenario-qa": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/scenario-qa-regressions.test.mjs",
     "test:browser-session": "npm run build && npm run lint && node dist/main/services/approval-broker.test.js && node scripts/browser-session-reliability.test.mjs && node scripts/browser-session-native-electron.test.mjs",
+    "test:visual-regions-workspace": "npm run build && npm run lint && node scripts/visual-regions-deletion.test.mjs && node scripts/visual-debugging-usability.test.mjs && node scripts/visual-debugging-pipeline.test.mjs && node scripts/visual-regions-workspace-electron.test.mjs && node scripts/visual-regions-workspace-electron.test.mjs --dpr2 && node scripts/visual-debugging-usability-electron.test.mjs --workspace && node scripts/responsive-native-electron.test.mjs && node scripts/visual-layout-native-electron.test.mjs",
     "test:visual-debugging:usability": "npm run build && node scripts/visual-debugging-usability.test.mjs && node scripts/visual-debugging-usability-electron.test.mjs",
     "test:visual-debugging:qwen": "npm run build && node scripts/visual-debugging-qwen.test.mjs",
     "test:visual-debugging": "npm run build && node scripts/visual-debugging-pipeline.test.mjs && node scripts/visual-debugging-electron.test.mjs",

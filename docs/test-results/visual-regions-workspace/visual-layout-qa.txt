@@ -1,0 +1,1 @@
+PASS actual Native Electron: 760px owner window vs independent 1440px QA rendering, DPR1/2, bounded screenshots, resize band detection, preserved active page/input/ownership, Stop/Pause cleanup, RU/EN existing QA panel. No real Vision inference.

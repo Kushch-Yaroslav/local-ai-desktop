@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {mkdtemp} from 'node:fs/promises';
+import {join} from 'node:path';
+import {createRequire} from 'node:module';
+const root=await mkdtemp('/tmp/lad-region-deletion-');process.env.LOCAL_AI_RUNTIME_ROOT=root;
+const require=createRequire(import.meta.url),{Database}=require('../dist/main/services/database.js'),{VisualDebugging}=require('../dist/main/services/visual-debugging.js');
+const {cssToPresentation,presentationToCss}=require('../dist/shared/browser-coordinates.js'),{validateBrowserWorkspace}=require('../dist/shared/live-browser.js');
+const db=new Database(join(root,'test.db')),chat=db.createConversation(),service=new VisualDebugging(db);
+let reveals=0,capture;
+const session={visualSelection:async(enabled,_regions,callback)=>{if(enabled)capture=callback;},visualReveal:async()=>{reveals++;return {stale:false,needsNavigation:false,diagnostics:[]};}};
+const region={id:'region-12345678',groupId:'legacy-group',conversationId:chat.id,projectId:'p',projectRoot:'/tmp/project',url:'https://project-preview.invalid/index.html?x=1#/catalog',route:'/index.html?x=1#/catalog',viewport:{width:800,height:600},dpr:1,scroll:{x:0,y:0},rect:{x:10,y:10,width:40,height:20},anchors:[],createdAt:new Date().toISOString(),snapshot:'legacy',diagnostics:[]};
+const issue={id:region.groupId,number:9,description:'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[region.id],route:region.route,suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};
+db.saveVisualDocument(chat.id,'p',{regions:[region],issues:[issue]});db.addMessage(chat.id,'user','Historical region','old-message');db.setRegionReferences('old-message',chat.id,[region]);
+await service.command(chat.id,'p',session,{action:'delete',regionId:region.id});
+assert.equal(db.visualDocument(chat.id,'p').issues.length,0);
+const view=await service.command(chat.id,'p',session,{action:'reveal',regionId:region.id});assert(view.view.deleted);assert.equal(reveals,0,'Deleted historical references never ask the browser to paint');
+assert.equal(db.getMessage('old-message').regionReferences[0].id,region.id,'History remains immutable');
+const d=await service.command(chat.id,'p',session,{action:'new-area'}),draft=d.issues.at(-1);assert.equal(draft.number,10);assert.equal(db.visualDocument(chat.id,'p').issues.length,0);
+await service.command(chat.id,'p',session,{action:'selection',enabled:true,groupId:draft.id});service.reconcileSelection(chat.id,'p',false);assert.equal(service.document(chat.id,'p').issues.length,0,'Suspended renderer discards an activated empty draft');
+const next=await service.command(chat.id,'p',session,{action:'new-area'});assert.equal(next.issues.at(-1).number,11);await service.command(chat.id,'p',session,{action:'selection',enabled:true,groupId:next.issues.at(-1).id});await capture({...region,id:'region-87654321',groupId:next.issues.at(-1).id});assert.equal(db.visualDocument(chat.id,'p').issues.length,1);
+await service.command(chat.id,'p',session,{action:'clear'});assert.equal(new VisualDebugging(db).document(chat.id,'p').regions.length,0);
+for(const scale of [.2,.5,.75,1,1.25,2])for(const pan of [{x:0,y:0},{x:1450,y:300}]){const original={x:1591,y:620},restored=presentationToCss(cssToPresentation(original,scale,pan),scale,pan);assert(Math.abs(restored.x-original.x)<1e-8);assert(Math.abs(restored.y-original.y)<1e-8);}
+for(const bad of [{viewport:{width:100000,height:100000},scale:1,pan:{x:0,y:0}},{viewport:'auto',scale:NaN,pan:{x:0,y:0}},{viewport:'auto',scale:1,pan:{x:Infinity,y:0}}])assert.throws(()=>validateBrowserWorkspace(bad));
+console.log('PASS immutable deleted references/no browser reveal, draft persistence/suspension, monotonic numbering, restart/clear, coordinate roundtrips and bounded workspace validation.');

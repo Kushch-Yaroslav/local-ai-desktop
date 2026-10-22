@@ -25,6 +25,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [Agent Runtime V2 deep reliability audit (RU)](ru/AGENT_RUNTIME_V2_DEEP_AUDIT.md)
 - [Persistent model profiles and profile UI verification](model-profile-persistence-verification.md)
 - [Browser session reliability and permission persistence verification](browser-session-reliability-verification.md)
+- [Visual Regions Reliability & Responsive Browser Workspace (RU)](visual-regions-workspace-verification.md)
 - [Visual Debugging UX, browser lifecycle and real Qwen verification (RU)](visual-debugging-usability-verification.md)
 - [Visual Debugging foundation: workflow, stages and validation](visual-debugging-verification.md)
 - [Native Live Browser and progress-aware QA architecture](native-browser-qa-architecture.md) · [verification and performance](native-browser-qa-verification.md)
