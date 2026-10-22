@@ -1,3 +1,4 @@
+import { getLanguage } from '../../shared/locale';
 import type { Page } from 'playwright-core';
 import type { VisualRect, VisualRegion } from '../../shared/visual-debugging';
 import { visualGroupColor } from '../../shared/visual-debugging';
@@ -15,17 +16,17 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
     let start: {x:number;y:number} | undefined;
     const box = (rect: VisualRect, label: string, color: string) => {
       const node = document.createElement('div');
-      node.style.cssText = `position:absolute;pointer-events:none;box-sizing:border-box;border:2px solid ${color};background:${color}18;left:${rect.x}px;top:${rect.y}px;width:${rect.width}px;height:${rect.height}px;color:#fff;font:12px sans-serif;`;
-      const badge=document.createElement('span');badge.style.background=color;badge.style.color='#111';badge.textContent=label;node.append(badge);layer.append(node);
+      node.style.cssText = `position:absolute;pointer-events:none;box-sizing:border-box;border:3px solid ${color};box-shadow:0 0 0 1px #fff,0 0 0 2px #111;background:${color}22;left:${rect.x}px;top:${rect.y}px;width:${rect.width}px;height:${rect.height}px;color:#fff;font:12px sans-serif;`;
+      const badge=document.createElement('span');badge.style.cssText=`background:#111;color:#fff;border:2px solid ${color};padding:2px 4px;font-weight:bold;`; badge.textContent=label;node.append(badge);layer.append(node);
     };
-    const draw = () => { layer.replaceChildren(); for (const [index,r] of regions.entries()) {
+    const draw = () => { layer.replaceChildren(); for (const r of regions) {
       if (r.url !== location.href) continue;
       let rect = {...r.rect, x:r.rect.x-scrollX,y:r.rect.y-scrollY};
       const anchor = r.anchors[0];
       if (anchor && anchor.confidence >= .8) {
         try { const nodes=document.querySelectorAll(anchor.selector);if(nodes.length===1){const b=nodes[0].getBoundingClientRect();const sx=b.width/anchor.rect.width,sy=b.height/anchor.rect.height;rect={x:b.x+(r.rect.x-anchor.rect.x)*sx,y:b.y+(r.rect.y-anchor.rect.y)*sy,width:r.rect.width*sx,height:r.rect.height*sy};} } catch { /* stale selector */ }
       } else if (r.viewport.width !== innerWidth || r.viewport.height !== innerHeight) continue;
-      box(rect, `${index+1} · #${r.id}`, r.color);
+      box(rect, `${r.label} · #${r.id}`, r.color);
     } };
     const cleanup = () => { host.remove();removeEventListener('scroll',draw,true);removeEventListener('resize',draw);removeEventListener('keydown',key,true);delete state.__ladSelection; };
     const key = (event: KeyboardEvent) => {if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();if(start){start=undefined;draw();}else {cleanup();void state.__ladRegionSelect?.(null).catch(()=>undefined);}}};
@@ -35,7 +36,7 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
     host.onpointercancel=()=>{start=undefined;draw();};
     host.onwheel=event=>{event.preventDefault();window.scrollBy(event.deltaX,event.deltaY);};
     document.documentElement.append(host);state.__ladSelection=cleanup;addEventListener('scroll',draw,true);addEventListener('resize',draw);addEventListener('keydown',key,true);draw();
-  }, {enabled, regions:regions.map(r=>({id:r.id,url:r.url,viewport:r.viewport,rect:r.rect,anchors:r.anchors.map(a=>({selector:a.selector,confidence:a.confidence,rect:a.rect})),color:visualGroupColor(r.groupId)}))});
+  }, {enabled, regions:regions.map(r=>({id:r.id,url:r.url,viewport:r.viewport,rect:r.rect,anchors:r.anchors.map(a=>({selector:a.selector,confidence:a.confidence,rect:a.rect})),color:r.color??visualGroupColor(r.groupId),label:`${getLanguage()==='ru'?'Область':'Area'} ${r.groupNumber??regions.findIndex(item=>item.groupId===r.groupId)+1}`}))});
 }
 
 export async function groundRegion(page: Page, rect: VisualRect) {
