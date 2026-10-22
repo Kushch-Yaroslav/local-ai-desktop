@@ -668,3 +668,8 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .native-browser-surface { display:block; overflow:scroll; scrollbar-gutter:stable; overscroll-behavior:contain; }
 .browser-virtual-surface { pointer-events:none; flex:none; }
 .visual-delete-confirm { border:1px solid var(--border); padding:5px; }
+
+.visual-display-toggle { display:inline-flex; align-items:center; gap:4px; font-size:11px; }
+.visual-binding-status,.visual-save-feedback { font-size:10px; opacity:.85; }
+
+.visual-save-feedback { display:block; min-height:14px; }
