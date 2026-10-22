@@ -35,7 +35,7 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
     host.onpointercancel=()=>{start=undefined;draw();};
     host.onwheel=event=>{event.preventDefault();window.scrollBy(event.deltaX,event.deltaY);};
     document.documentElement.append(host);state.__ladSelection=cleanup;addEventListener('scroll',draw,true);addEventListener('resize',draw);addEventListener('keydown',key,true);draw();
-  }, {enabled, regions:regions.map(r=>({...r,color:visualGroupColor(r.groupId)}))});
+  }, {enabled, regions:regions.map(r=>({id:r.id,url:r.url,viewport:r.viewport,rect:r.rect,anchors:r.anchors.map(a=>({selector:a.selector,confidence:a.confidence,rect:a.rect})),color:visualGroupColor(r.groupId)}))});
 }
 
 export async function groundRegion(page: Page, rect: VisualRect) {

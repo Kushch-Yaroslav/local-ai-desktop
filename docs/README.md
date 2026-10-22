@@ -25,6 +25,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [Agent Runtime V2 deep reliability audit (RU)](ru/AGENT_RUNTIME_V2_DEEP_AUDIT.md)
 - [Persistent model profiles and profile UI verification](model-profile-persistence-verification.md)
 - [Browser session reliability and permission persistence verification](browser-session-reliability-verification.md)
+- [Visual Debugging foundation: workflow, stages and validation](visual-debugging-verification.md)
 - [Native Live Browser and progress-aware QA architecture](native-browser-qa-architecture.md) · [verification and performance](native-browser-qa-verification.md)
 - [P1 MTP technical analysis](v0.3-p1-mtp-analysis.md) · [measured verification](v0.3-p1-mtp-verification.md) · [early reasoning interruption analysis](v0.3-p1-interrupt-analysis.md)
 - [Historical release and validation records](archive/README.md)
