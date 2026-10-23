@@ -387,3 +387,15 @@ if (require.main === module) {
     await runWebCancellationRegression();
   })().catch((error: unknown) => { console.error(error); process.exitCode = 1; });
 }
+
+// A continuation reuses its durable journal rather than reimporting history.
+// Current structured evidence must therefore travel with the current user turn.
+{
+  const user = {...message('user','Inspect selected region'),id:'current-reference'};
+  const context = {...message('system','region metadata: text-clipping, original viewport 1920'),id:'regions-'+user.id};
+  const split = splitAgentRunHistory([message('user','Earlier task'),context,user]);
+  assert(split.user.includes('text-clipping'));
+  assert(split.user.startsWith(user.content));
+  assert(!split.prior.some(node=>node.id===context.id));
+  assert.equal(user.content,'Inspect selected region');
+}
