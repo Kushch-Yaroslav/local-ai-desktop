@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-visual-usability-X8EDq2",
+  "project": "/tmp/lad-visual-usability-project-8g9nhy",
+  "scope": "Real Electron/Chromium/Rust with scripted local provider",
+  "checks": 18,
+  "originalNativeId": 2,
+  "requests": 11
+}

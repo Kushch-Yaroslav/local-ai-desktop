@@ -1,0 +1,1 @@
+<!doctype html><style>body{margin:20px;font:16px sans-serif}.checkout{display:block;overflow:hidden;margin:20px 0}#unrelated{position:absolute;top:320px;left:20px}</style><button id="checkout" class="checkout">Complete purchase securely</button><button id="second" class="checkout">Continue shopping now</button><p id="unrelated">Independent text on a different row</p>

@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-region-feedback-V8m66e",
+  "dpr2": true,
+  "pan": {
+    "before": {
+      "x": 700,
+      "y": 150
+    },
+    "after": {
+      "x": 796,
+      "y": 198
+    }
+  }
+}

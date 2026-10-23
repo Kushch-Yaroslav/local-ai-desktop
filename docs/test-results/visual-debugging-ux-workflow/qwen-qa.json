@@ -1,0 +1,195 @@
+{
+  "id": "81bc8438-c0e7-420e-9404-a57c0461d2a4",
+  "scope": "interaction",
+  "status": "Verified",
+  "functionalStatus": "Verified",
+  "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+  "capturedAt": "2026-10-23T13:52:10.844Z",
+  "checks": [
+    {
+      "action": "load",
+      "expected": "Document has a rendered body",
+      "actual": "",
+      "status": "Verified"
+    },
+    {
+      "action": "canvas animation",
+      "expected": "Observed RAF callbacks continue (not object/camera motion)",
+      "actual": "24 → 39 → 54",
+      "status": "Verified"
+    },
+    {
+      "action": "Rendered checkout text fits within its actual button bounds at the original 1920x1080 viewport and hash route",
+      "expected": "{\"source\":\"text_fit\",\"operator\":\"equals\",\"selector\":\"#checkout\",\"expected\":0}",
+      "actual": "[{\"atMs\":154.03607500000362,\"value\":0},{\"atMs\":259.41780100000324,\"value\":0,\"captureId\":\"2e571ece-cb1c-4638-a75c-34910cb8fd86\"}]",
+      "status": "Verified"
+    },
+    {
+      "action": "exposed numeric diagnostics",
+      "expected": "No NaN/Infinity in exposed diagnostics",
+      "actual": "None observed",
+      "status": "Verified"
+    },
+    {
+      "action": "runtime errors",
+      "expected": "No observed uncaught errors/console errors/rejections",
+      "actual": "None observed",
+      "status": "Verified"
+    }
+  ],
+  "captures": [
+    {
+      "runId": "981ae904-4f65-4ab9-8050-120c6d86dfc5",
+      "dpr": 1,
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "id": "51bbf8cf-5fdb-4473-be94-a95ef7e13278",
+      "path": "/tmp/lad-visual-real-qwen-OPfx3o/cache/browser-captures/manual-ebd89af5-0ac7-4af3-981b-342033775234/51bbf8cf-5fdb-4473-be94-a95ef7e13278.png",
+      "sha256": "ce3023f7839e7e56c2c05fe1e0420e6abba29bc42198c339bf3a80fe27376259",
+      "width": 1280,
+      "height": 720,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+      "capturedAt": "2026-10-23T13:52:10.086Z",
+      "captureMs": 140.10383400000137,
+      "bytes": 12685
+    },
+    {
+      "runId": "981ae904-4f65-4ab9-8050-120c6d86dfc5",
+      "dpr": 1,
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "id": "2e571ece-cb1c-4638-a75c-34910cb8fd86",
+      "path": "/tmp/lad-visual-real-qwen-OPfx3o/cache/browser-captures/manual-ebd89af5-0ac7-4af3-981b-342033775234/2e571ece-cb1c-4638-a75c-34910cb8fd86.png",
+      "sha256": "ce3023f7839e7e56c2c05fe1e0420e6abba29bc42198c339bf3a80fe27376259",
+      "width": 1280,
+      "height": 720,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+      "capturedAt": "2026-10-23T13:52:10.715Z",
+      "captureMs": 145.03797399999894,
+      "bytes": 12685
+    },
+    {
+      "runId": "981ae904-4f65-4ab9-8050-120c6d86dfc5",
+      "dpr": 1,
+      "scroll": {
+        "x": 0,
+        "y": 0
+      },
+      "id": "eac03412-7edd-41de-85d6-9495ee5cbc67",
+      "path": "/tmp/lad-visual-real-qwen-OPfx3o/cache/browser-captures/manual-ebd89af5-0ac7-4af3-981b-342033775234/eac03412-7edd-41de-85d6-9495ee5cbc67.png",
+      "sha256": "ce3023f7839e7e56c2c05fe1e0420e6abba29bc42198c339bf3a80fe27376259",
+      "width": 1280,
+      "height": 720,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+      "capturedAt": "2026-10-23T13:52:10.843Z",
+      "captureMs": 126.33012500000041,
+      "bytes": 12685
+    }
+  ],
+  "errors": [],
+  "visual": {
+    "analyzed": false,
+    "status": "Not Verified",
+    "reason": "Scoped DOM/pixel measurements only; no model image analysis was performed."
+  },
+  "scenarios": [
+    {
+      "id": "criterion-1",
+      "goal": "Rendered checkout text fits within its actual button bounds at the original 1920x1080 viewport and hash route",
+      "target": "/index.html?currency=UAH#/shop?sort=price",
+      "deliverableId": "area-71b9a923-46ed-4c91-afc8-dfaced5a5d56",
+      "criterionId": "layout",
+      "status": "Verified",
+      "evidenceKind": "runtime",
+      "assertion": {
+        "source": "text_fit",
+        "operator": "equals",
+        "selector": "#checkout",
+        "expected": 0
+      },
+      "preconditions": [],
+      "observations": [
+        {
+          "atMs": 154.03607500000362,
+          "value": 0
+        },
+        {
+          "atMs": 259.41780100000324,
+          "value": 0,
+          "captureId": "2e571ece-cb1c-4638-a75c-34910cb8fd86"
+        }
+      ],
+      "checks": [
+        {
+          "action": "Rendered checkout text fits within its actual button bounds at the original 1920x1080 viewport and hash route",
+          "expected": "{\"source\":\"text_fit\",\"operator\":\"equals\",\"selector\":\"#checkout\",\"expected\":0}",
+          "actual": "[{\"atMs\":154.03607500000362,\"value\":0},{\"atMs\":259.41780100000324,\"value\":0,\"captureId\":\"2e571ece-cb1c-4638-a75c-34910cb8fd86\"}]",
+          "status": "Verified"
+        }
+      ],
+      "elapsedMs": 407.34417300000496,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "responsive": {
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+        "documentWidth": 1920,
+        "findings": [],
+        "intentionalScrollContainers": 0,
+        "hasCanvas": false,
+        "truncated": false
+      },
+      "sourceRevisions": {
+        "/tmp/lad-visual-real-qwen-project-rEL91u/index.html": "54f65c598a4a7df7b76f7c08d3727af763f12a1440cb4b6656ba2029a000f6db"
+      }
+    }
+  ],
+  "elapsedMs": 898.6011829999989,
+  "runId": "981ae904-4f65-4ab9-8050-120c6d86dfc5",
+  "revisionFingerprint": "1787cf3045075e38ca06493df62de9c735b51f68504ebeecd413973ce8bf4104",
+  "sourceRevisions": {
+    "/tmp/lad-visual-real-qwen-project-rEL91u/index.html": "54f65c598a4a7df7b76f7c08d3727af763f12a1440cb4b6656ba2029a000f6db"
+  },
+  "sourceFingerprint": "54f65c598a4a7df7b76f7c08d3727af763f12a1440cb4b6656ba2029a000f6db",
+  "evidencePath": "/tmp/lad-visual-real-qwen-OPfx3o/cache/browser-captures/manual-ebd89af5-0ac7-4af3-981b-342033775234/81bc8438-c0e7-420e-9404-a57c0461d2a4.json",
+  "projectRoot": "/tmp/lad-visual-real-qwen-project-rEL91u"
+}

@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-region-feedback-Iy9uwh",
+  "dpr2": false,
+  "raster": {
+    "frames": 180,
+    "darkFrames": 0,
+    "minLuma": 240
+  },
+  "pan": {
+    "before": {
+      "x": 700,
+      "y": 150
+    },
+    "after": {
+      "x": 796,
+      "y": 198
+    }
+  }
+}

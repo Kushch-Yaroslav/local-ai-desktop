@@ -1,0 +1,36 @@
+{
+  "result": "PASS",
+  "branch": "improvement/v0.3-visual-debugging-ux-workflow",
+  "typeScript": "renderer and Electron main passed via npm run build",
+  "eslint": "PASS, no warnings",
+  "build": "PASS; existing Vite large-chunk warning",
+  "rust": {
+    "passed": 409,
+    "ignored": 1,
+    "failed": 0
+  },
+  "electronSuites": 10,
+  "qwen": {
+    "provider": "real Qwen3.6-35B-A3B, Vision Off",
+    "wallSeconds": 72.132,
+    "status": "Verified",
+    "originalViewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "originalUrl": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+    "serverStopped": true
+  },
+  "userRuntimeModified": false,
+  "userProjectsModified": false,
+  "modelFilesModified": false,
+  "mergeOrRelease": false,
+  "implementationCommits": [
+    "2694c88",
+    "f32ad40",
+    "a17753a",
+    "cf11cd1",
+    "253971a",
+    "577c2e3"
+  ]
+}

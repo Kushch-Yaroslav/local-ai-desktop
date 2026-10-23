@@ -1,0 +1,2 @@
+Pinned llama-server models capability response accepted independently of OpenAI data.
+PASS QA guard: content revisions, own-evidence exclusion, normalized scenarios, outcomes, page/runtime/permission changes, reopen, explicit continuation, alternating cycles and real keyboard schema.

@@ -1,0 +1,4 @@
+PASS exact route/viewport/text-fit proof, partial/failed/blocked/stale rejection, explicit original conditions, manual Unresolved override, rename preservation, existing Ledger linkage without forged acceptance coverage, source-change invalidation and selector-error handling.
+PASS legacy region identity migration, monotonic area numbering, colors/SQLite, immutable history references, full query/hash routing, credential redaction, RU/EN and fallback.
+PASS region persistence/context, crop image payload hydration, Vision policy matrix, foreign chat rejection, generic/scopeless Ledger proof rejection and stale/qualified rejection.
+PASS immutable deleted references/no browser reveal, draft persistence/suspension, monotonic numbering, restart/clear, coordinate roundtrips and bounded workspace validation.

@@ -1,0 +1,122 @@
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+import {createServer} from 'node:http';
+import {mkdtemp,writeFile,readFile} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {_electron} from 'playwright-core';
+const root=await mkdtemp('/tmp/lad-visual-workflow-'),project=await mkdtemp('/tmp/lad-visual-workflow-project-');
+const source=`<!doctype html><meta charset="utf-8"><style>body{margin:20px;font:16px Arial;background:#fff;min-height:1400px}.checkout{display:block;width:60px;overflow:hidden;white-space:nowrap;margin:24px 0}#unrelated{position:absolute;top:400px;left:20px}</style><a id="route" href="?currency=UAH#/catalog?sort=price">Catalog</a><button id="checkout" class="checkout"><span>Complete purchase securely</span></button><button id="second" class="checkout">Continue shopping now</button><p id="unrelated">Independent text on another row</p><input type="password" value="PRIVATE-PASSWORD"><input value="PRIVATE-INPUT">`;
+await writeFile(join(project,'index.html'),source);
+const requests=[];let queue=[],step=0,held,app;
+const frame=(delta,reason)=>`data: ${JSON.stringify({choices:[{index:0,delta,finish_reason:reason}]})}\n\n`;
+const server=createServer(async(req,res)=>{if(req.method==='GET'){res.setHeader('Content-Type','text/html');res.end(await readFile(join(project,'index.html')));return;}const chunks=[];for await(const c of req)chunks.push(c);requests.push(JSON.parse(Buffer.concat(chunks)));let action=queue[step++];if(action==='hold'){await new Promise(r=>{held=r;});action=queue[step++];}if(typeof action==='function')action=await action();res.writeHead(200,{'Content-Type':'text/event-stream'});res.end((action?frame({tool_calls:[{index:0,id:'workflow-'+step,type:'function',function:{name:action[0],arguments:JSON.stringify(action[1])}}]},'tool_calls'):frame({content:'Shared CSS fixed. Rendered text fits at the original URL and viewport. Vision was Off.'},'stop'))+'data: [DONE]\n\n');});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const until=async(fn,label)=>{for(let i=0;i<600;i++){try{if(await fn())return;}catch(error){if(!/Execution context was destroyed/.test(String(error)))throw error;}await sleep(100);}throw Error(label);};
+const results=[];
+try{
+ app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/visual-debugging/main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_PROJECT_ROOT:project,LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${server.address().port}/v1/chat/completions`}});
+ const capture=async name=>{const id=await app.evaluate(()=>{global.visualFixture.window.setAlwaysOnTop(true);return global.visualFixture.window.getNativeWindowHandle().readUInt32LE();});try{execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-y','-f','x11grab','-window_id',String(id),'-i',process.env.DISPLAY,'-frames:v','1','-update','1',join(root,name)],{stdio:'pipe'});}finally{await app.evaluate(()=>global.visualFixture.window.setAlwaysOnTop(false));}};
+ const ui=await app.firstWindow();await ui.locator('.conversation').waitFor();const chat=await app.evaluate(()=>global.visualFixture.chat);
+ const doc=()=>ui.evaluate(chat=>window.localAi.visualDebug.document(chat),chat),command=cmd=>ui.evaluate(({chat,cmd})=>window.localAi.visualDebug.command(chat,cmd),{chat,cmd});
+ const native=()=>app.evaluate(()=>global.visualFixture.info());
+ await ui.locator('.live-manual-open').click();await until(async()=>(await doc()).currentUrl?.includes('/index.html'),'Manual browser open failed');await app.evaluate(()=>global.visualFixture.entry().page.locator('#checkout').waitFor());const nativeId=await app.evaluate(()=>global.visualFixture.entry().native.contents.id);
+ await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Full HD');await until(async()=>(await native()).snapshot.width===1920,'1920 viewport failed');
+ // Current URL follows real site navigation; an edited draft is retained until Escape.
+ const address=ui.getByRole('textbox',{name:'Page address',exact:true});await address.fill('index.html?draft=keep#/not-opened');
+ await app.evaluate(()=>global.visualFixture.entry().page.locator('#route').click());
+ await until(async()=>(await doc()).currentUrl.endsWith('?currency=UAH#/catalog?sort=price'),'Hash navigation did not update current URL');
+ assert.equal(await address.inputValue(),'index.html?draft=keep#/not-opened');assert((await ui.locator('.live-navigation-draft').innerText()).includes('#/catalog?sort=price'));
+ await address.press('Escape');await until(async()=>(await address.inputValue()).endsWith('#/catalog?sort=price'),'Escape did not restore current address');
+ const allowedUrl=(await doc()).currentUrl;await address.fill('https://example.com');await ui.getByRole('button',{name:'Navigate to address',exact:true}).click();await until(()=>ui.locator('.live-browser .live-error[role=alert]').isVisible(),'Navigation denial was hidden');assert.equal((await doc()).currentUrl,allowedUrl);await address.press('Escape');
+ console.log("Completed workflow checkpoint");results.push('HashRouter/query navigation and non-destructive URL draft');
+ await ui.getByRole('button',{name:'New area',exact:true}).click();await until(async()=>(await doc()).selectionActive,'Selection mode not ready');await app.evaluate(()=>global.visualFixture.drag('#checkout'));await until(async()=>(await doc()).regions.length===1,'First selection missing');
+ await app.evaluate(()=>global.visualFixture.drag('#second'));await until(async()=>(await doc()).regions.length===2,'Second selection missing');
+ await ui.getByRole('button',{name:'Exit selection',exact:true}).click();let document=await doc(),issue=document.issues[0],region=document.regions[0];
+ assert.equal(issue.regionIds.length,2);assert.equal(region.viewport.width,1920);assert.equal(region.anchors[0].selector,'#checkout');assert(region.anchors[0].findings.some(f=>f.category==='text-clipping'));assert(!JSON.stringify(document).includes('PRIVATE-'));
+ const card=ui.getByRole('article',{name:'Area 1',exact:true});
+ // Destructive action is directly available, never buried in technical details.
+ assert(await card.getByRole('button',{name:'Delete area 1',exact:true}).isVisible());
+ await card.locator('.visual-issue-edit>summary').click();const name=card.getByLabel('Area 1 description',{exact:true});await name.fill('Checkout label');await name.press('Tab');await until(async()=>(await doc()).issues[0].description==='Checkout label','Rename not saved');
+ await card.getByLabel('Area 1 color',{exact:true}).fill('#facc15');await until(async()=>(await doc()).issues[0].color==='#facc15','Color not saved');
+ const beforeDisplay=await app.evaluate(()=>global.visualFixture.info());await ui.getByRole('button',{name:'Show selections',exact:true}).click();assert.deepEqual((await native()).regions,beforeDisplay.regions);await ui.getByRole('button',{name:'Show selections',exact:true}).click();
+ await card.getByRole('checkbox',{name:'Select area 1',exact:true}).check();await until(()=>app.evaluate(()=>!!global.visualFixture.entry().native),'Native Page disappeared');
+ await card.getByRole('button',{name:'Recheck fix',exact:true}).click();await until(async()=>Boolean((await doc()).issues[0].check),'Recheck not completed');assert.equal((await doc()).issues[0].check.status,'Failed',JSON.stringify((await doc()).issues[0].check));assert.equal((await doc()).issues[0].check.viewport.width,1920);
+ console.log("Completed workflow checkpoint");results.push('Manual multi-selection, rename, color, privacy and failing rendered-text recheck');
+ // Auto is deterministic and produces candidates without inference.
+ await ui.getByRole('button',{name:'Check page',exact:true}).click();await until(async()=>(await doc()).issues.length>1,'Auto DOM discovery failed');assert.equal(requests.length,0);
+ const auto=(await doc()).issues.find(i=>i.id!==issue.id);const autoCard=ui.getByRole('article',{name:`Area ${auto.number}`,exact:true});await autoCard.getByRole('button',{name:'Reject candidate',exact:true}).click();await until(async()=>(await doc()).issues.find(i=>i.id===auto.id).rejected,'Candidate reject failed');
+ console.log("Completed workflow checkpoint");results.push('Auto DOM/layout discovery without LLM and explicit rejection');
+ // Change only the live viewport. The agent must verify the original 1920 conditions.
+ await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Mobile');await until(async()=>(await native()).snapshot.width===390,'390 viewport failed');
+ await ui.evaluate(chat=>window.localAi.conversations.update(chat,{modelId:'qwen3.8:27b-q4_K_M',contextWindow:32768}),chat);
+ await ui.evaluate(chat=>window.localAi.chat.setPermissions(chat,'autonomous',true),chat);assert.equal((await native()).id,nativeId);
+ await card.getByRole('button',{name:'Send to agent',exact:true}).click();await until(()=>ui.locator('.composer .visual-region-chip,.attachment-draft .visual-region-chip').count(),'Composer references missing');assert.equal(requests.length,0,'Transfer must not start an agent');
+ const chips=await ui.locator('.attachment-draft').innerText();assert(chips.includes('Area 1'));assert(chips.includes('Checkout label'));assert(!chips.includes('region-'));assert(!chips.includes('"anchors"'));
+ const spec={target:region.url,viewport:region.viewport,preconditions:[],required_state:[],steps:[],assertion:{source:'text_fit',selector:'#checkout',operator:'equals',expected:0},timeout_ms:5000};
+ const spec2={...spec,assertion:{...spec.assertion,selector:'#second'}};
+ queue=[['read_file',{path:'index.html'}],['deliverables',{action:'add',id:issue.id,text:'Readable checkout buttons at original viewport',check:'browser',criteria:[{id:'label',description:'Checkout label fits its actual button bounds',kind:'runtime',scenario:spec},{id:'second',description:'Shared second label fits',kind:'runtime',scenario:spec2}]}],['web_project',{action:'read'}],'hold'];step=0;
+ await ui.evaluate(()=>{window.__workflowEvents=[];window.localAi.chat.onStream(e=>{window.__workflowEvents.push(e);if(e.type==='approval-request')void window.localAi.chat.approve({conversationId:e.conversationId,generationId:e.generationId,approvalId:e.approval.approvalId,decision:'once'});});});
+ await ui.locator('.composer textarea').fill('Fix the selected shared CSS clipping, inspect source, and verify each label at the saved URL and 1920x1080. Vision is Off.');await ui.locator('.send-button:not(.stop)').click();await until(()=>Boolean(held),'Agent ownership hold not reached');
+ await until(()=>ui.locator('.live-ownership').filter({hasText:'Agent control'}).count(),'Ownership indicator missing');assert(await ui.getByRole('button',{name:'New area',exact:true}).isDisabled());
+ assert.equal((await doc()).issues[0].runtimeStatus,'In progress');await card.getByRole('button',{name:'View area',exact:true}).click();assert.equal((await native()).ownership,'agent');await assert.rejects(command({action:'recheck',issueId:issue.id}));
+ queue.push(['replace_text',{path:'index.html',old_text:'width:60px;overflow:hidden;white-space:nowrap',new_text:'width:max-content;max-width:100%;overflow:visible;white-space:normal'}],['deliverables',{action:'implemented',id:issue.id,evidence:'Changed shared .checkout CSS in index.html'}],['web_project',{action:'qa',scenario_refs:[{deliverable_id:issue.id,criterion_id:'label'},{deliverable_id:issue.id,criterion_id:'second'}]}],async()=>{const memory=await app.evaluate(()=>global.visualFixture.events.filter(e=>e.type==='task-memory').at(-1)?.memory);const proof=memory.verification.records.filter(r=>r.pass&&r.coverage?.some(c=>c.deliverable_id===issue.id&&!c.qualified));assert(proof.length>=2,JSON.stringify(memory));return ['deliverables',{action:'verify',id:issue.id,evidence_ids:proof.map(p=>p.id)}];});
+ held();held=undefined;
+ await until(()=>ui.evaluate(()=>window.__workflowEvents.some(e=>e.type==='done')),'Fix run did not finish');
+ const errors=await ui.evaluate(()=>window.__workflowEvents.filter(e=>e.type==='error'));assert.deepEqual(errors,[]);
+ const task=(await doc()).issues[0].logicalTaskId;
+ const firstMessage=(await ui.evaluate(chat=>window.localAi.messages.list(chat),chat)).findLast(m=>m.role==='user'&&m.regionReferences?.length);assert.equal(firstMessage.regionReferences[0].viewport.width,1920);assert.equal(firstMessage.regionReferences[0].live.viewport.width,390);
+ document=await doc();assert.equal(document.issues[0].status,'Verified',JSON.stringify(document.issues[0]));assert.equal(document.issues[0].check.viewport.width,1920);assert.equal((await native()).snapshot.width,390,'Agent isolated QA must preserve user viewport');assert((await readFile(join(project,'index.html'),'utf8')).includes('width:max-content'));assert(!JSON.stringify(requests).includes('data:image/'));assert(JSON.stringify(requests).includes('original region.viewport'));
+ console.log("Completed workflow checkpoint");results.push('Real Rust Runtime scripted correction, original-viewport QA and linked verification');
+ const sessionId=await app.evaluate(()=>global.visualFixture.entry().state.sessionId);
+ const workspace=settings=>ui.evaluate(({sessionId,settings})=>window.localAi.liveBrowser.workspace(sessionId,settings),{sessionId,settings});
+ const state=()=>app.evaluate(()=>global.visualFixture.entry().native.workspaceState());
+ for(const settings of [{viewport:{width:1920,height:1080},scale:1,pan:{x:600,y:120}},{viewport:{width:1920,height:1080},scale:'fit',pan:{x:0,y:0}},{viewport:{width:768,height:1024},scale:.5,pan:{x:0,y:0}}]){
+   await workspace(settings);const before=await state();const observed=await command({action:'recheck',issueId:issue.id});
+   assert.equal(observed.issues[0].check.status,'Verified',JSON.stringify(observed.issues[0].check));assert.deepEqual((await state()).settings,before.settings);assert.equal((await native()).id,nativeId);
+   assert.equal((await native()).snapshot.width,before.viewport.width);assert.equal(observed.issues[0].check.viewport.width,1920);
+ }
+ await workspace({viewport:{width:390,height:844},scale:'fit',pan:{x:0,y:0}});
+ await command({action:'issue',issueId:issue.id,description:'Checkout label',status:'Unresolved'});await command({action:'recheck',issueId:issue.id});document=await doc();assert.equal(document.issues[0].status,'Unresolved');assert.equal(document.issues[0].statusSource,'user');assert.equal(document.issues[0].check.status,'Verified');assert(document.issues[0].check.ledgerId);assert.equal((await native()).snapshot.width,390,'Manual recheck must restore user workspace after checking original conditions');
+ await command({action:'issue',issueId:issue.id,description:'Checkout label',status:'Confirmed'});const closed=await command({action:'recheck',issueId:issue.id});assert.equal(closed.issues[0].status,'Verified','Explicit passing recheck closes a confirmed issue');await command({action:'issue',issueId:issue.id,description:'Checkout label',status:'Unresolved'});
+ const plan=await app.evaluate((_,task)=>global.visualFixture.db.getAgentPlan(global.visualFixture.chat,task),task);assert(plan.taskMemory.verification.records.some(r=>r.id===document.issues[0].check.ledgerId));
+ // A missing selector is not a passing check or a fabricated defect.
+ await writeFile(join(project,'index.html'),(await readFile(join(project,'index.html'),'utf8')).replace('id="checkout"','id="gone"'));
+ const failedWorkspace=(await state()).settings;document=await command({action:'recheck',issueId:issue.id});assert.deepEqual((await state()).settings,failedWorkspace);assert.equal(document.issues[0].check.status,'Not Verified');assert.equal(document.issues[0].status,'Unresolved');
+ await app.evaluate(()=>{const f=global.visualFixture,chat=f.db.getConversation(f.chat),d=f.db.visualDocument(f.chat,chat.primaryProjectId);global.originalSelector=d.regions[0].anchors[0].selector;d.regions[0].anchors[0].selector='button>>[';f.db.saveVisualDocument(f.chat,chat.primaryProjectId,d);});
+ document=await command({action:'recheck',issueId:issue.id});assert.equal(document.issues[0].check.status,'Not Verified');assert(document.issues[0].check.reason.includes('invalid-selector'));
+ await app.evaluate(()=>{const f=global.visualFixture,chat=f.db.getConversation(f.chat),d=f.db.visualDocument(f.chat,chat.primaryProjectId);d.regions[0].anchors[0].selector=global.originalSelector;f.db.saveVisualDocument(f.chat,chat.primaryProjectId,d);});
+ console.log("Completed workflow checkpoint");results.push('User Unresolved override, Ledger-linked manual QA and missing-anchor failure');
+ // UI responsive layout and keyboard navigation in both locales.
+ for(const dimensions of [{width:1500,height:1000},{width:860,height:800}]){
+   await app.evaluate(({BrowserWindow},size)=>BrowserWindow.getAllWindows()[0].setSize(size.width,size.height),dimensions);await sleep(250);
+   const geometry=await ui.evaluate(()=>{const aside=document.querySelector('.live-browser'),screen=document.querySelector('.live-screen');return{overflow:document.documentElement.scrollWidth>innerWidth+2,panelOverflow:aside.scrollWidth>aside.clientWidth+2,screenHeight:screen.clientHeight};});assert(!geometry.overflow&&!geometry.panelOverflow,JSON.stringify(geometry));assert(geometry.screenHeight>=100,JSON.stringify(geometry));
+   if(dimensions.width===860){await card.getByRole('button',{name:'Send to agent',exact:true}).click();await until(()=>ui.locator('.live-chat').isVisible(),'Narrow transfer did not open composer');assert(await ui.locator('.attachment-draft .visual-region-chip').count());await ui.locator('.live-reopen').click();}
+ }
+ await ui.getByRole('button',{name:'Browser Expanded',exact:true}).click();await ui.getByRole('button',{name:'New area',exact:true}).focus();assert.equal(await ui.evaluate(()=>document.activeElement?.textContent),'New area');await ui.keyboard.press('Tab');assert(await ui.getByRole('button',{name:'Add selection',exact:true}).evaluate(e=>e===document.activeElement));
+ await ui.evaluate(()=>window.localAi.settings.setLanguage('ru'));await until(()=>ui.getByRole('button',{name:'Передать агенту',exact:true}).count(),'RU translation missing');assert(!(await ui.locator('.visual-debug-panel').innerText()).includes('Unresolved'));assert((await ui.locator('.visual-debug-panel').innerText()).includes('Не решено'));
+ await ui.screenshot({path:join(root,'workspace-ru.png')});await capture('workspace-ru-native.png');await ui.evaluate(()=>window.localAi.settings.setLanguage('en'));await ui.screenshot({path:join(root,'workspace-en.png')});await capture('workspace-en-native.png');
+ console.log("Completed workflow checkpoint");results.push('Wide/narrow layout, bounded inspector, keyboard and RU/EN');
+ await ui.reload();await ui.locator('.chat-select').filter({hasText:'Visual Debugging demo'}).click();document=await doc();assert.equal(document.issues[0].status,'Unresolved');assert.equal(document.issues[0].description,'Checkout label');assert.equal(document.issues[0].color,'#facc15');
+ await ui.evaluate(chat=>window.localAi.visualDebug.open(chat),chat);assert.equal((await native()).id,nativeId);
+ // Delete one rectangle, then the group, preserving history references.
+ await command({action:'delete',regionId:document.regions[0].id});assert.equal((await doc()).issues[0].regionIds.length,1);
+ await until(async()=>(await ui.getByRole('article',{name:'Area 1',exact:true}).locator('.visual-area-context').innerText()).includes('1 selections'),'Card did not reflect the IPC deletion');await ui.getByRole('button',{name:'Delete area 1',exact:true}).click();await until(async()=>!(await doc()).issues.some(i=>i.id===issue.id),'Delete group failed');
+ const history=await command({action:'reveal',regionId:region.id});assert(history.view.deleted);assert(history.view.cropDataUrl);assert(!(await doc()).regions.some(r=>r.groupId===issue.id));
+ console.log("Completed workflow checkpoint");results.push('SQLite reload, stable native identity, explicit delete and immutable history evidence');
+ // A real approved loopback preview has no direct static asset/source-map binding.
+ const devSource='<!doctype html><style>button{width:60px;overflow:hidden;white-space:nowrap}</style><button id="dev">Long dev server checkout label</button>';
+ await writeFile(join(project,'index.html'),devSource);
+ await ui.evaluate(({chat,url})=>window.localAi.visualDebug.open(chat,url),{chat,url:`http://127.0.0.1:${server.address().port}/index.html?dev=1#/shop?sort=price`});
+ const newArea=await command({action:'new-area'}),devIssue=newArea.issues.at(-1);await command({action:'selection',enabled:true,groupId:devIssue.id});await app.evaluate(()=>global.visualFixture.drag('#dev'));
+ await until(async()=>(await doc()).regions.some(r=>r.groupId===devIssue.id),'Loopback region capture failed');await command({action:'selection',enabled:false});
+ let devCheck=await command({action:'recheck',issueId:devIssue.id});assert.equal(devCheck.issues.find(i=>i.id===devIssue.id).check.status,'Failed');
+ await writeFile(join(project,'index.html'),devSource.replace('width:60px','width:max-content'));
+ devCheck=await command({action:'recheck',issueId:devIssue.id});const passed=devCheck.issues.find(i=>i.id===devIssue.id);assert.equal(passed.check.status,'Verified',JSON.stringify(passed));assert(passed.check.evidencePath);assert(passed.check.revisionFingerprint);assert(!passed.check.ledgerId,'A standalone manual QA must not invent a logical task/Ledger');
+ assert.equal((await doc()).issues.find(i=>i.id===devIssue.id).check.status,'Verified','Saved report/fingerprint must remain valid without an agent task');
+ await writeFile(join(project,'index.html'),devSource);await until(async()=>(await doc()).issues.find(i=>i.id===devIssue.id).check.status==='Not Verified','Loopback source edit did not expire the bounded cached fingerprint');
+ assert.equal((await native()).pageCount,1);
+ results.push('Approved loopback HashRouter preview, standalone QA report proof and source-fingerprint expiration');
+ const result={result:'PASS',provider:'scripted local provider, real Electron/Chromium and Rust Runtime',root,project,results,requests:requests.length};await writeFile(join(root,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+}catch(error){if(app){try{await writeFile(join(root,'ui.txt'),await(await app.firstWindow()).locator('body').innerText());await(await app.firstWindow()).screenshot({path:join(root,'failure.png')});await writeFile(join(root,'events.json'),JSON.stringify(await app.evaluate(()=>global.visualFixture.events),null,2));}catch{/* Preserve the original failure if artifact capture fails. */}}console.error('Artifacts: '+root);throw error;}
+finally{held?.();await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

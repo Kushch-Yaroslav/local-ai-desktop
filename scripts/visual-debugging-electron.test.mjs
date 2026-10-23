@@ -14,7 +14,7 @@ const endpoint=`http://127.0.0.1:${server.address().port}/v1/chat/completions`;
 try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/visual-debugging/main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_PROJECT_ROOT:project,LOCAL_AI_AGENT_ENDPOINT:endpoint}});
  const ui=await app.firstWindow();await ui.locator('.conversation').waitFor();
- await ui.locator('.live-manual-open').click();await ui.waitForFunction(()=>document.querySelector('.live-address')?.textContent.includes('project-preview.invalid'));
+ await ui.locator('.live-manual-open').click();await ui.waitForFunction(()=>document.querySelector('.live-address')?.getAttribute('data-current-url')?.includes('project-preview.invalid'));
  const chat=await app.evaluate(()=>global.visualFixture.chat);
  const command=cmd=>ui.evaluate(({chat,cmd})=>window.localAi.visualDebug.command(chat,cmd),{chat,cmd});
  const info=()=>app.evaluate(()=>global.visualFixture.info());
@@ -47,7 +47,7 @@ try{
  await command({action:'delete',regionId:privateRegion.id});await app.evaluate(()=>global.visualFixture.entry().native.contents.setZoomFactor(1));
  // Scroll while selection is active and ground document, not screen, geometry.
  await command({action:'selection',enabled:true,groupId:'lower'});
- await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>scrollTo(0,650)));
+ await app.evaluate(()=>global.visualFixture.entry().page.locator('#lower').scrollIntoViewIfNeeded());
  await app.evaluate(()=>global.visualFixture.drag('#lower'));
  await waitRegions(3);
  doc=(await info()).regions;assert(doc.regions.at(-1).scroll.y>=600);assert(doc.regions.at(-1).rect.y>600);
@@ -57,10 +57,10 @@ try{
  await command({action:'selection',enabled:false});
  const detected=await command({action:'detect'});assert(detected.regions.some(r=>r.groupId.startsWith('auto-')));assert(detected.issues.every(i=>i.status==='Detected'));assert(detected.regions.length<=15);
  // UI draft references, no JSON/base64 in the textarea.
- await ui.waitForFunction(()=>document.querySelectorAll('.visual-region-list>div').length>=2);
- await ui.locator('.visual-area').first().locator(':scope > details > summary').click();
+ await ui.waitForFunction(()=>document.querySelectorAll('.visual-area').length>=2);
+ await ui.locator('.visual-area').first().locator('.visual-technical > summary').click();
  await ui.getByRole('checkbox',{name:`Select ${region1.id}`,exact:true}).check();
- await ui.getByRole('button',{name:'To chat → agent',exact:true}).click();
+ await ui.locator('.visual-controls').getByRole('button',{name:/^Send to agent/}).click();
  assert(await ui.locator('.composer .visual-region-chip').count()||await ui.locator('.attachment-draft .visual-region-chip').count());
  assert(!(await ui.locator('textarea').first().inputValue()).includes('base64'));
  // Persist immutable reference snapshots separately from text, then reload renderer.
@@ -101,9 +101,9 @@ try{
  assert((await readFile(join(project,'index.html'),'utf8')).includes('width:max-content'));
  assert.equal((await info()).id,before.id,'Agent fix reuses the manually opened Native Page');assert.equal((await info()).ownership,'user');assert.equal((await info()).snapshot.overlay,false);
  const verified=await ui.evaluate(chat=>window.localAi.visualDebug.document(chat),chat);
- assert.equal(verified.issues.find(i=>i.id==='shared-buttons').status,'Verified',JSON.stringify(verified.issues));
+ assert.equal(verified.issues.find(i=>i.id==='shared-buttons').status,'Fixed',JSON.stringify(verified.issues));assert.equal(verified.issues.find(i=>i.id==='shared-buttons').check.status,'Partially Verified','A generic layout pass at a different viewport cannot certify these original selections');
  const saved=await app.evaluate(()=>global.visualFixture.db.getMessage('visual-fix-user'));assert.equal(saved.regionReferences.length,2);assert(!saved.content.includes('screenshotPath'));
- await writeFile(join(root,'visual-debugging-result.json'),JSON.stringify({result:'PASS',provider:'scripted local SSE; actual Electron/Chromium/Rust',nativeId:before.id,requests:requests.length,verifiedIssue:verified.issues.find(i=>i.id==='shared-buttons'),checks:['manual reuse','selection and groups','DOM and Canvas','scroll/viewport/zoom/DPR','private pixels masked','history restart','canonical references','Vision Off','scoped fix and Verification Gate','bounded Auto']},null,2));
- console.log('PASS actual Rust Agent Runtime V2 with scripted local SSE provider: canonical structured region references, real source read, shared CSS write, browser session reuse and approval, mapped layout retest, Verification Gate and issue Ledger link; Vision Off has zero image payloads.');
+ await writeFile(join(root,'visual-debugging-result.json'),JSON.stringify({result:'PASS',provider:'scripted local SSE; actual Electron/Chromium/Rust',nativeId:before.id,requests:requests.length,visualIssue:verified.issues.find(i=>i.id==='shared-buttons'),checks:['manual reuse','selection and groups','DOM and Canvas','scroll/viewport/zoom/DPR','private pixels masked','history restart','canonical references','Vision Off','scoped fix and Verification Gate','bounded Auto']},null,2));
+ console.log('PASS actual Rust Agent Runtime V2 with scripted local SSE provider: canonical structured region references, real source read, shared CSS write, browser session reuse and approval, mapped layout retest and Verification Gate; visual issue remains unverified without original-condition proof; Vision Off has zero image payloads.');
  console.log('PASS real Electron Native Browser: manual open/reuse, rectangles, DOM grounding, Canvas, groups/split/delete, scroll/resize/reveal, crops, Vision Off, bounded QA suspects, UI draft chips, SQLite/history/renderer restart, external origin and foreign chat rejection. Runtime: '+root);
 }finally{await app?.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

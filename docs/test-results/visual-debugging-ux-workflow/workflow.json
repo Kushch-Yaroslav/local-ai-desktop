@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "provider": "scripted local provider, real Electron/Chromium and Rust Runtime",
+  "root": "/tmp/lad-visual-workflow-0Phds0",
+  "project": "/tmp/lad-visual-workflow-project-8JgdrV",
+  "results": [
+    "HashRouter/query navigation and non-destructive URL draft",
+    "Manual multi-selection, rename, color, privacy and failing rendered-text recheck",
+    "Auto DOM/layout discovery without LLM and explicit rejection",
+    "Real Rust Runtime scripted correction, original-viewport QA and linked verification",
+    "User Unresolved override, Ledger-linked manual QA and missing-anchor failure",
+    "Wide/narrow layout, bounded inspector, keyboard and RU/EN",
+    "SQLite reload, stable native identity, explicit delete and immutable history evidence",
+    "Approved loopback HashRouter preview, standalone QA report proof and source-fingerprint expiration"
+  ],
+  "requests": 8
+}

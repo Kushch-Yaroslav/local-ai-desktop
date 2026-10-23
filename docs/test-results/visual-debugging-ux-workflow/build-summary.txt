@@ -1,0 +1,24 @@
+
+> local-ai-desktop@0.2.1 build
+> npm run build:rust-agent && npm run typecheck && vite build && tsc -p tsconfig.electron.json
+
+
+> local-ai-desktop@0.2.1 build:rust-agent
+> cargo build --locked --manifest-path rust-agent/Cargo.toml
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s
+
+> local-ai-desktop@0.2.1 typecheck
+> tsc --noEmit
+
+vite v6.4.3 building for production...
+transforming...
+../../dist/renderer/assets/mermaid.core-CHUrHJ62.js                    661.16 kB │ gzip: 160.70 kB
+../../dist/renderer/assets/index-0NR8e2zg.js                         1,060.99 kB │ gzip: 314.72 kB
+../../dist/renderer/assets/elk-IJKZMXRS-_ivQcjUN.js                  1,478.63 kB │ gzip: 454.05 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 15.17s

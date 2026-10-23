@@ -1,0 +1,65 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-visual-real-qwen-OPfx3o",
+  "project": "/tmp/lad-visual-real-qwen-project-rEL91u",
+  "model": "/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+  "provider": "real Qwen3.6-35B-A3B, Vision Off",
+  "serverPid": 13476,
+  "wallSeconds": 72.132,
+  "issue": {
+    "id": "area-71b9a923-46ed-4c91-afc8-dfaced5a5d56",
+    "explicit": true,
+    "number": 1,
+    "description": "Visual issue candidate",
+    "severity": "suspect",
+    "status": "Verified",
+    "regionIds": [
+      "region-916894d3-4335-4921-a5a5-aafa597e0c29"
+    ],
+    "route": "/index.html?currency=UAH#/shop?sort=price",
+    "suspectedSourceFiles": [
+      "/tmp/lad-visual-real-qwen-project-rEL91u/index.html"
+    ],
+    "evidenceRefs": [
+      "region-916894d3-4335-4921-a5a5-aafa597e0c29",
+      "ev-002"
+    ],
+    "verification": "Ledger linked",
+    "color": "#22d3ee",
+    "logicalTaskId": "4f5b86d0-6b32-4c03-b5d1-f07b12cd47c3",
+    "runId": "981ae904-4f65-4ab9-8050-120c6d86dfc5",
+    "events": [
+      {
+        "at": "2026-10-23T13:51:14.330Z",
+        "source": "runtime",
+        "action": "submitted"
+      }
+    ],
+    "runtimeStatus": "Verified",
+    "lastAction": "",
+    "check": {
+      "status": "Verified",
+      "at": "2026-10-23T13:52:10.844Z",
+      "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "reportId": "81bc8438-c0e7-420e-9404-a57c0461d2a4",
+      "ledgerId": "ev-002"
+    },
+    "statusSource": "runtime"
+  },
+  "geometry": [
+    {
+      "clientWidth": 181,
+      "scrollWidth": 181
+    },
+    {
+      "clientWidth": 151,
+      "scrollWidth": 151
+    }
+  ],
+  "final": "Задача выполнена. Вот итог:\n\n**Причина обрезки текста:** Это была не проблема перекрытия (overlap) — независимый текст `#unrelated` находился на другой строке по Y и не пересёкался с кнопкой. Проблема была в **обрезке текста (text clipping)** из-за жёстко заданной ширины `width: 60px` в классе `.checkout`, которая в сочетании с `overflow: hidden` и `white-space: nowrap` не позволяла тексту отображаться полностью. Кнопка с текстом \"Complete purchase securely\" имела scrollWidth 181px при clientWidth 60px.\n\n**Исправление:** В CSS-правиле `.checkout` удалены `width: 60px` и `white-space: nowrap`. Теперь кнопки автоматически расширяются по содержимому, сохраняя `#unrelated` без изменений.\n\n**Фактическая проверка:** Браузерный QA-тест `text_fit` для селектора `#checkout` на целевом URL `?currency=UAH#/shop?sort=price` и viewport 1920×1080 вернул значение `0` в двух измерениях (154мс и 259мс) — текст полностью помещается в границы кнопки. Deliverable `area-71b9a923-46ed-4c91-afc8-dfaced5a5d56` — **verified**.\n\n**Vision:** Off (не использовался; проверка основана на DOM/text_fit измерениях Playwright).\n\n**Agent V2 status:** Browser QA: Verified. Visual analysis: Not Verified.",
+  "serverStopped": true
+}

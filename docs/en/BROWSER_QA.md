@@ -154,3 +154,13 @@ Focused checks: `npm run test:browser-session`. The Native/Rust E2E uses a scrip
 ## Independent Browser Tools and Vision
 
 The chat model **Vision** control governs multimodal inference only. All `responsive.vision` / `visual_layout.vision` requests remain subject to it: a local `on` cannot bypass Vision Off. With Off/Unsupported, screenshots, DOM, functional QA and pixel diagnostics remain available; `visual.analyzed` stays false. Auto uses scoped visual criteria/targeted candidates; a plain `screenshot` does not request inference without `analyze:true`. On never creates screenshots automatically. A single capture or generic successful browser open does not verify a visual requirement. Evidence route/viewport/DPR, freshness and Verification Gate are unchanged.
+
+## Visual debugging: selection to verification
+
+Open the selected project's browser, choose **New area**, and draw around a defect. One area can contain several rectangles for the same problem. Its card exposes preview, transfer and deletion; name, color and manual status expand separately.
+
+**Send to agent** adds structured references to the composer. Describe the task and send the message to start the run. Chips retain their own route, original viewport and grounding even after the browser navigates elsewhere.
+
+**Check page** finds DOM/layout candidates on the current page and viewport, without an LLM or Vision. **Recheck fix** measures supported text clipping/overflow cases at the original URL and CSS viewport, then restores your viewport, Fit/Fixed, display scale and pan. A missing selector or failed QA cannot confirm a fix.
+
+Work status and verification result are separate. A manual **Unresolved** decision survives passing QA. Details retain technical data and evidence. Narrow windows switch between browser and chat so the site remains usable. [Technical report and limitations](../visual-debugging-ux-workflow.md).
