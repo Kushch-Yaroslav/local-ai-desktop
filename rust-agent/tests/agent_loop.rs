@@ -3288,7 +3288,7 @@ fn more_than_256_productive_actions_keep_tools_and_a_legacy_denied_budget_does_n
 }
 
 #[test]
-fn confirmed_metadata_loop_cleans_only_model_context_and_preserves_evidence() {
+fn confirmed_metadata_loop_saves_checkpoint_and_preserves_evidence() {
     let workspace = Workspace::new(&[("a.txt","productive observation"),("b.txt","fresh progress")]);
     let provider = Provider::start(|request,n| {
         match n {
@@ -3310,10 +3310,14 @@ fn confirmed_metadata_loop_cleans_only_model_context_and_preserves_evidence() {
     let config=workspace.config(&provider.endpoint,"Inspect the files; preserve useful observations.");
     run(config);
     let journal=workspace.journal();
-    assert!(completed(&journal));
-    assert_eq!(journal.iter().filter(|line|line.get("ContextExclusion").is_some()).count(),1);
-    assert!(journal.iter().any(|line|line["ContextExclusion"]["actions"]==10));
-    assert_eq!(journal.iter().filter_map(|line|line["Message"]["tool_calls"].as_array()).flatten().filter(|call|call["function"]["name"]=="deliverables").count(),11, "persisted history retains all calls");
+    assert!(!completed(&journal), "a stopped loop is not a completed task");
+    assert!(journal.iter().any(|line| line.get("PauseCheckpoint").is_some()), "confirmed loop saves without provider repair turns");
+    let checkpoint = journal.iter().find_map(|line| line.get("PauseCheckpoint")).unwrap();
+    assert_eq!(checkpoint["memory"]["stop_reason"], "loop_detected");
+    assert!(checkpoint["memory"]["loop_guard"].is_object());
+    assert!(journal.iter().any(|line|line["Message"]["name"]=="read_file"), "productive observations remain durable");
+    assert_eq!(journal.iter().filter(|line|line.get("ContextExclusion").is_some()).count(),0, "Stop must not rewrite model context");
+    assert!(provider.requests().len() <= 14, "no additional LLM checkpoint/repair loop");
 }
 
 #[test]

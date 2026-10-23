@@ -6079,7 +6079,7 @@ pub fn run(mut config: Config) {
                             id: tool.id.clone(),
                             name: tool.name.clone(),
                             content: content.clone(),
-                            is_error: false,
+                            is_error: value.get("error").is_some(),
                             diff,
                         },
                     );

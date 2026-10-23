@@ -83,15 +83,10 @@ async function run() {
   LlamaCppBackend.prototype.resolveContextWindow = async (_, requested) => ({ requested, active: requested, supported: requested });
   const fetch = globalThis.fetch; globalThis.fetch = async () => new Response(JSON.stringify({ data: [] }), { status: 200 });
   const events: Array<StreamEvent & { generationId: string }> = [];
-  let recoveryConversation = '', pauses = 0;
+  let recoveryConversation = '';
   const controls: Promise<unknown>[] = [];
   const invoke = async <T>(key: string, ...args: unknown[]) => await handlers.get(key)!({ sender: { send: (_key: string, event: StreamEvent & { generationId: string }) => {
     events.push(event);
-    if (phase === 'loop' && event.type === 'loop-state' && event.paused && event.notice) {
-      pauses += 1;
-      // Strong recovery is automatic. Do not race it with a redundant repair command.
-      if (event.notice.repair_exhausted) controls.push(invoke('chat:loop-control', recoveryConversation, event.generationId, event.notice.signature, 'continue_anyway'));
-    }
     if (phase === 'loop-stop' && event.type === 'loop-state' && event.paused) controls.push(invoke('chat:stop', recoveryConversation, event.generationId));
   } } }, ...args) as T;
   try {
@@ -100,12 +95,12 @@ async function run() {
     writeFileSync(join(project, 'a.txt'), 'A source'); writeFileSync(join(project, 'b.txt'), 'B source');
     const chat = await invoke<Conversation>('conversations:create');
     await invoke('conversations:update', chat.id, { modelId: model, mode: 'agent', workingDirectory: project, webMode: 'off' });
-    const send = async (generationId: string, text: string, continuation?: string) => {
+    const send = async (generationId: string, text: string, continuation?: string, expectedStatus: 'completed'|'interrupted' = 'completed') => {
       const request: ChatRequest = { conversationId: chat.id, generationId, model, mode: 'agent', persistUserMessage: true, continueLogicalTaskId: continuation, messages: [...db.listMessages(chat.id), { id: generationId + '-user', conversationId: chat.id, role: 'user', content: text, createdAt: new Date().toISOString() }] };
       const timeout = setTimeout(() => { void invoke('chat:stop', chat.id, generationId); }, 15000);
       try { await invoke('chat:send', request); } finally { clearTimeout(timeout); }
       assert(!events.some(event => event.generationId === generationId && ['error', 'cancelled', 'approval-request'].includes(event.type)), JSON.stringify(events.filter(event => event.generationId === generationId)));
-      const run = db.listAnalysisRuns(chat.id).at(-1)!; assert.equal(run.status, 'completed');
+      const run = db.listAnalysisRuns(chat.id).at(-1)!; assert.equal(run.status, expectedStatus);
       assert(!run.actions.some(action => action.state === 'error'), JSON.stringify(run.actions.filter(action => action.state === 'error')));
       return run;
     };
@@ -151,56 +146,40 @@ async function run() {
     await invoke('conversations:update',chat.id,{workingDirectory:null});
     phase='loop-implemented';iteration=0;
     const promptStart=prompts.length;
-    const repaired=await send('implemented-loop','Continue calculator: inspect the next concrete task step instead of repeating implemented.',verified.logicalTaskId);
+    const repaired=await send('implemented-loop','Continue calculator: inspect the next concrete task step instead of repeating implemented.',verified.logicalTaskId,'interrupted');
     const repairEvents=repaired.timeline?.flatMap(event=>event.kind==='loop'?[event.lifecycle]:[])??[];
     assert(repairEvents.some(event=>event.stage==='soft_recovery'));
-    assert.equal(repairEvents.filter(event=>event.stage==='context_excluded').length,1);
-    const nextRequest=prompts.slice(promptStart).find(prompt=>JSON.stringify(prompt).includes('Selective loop recovery:'))!;
-    assert(nextRequest,'cleanup must affect the actual next HTTP model request');
-    const modelMessages=nextRequest.messages as Array<Record<string,unknown>>;
-    const retainedCalls=modelMessages.flatMap(message=>(message.tool_calls??[]) as Array<{id:string;function:{name:string;arguments:string}}>);
-    const loopCalls=retainedCalls.filter(call=>call.function.name==='deliverables' && JSON.parse(call.function.arguments).action==='implemented' && JSON.parse(call.function.arguments).id.startsWith('loop-'));
-    assert.equal(loopCalls.length,4,'preserve initial status transitions and first complete stable cycle, not repetitive successors');
+    assert.equal(repairEvents.filter(event=>event.stage==='context_excluded').length,0);
+    assert(repairEvents.some(event=>event.stage==='paused'));
+    assert(repaired.taskPlan?.taskMemory?.loop_guard, 'checkpoint retains the detector');
+    assert.equal(repaired.taskPlan?.taskMemory?.stop_reason,'loop_detected');
+    assert(!prompts.slice(promptStart).some(prompt=>JSON.stringify(prompt).includes('Selective loop recovery:')), 'Stop must not launch a second provider repair loop');
     const loopActions=repaired.actions.filter(action=>action.toolName==='deliverables' && action.arguments?.action==='implemented');
-    assert(loopActions.length<20,'Stage B must not wait for a second twenty-action threshold');
-    assert(loopActions.length>loopCalls.length,'full persisted history retains excluded actions');
-    assert(JSON.stringify(nextRequest).includes('calculator.py'),'productive coding observations remain available');
+    assert(loopActions.length<20,'confirmed cycle stops promptly');
     assert.equal(JSON.stringify(db.listAnalysisRuns(chat.id).find(run=>run.id===verified.id)?.taskPlan),savedVerified,'earlier verified snapshot stays immutable');
     assert.equal(repaired.logicalTaskId,verified.logicalTaskId);
-    console.log('production IPC + real Rust: 18 actual unittest tests, late registration, 3/3 verification; alternating implemented recovery, exact cleaned HTTP payload and immutable history passed');
+    console.log('production IPC + real Rust: 18 actual unittest tests, late registration, 3/3 verification; alternating implemented loop checkpoint, no extra provider repair and immutable history passed');
     await invoke('chat:set-permissions',chat.id,'strict',false);
     if (process.env.LOCAL_AI_TEST_LOOP_RECOVERY === '1') {
       writeFileSync(join(project, 'new-observation.txt'), 'New information after recovery');
       phase = 'loop'; iteration = 0; recoveryConversation = chat.id;
-      const recovered = await send('task-loop', 'Continue A; observe bounded recovery without changing files.', a.logicalTaskId);
-      await Promise.all(controls);
-      assert(pauses >= 2, 'failed repair and manual continuation must pause again');
-      const lifecycle = recovered.timeline?.flatMap(event => event.kind === 'loop' ? [event.lifecycle] : []) ?? [];
-      assert.equal(lifecycle.filter(event => event.stage === 'repair_requested').length, 0);
-      assert.equal(lifecycle.filter(event => event.stage === 'context_excluded').length, 2, 'both confirmed-loop repairs clean only model-facing context');
-      assert(lifecycle.some(event => event.stage === 'soft_recovery'), 'suspected loop injects a soft warning without cleanup');
-      assert(lifecycle.filter(event => event.stage === 'recovery_failed').length >= 2);
-      assert(lifecycle.filter(event => event.stage === 'paused').length >= 2);
-      assert(lifecycle.some(event => event.stage === 'paused' && event.notice.repair_exhausted));
-      assert.equal(lifecycle.at(-1)?.stage, 'recovery_succeeded');
-      assert(prompts.some(prompt => JSON.stringify(prompt).includes('This is task metadata only')));
-      assert(iteration >= 72 && iteration <= 74, 'tool recovery and bounded final verification review must terminate');
+      const recovered = await send('task-loop', 'Continue A; observe bounded recovery without changing files.', a.logicalTaskId,'interrupted');
+      assert.equal(recovered.taskPlan?.taskMemory?.stop_reason,'loop_detected');
       assert.equal(JSON.stringify(db.listAnalysisRuns(chat.id)[0].taskPlan), frozen);
-      console.log('production IPC + real Rust: 70 repeated views and bounded final review, repeated pauses, 2 selective repairs, soft recovery, manual Continue and observed progress persisted chronologically');
       phase = 'loop-stop'; iteration = 0;
       const stopId = 'stop-live-loop';
       await invoke('chat:send', { conversationId: chat.id, generationId: stopId, model, mode: 'agent', persistUserMessage: true, continueLogicalTaskId: a.logicalTaskId, messages: [...db.listMessages(chat.id), { id: stopId + '-user', conversationId: chat.id, role: 'user', content: 'Continue A; stop the isolated loop fixture.', createdAt: new Date().toISOString() }] });
       await Promise.all(controls);
       const stopped = db.listAnalysisRuns(chat.id).at(-1)!;
-      assert.equal(stopped.status, 'cancelled');
+      assert.equal(stopped.status, 'interrupted');
       assert(stopped.timeline?.some(event => event.kind === 'loop' && event.lifecycle.stage === 'paused'));
       const viewed = stopped.actions.filter(action => action.toolName === 'deliverables' && action.arguments?.action === 'view').length;
-      assert.equal(viewed, 11, `Stop must release the live loop pause at 11 repeated view calls; provider requests=${iteration}`);
+      assert(viewed<=11, `Stop must preserve the existing guard; provider requests=${iteration}`);
       phase = 'resume-after-loop'; iteration = 0;
       const resumed = await send('resume-loop', 'Continue the stopped logical task using its saved observation.', a.logicalTaskId);
       assert.equal(resumed.logicalTaskId, a.logicalTaskId);
       assert.equal(JSON.stringify(db.listAnalysisRuns(chat.id)[0].taskPlan), frozen);
-      console.log('production IPC + real Rust: Stop at a live loop pause and fresh task continuation completed without inherited suppression');
+      console.log('production IPC + real Rust: Stop at a live loop pause and task continuation with a fresh observation completed without replay');
     }
   } finally {
     globalThis.fetch = fetch; loader._load = load; cp.spawn = spawn;
