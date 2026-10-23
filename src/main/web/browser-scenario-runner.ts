@@ -11,6 +11,7 @@ export type QaCdp = Pick<CDPSession,'send'|'detach'>;
 export interface ScenarioQaOptions {
   metrics?():Promise<QaCdp>;
   page: Page; signal: AbortSignal; steps: QaStep[]; scenarios?: QaScenario[];
+  setViewport?(viewport:{width:number;height:number}):Promise<void>;
   baseline?(ref:{report_id:string;scenario_id:string}):Promise<VisualLayoutInspection|undefined>;
   sourceRevisions?(): Record<string,string>;
   responsive?: ResponsiveOptions;
@@ -39,6 +40,34 @@ async function observe(page:Page,a:QaAssertion,timeout:number,errors:()=>string[
     for(const key of path.split('.')){if(!value||typeof value!=='object'||!Object.prototype.hasOwnProperty.call(value,key))return null;value=(value as Record<string,unknown>)[key];}
     return typeof value==='number'&&Number.isFinite(value)||typeof value==='boolean'?value:typeof value==='string'&&value.length<=1000?value:null;
   },a.path!);
+  if(a.source==='text_fit'){
+    const target=page.locator(a.selector!);
+    if(await target.count()!==1)throw new QaBlocked('INCONCLUSIVE','Text fit needs exactly one matching element');
+    const value=await target.evaluate(root=>{
+      if(root.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive]'))return null;
+      const element=root as HTMLElement,b=element.getBoundingClientRect(),style=getComputedStyle(root);
+      if(!b.width||!b.height||style.visibility!=='visible'||Number(style.opacity)===0||!element.offsetWidth||!element.offsetHeight)return null;
+      let left=b.left,top=b.top,right=b.right,bottom=b.bottom;
+      for(let e:Element|null=root;e;e=e.parentElement){
+        const s=getComputedStyle(e),r=e.getBoundingClientRect();
+        if(s.visibility!=='visible'||s.display==='none'||Number(s.opacity)===0)return null;
+        if(s.transform!=='none'){const m=new DOMMatrixReadOnly(s.transform);if(!m.is2D||m.b!==0||m.c!==0||m.a<=0||m.d<=0)return null;}
+        if(e!==root&&['hidden','clip','scroll','auto'].includes(s.overflowX)){left=Math.max(left,r.left);right=Math.min(right,r.right);}
+        if(e!==root&&['hidden','clip','scroll','auto'].includes(s.overflowY)){top=Math.max(top,r.top);bottom=Math.min(bottom,r.bottom);}
+      }
+      const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node:Node|null,count=0,texts=0,violations=0;
+      while((node=walker.nextNode())&&count++<300){
+        if(!node.textContent?.trim()||node.parentElement?.closest('script,style,input,textarea,select,[contenteditable],[data-private],[data-sensitive]'))continue;
+        const parent=node.parentElement!,s=getComputedStyle(parent);if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)===0)continue;
+        texts++;const range=document.createRange();range.selectNodeContents(node);
+        for(const r of range.getClientRects())if(r.width&&r.height&&(r.left<left-1||r.right>right+1||r.top<top-1||r.bottom>bottom+1))violations++;
+      }
+      // A bounded scan that was truncated cannot certify the remaining text.
+      return count>=300||!texts?null:violations;
+    },undefined,{timeout});
+    if(value===null)throw new QaBlocked('INCONCLUSIVE','Text fitting is unavailable for hidden/private/unsupported or empty targets');
+    return value;
+  }
   const target=page.locator(a.selector!).first();
   if(a.source==='viewport')return target.evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.right>0&&r.bottom>0&&r.left<innerWidth&&r.top<innerHeight;},undefined,{timeout});
   if(a.source==='visible')return target.isVisible();
@@ -108,7 +137,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
       const timeout=()=>{boundary();if(performance.now()>deadline)throw new DOMException('Scenario operation timed out','TimeoutError');return Math.max(1,Math.min(3000,deadline-performance.now()));};
       try{
         if(scenario.viewport){
-          await page.setViewportSize({width:scenario.viewport.width,height:scenario.viewport.height});
+          if(options.setViewport)await options.setViewport(scenario.viewport);else await page.setViewportSize({width:scenario.viewport.width,height:scenario.viewport.height});
           if(scenario.assertion.source==='visual_layout'){
             visualCdp=options.metrics?await options.metrics():await page.context().newCDPSession(page);
             await visualCdp.send('Emulation.setDeviceMetricsOverride',{width:scenario.viewport.width,height:scenario.viewport.height,deviceScaleFactor:scenario.visual_layout?.dpr??1,mobile:false});

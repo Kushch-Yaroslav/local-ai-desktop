@@ -929,6 +929,7 @@ export function registerIpc(): void {
     return {chat,project:{id:chat.primaryProjectId,root:chat.workingDirectory,slot:1 as const,label:'Current project'}};
   };
   const manualOpens=new Set<string>();
+  const visualChecks=new Set<string>();
   ipcMain.handle('visual-debug:open',async(event,id:string,url?:string)=>{
     const {project}=visualScope(id);
     if(activeGenerations.has(id)){if(url)throw new Error(t('Агент управляет навигацией: дождитесь ответа или приостановите задачу.'));rustAgent.manualPreview(event.sender.id,id,project.root);return;}
@@ -937,11 +938,13 @@ export function registerIpc(): void {
     manualOpens.add(id);
     try{const saved=visualDebugging.document(id,project.id);liveBrowsers.restore(event.sender,id,saved.workspace);let live=false;try{live=rustAgent.manualPreview(event.sender.id,id,project.root).reusable;}catch{ /* closed */ }const target=url??(!live?saved.previewUrls?.[0]:undefined);await rustAgent.openManualPreview(project,id,liveBrowsers.observer(event.sender,id,'manual-'+randomUUID()),target);await rustAgent.manualPreview(event.sender.id,id,project.root).visualDisplay(saved.regions);if(target?.startsWith('http://')){saved.previewUrls=[target,...(saved.previewUrls??[]).filter(u=>u!==target)].slice(0,6);database.saveVisualDocument(id,project.id,saved);}}finally{manualOpens.delete(id);}
   });
-  ipcMain.handle('visual-debug:document',async(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false,currentUrl:string|undefined,display:import('../../shared/visual-debugging').VisualDisplayState|undefined;try{const session=rustAgent.manualPreview(event.sender.id,id,project.root);selectionActive=session.visualSelecting;currentUrl=session.currentUrl;await session.visualDisplay(database.visualDocument(id,project.id).regions);display=session.visualDisplayState;}catch{ /* no live preview */ }visualDebugging.reconcileSelection(id,project.id,selectionActive);const document=visualDebugging.document(id,project.id);if(currentUrl){try{loopbackTarget(currentUrl);if(!document.previewUrls?.includes(currentUrl)){document.previewUrls=[currentUrl,...(document.previewUrls??[])].slice(0,6);database.saveVisualDocument(id,project.id,document);}}catch{ /* not an approved loopback preview */ }}return {...document,selectionActive,currentUrl,display};});
+  ipcMain.handle('visual-debug:document',async(event,id:string)=>{const {project}=visualScope(id);let selectionActive=false,currentUrl:string|undefined,display:import('../../shared/visual-debugging').VisualDisplayState|undefined;try{const session=rustAgent.manualPreview(event.sender.id,id,project.root);selectionActive=session.visualSelecting;currentUrl=session.currentUrl;await session.visualDisplay(database.visualDocument(id,project.id).regions);display=session.visualDisplayState;}catch{ /* no live preview */ }visualDebugging.reconcileSelection(id,project.id,selectionActive);const document=await visualDebugging.validatedDocument(id,project.id);if(currentUrl){try{loopbackTarget(currentUrl);if(!document.previewUrls?.includes(currentUrl)){document.previewUrls=[currentUrl,...(document.previewUrls??[])].slice(0,6);database.saveVisualDocument(id,project.id,document);}}catch{ /* not an approved loopback preview */ }}return {...document,selectionActive,currentUrl,display};});
   ipcMain.handle('visual-debug:command',async(event,id:string,command:VisualCommand)=>{
     const {project}=visualScope(id,!['reveal','display'].includes(command?.action));
     let session:ReturnType<typeof rustAgent.manualPreview>|undefined;try{session=rustAgent.manualPreview(event.sender.id,id,project.root);}catch{ /* history crop can be viewed without a live Page */ }
-    return visualDebugging.command(id,project.id,session,command);
+    if(visualChecks.has(id))throw new Error(t('Дождитесь завершения проверки страницы.'));
+    if(command.action==='recheck')visualChecks.add(id);
+    try{return await visualDebugging.command(id,project.id,session,command);}finally{visualChecks.delete(id);}
   });
   ipcMain.handle('live-browser:input', (event, sessionId: unknown, input: unknown) => liveBrowsers.input(event.sender, sessionId, input));
   ipcMain.handle('live-browser:close', (event, sessionId: unknown) => liveBrowsers.close(event.sender, sessionId));
@@ -959,6 +962,7 @@ export function registerIpc(): void {
     const requestStarted = performance.now();
     log('rich.request.lifecycle', { generationId: request.generationId, stage: 'submitted', monotonicMs: requestStarted });
     if (contextDiscoveryBusy) throw new Error('Дождитесь завершения Max Context discovery перед генерацией.');
+    if(visualChecks.has(request.conversationId))throw new Error(t('Дождитесь завершения проверки страницы.'));
     if (runtimeSelectionBusy) throw new Error('Дождитесь завершения переключения runtime перед генерацией.');
     // Claim the process-wide inference slot synchronously, before any await.
     if (activeGenerations.size) throw new Error('Уже выполняется генерация в другом чате. Дождитесь завершения или остановите её.');
@@ -1030,7 +1034,7 @@ export function registerIpc(): void {
       database.setRegionReferences(user.id,request.conversationId,user.regionReferences);
       if(logicalTaskId)for(const project of selectedProjects){
         const visual=database.visualDocument(request.conversationId,project.id);
-        for(const issue of visual.issues)if(user.regionReferences.some(r=>r.groupId===issue.id))issue.logicalTaskId=logicalTaskId;
+        for(const issue of visual.issues)if(user.regionReferences.some(r=>r.groupId===issue.id)){issue.logicalTaskId=logicalTaskId;issue.runId=generation.id;if(issue.statusSource==='check'){issue.statusSource='runtime';issue.status='In progress';}issue.events=[...(issue.events??[]),{at:new Date().toISOString(),source:'runtime' as const,action:'submitted'}].slice(-30);}
         database.saveVisualDocument(request.conversationId,project.id,visual);
       }
     }

@@ -765,6 +765,9 @@ export class Database {
     }
   }
 
+  analysisRunStatusForGeneration(conversationId:string,generationId:string):AnalysisRun['status']|undefined {
+    return (this.db.prepare('SELECT status FROM analysis_runs WHERE conversation_id=? AND generation_id=? ORDER BY created_at DESC LIMIT 1').get(conversationId,generationId) as {status:AnalysisRun['status']}|undefined)?.status;
+  }
   listAnalysisRuns(conversationId: string): AnalysisRun[] { return (this.db.prepare('SELECT r.*, s.plan AS task_snapshot FROM analysis_runs r LEFT JOIN agent_task_snapshots s ON s.run_id=r.id WHERE r.conversation_id=? ORDER BY r.created_at ASC').all(conversationId) as unknown as AnalysisRunRow[]).map((row) => mapRun(row, this.db.prepare('SELECT * FROM analysis_actions WHERE run_id=? ORDER BY position ASC').all(row.id) as unknown as AnalysisActionRow[])); }
 
   private getAnalysisRun(runId: string): AnalysisRun | null { const row = this.db.prepare('SELECT r.*, s.plan AS task_snapshot FROM analysis_runs r LEFT JOIN agent_task_snapshots s ON s.run_id=r.id WHERE r.id=?').get(runId) as unknown as AnalysisRunRow | undefined; return row ? mapRun(row, this.db.prepare('SELECT * FROM analysis_actions WHERE run_id=? ORDER BY position ASC').all(runId) as unknown as AnalysisActionRow[]) : null; }

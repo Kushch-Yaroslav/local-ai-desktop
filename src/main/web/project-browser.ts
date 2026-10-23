@@ -293,6 +293,62 @@ export class ProjectBrowserSession {
     await this.exclusive(async()=>{if(this.ownership!=='user'||!this.page||region.projectRoot!==this.root||new URL(region.url).origin!==this.origin)throw new Error('Region outside current preview scope');await this.clearSelection();if(this.page.url()!==region.url)await this.page.goto(region.url,{waitUntil:'load'});});
     return this.visualReveal(region);
   }
+  get visualWorkspace(){return this.native?.workspaceState?.()?.settings;}
+  async visualRecheck(regions:VisualRegion[]):Promise<BrowserQaReport>{
+    return this.exclusive(async()=>{
+      if(this.ownership!=='user'||!this.page||!this.reusable)throw new Error('Recheck requires user ownership');
+      if(!regions.length||regions.length>6)throw new Error('Recheck supports one to six selections');
+      const first=regions[0],page=this.page;
+      if(regions.some(r=>r.projectRoot!==this.root||new URL(r.url).origin!==this.origin||r.url!==first.url||r.viewport.width!==first.viewport.width||r.viewport.height!==first.viewport.height))throw new Error('Recheck requires one approved route and original viewport');
+      for(const r of regions){const a=r.anchors[0];if(!a||a.confidence<.8||!a.findings?.some(f=>['text-clipping','horizontal-overflow','vertical-overflow'].includes(f.category)))throw new Error('Recheck supports DOM text fitting candidates only');}
+      const saved=this.native?.workspaceState?.()?.settings;
+      const originalWorkspace=saved?structuredClone(saved):undefined,originalViewport=page.viewportSize();
+      const controller=new AbortController();this.operationAbort=controller;
+      const signal=AbortSignal.any([controller.signal,AbortSignal.timeout(30000)]);
+      await this.clearSelection();
+      this.ownership='paused';this.observer?.action({kind:'region-recheck',at:Date.now()});this.observer?.ownership?.('paused');
+      try{
+        const setViewport=async(viewport:{width:number;height:number})=>{
+          signal.throwIfAborted();
+          if(this.native&&originalWorkspace)await this.native.workspace({...originalWorkspace,viewport});
+          else await page.setViewportSize(viewport);
+        };
+        const navigate=async(target:string)=>{
+          signal.throwIfAborted();
+          if(target!==first.url||new URL(target).origin!==this.origin)throw new Error('Recheck target outside original scope');
+          let response=await page.goto(target,{waitUntil:'load',timeout:10000});
+          // Chromium can treat the same hash URL as same-document navigation. Fresh
+          // assets and their source revisions are required for a new verification.
+          if(!response)response=await page.reload({waitUntil:'load',timeout:10000});
+          if(response&&[401,403].includes(response.status()))return {authRequired:true};
+          if(response&&!response.ok())throw new Error('Recheck preview response '+response.status());
+          await page.waitForFunction(()=>document.fonts.status==='loaded',{},{timeout:3000});
+          signal.throwIfAborted();
+          for(const r of await this.visualGround(regions.map(r=>({...r,anchors:r.anchors.map(a=>({...a,identity:a.identity??{text:a.text,context:''}}))}))))if(r.live?.stale)throw new Error('Recheck anchor unavailable: '+r.live.reason);
+          return {};
+        };
+        await setViewport(first.viewport);
+        this.observer?.state('loading',first.url);this.errors.length=0;this.blocked.length=0;this.servedRevisions.clear();
+        if((await navigate(first.url)).authRequired)throw new Error('Recheck requires authentication');
+        const revision=await projectRevision(this.root,[this.captureDirectory,paths.dataRoot]);
+        const scenarios=regions.map((r,index)=>({id:'region-recheck-'+index,goal:'Original region text fits its rendered bounds',target:r.url,viewport:r.viewport,preconditions:[],required_state:[],steps:[],assertion:{source:'text_fit' as const,selector:r.anchors[0].selector,operator:'equals' as const,expected:0},timeout_ms:5000}));
+        const qa=await runBrowserQa({page,signal,steps:[],scenarios,setViewport,navigate,errors:()=>[...this.errors,...this.blocked],sourceRevisions:()=>Object.fromEntries(this.servedRevisions),capture:cdp=>this.capture({},signal,cdp),metrics:()=>this.qaMetrics()});
+        signal.throwIfAborted();
+        qa.sourceRevisions=Object.fromEntries(this.servedRevisions);qa.revisionFingerprint=revision;
+        if(await this.revisionsChanged(qa.sourceRevisions)||await projectRevision(this.root,[this.captureDirectory,paths.dataRoot])!==revision){qa.status='Not Verified';qa.functionalStatus='Not Verified';qa.reasonCode='EVIDENCE_STALE';qa.reason='Source changed during verification';for(const result of qa.scenarios??[])result.status='Not Verified';}
+        await this.saveQa(qa);return qa;
+      }finally{
+        if(this.operationAbort===controller)this.operationAbort=undefined;
+        try{
+          if(this.reusable){if(this.native&&originalWorkspace)await this.native.workspace(originalWorkspace);else if(originalViewport)await page.setViewportSize(originalViewport);}
+        }finally{
+          this.ownership='user';this.observer?.ownership?.('user');
+          if(!page.isClosed())this.observer?.state(page.url().startsWith('chrome-error:')?'error':'live',page.url());
+          await this.refreshVisualDisplay();
+        }
+      }
+    });
+  }
   async visualDetect(): Promise<VisualRegion[]> {
     return this.exclusive(async()=>{
       if(this.ownership!=='user'||!this.page)throw new Error('Detection requires user ownership');

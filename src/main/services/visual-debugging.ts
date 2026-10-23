@@ -1,7 +1,9 @@
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { paths } from './paths';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { projectRevision } from '../web/qa-loop-guard';
+import { provesOriginalRegions } from './visual-workflow';
 import { normalizeVisualDocument } from '../../shared/visual-debugging';
 import type { Database } from './database';
 import type { ProjectBrowserSession } from '../web/project-browser';
@@ -25,14 +27,58 @@ export class VisualDebugging {
     const draft=this.drafts.get(this.key(chatId,projectId));if(draft&&!document.issues.some(i=>i.id===draft.id))document.issues.push(draft);
     for(const issue of document.issues){
       if(!issue.logicalTaskId)continue;
+      const runStatus=issue.runId?this.db.analysisRunStatusForGeneration(chatId,issue.runId):undefined;
       const memory=this.db.getAgentPlan(chatId,issue.logicalTaskId)?.taskMemory;
       const item=memory?.deliverables?.items.find(d=>d.id===issue.id);
       const ledger=memory?.verification;
-      const records=ledger?.records.filter(r=>r.pass&&r.class==='functional'&&r.epoch===ledger.epoch&&r.run_serial===ledger.run_serial&&r.unknown_epoch===ledger.unknown_epoch&&r.coverage?.some(c=>c.deliverable_id===issue.id&&c.qualified===false))??[];
-      if(item&&['verified','done'].includes(item.status)&&item.criteria?.length&&item.criteria.every(c=>records.some(r=>r.coverage?.some(v=>v.deliverable_id===issue.id&&v.criterion_id===c.id&&v.qualified===false)))){
-        issue.status='Verified';issue.verification='Ledger linked';issue.evidenceRefs=[...issue.regionIds,...records.map(r=>r.id)];
-      }else if(item?.status==='implemented'||issue.status==='Verified'){issue.status='Fixed';issue.verification='Not Verified';}
+      const records=ledger?.records.filter(r=>r.pass&&r.outcome!=='inconclusive'&&r.class==='functional'&&r.epoch===ledger.epoch&&r.run_serial===ledger.run_serial&&r.unknown_epoch===ledger.unknown_epoch&&Object.entries(r.source_revisions??{}).every(([path,hash])=>ledger.revisions?.[path]===hash)&&r.coverage?.some(c=>c.deliverable_id===issue.id&&c.qualified===false))??[];
+      const scoped=provesOriginalRegions(memory?.browser_qa,document.regions.filter(r=>r.groupId===issue.id));
+      const verified=item&&['verified'].includes(item.status)&&item.criteria?.length&&item.criteria.every(c=>records.some(r=>r.coverage?.some(v=>v.deliverable_id===issue.id&&v.criterion_id===c.id&&v.qualified===false)))&&scoped;
+      issue.runtimeStatus=runStatus==='running'?'In progress':verified?'Verified':item?.status==='implemented'||item?.status==='verified'?'Fixed':undefined;
+      issue.lastAction=item?.evidence;
+      if(verified&&memory?.browser_qa&&!issue.events?.some(e=>e.action==='Verified'&&e.evidenceId===records.at(-1)?.id))issue.events=[...(issue.events??[]),{at:memory.browser_qa.capturedAt,source:'runtime' as const,action:'Verified',evidenceId:records.at(-1)?.id}].slice(-30);
+      if(verified&&memory?.browser_qa&&(!issue.check||issue.check.at<memory.browser_qa.capturedAt))issue.check={status:'Verified',at:memory.browser_qa.capturedAt,url:document.regions.find(r=>r.groupId===issue.id)!.url,viewport:document.regions.find(r=>r.groupId===issue.id)!.viewport,reportId:memory.browser_qa.id,ledgerId:records.at(-1)?.id};
+      if(!verified&&item?.status==='verified'&&!issue.check)issue.check={status:'Partially Verified',reason:'original-conditions-unproven',at:memory?.browser_qa?.capturedAt??new Date().toISOString(),url:document.regions.find(r=>r.groupId===issue.id)!.url,viewport:document.regions.find(r=>r.groupId===issue.id)!.viewport};
+
+      if(issue.statusSource!=='user'&&issue.statusSource!=='check'){
+        if(verified){issue.status='Verified';issue.statusSource='runtime';issue.verification='Ledger linked';issue.evidenceRefs=[...issue.regionIds,...records.map(r=>r.id)];}
+        else if(issue.runtimeStatus){issue.status=issue.runtimeStatus;issue.verification='Not Verified';}
+        else if(issue.status==='Verified'){issue.status='Fixed';issue.verification='Not Verified';}
+      }
+      if(issue.check?.ledgerId){const proof=ledger?.records.find(r=>r.id===issue.check!.ledgerId);
+        if(!proof||proof.epoch!==ledger?.epoch||proof.run_serial!==ledger.run_serial||proof.unknown_epoch!==ledger.unknown_epoch){issue.check={...issue.check,status:'Not Verified',reason:'evidence-stale'};issue.verification='Not Verified';if(issue.status==='Verified')issue.status='Fixed';}
+      }
       if(item?.paths)issue.suspectedSourceFiles=item.paths.slice(0,12);
+    }
+    return document;
+  }
+  private readonly projectHashes=new Map<string,{at:number;hash:string}>();
+  private readonly sourceHashes=new Map<string,{mtime:number;size:number;hash:string}>();
+  async validatedDocument(chatId:string,projectId:string){
+    const document=this.document(chatId,projectId);
+    for(const issue of document.issues){
+      if(issue.check?.status!=='Verified')continue;
+      const record=issue.logicalTaskId?this.db.getAgentPlan(chatId,issue.logicalTaskId)?.taskMemory?.verification?.records.find(r=>r.id===issue.check!.ledgerId):undefined;
+      let report:import('../../shared/browser-qa').BrowserQaReport|undefined;
+      if(!record&&issue.check.evidencePath)try{const path=await realpath(issue.check.evidencePath);if(path.startsWith(resolve(paths.cache,'browser-captures')+sep)&&(await stat(path)).size<=1024*1024){const saved=JSON.parse(await readFile(path,'utf8'));if(saved.id===issue.check.reportId&&saved.projectRoot===document.regions.find(r=>r.groupId===issue.id)?.projectRoot)report=saved;}}catch{/* An unavailable saved report cannot certify a current source revision. */}
+      const revisions=record?.source_revisions??report?.sourceRevisions??{};
+      const root=document.regions.find(r=>r.groupId===issue.id)?.projectRoot;
+      let valid=Boolean((record||report)&&root&&(Object.keys(revisions).length||issue.check.revisionFingerprint));
+      try{const allowed=(await realpath(root!))+sep;
+        if(!Object.keys(revisions).length&&issue.check.revisionFingerprint){
+          let current=this.projectHashes.get(root!);if(!current||Date.now()-current.at>5000){current={at:Date.now(),hash:await projectRevision(root!,[paths.dataRoot])};if(this.projectHashes.size>=64)this.projectHashes.delete(this.projectHashes.keys().next().value!);this.projectHashes.set(root!,current);}valid=current.hash===issue.check.revisionFingerprint;
+        }
+
+        let total=0;
+        for(const [path,hash] of Object.entries(revisions).slice(0,64)){
+          const actual=await realpath(path);if(!actual.startsWith(allowed)){valid=false;break;}
+          const info=await stat(actual);total+=info.size;if(total>32*1024*1024||info.size>4*1024*1024){valid=false;break;}
+          let entry=this.sourceHashes.get(actual);
+          if(!entry||entry.mtime!==info.mtimeMs||entry.size!==info.size){entry={mtime:info.mtimeMs,size:info.size,hash:createHash('sha256').update(await readFile(actual)).digest('hex')};if(this.sourceHashes.size>=256)this.sourceHashes.delete(this.sourceHashes.keys().next().value!);this.sourceHashes.set(actual,entry);}
+          if(entry.hash!==hash){valid=false;break;}
+        }
+      }catch{valid=false;}
+      if(!valid){issue.check={...issue.check,status:'Not Verified',reason:'evidence-stale'};issue.verification='Not Verified';if(issue.status==='Verified'&&issue.statusSource!=='user')issue.status='Fixed';}
     }
     return document;
   }
@@ -43,6 +89,7 @@ export class VisualDebugging {
     if(!issue){issue={id:region.groupId,description:region.diagnostics.find(d=>d.startsWith('Responsive QA'))??'Visual issue candidate',severity:'suspect',status:'Detected',regionIds:[],route:region.route,suspectedSourceFiles:[],evidenceRefs:[],verification:'Not Verified'};document.issues.push(issue);}
     if(!issue.route)issue.route=region.route;
     region.groupNumber=issue.number;region.color=issue.color;
+    if(issue.check){issue.check={...issue.check,status:'Not Verified',reason:'selections-changed'};issue.verification='Not Verified';if(issue.status==='Verified'&&issue.statusSource!=='user')issue.status='Fixed';}
     issue.regionIds.push(region.id);issue.evidenceRefs.push(region.id);
     issue.suspectedSourceFiles=[...new Set([...issue.suspectedSourceFiles,...(region.sourceHints??[]).map(s=>s.path)])].slice(0,12);
   }
@@ -94,8 +141,31 @@ export class VisualDebugging {
       for(const issue of document.issues){issue.regionIds=issue.regionIds.filter(id=>!command.regionIds.includes(id));issue.evidenceRefs=issue.evidenceRefs.filter(id=>!command.regionIds.includes(id));}
       for(const r of moved){r.groupId=command.groupId;this.add(document,r,chatId,projectId);}
     }else if(command.action==='issue'){
-      const issue=document.issues.find(i=>i.id===command.issueId);if(!issue||typeof command.description!=='string'||command.description.length>1000||!['Detected','Confirmed','In progress','Fixed','Unresolved'].includes(command.status))throw new Error('Invalid issue update; Verified requires Ledger evidence');
-      issue.description=command.description;issue.generatedDescription=false;issue.status=command.status;
+      const issue=document.issues.find(i=>i.id===command.issueId);if(!issue||typeof command.description!=='string'||command.description.length>1000||command.rejected!==undefined&&typeof command.rejected!=='boolean'||command.status!==undefined&&!['Detected','Confirmed','In progress','Fixed','Unresolved'].includes(command.status))throw new Error('Invalid issue update; Verified requires Ledger evidence');
+      if(issue.description!==command.description){issue.description=command.description;issue.generatedDescription=false;}
+      if(command.status){issue.status=command.status;issue.statusSource='user';issue.rejected=command.rejected??false;issue.events=[...(issue.events??[]),{at:new Date().toISOString(),source:'user' as const,action:command.rejected?'rejected':'status',status:command.status}].slice(-30);}
+    }else if(command.action==='recheck'){
+      const issue=document.issues.find(i=>i.id===command.issueId);if(!issue)throw new Error('Unknown visual issue');
+      const regions=document.regions.filter(r=>r.groupId===issue.id),first=regions[0];if(!first)throw new Error('No selections to recheck');
+      const at=new Date().toISOString();let qa:import('../../shared/browser-qa').BrowserQaReport|undefined,reason:string|undefined;
+      try{qa=await session!.visualRecheck(regions);}catch(error){reason=String(error);}
+      this.projectHashes.delete(first.projectRoot);
+      const pass=provesOriginalRegions(qa,regions),status=pass?'Verified':qa?.status==='Failed'?'Failed':qa?.status==='Partially Verified'?'Partially Verified':'Not Verified';
+      issue.check={status,reason:reason??qa?.reason??qa?.scenarios?.find(s=>s.reason)?.reason,reportId:qa?.id,evidencePath:qa?.evidencePath,revisionFingerprint:qa?.revisionFingerprint,at,url:first.url,viewport:first.viewport};
+      if(qa&&issue.logicalTaskId){
+        const plan=this.db.getAgentPlan(chatId,issue.logicalTaskId),memory=plan?.taskMemory,ledger=memory?.verification;
+        if(plan&&memory&&ledger){
+          const id='ev-visual-'+randomUUID(),detail=JSON.stringify({reportId:qa.id,revisionFingerprint:qa.revisionFingerprint,status,scenarios:qa.scenarios}),paths=Object.keys(qa.sourceRevisions??{});
+          ledger.records.push({id,kind:'browser',class:'functional',subject:'Visual region recheck '+issue.id,pass,epoch:ledger.epoch??0,run_serial:ledger.run_serial??0,unknown_epoch:ledger.unknown_epoch??0,turn:0,detail,check_key:'visual-recheck:'+issue.id,deliverable_ids:[issue.id],coverage:[],source_revisions:qa.sourceRevisions,checked_paths:paths,outcome:pass?'passed':status==='Failed'?'failed':'inconclusive',outcome_hash:createHash('sha256').update(detail).digest('hex')});
+          // This observation does not redefine immutable acceptance criteria or mark a deliverable verified.
+          this.db.saveAgentPlan(chatId,plan,issue.logicalTaskId);issue.check.ledgerId=id;issue.evidenceRefs=[...new Set([...issue.evidenceRefs,id])];
+        }
+      }
+      if(issue.statusSource!=='user'){issue.status=pass?'Verified':status==='Failed'?'Unresolved':issue.status==='Verified'?'Fixed':issue.status;issue.statusSource='check';}
+      issue.verification=pass&&issue.check.ledgerId?'Ledger linked':'Not Verified';
+      issue.events=[...(issue.events??[]),{at,source:'check' as const,action:status,evidenceId:issue.check.ledgerId??qa?.id}].slice(-30);
+      if(session!.visualWorkspace)document.workspace=session!.visualWorkspace;
+
     }else if(command.action==='detect'){
       for(const region of await session!.visualDetect())this.add(document,region,chatId,projectId);
     }else throw new Error('Unknown visual command');

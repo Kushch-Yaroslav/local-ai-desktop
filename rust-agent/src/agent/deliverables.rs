@@ -292,6 +292,7 @@ impl Deliverables {
                 if criterion.kind=="visual" && !matches!(spec["assertion"]["source"].as_str(),Some("pixels"|"visual_layout")) {return Err("Visual criteria require actual image observations".into());}
                 if spec["assertion"]["source"]=="visual_layout" && (criterion.kind!="visual" || spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0 || !matches!(spec["assertion"]["path"].as_str(),Some("coverage"|"backing"|"seams"))) {return Err("Visual layout criteria require kind visual, explicit viewport, and equals 0 coverage/backing/seams measurement".into());}
                 if spec.get("viewport").is_some() && super::responsive::viewport(&spec["viewport"]).is_none(){return Err("Acceptance scenario viewport must be a supported profile or bounded width/height".into());}
+                if spec["assertion"]["source"]=="text_fit" && (spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0 || spec["assertion"]["selector"].as_str().is_none_or(|s|s.trim().is_empty())) {return Err("Text fitting criteria require an explicit original viewport, a unique selector, and equals 0 rendered text overflow".into());}
                 if spec["assertion"]["source"]=="layout" && (spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0){return Err("Responsive DOM bounds criteria require an explicit viewport and a zero-defect layout assertion".into());}
             }
         }
@@ -703,6 +704,20 @@ mod tests {
         );
         assert!(list.sync_failures(&ledger));
         assert!(!list.prompt().contains("a check failed"));
+    }
+
+    #[test]
+    fn text_fit_requires_original_viewport_and_a_concrete_rendered_bounds_assertion() {
+        let valid = serde_json::json!({"target":"/index.html?currency=UAH#/shop", "viewport":{"width":1920,"height":1080}, "preconditions":[], "required_state":[], "steps":[], "assertion":{"source":"text_fit","selector":"#checkout","operator":"equals","expected":0}, "timeout_ms":5000});
+        let criterion = |scenario| AcceptanceCriterion { id:"fit".into(), description:"Rendered label fits original button".into(), kind:"runtime".into(), scenario:Some(scenario) };
+        let mut list=two_tasks();
+        assert!(list.set_criteria("d-001",vec![criterion(valid.clone())]).is_ok());
+        for field in ["viewport","selector","expected"] {
+            let mut spec=valid.clone();
+            if field=="viewport" {spec.as_object_mut().unwrap().remove(field);} else {spec["assertion"].as_object_mut().unwrap().remove(field);}
+            let mut other=two_tasks();
+            assert!(other.set_criteria("d-001",vec![criterion(spec)]).is_err());
+        }
     }
 
     #[test]
