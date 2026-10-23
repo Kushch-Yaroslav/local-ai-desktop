@@ -161,7 +161,7 @@ export class VisualDebugging {
           this.db.saveAgentPlan(chatId,plan,issue.logicalTaskId);issue.check.ledgerId=id;issue.evidenceRefs=[...new Set([...issue.evidenceRefs,id])];
         }
       }
-      if(issue.statusSource!=='user'){issue.status=pass?'Verified':status==='Failed'?'Unresolved':issue.status==='Verified'?'Fixed':issue.status;issue.statusSource='check';}
+      if(!(issue.statusSource==='user'&&issue.status==='Unresolved')){issue.status=pass?'Verified':status==='Failed'?'Unresolved':issue.status==='Verified'?'Fixed':issue.status;issue.statusSource='check';}
       issue.verification=pass&&issue.check.ledgerId?'Ledger linked':'Not Verified';
       issue.events=[...(issue.events??[]),{at,source:'check' as const,action:status,evidenceId:issue.check.ledgerId??qa?.id}].slice(-30);
       if(session!.visualWorkspace)document.workspace=session!.visualWorkspace;

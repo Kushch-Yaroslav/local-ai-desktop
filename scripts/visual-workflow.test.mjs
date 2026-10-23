@@ -24,6 +24,9 @@ db.saveAgentPlan(chat.id,{milestones:[],taskMemory:memory},task);assert.equal((a
 const session={visualSelection:async()=>{},visualDisplay:async()=>({visible:true,bindings:[]}),visualRecheck:async()=>report};
 await service.command(chat.id,'p',session,{action:'issue',issueId:issue.id,description:issue.description,status:'Unresolved'});
 let d=await service.command(chat.id,'p',session,{action:'recheck',issueId:issue.id});assert.equal(d.issues[0].status,'Unresolved');assert.equal(d.issues[0].check.status,'Verified');assert.equal(d.issues[0].statusSource,'user');assert(d.issues[0].check.ledgerId);assert(d.issues[0].events.some(e=>e.source==='user'));
+await service.command(chat.id,'p',session,{action:'issue',issueId:issue.id,description:issue.description,status:'Confirmed'});
+d=await service.command(chat.id,'p',session,{action:'recheck',issueId:issue.id});assert.equal(d.issues[0].status,'Verified','A fresh explicit recheck can close a manually confirmed issue');assert.equal(d.issues[0].statusSource,'check');
+await service.command(chat.id,'p',session,{action:'issue',issueId:issue.id,description:issue.description,status:'Unresolved'});
 const ledger=db.getAgentPlan(chat.id,task).taskMemory.verification;assert(ledger.records.some(r=>r.id===d.issues[0].check.ledgerId));assert.equal(ledger.records.at(-1).coverage.length,0,'Recheck observation must not forge an immutable acceptance criterion');
 await service.command(chat.id,'p',session,{action:'issue',issueId:issue.id,description:'Renamed'});assert.equal(service.document(chat.id,'p').issues[0].status,'Unresolved');
 await writeFile(file,'<button>Changed project</button>');d=await service.validatedDocument(chat.id,'p');assert.equal(d.issues[0].check.status,'Not Verified');assert.equal(d.issues[0].status,'Unresolved');
