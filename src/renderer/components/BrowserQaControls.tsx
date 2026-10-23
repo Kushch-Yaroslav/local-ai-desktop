@@ -27,8 +27,7 @@ export function VisionControl({modelId,onStatusChange}:{modelId?:string|null;onS
 
 export function ComputerVisionControl({ visionStatus }: { visionStatus?: Status }) {
  const ru=useLocale()==='ru';
- const ready=useAppStore(s=>Boolean(s.conversations.find(c=>c.id===s.activeId)?.workingDirectory)&&!s.generationOwnerId);
- return <ControlField label={t('Визуальная отладка')} className="computer-vision-field" help={ru?'Выделяйте области в Native Browser, связывайте их с DOM и отправляйте агенту. Manual работает без Vision. Auto проверяет переполнение только текущей страницы.':'Select Native Browser regions, ground them in DOM and send them to the agent. Manual works without Vision. Auto checks overflow on the current page only.'}><button type="button" disabled={!ready} onClick={()=>window.dispatchEvent(new Event('visual-open-browser'))}>{ru?'Открыть браузер':'Open browser'}</button><small>{visionStatus?.available?t('Vision доступно'):t('DOM / CSS / геометрия')}</small></ControlField>;
+ return <ControlField label={t('Визуальная отладка')} className="computer-vision-field" help={ru?'Выделяйте области в Native Browser, связывайте их с DOM и отправляйте агенту. Manual работает без Vision. Auto проверяет переполнение только текущей страницы.':'Select Native Browser regions, ground them in DOM and send them to the agent. Manual works without Vision. Auto checks overflow on the current page only.'}><small>{t('Инструменты выделения доступны внутри браузера.')}</small><small>{visionStatus?.available?t('Vision доступно'):t('DOM / CSS / геометрия')}</small></ControlField>;
 }
 
 /** Functional QA policy is independent from model image capabilities. */
