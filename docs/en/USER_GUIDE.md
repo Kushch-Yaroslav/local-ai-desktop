@@ -69,11 +69,11 @@ A completed plan is not itself verification. The [v0.2.0 Agent screenshot](../ar
 
 The agent starts long-lived development servers through managed terminal tasks and checks/stops them by their returned handles. Historical PID/port text is not a valid cleanup handle. Use managed stop rather than `kill`, `pkill`, `killall` or port-based termination. Stopping a task does not authorize stopping the model server.
 
-## Stop, Pause and recovery
+## Stop and Continue
 
-**Stop** cancels the active generation and its owned operations; completed edits remain. **Pause** is cooperative and reaches a checkpoint at a safe boundary; an in-flight operation may finish first. Continue explicitly from the saved task to create a fresh attempt after Stop, error or restart. Mid-run steering belongs to the current task and is applied at a model-turn boundary.
+**Stop** interrupts inference and Browser QA, resolves pending approvals and saves the agent checkpoint at the next safe tool boundary. The user’s browser stays open. **Continue task** resumes the same task using its durable transcript, plan and completed tool results. An in-progress file operation must finish safely before the checkpoint. Emergency application shutdown retains its separate cancellation mechanism.
 
-The timeline records suspected/confirmed loops, corrective instructions, selective context exclusions, repair attempts and success/failure. A first warning preserves context. Persistent repetition can exclude a proven repetitive segment from the next model request while keeping the full visible/persisted history. If cleanup is unsafe or repeated repair fails, the agent pauses. Recovery buttons show processing while the runtime reaches the boundary; Stop remains available. **Continue without repair** does not disable future detection.
+Repeated invalid Browser QA arguments receive an actionable example. Equivalent failures trigger strategy guidance, then stop the run with a checkpoint; Continue keeps the guard until actual progress. A failed QA invocation does not prove the defect remains. See [Stop and workspace implementation details](../stop-qa-workspace-reliability.md).
 
 ## Attachments, web and rich responses
 

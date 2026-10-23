@@ -1,0 +1,37 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-region-feedback-c62AfE",
+  "project": "/tmp/lad-region-feedback-project-SqiViE",
+  "dpr2": false,
+  "nativeId": 2,
+  "raster": {
+    "frames": 180,
+    "darkFrames": 0,
+    "minLuma": 240
+  },
+  "pan": {
+    "before": {
+      "x": 700,
+      "y": 150
+    },
+    "after": {
+      "x": 796,
+      "y": 198
+    }
+  },
+  "checks": [
+    "persistent immediate/after 2.4s frames",
+    "React repeated-class identity",
+    "partial DOM boxes vs real closed-shadow borders",
+    "Fit/100/50/pan/resize",
+    "checkbox emphasis and hide without SQLite mutation",
+    "right-side focus",
+    "crop/red-blue/private pixels across zoom80/100/125",
+    "actual X11 middle drag/no website scroll/no middle events",
+    "selection coexistence",
+    "explicit failed SQLite feedback without phantom saved frame",
+    "readonly agent shield pan without page mutation",
+    "stale identity/ghost-free delete/history/reload",
+    "single Native Page/origin security"
+  ]
+}

@@ -8,6 +8,7 @@ try{
  await app.evaluate(async()=>{while(!global.shutdownFixture)await new Promise(r=>setTimeout(r,20));});
  const results=[];
  for(const mode of ['native-close','shield-first','window-destroy','debugger-detach','active-pan-window','window-destroy']){
+  console.log('Shutdown case:',mode);
   const id=await app.evaluate(()=>global.shutdownFixture.open());
   const closed=await app.evaluate((_,mode)=>global.shutdownFixture.close(mode),mode);
   assert(closed.same,'Repeated close must return the same promise');assert(closed.closed);
@@ -15,6 +16,7 @@ try{
   assert.deepEqual(await app.evaluate(()=>global.shutdownFixture.errors),[],`Unhandled shutdown error: ${mode}`);
   results.push({mode,id,...closed});
  }
+ console.log('Shutdown case: application-close');
  await app.evaluate(()=>global.shutdownFixture.openViaHub());
  await app.close();
  assert.deepEqual(JSON.parse(await readFile(join(root,'shutdown-errors.json'),'utf8')),[],'Unhandled error during full application shutdown');

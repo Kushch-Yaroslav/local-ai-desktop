@@ -1,0 +1,12 @@
+{
+  "summaryRequests": 1,
+  "agentRequests": 8,
+  "originalRegionId": "region-01d15802-e0fe-42e1-bde4-3cf5c97e37b8",
+  "url": "https://project-preview.invalid/index.html?currency=UAH#/catalog?sort=price",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "groundingInEveryAgentRequest": true,
+  "uiTextSeparate": true
+}

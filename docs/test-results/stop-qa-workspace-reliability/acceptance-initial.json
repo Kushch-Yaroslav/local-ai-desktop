@@ -1,0 +1,68 @@
+[
+  {
+    "args": [
+      "scripts/visual-layout-native-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 143636,
+    "path": "/tmp/lad-acceptance-0.log",
+    "code": 0,
+    "ms": 17095,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/native-browser-shutdown-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 144021,
+    "path": "/tmp/lad-acceptance-1.log",
+    "code": 0,
+    "ms": 3339,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/responsive-native-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 144355,
+    "path": "/tmp/lad-acceptance-2.log",
+    "code": 0,
+    "ms": 7218,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/qa-loop-runtime.test.mjs"
+    ],
+    "status": "failed",
+    "pid": 144660,
+    "path": "/tmp/lad-acceptance-3.log",
+    "code": 1,
+    "ms": 2345,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/stop-qa-workspace-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 144836,
+    "path": "/tmp/lad-acceptance-4.log",
+    "code": 0,
+    "ms": 32061,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-debugging-workflow-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 145573,
+    "path": "/tmp/lad-acceptance-5.log",
+    "code": 0,
+    "ms": 47507,
+    "timedOut": false
+  }
+]

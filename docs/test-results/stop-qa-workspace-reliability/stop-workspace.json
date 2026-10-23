@@ -1,0 +1,20 @@
+{
+  "root": "/tmp/lad-stop-workspace-CRlgY3",
+  "project": "/tmp/lad-stop-workspace-project-iYt3WZ",
+  "nativeId": 2,
+  "stopMs": 1235,
+  "results": [
+    "Real native zoom 50/75/100/125, CSS breakpoint width and full physical Auto panel",
+    "Fixed 1920 native zoom changes CSS layout, one Page, DOM-anchored region/privacy preserved",
+    "Sidebar pointer/keyboard resize, collapse/expand, reload persistence, Fixed viewport/session retained",
+    "Stop silent generation: 1235ms, checkpoint persisted, Native session retained",
+    "Repeated malformed QA stopped at four equivalent failures; checkpoint/guard survive Continue",
+    "Actual source change permits valid text_fit retest at original 1920 conditions, no false loop stop",
+    "Original CSS viewport recheck restores native zoom, presentation and same session",
+    "Stop during actual Chromium QA releases held input/QA page and retains user browser",
+    "Stop during approval resolves the pending request without running the mutating tool",
+    "Sidebar width and collapsed state survive an actual Electron process restart"
+  ],
+  "requests": 13,
+  "scriptedProvider": true
+}

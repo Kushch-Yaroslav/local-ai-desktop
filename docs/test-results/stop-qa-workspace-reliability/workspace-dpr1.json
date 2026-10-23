@@ -1,0 +1,255 @@
+{
+  "result": "PASS",
+  "root": "/tmp/lad-regions-workspace-pIhqCc",
+  "project": "/tmp/lad-regions-project-2Y0czg",
+  "dpr2": false,
+  "nativeId": 2,
+  "viewport": {
+    "settings": {
+      "viewport": {
+        "width": 3840,
+        "height": 2160
+      },
+      "scale": "fit",
+      "pan": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "viewport": {
+      "width": 3840,
+      "height": 2160
+    },
+    "panel": {
+      "width": 464,
+      "height": 306
+    },
+    "surface": {
+      "width": 464,
+      "height": 261
+    },
+    "displayScale": 0.12083333333333333,
+    "browserZoom": 1,
+    "deviceScaleFactor": 1
+  },
+  "performance": {
+    "before": {
+      "metrics": [
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 2.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 147889,
+          "type": "Browser",
+          "creationTime": 1792780009830,
+          "memory": {
+            "workingSetSize": 282380,
+            "peakWorkingSetSize": 283444
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.07,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 147928,
+          "type": "GPU",
+          "creationTime": 1792780010010,
+          "serviceName": "GPU",
+          "memory": {
+            "workingSetSize": 191776,
+            "peakWorkingSetSize": 191776
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 147975,
+          "type": "Utility",
+          "creationTime": 1792780010840,
+          "serviceName": "network.mojom.NetworkService",
+          "name": "Network Service",
+          "memory": {
+            "workingSetSize": 79256,
+            "peakWorkingSetSize": 79256
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.61,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 147979,
+          "type": "Tab",
+          "creationTime": 1792780010860,
+          "memory": {
+            "workingSetSize": 176388,
+            "peakWorkingSetSize": 176404
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.08,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 148031,
+          "type": "Tab",
+          "creationTime": 1792780011240,
+          "memory": {
+            "workingSetSize": 129476,
+            "peakWorkingSetSize": 129476
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 0.05,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 148023,
+          "type": "Tab",
+          "creationTime": 1792780011200,
+          "memory": {
+            "workingSetSize": 94128,
+            "peakWorkingSetSize": 94128
+          }
+        }
+      ],
+      "memory": {
+        "rss": 288120832,
+        "heapTotal": 106061824,
+        "heapUsed": 67828488,
+        "external": 7093912,
+        "arrayBuffers": 0
+      },
+      "views": 2,
+      "nativePid": 148031,
+      "ownerPid": 147979
+    },
+    "after": {
+      "metrics": [
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 2.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 14
+          },
+          "pid": 147889,
+          "type": "Browser",
+          "creationTime": 1792780009830,
+          "memory": {
+            "workingSetSize": 282532,
+            "peakWorkingSetSize": 283444
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.1,
+            "percentCPUUsage": 0.09330581765505312,
+            "idleWakeupsPerSecond": 4
+          },
+          "pid": 147928,
+          "type": "GPU",
+          "creationTime": 1792780010010,
+          "serviceName": "GPU",
+          "memory": {
+            "workingSetSize": 191216,
+            "peakWorkingSetSize": 191216
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 147975,
+          "type": "Utility",
+          "creationTime": 1792780010840,
+          "serviceName": "network.mojom.NetworkService",
+          "name": "Network Service",
+          "memory": {
+            "workingSetSize": 79256,
+            "peakWorkingSetSize": 79256
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.61,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 10
+          },
+          "pid": 147979,
+          "type": "Tab",
+          "creationTime": 1792780010860,
+          "memory": {
+            "workingSetSize": 176356,
+            "peakWorkingSetSize": 176404
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 1.13,
+            "percentCPUUsage": 0.1555096960917552,
+            "idleWakeupsPerSecond": 151
+          },
+          "pid": 148031,
+          "type": "Tab",
+          "creationTime": 1792780011240,
+          "memory": {
+            "workingSetSize": 129600,
+            "peakWorkingSetSize": 129600
+          }
+        },
+        {
+          "cpu": {
+            "cumulativeCPUUsage": 0.05,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "pid": 148023,
+          "type": "Tab",
+          "creationTime": 1792780011200,
+          "memory": {
+            "workingSetSize": 94128,
+            "peakWorkingSetSize": 94128
+          }
+        }
+      ],
+      "memory": {
+        "rss": 288251904,
+        "heapTotal": 106061824,
+        "heapUsed": 68189432,
+        "external": 7093952,
+        "arrayBuffers": 0
+      },
+      "views": 2,
+      "nativePid": 148031,
+      "ownerPid": 147979
+    },
+    "frames": {
+      "count": 289,
+      "elapsed": 2004.8999999985099
+    },
+    "clickRoundtripMs": 23
+  },
+  "checks": [
+    "delete/history/SQLite/no ghost",
+    "partial anchoring/responsive/stale/canvas",
+    "native and CDP input agreement",
+    "Fit/Fixed/pan independent of page scroll",
+    "390/1920/4K",
+    "zoom80/100/125 crop pixel checks",
+    "privacy mask",
+    "renderer reload/session identity",
+    "single Page/origin restrictions"
+  ]
+}

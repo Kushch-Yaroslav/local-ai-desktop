@@ -1,0 +1,28 @@
+{
+  "result": "PASS",
+  "provider": "real Qwen3.6-35B-A3B, Vision Off",
+  "wallSeconds": 64.842,
+  "geometry": [
+    {
+      "clientWidth": 181,
+      "scrollWidth": 181
+    },
+    {
+      "clientWidth": 151,
+      "scrollWidth": 151
+    }
+  ],
+  "serverStopped": true,
+  "originalCheck": {
+    "status": "Verified",
+    "at": "2026-10-23T15:37:21.948Z",
+    "url": "https://project-preview.invalid/index.html?currency=UAH#/shop?sort=price",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "reportId": "39f69abc-56fa-4a8d-9de4-29c6255bfe48",
+    "ledgerId": "ev-002"
+  },
+  "repeatedDuringContinuation": false
+}

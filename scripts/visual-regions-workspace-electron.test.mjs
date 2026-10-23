@@ -51,7 +51,7 @@ try{
  await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>location.hash='/different?sort=other'));assert((await cmd({action:'reveal',regionId:region.id})).view.needsNavigation);await cmd({action:'navigate',regionId:region.id});
  await cmd({action:'reveal',regionId:region.id});await ui.getByRole('button',{name:'Browser Expanded',exact:true}).click();await sleep(180);await assertPartial(false);
  await ui.getByRole('button',{name:'Split View',exact:true}).click();await sleep(180);await assertPartial(false);
- await ui.getByRole('button',{name:'Chat Only',exact:true}).click();assert.equal(await app.evaluate(()=>global.visualFixture.entry().native.contents.id),nativeId);await ui.locator('.live-reopen').click();await assertPartial();
+ await ui.getByRole('button',{name:'Chat Only',exact:true}).click();assert.equal(await app.evaluate(()=>global.visualFixture.entry().native.contents.id),nativeId);await ui.locator('.live-manual-open').click();await assertPartial();
  // Partial selection follows responsive movement rather than growing into the whole button.
  await workspace({width:1920,height:1080},1,{x:1000,y:120});const scrollBefore=await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY})));
  await workspace({width:1920,height:1080},1,{x:1100,y:160});assert.deepEqual(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY}))),scrollBefore);
@@ -61,8 +61,8 @@ try{
  // Native physical input and agent CDP input hit the same CSS element at scaled presentation.
  await app.evaluate(async()=>{const f=global.visualFixture,e=f.entry(),s=e.native.workspaceState(),b=await e.page.locator('#target').boundingBox();e.native.contents.sendInputEvent({type:'mouseDown',x:Math.round((b.x+10)*s.displayScale*s.browserZoom),y:Math.round((b.y+10)*s.displayScale*s.browserZoom),button:'left',clickCount:1});e.native.contents.sendInputEvent({type:'mouseUp',x:Math.round((b.x+10)*s.displayScale*s.browserZoom),y:Math.round((b.y+10)*s.displayScale*s.browserZoom),button:'left',clickCount:1});await e.page.mouse.click(b.x+15,b.y+15);});
  await until(()=>app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>globalThis.hits.slice(-2).every(h=>h.id==='target'))),'Native and CDP inputs must agree');
- // Zoom/DPR must not change a fixed CSS viewport or corrupt the screenshot crop.
- for(const zoom of [.8,1,1.25]){await app.evaluate((_,zoom)=>global.visualFixture.entry().native.contents.setZoomFactor(zoom),zoom);await workspace({width:1920,height:1080});assert.equal(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>innerWidth)),1920);const r=await create('#target');assert((await cropStats(r.screenshotPath)).red>.45,`Correct crop at zoom ${zoom}`);}
+ // Native page zoom changes the effective CSS area; preview scale preserves it. Crops remain grounded.
+ for(const zoom of [.8,1,1.25]){await app.evaluate((_,zoom)=>global.visualFixture.entry().native.contents.setZoomFactor(zoom),zoom);await workspace({width:1920,height:1080});assert.equal(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>innerWidth)),Math.round(1920/zoom));assert.equal((await state()).settings.viewport.width,1920);const r=await create('#target');assert((await cropStats(r.screenshotPath)).red>.45,`Correct crop at zoom ${zoom}`);}
  const secret=await create('#private');assert((await cropStats(secret.screenshotPath)).magenta>.8,'Private control must be masked');
  await app.evaluate(()=>global.visualFixture.entry().native.contents.setZoomFactor(1));await workspace({width:1920,height:1080});
  const canvas=await create('canvas');assert.equal(canvas.anchors.length,0);await workspace({width:390,height:844});assert((await cmd({action:'reveal',regionId:canvas.id})).view.stale);assert.equal((await boxes(canvas.id)).length,0,'Stale screenshot-only region must not draw fallback');
@@ -71,10 +71,10 @@ try{
  await app.evaluate(()=>{const n=global.visualFixture.entry().native,original=n.workspace;n.workspace=async settings=>{(global.workspaceCalls??=[]).push(settings);return original(settings);};});
  // Exercise compact renderer controls and real scrollbars, not only main-process methods.
  await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Mobile');await until(()=>app.evaluate(async()=>await global.visualFixture.entry().page.evaluate(()=>innerWidth===390)),'Mobile preset UI failed');
- await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Full HD');await ui.getByLabel('Display scale',{exact:true}).selectOption('1');await until(async()=>(await state()).settings.scale===1,'Fixed scale UI failed');
+ await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Full HD');await ui.locator('.browser-workspace-controls details > summary').click();await ui.getByLabel('Preview scale',{exact:true}).selectOption('1');await until(async()=>(await state()).settings.scale===1,'Fixed scale UI failed');
  const siteScroll=await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY})));
  await ui.locator('.native-browser-surface').evaluate(element=>{element.scrollLeft=700;element.scrollTop=150;});await until(async()=>(await state()).settings.pan.x>300,'Horizontal surface scrollbar failed');assert.deepEqual(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY}))),siteScroll);
- await ui.getByLabel('Display scale',{exact:true}).selectOption('fit');await until(async()=>(await state()).settings.scale==='fit','Fit UI failed');assert.equal(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>innerWidth)),1920);
+ await ui.getByLabel('Preview scale',{exact:true}).selectOption('fit');await until(async()=>(await state()).settings.scale==='fit','Fit UI failed');assert.equal(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>innerWidth)),1920);
  await ui.getByLabel('CSS viewport',{exact:true}).selectOption('Custom');await ui.getByLabel('Viewport width',{exact:true}).fill('1000');await ui.getByLabel('Viewport height',{exact:true}).fill('700');await ui.getByRole('button',{name:'Apply',exact:true}).click();await until(()=>app.evaluate(async()=>await global.visualFixture.entry().page.evaluate(()=>innerWidth===1000&&innerHeight===700)),'Custom viewport UI failed');
  await workspace({width:1920,height:1080});
 

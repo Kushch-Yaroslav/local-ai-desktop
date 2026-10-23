@@ -1,0 +1,115 @@
+[
+  {
+    "args": [
+      "scripts/qa-loop-runtime.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 146801,
+    "path": "/tmp/lad-regressions-final-0.log",
+    "code": 0,
+    "ms": 6013,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-region-feedback-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 147089,
+    "path": "/tmp/lad-regressions-final-1.log",
+    "code": 0,
+    "ms": 14571,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-region-feedback-electron.test.mjs",
+      "--dpr2"
+    ],
+    "status": "passed",
+    "pid": 147560,
+    "path": "/tmp/lad-regressions-final-2.log",
+    "code": 0,
+    "ms": 13187,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-regions-workspace-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 147877,
+    "path": "/tmp/lad-regressions-final-3.log",
+    "code": 0,
+    "ms": 19308,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-regions-workspace-electron.test.mjs",
+      "--dpr2"
+    ],
+    "status": "passed",
+    "pid": 148207,
+    "path": "/tmp/lad-regressions-final-4.log",
+    "code": 0,
+    "ms": 18038,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/live-browser-autoreload-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 148517,
+    "path": "/tmp/lad-regressions-final-5.log",
+    "code": 0,
+    "ms": 7211,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-debugging-usability-electron.test.mjs",
+      "--workspace"
+    ],
+    "status": "passed",
+    "pid": 148753,
+    "path": "/tmp/lad-regressions-final-6.log",
+    "code": 0,
+    "ms": 21354,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/responsive-native-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 149202,
+    "path": "/tmp/lad-regressions-final-7.log",
+    "code": 0,
+    "ms": 7246,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-layout-native-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 149513,
+    "path": "/tmp/lad-regressions-final-8.log",
+    "code": 0,
+    "ms": 16936,
+    "timedOut": false
+  },
+  {
+    "args": [
+      "scripts/visual-debugging-workflow-electron.test.mjs"
+    ],
+    "status": "passed",
+    "pid": 149912,
+    "path": "/tmp/lad-regressions-final-9.log",
+    "code": 0,
+    "ms": 48200,
+    "timedOut": false
+  }
+]
