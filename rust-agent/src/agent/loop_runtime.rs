@@ -914,7 +914,7 @@ fn save_runtime_pause(config: &Config, state: &AgentState, transcript: &mut Tran
     emit(&config.run_id, Event::RunState { state: "saving_checkpoint".into() });
     let mut memory = serde_json::to_value(&state.task_memory).expect("serializable runtime memory");
     memory["loop_guard"] = serde_json::to_value(&state.loop_detector).expect("serializable loop guard");
-    memory["stop_reason"] = json!(if state.loop_notice.is_some() { "loop_detected" } else { "user_stop" });
+    memory["stop_reason"] = json!(if state.loop_notice.as_ref().is_some_and(|notice| notice.evidence.starts_with("Browser QA validation")) { "repeated_tool_failure" } else if state.loop_notice.is_some() { "loop_detected" } else { "user_stop" });
     transcript.checkpoint_pause(memory.clone());
     checkpoint_work_budget(config, state, transcript);
     let mut saved = state.clone();

@@ -240,8 +240,8 @@ export class RustAgentRuntime {
     const qaPause = new AbortController();
     const qaKey = JSON.stringify([browserObserver?.ownerId, conversationId, logicalTaskId, projects.map(project => project.root)]);
     const guard = this.qaGuards.get(qaKey) ?? new QaLoopGuard();
-    // Only an explicit user run/continuation resets QA observations, never a browser reopen.
-    guard.rearm(); this.qaGuards.delete(qaKey); this.qaGuards.set(qaKey, guard);
+    // Continuation retains known failures; source/state/scenario changes create new keys.
+    this.qaGuards.delete(qaKey); this.qaGuards.set(qaKey, guard);
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;

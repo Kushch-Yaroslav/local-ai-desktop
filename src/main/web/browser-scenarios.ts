@@ -39,4 +39,22 @@ export function qaScenarios(value: unknown): QaScenario[] {
     return {visual_layout:visualLayoutOptions(raw.visual_layout),id:raw.id,goal:raw.goal,target:raw.target,...(raw.viewport!==undefined?{viewport:qaViewport(raw.viewport)}:{}),deliverable_id:raw.deliverable_id,criterion_id:raw.criterion_id,preconditions:conditions('preconditions'),required_state:conditions('required_state'),steps:qaSteps(raw.steps),assertion:qaAssertion(raw.assertion),timeout_ms:raw.timeout_ms};
   }).map((s,_,all)=>{if(all.filter(s=>s.assertion.source==='visual_layout').length>1)throw new Error('One Visual Layout scenario per checkpoint (up to 2 resize transitions, 6 frames)');return s;});
 }
-export const assertionSchema = {type:'object',properties:{source:{type:'string',enum:sources},selector:{type:'string',maxLength:500},path:{type:'string',description:'For diagnostic: read-only scalar path in window.__qaDiagnostics. For visual_layout: coverage, backing, or seams. No JavaScript expressions.'},operator:{type:'string',enum:['equals','changed','increased','decreased']},expected:{type:['string','number','boolean']},tolerance:{type:'number',minimum:0},sample_ms:{type:'array',minItems:3,maxItems:4,items:{type:'integer',minimum:0,maximum:3000}}},required:['source','operator'],additionalProperties:false};
+export const assertionSchema = {type:'object',description:'Declarative observation. text/value/visible/viewport/text_fit require selector. diagnostic requires path in window.__qaDiagnostics. layout: {source:layout,operator:equals,expected:0}, no selector/path. visual_layout: equals 0 and path coverage/backing/seams (coverage/backing require selector). text_fit: unique selector, equals 0. layout/visual_layout/text_fit require scenario.viewport. No JavaScript expressions.',properties:{source:{type:'string',enum:sources},selector:{type:'string',maxLength:500},path:{type:'string',description:'For diagnostic: read-only scalar path in window.__qaDiagnostics. For visual_layout: coverage, backing, or seams. No JavaScript expressions.'},operator:{type:'string',enum:['equals','changed','increased','decreased']},expected:{type:['string','number','boolean']},tolerance:{type:'number',minimum:0},sample_ms:{type:'array',minItems:3,maxItems:4,items:{type:'integer',minimum:0,maximum:3000}}},required:['source','operator'],additionalProperties:false};
+
+/** Schema failures are diagnostics, never a failed visual assertion. */
+export function qaArgumentFailure(error: unknown, args: Record<string, unknown>) {
+  const message = error instanceof Error ? error.message : String(error);
+  const category = /selector/i.test(message) ? 'selector' : /path/i.test(message) ? 'path' : /viewport/i.test(message) ? 'viewport' : /assert|layout|expected|operator|method|fit/i.test(message) ? 'assertion' : 'scenario';
+  const raw = Array.isArray(args.scenarios) ? args.scenarios[0] : undefined;
+  const source = raw?.assertion?.source;
+  const examples: Record<string, unknown> = {
+    layout: {source:'layout',operator:'equals',expected:0},
+    visual_layout: {source:'visual_layout',path:'backing',selector:'#target',operator:'equals',expected:0},
+    diagnostic: {source:'diagnostic',path:'ready',operator:'equals',expected:true},
+    text_fit: {source:'text_fit',selector:'#target',operator:'equals',expected:0},
+  };
+  const assertion = examples[String(source)] ?? {source:'visible',selector:'#target',operator:'equals',expected:true};
+  return {error:message,code:'INVALID_QA_ARGUMENTS',stage:'validation',category,retrySameArguments:false,
+    guidance:'Correct the assertion using a real inspected selector (CSS Modules: use the actual rendered class or a stable data/id attribute). layout takes neither selector nor path; visual_layout requires path. Invalid arguments do not prove a defect. DOM read/geometry are partial evidence only; report verification incomplete if a valid check cannot run.',
+    example:{action:'qa',scenarios:[{id:'check',goal:'Verify the original defect',target:'<approved original URL including query/hash>',viewport:{width:1920,height:1080},preconditions:[],required_state:[],steps:[],assertion,timeout_ms:5000}]}};
+}

@@ -24,7 +24,7 @@ import type { NativeProjectPage } from './native-project-page';
 import { QaLoopGuard, projectRevision } from './qa-loop-guard';
 import type { QaCdp } from './browser-scenario-runner';
 import { visualLayoutSchema } from './visual-layout-qa';
-import { qaScenarios, assertionSchema } from './browser-scenarios';
+import { qaScenarios, assertionSchema, qaArgumentFailure } from './browser-scenarios';
 import { paths } from '../services/paths';
 import { layoutScenario, responsiveOptions, viewportSchema } from './responsive-qa';
 import { qaHash, qaScenarioIdentity } from './qa-loop-guard';
@@ -551,7 +551,7 @@ export class ProjectBrowserSession {
             if(responsive&&!scenarios.length){const target=String(args.url??args.path??this.page.url()),b=responsive.breakpoint;scenarios=(b?[{width:b.minWidth,height:844},{width:b.maxWidth,height:844}]:responsive.viewports).map((v,i)=>layoutScenario(`responsive-${i+1}`,target,v));}
             if(new Set(scenarios.flatMap(s=>[...(s.viewport?[s.viewport]:[]),...(s.visual_layout?.resize??[])]).map(v=>`${v.width}x${v.height}`)).size>5)throw new Error('At most 5 viewports per QA checkpoint');
             if(!this.isolatedQa&&scenarios.some(s=>s.viewport))return await this.isolatedResponsive(args,scenarios,signal,actionId);
-          } catch(error) { return {error:String(error),code:'INVALID_QA_ARGUMENTS',retrySameArguments:false}; }
+          } catch(error) { return qaArgumentFailure(error,args); }
           // Hidden Native Pages have no user layout; establish metrics before the initial capture/state snapshot.
           if(this.isolatedQa&&scenarios[0]?.viewport)await this.page.setViewportSize({width:scenarios[0].viewport.width,height:scenarios[0].viewport.height});
           const initialState=await this.qaState(scenarios);

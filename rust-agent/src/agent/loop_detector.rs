@@ -26,6 +26,7 @@ pub struct LoopDetector {
     pub guidance_count: usize,
     pub warning_count: usize,
     pub pause_count: usize,
+    invalid_qa: BTreeMap<String, usize>,
 }
 fn hash(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
@@ -93,6 +94,30 @@ impl LoopDetector {
         self.observations = self.observations.saturating_add(1);
         if changed {
             self.progress();
+            self.invalid_qa.clear();
+        }
+        // Validation never reached Chromium or the QA report guard. Group the
+        // failure by its actionable category and actual scenario conditions,
+        // not labels, tool-call ids, or irrelevant JSON variations.
+        if name == "web_project" && args.get("action").and_then(Value::as_str) == Some("qa") {
+            let code = result.get("code").and_then(Value::as_str).unwrap_or("");
+            if code == "INVALID_QA_ARGUMENTS" {
+                let category = result.get("category").and_then(Value::as_str).unwrap_or("qa_schema");
+                let conditions = args.get("scenarios").and_then(Value::as_array).map(|scenarios| scenarios.iter().map(|s| serde_json::json!({"target":s.get("target"),"viewport":s.get("viewport"),"source":s.pointer("/assertion/source")})).collect::<Vec<_>>());
+                let signature = hash(&serde_json::json!({"category":category,"conditions":conditions,"url":args.get("url"),"path":args.get("path")}).to_string());
+                let count = self.invalid_qa.entry(signature.clone()).or_default();
+                *count += 1;
+                let count = *count;
+                if self.invalid_qa.len() > 64 { self.invalid_qa.clear(); self.invalid_qa.insert(signature.clone(), count); }
+                if count < 3 { return None; }
+                let level = if count >= 4 { 3 } else { 1 };
+                if level == 1 { self.guidance_count += 1; } else { self.pause_count += 1; }
+                return Some(LoopNotice { signature, level,
+                    evidence: format!("Browser QA validation ({category}) repeated {count} times without a project change"),
+                    guidance: "The QA arguments are invalid, not evidence that the UI defect remains. Use the exact example from the error, inspect the real selector/geometry/styles, or finish with verification incomplete. Do not repeat equivalent malformed assertions. The next equivalent failure stops this run with a checkpoint; continuation retains this guard until actual progress.".into(),
+                    repair_exhausted: true });
+            }
+            if result.get("error").is_none() && result.get("report").is_some() { self.invalid_qa.clear(); }
         }
         // The browser's pre-execution guard already suppresses no-progress QA.
         // A local QA blocker must not escalate into pausing the entire agent.
@@ -272,6 +297,23 @@ impl LoopDetector {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn equivalent_invalid_qa_is_bounded_and_survives_continuation() {
+        let mut detector = LoopDetector::default();
+        let result = json!({"code":"INVALID_QA_ARGUMENTS","error":"Missing selector","category":"selector","retrySameArguments":false});
+        let args = |n| json!({"action":"qa","scenarios":[{"id":format!("check-{n}"),"goal":format!("attempt {n}"),"target":"http://localhost/#/shop?q=1","viewport":{"width":1920,"height":1080},"assertion":{"source":"visible","expected":true}}]});
+        assert!(detector.observe("web_project", &args(1), &result, false).is_none());
+        assert!(detector.observe("web_project", &args(2), &result, false).is_none());
+        assert_eq!(detector.observe("web_project", &args(3), &result, false).unwrap().level, 1);
+        let mut resumed: LoopDetector = serde_json::from_value(serde_json::to_value(detector).unwrap()).unwrap();
+        resumed.rearm(); // UI continuation is not observed project progress.
+        assert_eq!(resumed.observe("web_project", &args(4), &result, false).unwrap().level, 3);
+        resumed.observe("replace_text", &json!({"path":"style.css"}), &json!({"ok":true}), true);
+        assert!(resumed.observe("web_project", &args(5), &result, false).is_none());
+        let mut mobile = args(6); mobile["scenarios"][0]["viewport"]["width"] = json!(390);
+        assert!(resumed.observe("web_project", &mobile, &result, false).is_none());
+    }
+
     #[test]
     fn compaction_keeps_successful_terminal_repetition_and_ignores_lifecycle_noise() {
         let mut detector=LoopDetector::default(); let mut levels=Vec::new();
