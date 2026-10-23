@@ -17,3 +17,18 @@ export const visualStaleReason=(reason?:string)=>t(({
   'invalid-selector':'Селектор недоступен', 'invalid-original-anchor':'Нет исходной геометрии',
 } as Record<string,string>)[reason??'']??'Состояние привязки неизвестно');
 export const visualBindingLabel=(binding:import('./visual-debugging').VisualBindingState|undefined,region:import('./visual-debugging').VisualRegion)=>binding?.stale?visualStaleReason(binding.reason):!region.anchors.length?t('Сохранено · Только снимок'):region.anchors[0].confidence<.8?t('Сохранено · DOM неоднозначен'):t('Сохранено · DOM найден');
+
+export const visualVerificationLabel=(status?:string)=>t(({'Verified':'Подтверждено проверкой','Partially Verified':'Частично проверено','Failed':'Дефект сохраняется','Blocked':'Не удалось проверить','Not Verified':'Не подтверждено'} as Record<string,string>)[status??'']??'Не подтверждено');
+export const visualActionLabel=(action?:string)=>t(({'submitted':'Области переданы с сообщением','status':'Статус изменён пользователем','rejected':'Кандидат отклонён пользователем','Verified':'Проверка выполнена успешно','Failed':'Проверка обнаружила дефект','Partially Verified':'Проверка выполнена частично','Not Verified':'Не удалось проверить'} as Record<string,string>)[action??'']??'Нет связанных действий');
+export function visualCheckReason(reason?:string){
+  if(!reason)return '';
+  if(reason==='selections-changed')return t('Состав области изменился. Выполните повторную проверку.');
+  if(reason==='original-conditions-unproven')return t('QA не подтвердила исходный дефект на сохранённых URL и viewport. Перепроверьте исправление.');
+  if(reason==='evidence-stale')return t('Результат устарел после нового запуска или изменения проекта.');
+  if(/anchor|selector|matching element/i.test(reason))return t('Не удалось однозначно восстановить DOM-элемент. Выделите его повторно.');
+  if(/text fitting candidates|text fitting is unavailable|one to six/i.test(reason))return t('Повторная проверка поддерживает до 6 DOM-выделений с обрезкой или переполнением текста.');
+  if(/origin|approved route|scope/i.test(reason))return t('Исходная страница недоступна в разрешённом контексте браузера.');
+  if(/timeout|timed out/i.test(reason))return t('Проверка не завершилась вовремя. Результат не подтверждён.');
+  if(/ownership/i.test(reason))return t('Для повторной проверки верните управление браузером пользователю.');
+  return t('Не удалось проверить исправление. Диагностика доступна в подробностях.');
+}

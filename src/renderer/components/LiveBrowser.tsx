@@ -3,20 +3,22 @@ import {BrowserWorkspaceControls} from './BrowserWorkspaceControls';
 import { VisualDebugPanel } from './VisualDebugPanel';
 import { useAppStore } from '../store/app-store';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight, Send, Pause, UserRound, Bot } from 'lucide-react';
 import type { LiveBrowserState, BrowserInput } from '../../shared/live-browser';
-import { t } from '../../shared/locale';
+import {pauseRequestText} from '../../shared/localization';
+import { t,localizeMessage } from '../../shared/locale';
 import { useLocale } from '../use-locale';
 import { ControlHelp } from './ControlHelp';
 
 type Mode = 'split' | 'expanded' | 'chat';
 export function LiveBrowserWorkspace({ conversationId, children }: { conversationId: string | null; children: ReactNode }) {
-  const ru=useLocale()==='ru';
+  useLocale();
   const running=useAppStore(s=>Boolean(s.generationOwnerId));
   const chat=useAppStore(s=>s.conversations.find(c=>c.id===conversationId));
   const [openError,setOpenError]=useState('');
-  const [previewUrl,setPreviewUrl]=useState('');
-  const openBrowser=()=>{if(!conversationId)return;setOpenError('');changeMode('split');void window.localAi.visualDebug.open(conversationId,previewUrl||undefined).then(()=>window.localAi.liveBrowser?.watch(conversationId,true)).catch(e=>setOpenError(String(e)));};
+  const [previewUrl,setPreviewUrl]=useState(''),[editingAddress,setEditingAddress]=useState(false);
+  const pausePhase=useAppStore(s=>s.pausePhase),steer=useAppStore(s=>s.steer);
+  const openBrowser=(target?:string)=>{if(!conversationId)return;setOpenError('');changeMode('split');void window.localAi.visualDebug.open(conversationId,target||undefined).then(()=>{setEditingAddress(false);return window.localAi.liveBrowser?.watch(conversationId,true);}).catch(e=>setOpenError(localizeMessage(String(e))));};
 
   const choices = useRef(new Map<string, Mode>());
   const [mode, setMode] = useState<Mode>('chat');
@@ -34,7 +36,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   // Reset before paint so a chat switch can never flash the other chat's frame.
   useLayoutEffect(() => {
     current.current = conversationId; session.current = null;
-    setPreviewUrl('');setOpenError('');setBrowser(null); setMode(conversationId ? choices.current.get(conversationId) ?? 'chat' : 'chat');
+    setPreviewUrl('');setEditingAddress(false);setOpenError('');setBrowser(null); setMode(conversationId ? choices.current.get(conversationId) ?? 'chat' : 'chat');
   }, [conversationId]);
   useEffect(() => {
     const api = window.localAi.liveBrowser;
@@ -87,6 +89,8 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
     document.addEventListener('scroll', schedule, true); update();
     return () => { cancelAnimationFrame(scheduled); resize.disconnect(); mutation.disconnect(); window.removeEventListener('resize', schedule); document.removeEventListener('scroll', schedule, true); document.removeEventListener('visibilitychange', schedule); void window.localAi.liveBrowser?.layout(browserSessionId, null).catch(() => undefined); };
   }, [browserSessionId, mode, conversationId]);
+  useEffect(()=>{if(!editingAddress)setPreviewUrl(browser?.url??'');},[browser?.url,editingAddress]);
+  useEffect(()=>{const compose=()=>{changeMode(narrow?'chat':'split');setTimeout(()=>document.querySelector<HTMLTextAreaElement>('.composer textarea')?.focus(),100);};window.addEventListener('visual-agent-composer',compose);return()=>window.removeEventListener('visual-agent-composer',compose);},[changeMode,narrow]);
   const interactive = browser?.ownership === 'user' && browser.status === 'live';
   const [inputError, setInputError] = useState<string | null>(null);
   const input = (event: BrowserInput) => {
@@ -101,7 +105,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Браузер закрыт');
   const action = browser?.action;
   return <div ref={root} className={`live-workspace mode-${mode} ${narrow ? 'is-narrow' : ''}`} style={{ '--chat-share': `${ratio}%` } as CSSProperties}>
-    <div className="live-chat">{chat?.workingDirectory&&<button className="live-manual-open" disabled={running} onClick={openBrowser}><Globe size={15}/>{ru?'Открыть браузер · Visual Debugging':'Open browser · Visual Debugging'}</button>}{openError&&<p role="alert">{openError}</p>}{browser && mode === 'chat' && <button className="live-reopen" onClick={() => changeMode('split')}><Globe size={15} />{t('Живой браузер')}<span>{statusText}</span></button>}{children}</div>
+    <div className="live-chat">{chat?.workingDirectory&&<button className="live-manual-open" disabled={running} onClick={()=>openBrowser()}><Globe size={15}/>{t('Открыть браузер · Visual Debugging')}</button>}{browser && mode === 'chat' && <button className="live-reopen" onClick={() => changeMode('split')}><Globe size={15} />{t('Живой браузер')}<span>{statusText}</span></button>}{children}</div>
     {mode === 'split' && <div className="live-divider" role="separator" aria-label={t('Размер панелей')} aria-orientation="vertical" aria-valuemin={25} aria-valuemax={75} aria-valuenow={Math.round(ratio)} tabIndex={0}
       onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setRatio(value => Math.max(25, Math.min(75, value + (event.key === 'ArrowLeft' ? -3 : 3)))); } }}
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -111,18 +115,33 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       <header className="live-header"><span className="live-title"><Globe size={16} />{t('Живой браузер')}</span><div className="live-view-controls">
         <button className={mode === 'split' ? 'selected' : ''} title={t('Разделённый вид')} aria-label={t('Разделённый вид')} onClick={() => changeMode('split')}><Columns2 size={15} /></button>
         <button className={mode === 'expanded' ? 'selected' : ''} title={t('Браузер на весь экран')} aria-label={t('Браузер на весь экран')} onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
-        <button title={t('Только чат')} aria-label={t('Только чат')} onClick={() => changeMode('chat')}><MessageSquare size={15} /></button>
+        <button title={t('Только чат')} aria-label={t('Только чат')} onClick={() => changeMode('chat')}><MessageSquare size={15} />{narrow&&t('Показать чат')}</button>
         <button title={t('Закрыть браузер')} aria-label={t('Закрыть браузер')} onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
       </div></header>
-      <div className="live-address"><button disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={() => input({ kind: 'back' })}><ArrowLeft size={14} /></button><button disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={() => input({ kind: 'forward' })}><ArrowRight size={14} /></button><button disabled={!interactive} title={t('Обновить')} aria-label={t('Обновить')} onClick={() => input({ kind: 'reload' })}><RefreshCw size={14} /></button><span className={`live-dot ${status ?? ''}`} /><span title={browser?.url}>{browser?.url || t('Ожидание страницы')}</span></div>
-      <form className="visual-preview-url" onSubmit={e=>{e.preventDefault();openBrowser();}}><input aria-label={t('Разрешённый адрес preview')} placeholder={t('Файл проекта index.html или http://127.0.0.1:PORT')} value={previewUrl} onChange={e=>setPreviewUrl(e.target.value)}/><button disabled={running}>{ru?'Открыть URL':'Open URL'}</button></form>
-      <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>
+      <form className="live-address" data-current-url={browser?.url??''} onSubmit={e=>{e.preventDefault();openBrowser(previewUrl);}}>
+        <button type="button" disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={()=>input({kind:'back'})}><ArrowLeft size={16}/></button>
+        <button type="button" disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={()=>input({kind:'forward'})}><ArrowRight size={16}/></button>
+        <button type="button" disabled={!interactive} title={t('Обновить')} aria-label={t('Обновить')} onClick={()=>input({kind:'reload'})}><RefreshCw size={16}/></button>
+        <span className={`live-dot ${status??''}`} title={statusText}/>
+        <input aria-label={t('Адрес страницы')} disabled={running} title={browser?.url} placeholder={t('Файл проекта index.html или http://127.0.0.1:PORT')} value={previewUrl} onChange={e=>{setOpenError('');setEditingAddress(true);setPreviewUrl(e.target.value);}} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setOpenError('');setEditingAddress(false);}}}/>
+        {editingAddress&&<button type="button" aria-label={t('Отменить ввод адреса')} title={t('Отменить ввод адреса')} onClick={()=>{setOpenError('');setEditingAddress(false);}}><X size={15}/></button>}
+        <button disabled={running||!previewUrl.trim()} title={t('Перейти по адресу')} aria-label={t('Перейти по адресу')}><Send size={15}/></button>
+      </form>
+      {openError&&<p className="live-error" role="alert">{openError}</p>}
+      {editingAddress&&previewUrl!==browser?.url&&<p className="live-navigation-draft" role="status">{t('Черновик адреса. Текущая страница')}: <code>{browser?.url||t('Браузер закрыт')}</code></p>}
       <BrowserWorkspaceControls state={workspace} disabled={!interactive||running} onChange={configure}/>
+      <div className={`live-ownership ownership-${browser?.ownership??'unavailable'}`} role="status">
+        {browser?.ownership==='agent'?<Bot size={16}/>:<UserRound size={16}/>}
+        <strong>{browser?.ownership==='paused'&&browser.action?.kind==='region-recheck'?t('Проверка исходной области'):pausePhase==='Paused'?t('Агент на паузе'):interactive?t('Управляет пользователь'):browser?.ownership==='agent'?t('Управляет агент'):t('Браузер недоступен')}</strong>
+        {browser?.ownership==='agent'&&<><span>{t('Просмотр областей доступен. Навигация, viewport и редактирование выделений временно ограничены.')}</span><button disabled={!running||Boolean(pausePhase&&pausePhase!=='Paused')} onClick={()=>void steer(pauseRequestText,'pause')}><Pause size={14}/>{t('Приостановить агента')}</button></>}
+        {!running&&browser&&!interactive&&<button onClick={()=>openBrowser()}>{t('Вернуть управление')}</button>}
+      </div>
+      <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>
       <div ref={screen} className="live-screen native-browser-surface" onScroll={e=>{if(!workspace||!interactive||running)return;const element=e.currentTarget,factor=workspace.panel.width/Math.max(1,element.clientWidth),pan=presentationToCss({x:element.scrollLeft,y:element.scrollTop},workspace.displayScale*workspace.browserZoom/factor);if(Math.abs(pan.x-workspace.settings.pan.x)<1&&Math.abs(pan.y-workspace.settings.pan.y)<1)return;clearTimeout(panTimer.current);panTimer.current=setTimeout(()=>configure({...workspace.settings,pan}),60);}} tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
         {workspace&&<div aria-hidden="true" className="browser-virtual-surface" style={{width:workspace.surface.width/(Math.max(1,workspace.panel.width)/Math.max(1,screen.current?.clientWidth??workspace.panel.width)),height:workspace.surface.height/(Math.max(1,workspace.panel.height)/Math.max(1,screen.current?.clientHeight??workspace.panel.height))}}/>}
-        {!browser && <div className="live-empty"><Globe size={28} />{t('Агент откроет страницу через web_project')}</div>}
+        {!browser && <div className="live-empty"><Globe size={28} />{t('Откройте страницу проекта по адресу выше. Затем создайте область или проверьте страницу.')}<button onClick={()=>openBrowser()}>{t('Открыть браузер')}</button></div>}
       </div>
-      <footer className="live-footer">{browser&&!interactive&&!running&&<button onClick={openBrowser}>{ru?'Вернуть управление':'Take control'}</button>}<span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership==='recovering'?(ru?'Браузер восстанавливается':'Browser recovering'):browser?.ownership==='blocked'?(ru?'Браузер заблокирован политикой':'Browser blocked by policy'): browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
+      <footer className="live-footer"><span><Radio size={12} />{statusText}</span><span>{status === 'live' ? 'Chromium' : ''}</span><span className="live-action-label" title={action?.kind}>{interactive ? t('Вы управляете браузером') : browser?.ownership==='recovering'?t('Браузер восстанавливается'):browser?.ownership==='blocked'?t('Браузер заблокирован политикой'): browser?.ownership === 'paused' ? t('Пауза') : browser?.ownership === 'closed' ? t('Браузер закрыт') : status === 'error' ? t('Браузер недоступен') : browser ? t('Агент управляет браузером') : t('Ожидание страницы')}</span>
         <ControlHelp label={t('Состояние браузера')}>{interactive ? t('Страница передана вам: можно нажимать, прокручивать и вводить текст.') : browser?.ownership === 'agent' ? t('Агент сейчас управляет этой страницей. После завершения задачи управление перейдёт вам.') : status === 'error' ? t('Браузер недоступен; проверьте сообщение об ошибке и повторно откройте страницу, если это безопасно.') : t('Браузер ожидает действий агента или открытия страницы.')}</ControlHelp>
         <button title={t('Переподключить просмотр')} aria-label={t('Переподключить просмотр')} onClick={() => { void window.localAi.liveBrowser?.watch(conversationId, true).catch(() => undefined); }}><RefreshCw size={13} /></button>
         {mode === 'expanded' && <button aria-label={t('Показать чат')} title={t('Показать чат')} onClick={() => changeMode('split')}><MessageSquare size={13} /></button>}
