@@ -710,3 +710,11 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .live-view-controls button {min-width:30px;min-height:30px}
 
 .visual-runtime-action {display:block;color:var(--text-muted);font-size:11px;margin:3px 0}
+
+/* Ownership is a state change, never an implicit Auto viewport resize. */
+.live-ownership {height:38px;min-height:38px;box-sizing:border-box;flex-wrap:nowrap;overflow:hidden}
+.live-ownership strong {white-space:nowrap}
+.live-ownership>svg,.live-ownership button {flex:none}
+.live-ownership span {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-footer {height:32px;min-height:32px;box-sizing:border-box;overflow:hidden}
+.live-footer .live-action-label {white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
