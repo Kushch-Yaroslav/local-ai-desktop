@@ -13,6 +13,7 @@ export interface VisualRegion {
   id: string; conversationId: string; projectId: string; projectRoot: string; groupId: string;
   url: string; route: string; viewport: {width: number; height: number}; dpr: number;
   scroll: {x: number; y: number}; rect: VisualRect; anchors: VisualAnchor[];
+  presentation?:{browserZoom:number;displayScale:number;deviceScaleFactor:number};
   live?:{url:string;viewport:{width:number;height:number};dpr:number;scroll:{x:number;y:number};rect?:VisualRect;stale:boolean;reason?:string;observedAt:string};
   groupNumber?: number; color?: string; areaName?:string;
   sourceHints?: Array<{path:string;sha256:string}>;

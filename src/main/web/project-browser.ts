@@ -243,7 +243,8 @@ export class ProjectBrowserSession {
     const evidence=await groundRegion(page,rect);
     if(new URL(evidence.url).origin!==this.origin || rect.x+rect.width>evidence.viewport.width+1 || rect.y+rect.height>evidence.viewport.height+1)throw new Error('Selection outside approved viewport');
     const id='region-'+randomUUID();
-    const region:VisualRegion={...evidence,sourceHints:Array.from(this.servedRevisions).slice(0,12).map(([path,sha256])=>({path,sha256})),id,conversationId:'',projectId:this.qaOptions.projectId??'',projectRoot:this.root,groupId,createdAt:new Date().toISOString()};
+    const workspace=this.native?.workspaceState?.();
+    const region:VisualRegion={...evidence,...(workspace?{presentation:{browserZoom:workspace.browserZoom,displayScale:workspace.displayScale,deviceScaleFactor:workspace.deviceScaleFactor}}:{}),sourceHints:Array.from(this.servedRevisions).slice(0,12).map(([path,sha256])=>({path,sha256})),id,conversationId:'',projectId:this.qaOptions.projectId??'',projectRoot:this.root,groupId,createdAt:new Date().toISOString()};
     await mkdir(this.captureDirectory,{recursive:true,mode:0o700});
     const path=join(this.captureDirectory,id+'.png');
     // All editable controls are masked; selector frames must never enter evidence.
@@ -641,8 +642,14 @@ export class ProjectBrowserSession {
       }document.documentElement.append(host);void host.getBoundingClientRect();return hidden;
     },padding);
     try{
-      // Capture follows this privacy DOM/layout task; native and CDP paths share masks.
-      // Hidden QA pages deliberately have no rAF; waiting for it would deadlock privacy capture.
+      // Native capture copies the compositor's last frame, which may predate
+      // the DOM mask task after zoom. Wait for a painted mask before copying;
+      // never fall back to an unmasked crop when the live surface cannot paint.
+      // Hidden isolated QA pages use CDP capture and deliberately have no rAF.
+      if(this.native&&!this.isolatedQa)await page.evaluate(()=>new Promise<void>((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(new Error('Privacy mask paint timed out; capture withheld')),1500);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(timer);resolve();}));
+      }));
       return await capture();
     }finally{await page.evaluate(hidden=>{document.getElementById('__lad-capture-mask')?.remove();for(const saved of hidden){const node=document.getElementById(saved.id);if(node)node.style.visibility=saved.visibility;}},hidden).catch(()=>undefined);}
   }
@@ -808,7 +815,8 @@ export class ProjectBrowserSession {
     const page = this.page!;
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
-    return { region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    const workspace=this.native?.workspaceState?.();
+    return { ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;
