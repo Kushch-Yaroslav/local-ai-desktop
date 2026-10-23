@@ -1,13 +1,31 @@
 import { useLocale } from '../use-locale';
 import { t } from '../../shared/locale';
 import { useShallow } from 'zustand/react/shallow';
-import { MessageSquarePlus, Settings, Pencil, Trash2 } from 'lucide-react';
+import { MessageSquarePlus, Settings, Pencil, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { RuntimeSetup } from './RuntimeSetup';
 import { useAppStore } from '../store/app-store';
 
 export function Sidebar() {
   useLocale();
+  const [layout, setLayout] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('workspace.chatSidebar') ?? '{}');
+      return {width: Number.isFinite(saved.width) ? Math.max(200, Math.min(560, saved.width)) : 278, collapsed: saved.collapsed === true};
+    } catch { return {width:278, collapsed:false}; }
+  });
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const maximum = Math.max(200, Math.min(560, windowWidth - 360));
+  const width = Math.min(maximum, layout.width);
+  const drag = useRef<{x:number;width:number}|null>(null);
+  useEffect(() => {
+    const resize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', resize);
+    return () => { window.removeEventListener('resize', resize); document.body.classList.remove('sidebar-resizing'); };
+  }, []);
+  useEffect(() => { try { localStorage.setItem('workspace.chatSidebar', JSON.stringify(layout)); } catch { /* The workspace remains usable with unavailable storage. */ } }, [layout]);
+  const finishDrag = () => { drag.current = null; document.body.classList.remove('sidebar-resizing'); };
+
   const [setupOpen, setSetupOpen] = useState(false);
   const openedAutomatically = useRef(false);
   const settings = useAppStore((state) => state.settings);
@@ -32,5 +50,10 @@ export function Sidebar() {
   });
   const shortModelName = (modelId: string | null) => models.find((model) => model.id === modelId)?.shortName ?? t("Модель не выбрана");
   const incomplete = Boolean(settings?.setup && (!settings.setup.server || !models.some(model => model.installed)));
-  return <aside className="sidebar"><button className="new-chat" onClick={() => void createConversation()}><MessageSquarePlus size={18} /> {t(" Новый чат")}</button><div className="chat-list">{groupedChats.map(([date, chats]) => <section className="chat-date-group" key={date}><h2>{date}{date === t("Без даты") ? '' : ` · ${chats.length}`}</h2>{chats.map((chat) => <div className={`chat-row ${activeId === chat.id ? 'active' : ''}`} key={chat.id}><button className="chat-select" onClick={() => void selectConversation(chat.id)} title={chat.title}><span className="chat-title">{chat.title}</span><span className="model-badge">{generationConversationId === chat.id ? t("● Выполняется · ") : ''}{shortModelName(chat.modelId)}</span></button><div className="chat-actions"><button aria-label={t("Переименовать")} onClick={() => void rename(chat.id, chat.title)}><Pencil size={14} /></button><button aria-label={t("Удалить")} disabled={generationConversationId === chat.id} onClick={() => void deleteConversation(chat.id)}><Trash2 size={14} /></button></div></div>)}</section>)}</div><button className={`sidebar-footer runtime-setup-action${incomplete ? ' needs-setup' : ' is-ready'}`} onClick={() => setSetupOpen(true)} disabled={!settings?.setup} aria-label={incomplete ? t("Настроить модели, настройка не завершена") : t("Настройки моделей и runtime")}><Settings size={18} /><span className="runtime-setup-action-copy"><strong>{incomplete ? t("Настроить модели") : t("Модели и runtime")}</strong><small>{incomplete ? t("Добавьте модель и llama-server") : t("Настройка готова")}</small></span></button>{setupOpen && settings?.setup && <RuntimeSetup setup={settings.setup} onClose={closeSetup} />}</aside>;
+  return <>{layout.collapsed&&<button className="sidebar-reopen" aria-label={t('Открыть историю чатов')} title={t('Открыть историю чатов')} onClick={()=>setLayout(l=>({...l,collapsed:false}))}><PanelLeftOpen size={19}/></button>}<aside className="sidebar" hidden={layout.collapsed} style={{width,flexBasis:width}}><div className="sidebar-heading"><button className="sidebar-collapse" aria-label={t('Свернуть историю чатов')} title={t('Свернуть историю чатов')} onClick={()=>setLayout(l=>({...l,collapsed:true}))}><PanelLeftClose size={18}/></button></div><button className="new-chat" onClick={() => void createConversation()}><MessageSquarePlus size={18} /> {t(" Новый чат")}</button><div className="chat-list">{groupedChats.map(([date, chats]) => <section className="chat-date-group" key={date}><h2>{date}{date === t("Без даты") ? '' : ` · ${chats.length}`}</h2>{chats.map((chat) => <div className={`chat-row ${activeId === chat.id ? 'active' : ''}`} key={chat.id}><button className="chat-select" onClick={() => void selectConversation(chat.id)} title={chat.title}><span className="chat-title">{chat.title}</span><span className="model-badge">{generationConversationId === chat.id ? t("● Выполняется · ") : ''}{shortModelName(chat.modelId)}</span></button><div className="chat-actions"><button aria-label={t("Переименовать")} onClick={() => void rename(chat.id, chat.title)}><Pencil size={14} /></button><button aria-label={t("Удалить")} disabled={generationConversationId === chat.id} onClick={() => void deleteConversation(chat.id)}><Trash2 size={14} /></button></div></div>)}</section>)}</div><button className={`sidebar-footer runtime-setup-action${incomplete ? ' needs-setup' : ' is-ready'}`} onClick={() => setSetupOpen(true)} disabled={!settings?.setup} aria-label={incomplete ? t("Настроить модели, настройка не завершена") : t("Настройки моделей и runtime")}><Settings size={18} /><span className="runtime-setup-action-copy"><strong>{incomplete ? t("Настроить модели") : t("Модели и runtime")}</strong><small>{incomplete ? t("Добавьте модель и llama-server") : t("Настройка готова")}</small></span></button>{setupOpen && settings?.setup && <RuntimeSetup setup={settings.setup} onClose={closeSetup} />}<div className="sidebar-resize-handle" role="separator" aria-label={t('Ширина истории чатов')} aria-orientation="vertical" aria-valuemin={200} aria-valuemax={maximum} aria-valuenow={Math.round(width)} tabIndex={0}
+    onKeyDown={e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();setLayout(l=>({...l,width:e.key==='Home'?200:e.key==='End'?maximum:Math.max(200,Math.min(maximum,width+(e.key==='ArrowLeft'?-20:20)))}));}}
+    onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();drag.current={x:e.clientX,width};e.currentTarget.setPointerCapture(e.pointerId);document.body.classList.add('sidebar-resizing');}}
+    onPointerMove={e=>{if(drag.current&&e.currentTarget.hasPointerCapture(e.pointerId))setLayout(l=>({...l,width:Math.max(200,Math.min(maximum,drag.current!.width+e.clientX-drag.current!.x))}));}}
+    onPointerUp={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);finishDrag();}}
+    onLostPointerCapture={finishDrag} onPointerCancel={finishDrag}/></aside></>;
 }

@@ -1,5 +1,9 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Открыть историю чатов': 'Open chat history',
+  'Свернуть историю чатов': 'Collapse chat history',
+  'Ширина истории чатов': 'Chat history width',
+
   'Инструменты выделения доступны внутри браузера.': 'Selection tools are available inside the browser.',
 
   'Масштаб страницы': 'Page zoom',
