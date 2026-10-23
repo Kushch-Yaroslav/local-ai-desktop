@@ -914,7 +914,7 @@ fn save_runtime_pause(config: &Config, state: &AgentState, transcript: &mut Tran
     emit(&config.run_id, Event::RunState { state: "saving_checkpoint".into() });
     let mut memory = serde_json::to_value(&state.task_memory).expect("serializable runtime memory");
     memory["loop_guard"] = serde_json::to_value(&state.loop_detector).expect("serializable loop guard");
-    memory["stop_reason"] = json!(if state.loop_notice.as_ref().is_some_and(|notice| notice.evidence.starts_with("Browser QA validation")) { "repeated_tool_failure" } else if state.loop_notice.is_some() { "loop_detected" } else { "user_stop" });
+    memory["stop_reason"] = json!(if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3 && notice.evidence.starts_with("Browser QA validation")) { "repeated_tool_failure" } else if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3) { "loop_detected" } else { "user_stop" });
     transcript.checkpoint_pause(memory.clone());
     checkpoint_work_budget(config, state, transcript);
     let mut saved = state.clone();
@@ -1602,7 +1602,7 @@ fn loop_boundary(config:&Config,state:&mut AgentState,transcript:&mut Transcript
     loop {
         if config.cancelled.load(Ordering::Relaxed) {return false;}
         if config.pause_requested.load(Ordering::Relaxed) { return true; }
-        let (commands,interactive)={let mut c=config.control.lock().expect("execution control");(c.commands.drain(..).collect::<Vec<_>>(),c.interactive)};
+        let commands={let mut c=config.control.lock().expect("execution control");c.commands.drain(..).collect::<Vec<_>>()};
         for command in commands {
             let Some(mut notice)=state.loop_notice.clone().filter(|n|n.signature==command.signature) else {
                 if let Some(id) = command.id { emit(&config.run_id, Event::ControlRejected { id, message: "Loop warning is no longer active; the queued action was not applied".into() }); }
@@ -1645,21 +1645,7 @@ fn loop_boundary(config:&Config,state:&mut AgentState,transcript:&mut Transcript
             emit(&config.run_id, Event::RunState { state: "pause_requested".into() });
             return true;
         }
-        if state.suspended && !state.loop_cleanup_blocked {
-            if let Some(mut notice) = state.loop_notice.clone().filter(|n| n.level == 3 && !n.repair_exhausted) {
-                if selective_loop_repair(config, state, transcript, &mut notice) { return true; }
-                state.loop_notice = Some(notice.clone());
-                loop_lifecycle(config, state, transcript, "paused", &notice);
-                emit(&config.run_id, Event::LoopState { notice: Some(notice), paused: true });
-            }
-        }
-        if !state.suspended {return true;}
-        if !interactive {
-            state.suspended=false;
-            begin_pause(config,state,"loop_detection");
-            return true;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        return true;
     }
 }
 
@@ -4830,6 +4816,7 @@ pub fn run(mut config: Config) {
     };
     if let Some(guard) = state.task_memory.loop_guard.as_ref() {
         state.loop_detector = serde_json::from_value(guard.clone()).unwrap_or_default();
+        state.loop_detector.continued();
     }
     state.task_memory.verification.start_run();
     // Restored evidence remains historical until this run observes the project.

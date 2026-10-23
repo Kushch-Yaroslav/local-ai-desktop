@@ -339,7 +339,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const resumable = get().conversations.find(chat => chat.id === activeId)?.mode === 'agent';
     set({ generationState: 'stopping', ...(resumable ? { pausePhase: 'Pause requested' as const } : {}), pendingApproval: null, approvalSubmitting: false });
     try { await window.localAi.chat.stop(activeId, generationId); }
-    catch (error) { withView(activeId, () => set({ error: error instanceof Error ? error.message : String(error) })); }
+    catch (error) { withView(activeId, () => set({ pausePhase: null, error: error instanceof Error ? error.message : String(error) })); }
     // Terminal stream events and persisted runs are authoritative. A resumable
     // stop is not a cancellation and must retain its checkpoint/loop reason.
 
