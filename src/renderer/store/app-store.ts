@@ -336,13 +336,13 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   },
   stop: async () => {
     const { activeId, generationId } = get(); if (!activeId || !generationId) return;
-    set({ generationState: 'stopping', loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false });
-    await window.localAi.chat.stop(activeId, generationId);
-    pendingTokens.delete(generationId); pendingThinking.delete(generationId); if (animationFrame !== null) { window.cancelAnimationFrame(animationFrame); animationFrame = null; }
-    withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'cancelled', messages: finishAgentStream(state.messages, generationId, { cancelled: true }), performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false } : {}));
-    // `chat:stop` resolves after the main process finalized the run, so the database is authoritative here.
-    if (!generationRuns.has(generationId)) return;
-    try { const runs = await window.localAi.analysis.list(activeId); withView(activeId, () => set(adoptRuns(generationId, runs))); } catch { /* the analysis-run event already carried the final run */ }
+    const resumable = get().conversations.find(chat => chat.id === activeId)?.mode === 'agent';
+    set({ generationState: 'stopping', ...(resumable ? { pausePhase: 'Pause requested' as const } : {}), pendingApproval: null, approvalSubmitting: false });
+    try { await window.localAi.chat.stop(activeId, generationId); }
+    catch (error) { withView(activeId, () => set({ error: error instanceof Error ? error.message : String(error) })); }
+    // Terminal stream events and persisted runs are authoritative. A resumable
+    // stop is not a cancellation and must retain its checkpoint/loop reason.
+
   },
   handleStream: (event) => {
     if (event.conversationId !== rawGet().activeId && !views.has(event.conversationId)) return;
@@ -461,7 +461,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       if (event.memory.browser_qa) set(state => ({ qaStatuses: { ...state.qaStatuses, [event.conversationId]: { phase: state.qaStatuses[event.conversationId]?.phase ?? 'complete', report: event.memory!.browser_qa } } }));
       // Knowledge updates do not redraw unchanged plan/results/evidence.
       if (!prior || JSON.stringify(prior?.plan) !== JSON.stringify(event.memory.plan) || JSON.stringify(prior?.deliverables) !== JSON.stringify(event.memory.deliverables) || JSON.stringify(prior?.verification) !== JSON.stringify(event.memory.verification) || JSON.stringify(prior?.browser_qa) !== JSON.stringify(event.memory.browser_qa)) {
-        set({ agentPlan: { milestones: [], ...(get().agentPlan?.workBudget ? { workBudget: get().agentPlan!.workBudget } : {}), taskMemory: { entries: [], browser_qa: event.memory.browser_qa, plan: event.memory.plan, deliverables: event.memory.deliverables, verification: event.memory.verification } } });
+        set({ agentPlan: { milestones: [], ...(get().agentPlan?.workBudget ? { workBudget: get().agentPlan!.workBudget } : {}), taskMemory: { entries: [], stop_reason: event.memory.stop_reason, loop_guard: event.memory.loop_guard, browser_qa: event.memory.browser_qa, plan: event.memory.plan, deliverables: event.memory.deliverables, verification: event.memory.verification } } });
       }
     }
     if (event.type === 'analysis-run' && event.run?.logicalTaskId) set(state => ({ messages: state.messages.map(message => message.id === event.run!.triggeringMessageId || message.id === assistantId(event.generationId) ? { ...message, logicalTaskId: event.run!.logicalTaskId } : message) }));

@@ -3,9 +3,8 @@ import {BrowserWorkspaceControls} from './BrowserWorkspaceControls';
 import { VisualDebugPanel } from './VisualDebugPanel';
 import { useAppStore } from '../store/app-store';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight, Send, Pause, UserRound, Bot } from 'lucide-react';
+import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight, Send, Square, UserRound, Bot } from 'lucide-react';
 import type { LiveBrowserState, BrowserInput } from '../../shared/live-browser';
-import {pauseRequestText} from '../../shared/localization';
 import { t,localizeMessage } from '../../shared/locale';
 import { useLocale } from '../use-locale';
 import { ControlHelp } from './ControlHelp';
@@ -17,7 +16,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const chat=useAppStore(s=>s.conversations.find(c=>c.id===conversationId));
   const [openError,setOpenError]=useState('');
   const [previewUrl,setPreviewUrl]=useState(''),[editingAddress,setEditingAddress]=useState(false);
-  const pausePhase=useAppStore(s=>s.pausePhase),steer=useAppStore(s=>s.steer);
+  const pausePhase=useAppStore(s=>s.pausePhase),stop=useAppStore(s=>s.stop);
   const openBrowser=(target?:string)=>{if(!conversationId)return;setOpenError('');changeMode('split');void window.localAi.visualDebug.open(conversationId,target||undefined).then(()=>{setEditingAddress(false);return window.localAi.liveBrowser?.watch(conversationId,true);}).catch(e=>setOpenError(localizeMessage(String(e))));};
 
   const choices = useRef(new Map<string, Mode>());
@@ -133,7 +132,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       <div className={`live-ownership ownership-${browser?.ownership??'unavailable'}`} role="status">
         {browser?.ownership==='agent'?<Bot size={16}/>:<UserRound size={16}/>}
         <strong>{browser?.ownership==='paused'&&browser.action?.kind==='region-recheck'?t('Проверка исходной области'):pausePhase==='Paused'?t('Агент на паузе'):interactive?t('Управляет пользователь'):browser?.ownership==='agent'?t('Управляет агент'):t('Браузер недоступен')}</strong>
-        {browser?.ownership==='agent'&&<><span>{t('Просмотр областей доступен. Навигация, viewport и редактирование выделений временно ограничены.')}</span><button disabled={!running||Boolean(pausePhase&&pausePhase!=='Paused')} onClick={()=>void steer(pauseRequestText,'pause')}><Pause size={14}/>{t('Приостановить агента')}</button></>}
+        {browser?.ownership==='agent'&&<><span>{t('Просмотр областей доступен. Навигация, viewport и редактирование выделений временно ограничены.')}</span><button disabled={!running||Boolean(pausePhase&&pausePhase!=='Paused')} onClick={()=>void stop()}><Square size={14}/>{t('Остановить')}</button></>}
         {!running&&browser&&!interactive&&<button onClick={()=>openBrowser()}>{t('Вернуть управление')}</button>}
       </div>
       <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>

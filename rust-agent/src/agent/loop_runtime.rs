@@ -912,9 +912,15 @@ fn begin_pause(config: &Config, state: &mut AgentState, source: &str) -> bool {
 
 fn save_runtime_pause(config: &Config, state: &AgentState, transcript: &mut Transcript) {
     emit(&config.run_id, Event::RunState { state: "saving_checkpoint".into() });
-    transcript.checkpoint_pause(serde_json::to_value(&state.task_memory).expect("serializable runtime memory"));
+    let mut memory = serde_json::to_value(&state.task_memory).expect("serializable runtime memory");
+    memory["loop_guard"] = serde_json::to_value(&state.loop_detector).expect("serializable loop guard");
+    memory["stop_reason"] = json!(if state.loop_notice.is_some() { "loop_detected" } else { "user_stop" });
+    transcript.checkpoint_pause(memory.clone());
     checkpoint_work_budget(config, state, transcript);
-    emit_task_memory(config, state);
+    let mut saved = state.clone();
+    saved.task_memory.loop_guard = memory.get("loop_guard").cloned();
+    saved.task_memory.stop_reason = memory.get("stop_reason").and_then(Value::as_str).map(str::to_owned);
+    emit_task_memory(config, &saved);
     if let Some(message) = transcript.storage_error() {
         emit(&config.run_id, Event::AgentError { code: "evidence_store".into(), message: message.into() });
         return;
@@ -1633,6 +1639,11 @@ fn loop_boundary(config:&Config,state:&mut AgentState,transcript:&mut Transcript
             config.control.lock().expect("execution control").active_signature=state.loop_notice.as_ref().map(|n|n.signature.clone());
             emit(&config.run_id,Event::LoopState{notice:state.loop_notice.clone(),paused:state.suspended});
             if let Some(id) = command.id { emit(&config.run_id, Event::ControlAccepted { id }); }
+        }
+        if state.suspended {
+            config.pause_requested.store(true, Ordering::Relaxed);
+            emit(&config.run_id, Event::RunState { state: "pause_requested".into() });
+            return true;
         }
         if state.suspended && !state.loop_cleanup_blocked {
             if let Some(mut notice) = state.loop_notice.clone().filter(|n| n.level == 3 && !n.repair_exhausted) {
@@ -4817,6 +4828,9 @@ pub fn run(mut config: Config) {
             return;
         }
     };
+    if let Some(guard) = state.task_memory.loop_guard.as_ref() {
+        state.loop_detector = serde_json::from_value(guard.clone()).unwrap_or_default();
+    }
     state.task_memory.verification.start_run();
     // Restored evidence remains historical until this run observes the project.
     // In particular, legacy fixed-budget reports must not describe a live quota.
@@ -6211,6 +6225,27 @@ mod tests {
         assert!(transcript.runtime_guidance().contains("metadata only"));
         config.cancelled.store(true,Ordering::Relaxed);
         assert!(!loop_boundary(&config,&mut state,&mut transcript), "Stop must release any live boundary");
+    }
+
+    #[test]
+    fn confirmed_loop_uses_fast_checkpoint_without_provider_repair() {
+        let config = test_config(32768);
+        config.control.lock().unwrap().interactive = true;
+        let mut state = AgentState::default();
+        let mut transcript = Transcript::default();
+        let tool = ValidatedCall { id: "loop".into(), name: "deliverables".into(), arguments: json!({"action":"view"}) };
+        for _ in 0..20 { observe_loop(&config, &mut state, &mut transcript, &tool, &json!({"items":[]}), false); }
+        assert!(state.suspended);
+        let started = std::time::Instant::now();
+        assert!(loop_boundary(&config, &mut state, &mut transcript));
+        assert!(config.pause_requested.load(Ordering::Relaxed));
+        assert!(started.elapsed() < std::time::Duration::from_millis(100));
+        assert_eq!(state.loop_repair_attempts, 0);
+        save_runtime_pause(&config, &state, &mut transcript);
+        let saved = restore_task_memory(None, &transcript).unwrap();
+        assert_eq!(saved.stop_reason.as_deref(), Some("loop_detected"));
+        let guard: super::super::loop_detector::LoopDetector = serde_json::from_value(saved.loop_guard.unwrap()).unwrap();
+        assert_eq!(guard.observations, state.loop_detector.observations);
     }
 
     #[test]

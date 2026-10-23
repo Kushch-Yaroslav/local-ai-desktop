@@ -13,7 +13,8 @@ pub struct LoopNotice {
     #[serde(default)]
     pub repair_exhausted: bool,
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct LoopDetector {
     pub last_signature: Option<String>,
     history: VecDeque<(String, String)>,

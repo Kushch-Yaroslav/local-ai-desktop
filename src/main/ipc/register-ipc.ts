@@ -873,7 +873,19 @@ export function registerIpc(): void {
     const result = await dialog.showOpenDialog(window!, { properties: ['openDirectory'], ...(defaultPath ? { defaultPath } : {}) });
     return result.canceled ? null : result.filePaths[0] ?? null;
   });
-  ipcMain.handle('chat:stop', async (_event, conversationId: string, generationId?: string) => { await cancelGeneration(conversationId, generationId, 'user_stop'); });
+  ipcMain.handle('chat:stop', async (_event, conversationId: string, generationId?: string) => {
+    const active = activeGenerations.get(conversationId);
+    if (!active || (generationId && active.id !== generationId)) return;
+    if (active.mode === 'agent' && rustAgent.hasRun(active.id) && !active.abort.signal.aborted) {
+      // The structured pause interrupts inference/QA, closes approvals and saves
+      // the durable transcript at the next safe tool boundary. Never kill a write.
+      await rustAgent.steer(active.id, 'Останови работу и сохрани контрольную точку для продолжения.', 'pause');
+      approvalBroker.pauseRun(active.id);
+      await active.settled;
+      return;
+    }
+    await cancelGeneration(conversationId, generationId, 'user_stop');
+  });
   ipcMain.handle('dialog:chooseFile', async () => {
     const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow()!, { properties: ['openFile'] });
     return result.canceled ? null : result.filePaths[0] ?? null;

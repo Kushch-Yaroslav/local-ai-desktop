@@ -86,6 +86,11 @@ pub struct Applied {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskMemory {
+    /// Runtime-owned continuation guard, never authored by the model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loop_guard: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser_qa: Option<serde_json::Value>,
     #[serde(default)]

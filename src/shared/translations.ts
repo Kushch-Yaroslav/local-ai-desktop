@@ -1,5 +1,11 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Агент остановлен: обнаружено повторение действий': 'Agent stopped: repeated actions detected',
+  'Остановлено': 'Stopped',
+  'Остановить': 'Stop',
+  'Продолжить задачу': 'Continue task',
+  'Останавливает работу и сохраняет контрольную точку. Продолжить задачу можно следующим сообщением.': 'Stops work and saves a checkpoint. Continue the task with your next message.',
+
   'Зажмите среднее колесо мыши и перемещайте поверхность браузера': 'Hold the middle mouse button and drag the browser surface',
   'Сохранено · DOM найден': 'Saved · DOM found',
   'Сохранено · DOM неоднозначен': 'Saved · Ambiguous DOM',

@@ -393,7 +393,7 @@ export interface AgentPlan {
   activeMilestoneId?: string | null;
   revision?: number;
   modelTodo?: ModelTodo;
-  taskMemory?: { browser_qa?: import('./browser-qa').BrowserQaReport; entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: VerificationState };
+  taskMemory?: { stop_reason?: string; loop_guard?: unknown; browser_qa?: import('./browser-qa').BrowserQaReport; entries: TaskMemoryEntry[]; revision?: number; deliverables?: { items: DeliverableItem[]; revision?: number }; plan?: { steps: PlanStepItem[]; revision?: number }; verification?: VerificationState };
   /** Legacy persisted snapshots are normalized at the Electron boundary. */
   steps?: AgentPlanStep[];
 }
