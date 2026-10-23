@@ -22,6 +22,7 @@ export const visualVerificationLabel=(status?:string)=>t(({'Verified':'Подт�
 export const visualActionLabel=(action?:string)=>t(({'submitted':'Области переданы с сообщением','status':'Статус изменён пользователем','rejected':'Кандидат отклонён пользователем','Verified':'Проверка выполнена успешно','Failed':'Проверка обнаружила дефект','Partially Verified':'Проверка выполнена частично','Not Verified':'Не удалось проверить'} as Record<string,string>)[action??'']??'Нет связанных действий');
 export function visualCheckReason(reason?:string){
   if(!reason)return '';
+  if(reason==='page-runtime-error')return t('Проверка не подтверждена из-за ошибок выполнения страницы.');
   if(reason==='selections-changed')return t('Состав области изменился. Выполните повторную проверку.');
   if(reason==='original-conditions-unproven')return t('QA не подтвердила исходный дефект на сохранённых URL и viewport. Перепроверьте исправление.');
   if(reason==='evidence-stale')return t('Результат устарел после нового запуска или изменения проекта.');

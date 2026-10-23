@@ -151,8 +151,9 @@ export class VisualDebugging {
       const at=new Date().toISOString();let qa:import('../../shared/browser-qa').BrowserQaReport|undefined,reason:string|undefined;
       try{qa=await session!.visualRecheck(regions);}catch(error){reason=String(error);}
       this.projectHashes.delete(first.projectRoot);
-      const pass=provesOriginalRegions(qa,regions),status=pass?'Verified':qa?.status==='Failed'?'Failed':qa?.status==='Partially Verified'?'Partially Verified':'Not Verified';
-      issue.check={status,reason:reason??qa?.reason??qa?.scenarios?.find(s=>s.reason)?.reason,reportId:qa?.id,evidencePath:qa?.evidencePath,revisionFingerprint:qa?.revisionFingerprint,at,url:first.url,viewport:first.viewport};
+      const failed=qa?.scenarios?.some(s=>s.status==='Failed'&&s.assertion.source==='text_fit'&&typeof s.observations.at(-1)?.value==='number'&&Number(s.observations.at(-1)?.value)>0);
+      const pass=provesOriginalRegions(qa,regions),status=pass?'Verified':failed?'Failed':qa?.status==='Partially Verified'?'Partially Verified':'Not Verified';
+      issue.check={status,reason:reason??qa?.reason??qa?.scenarios?.find(s=>s.reason)?.reason??(qa?.errors.length?'page-runtime-error':undefined),reportId:qa?.id,evidencePath:qa?.evidencePath,revisionFingerprint:qa?.revisionFingerprint,at,url:first.url,viewport:first.viewport};
       if(qa&&issue.logicalTaskId){
         const plan=this.db.getAgentPlan(chatId,issue.logicalTaskId),memory=plan?.taskMemory,ledger=memory?.verification;
         if(plan&&memory&&ledger){

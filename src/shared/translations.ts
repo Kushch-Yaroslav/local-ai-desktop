@@ -1392,5 +1392,6 @@ export const english: Record<string, string> = {
   "Состав области изменился. Выполните повторную проверку.": "The area selections changed. Run verification again.",
   "Компьютер": "Desktop",
   "Проверка DOM/layout текущей страницы… Без LLM и Vision.": "Checking current-page DOM/layout… No LLM or Vision.",
-  "Проверка текста на исходных URL и viewport… Без LLM.": "Checking text at the original URL and viewport… No LLM."
+  "Проверка текста на исходных URL и viewport… Без LLM.": "Checking text at the original URL and viewport… No LLM.",
+  "Проверка не подтверждена из-за ошибок выполнения страницы.": "Verification is unconfirmed because the page reported runtime errors."
 };
