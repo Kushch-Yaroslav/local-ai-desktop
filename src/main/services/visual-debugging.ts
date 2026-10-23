@@ -42,7 +42,8 @@ export class VisualDebugging {
 
       if(issue.statusSource!=='user'&&issue.statusSource!=='check'){
         if(verified){issue.status='Verified';issue.statusSource='runtime';issue.verification='Ledger linked';issue.evidenceRefs=[...issue.regionIds,...records.map(r=>r.id)];}
-        else if(issue.runtimeStatus){issue.status=issue.runtimeStatus;issue.verification='Not Verified';}
+        else if(issue.runtimeStatus){issue.status=issue.runtimeStatus;issue.statusSource='runtime';issue.verification='Not Verified';}
+        else if(issue.status==='In progress'&&runStatus&&runStatus!=='running'){issue.status='Unresolved';issue.statusSource='runtime';issue.verification='Not Verified';}
         else if(issue.status==='Verified'){issue.status='Fixed';issue.verification='Not Verified';}
       }
       if(issue.check?.ledgerId){const proof=ledger?.records.find(r=>r.id===issue.check!.ledgerId);

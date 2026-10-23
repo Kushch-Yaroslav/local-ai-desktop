@@ -68,6 +68,8 @@ export function normalizeVisualDocument(document: VisualDocument): VisualDocumen
   let next=Math.max(document.nextAreaNumber??1,1,...document.issues.map(i=>(i.number??0)+1));
   const used=new Set(document.issues.map(i=>i.color).filter(Boolean));
   for(const issue of document.issues){
+    // Before status provenance existed, Unresolved could only be set manually.
+    if(issue.status==='Unresolved'&&!issue.statusSource)issue.statusSource='user';
     if(!issue.number)issue.number=next++;
     if(!issue.color){issue.color=visualColors.find(c=>!used.has(c))??areaColor(issue.number);used.add(issue.color);}
   }
