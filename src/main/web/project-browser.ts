@@ -140,7 +140,7 @@ export class ProjectBrowserSession {
   preserveForUser(){this.userSession=true;}
   async policyChanged(){
     this.authorized=false;this.denied=undefined;this.operationAbort?.abort();
-    await this.exclusive(async()=>{await this.clearSelection();await this.releaseInput();if(this.reusable){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();}});
+    await this.exclusive(async()=>{await this.clearSelection();await this.releaseInput();if(this.reusable){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();}});
   }
   private denied?: string;
   private readonly heldKeys = new Set<string>();
@@ -165,12 +165,12 @@ export class ProjectBrowserSession {
     if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); }).catch(error=>{if(!this.closed)this.observer?.state('error',undefined,`Preview refresh failed; reopen the approved URL: ${String(error).slice(0,200)}`);});
     if (!this.reusable || !this.previewApproved) { await this.close(); return; }
     await this.releaseInput();
-    this.ownership = 'user'; this.observer?.ownership?.('user');void this.refreshVisualDisplay();
+    this.ownership = 'user'; this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();
   }
-  async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership);void this.refreshVisualDisplay(); }
+  async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon(); }
   private bindObserver() {
     this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
-    this.observer?.ownership?.(this.ownership);void this.refreshVisualDisplay();
+    this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon();
   }
   private displayedRegions:VisualRegion[]=[];
   private displayEnabled=true;
@@ -186,9 +186,20 @@ export class ProjectBrowserSession {
     this.displayedRegions=[...regions];this.displayEnabled=enabled;this.displaySelected=selected.filter(id=>regions.some(r=>r.id===id));
     this.displayState.visible=enabled;
     await this.refreshVisualDisplay();
-    if(!this.displayTimer&&regions.length){this.displayTimer=setInterval(()=>{void this.refreshVisualDisplay().catch(()=>undefined);},200);this.displayTimer.unref();}
+    if(!this.displayTimer&&regions.length){this.displayTimer=setInterval(()=>this.refreshVisualDisplaySoon(),200);this.displayTimer.unref();}
     if(!regions.length){clearInterval(this.displayTimer);this.displayTimer=undefined;}
     return this.displayState;
+  }
+  private refreshVisualDisplaySoon():void {
+    void this.refreshVisualDisplay().catch(error=>{
+      if(!this.reusable)return;
+      // Navigation replaces the execution world while this best-effort paint
+      // can still be queued. Never leave an old agent shield box on the new DOM.
+      this.native?.highlight?.([]);
+      this.displayState.bindings=this.displayState.bindings.map(binding=>({...binding,stale:true,reason:'dom-not-ready'}));
+      if(/Execution context was destroyed|Cannot find context with specified id|Target page, context or browser has been closed/.test(String(error)))return;
+      this.observer?.state('error',undefined,`Visual overlay refresh failed: ${String(error).slice(0,200)}`);
+    });
   }
   private refreshVisualDisplay():Promise<void>{
     if(this.displayWork)return this.displayWork;
@@ -480,7 +491,7 @@ export class ProjectBrowserSession {
       if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
       if (!this.authorized && (args.action === 'open' || this.page)) {
         const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
-        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
+        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
         const automatic=this.qaOptions.securityMode==='autonomous'&&Boolean(this.qaOptions.projectId);
         if(automatic)log('agent.browser.preview.auto-approved',{projectId:this.qaOptions.projectId,root:this.root,origin:proposed,mode:'autonomous',capability:'read-only-local-preview'});
         const decision = automatic?{approved:true,reason:'once' as const}:await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'browser_preview', preview:{projectId:this.qaOptions.projectId??this.root,origin:proposed},actionId,
@@ -502,7 +513,7 @@ export class ProjectBrowserSession {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
         if (url.origin !== (this.origin??staticOrigin) && args.url === undefined) throw new Error('Invalid project path');
-        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
+        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
         const newPage = !this.origin;
         if (!this.origin) {
           this.origin = url.origin;
@@ -606,7 +617,7 @@ export class ProjectBrowserSession {
       this.observer?.state('live', this.page!.url());
       return await this.read();
     } catch (error) {
-      if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');void this.refreshVisualDisplay();}
+      if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();}
       // Failed startup cannot leave a half-initialized reusable session.
       const code=String(error).includes('Screenshot limit reached')?'SCREENSHOT_LIMIT':this.endReason==='user_closed'?'BROWSER_USER_CLOSED':this.endReason==='operation_cancelled'?'BROWSER_OPERATION_CANCELLED':['connection_lost','renderer_crashed'].includes(this.endReason)?'BROWSER_CONNECTION_LOST':this.endReason==='page_closed'?'BROWSER_PAGE_CLOSED':this.endReason==='policy_changed'?'BROWSER_POLICY_CHANGED':this.endReason==='preview_unavailable'?'BROWSER_PREVIEW_UNAVAILABLE':signal.aborted?'BROWSER_OPERATION_CANCELLED':!this.page&&this.origin?'BROWSER_UNAVAILABLE':'PROJECT_BROWSER_FAILED';
       if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
