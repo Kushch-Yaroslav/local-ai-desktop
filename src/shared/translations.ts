@@ -1,5 +1,12 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Инструменты выделения доступны внутри браузера.': 'Selection tools are available inside the browser.',
+
+  'Масштаб страницы': 'Page zoom',
+  'Масштаб предпросмотра': 'Preview scale',
+  'Масштаб предпросмотра не меняет CSS viewport.': 'Preview scale does not change the CSS viewport.',
+  'Масштаб страницы меняет CSS-область и размер элементов. Масштаб предпросмотра меняет только отображение viewport.': 'Page zoom changes the available CSS area and element size. Preview scale changes only viewport presentation.',
+
   'Агент остановлен: обнаружено повторение действий': 'Agent stopped: repeated actions detected',
   'Остановлено': 'Stopped',
   'Остановить': 'Stop',

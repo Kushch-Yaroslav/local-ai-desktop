@@ -310,7 +310,7 @@ export class ProjectBrowserSession {
       try{
         const setViewport=async(viewport:{width:number;height:number})=>{
           signal.throwIfAborted();
-          if(this.native&&originalWorkspace)await this.native.workspace({...originalWorkspace,viewport});
+          if(this.native&&originalWorkspace)await this.native.workspace({...originalWorkspace,viewport:{width:Math.round(viewport.width*(originalWorkspace.zoom??this.native.contents.getZoomFactor())),height:Math.round(viewport.height*(originalWorkspace.zoom??this.native.contents.getZoomFactor()))}});
           else await page.setViewportSize(viewport);
         };
         const navigate=async(target:string)=>{

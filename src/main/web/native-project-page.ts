@@ -208,7 +208,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       const x=Math.max(0,Math.round(bounds.x*ownerZoom)),y=Math.max(0,Math.round(bounds.y*ownerZoom));
       const panel={width:Math.max(0,Math.min(Math.round(bounds.width*ownerZoom),size.width-x)),height:Math.max(0,Math.min(Math.round(bounds.height*ownerZoom),size.height-y))};
       const drawable=panel.width>=32&&panel.height>=32;
-      const viewport=settings.viewport==='auto'?{width:Math.max(1,Math.round(panel.width/zoom)),height:Math.max(1,Math.round(panel.height/zoom))}:settings.viewport;
+      const viewport=settings.viewport==='auto'?{width:Math.max(1,Math.round(panel.width/zoom)),height:Math.max(1,Math.round(panel.height/zoom))}:{width:Math.max(1,Math.round(settings.viewport.width/zoom)),height:Math.max(1,Math.round(settings.viewport.height/zoom))};
       const scale=settings.scale==='fit'?Math.max(.001,Math.min(panel.width/(viewport.width*zoom),panel.height/(viewport.height*zoom))):settings.scale;
       const surface={width:Math.ceil(viewport.width*zoom*scale),height:Math.ceil(viewport.height*zoom*scale)};
       const pan={x:Math.min(settings.pan.x,Math.max(0,(surface.width-panel.width)/(zoom*scale))),y:Math.min(settings.pan.y,Math.max(0,(surface.height-panel.height)/(zoom*scale)))};
@@ -276,7 +276,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
         if(image.isEmpty())throw new Error('Native compositor crop unavailable');return image.toPNG();
       },
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
-      async workspace(value){settings=structuredClone(value);await schedule();},
+      async workspace(value){settings=structuredClone(value);if(value.zoom!==undefined&&Math.abs(contents.getZoomFactor()-value.zoom)>.001)contents.setZoomFactor(value.zoom);await schedule();},
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(value) {
