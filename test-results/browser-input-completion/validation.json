@@ -1,0 +1,153 @@
+{
+  "recordedAt": "2026-10-24T20:46:47.364124+00:00",
+  "branch": "improvement/v0.3-browser-input-model-completion",
+  "implementationCommit": "fa827a674e40b909092b04293c4394f22f122206",
+  "providerDistinction": "Electron acceptance uses a scripted provider with real Rust Runtime and React/Vite; genuine Qwen result below remains a failure.",
+  "quality": {
+    "typescript": "PASS via npm run build",
+    "eslint": "PASS npm run lint",
+    "build": "PASS npm run build",
+    "rust": {
+      "passed": 418,
+      "failed": 0,
+      "ignored": 1,
+      "log": "/tmp/lad-input-completion-rust-last.log"
+    },
+    "nodeRegressions": [
+      "renderer-runtime-status",
+      "browser-url",
+      "adaptive-verification-policy",
+      "qa-loop-guard",
+      "qa-validation-diagnostics"
+    ],
+    "warnings": [
+      "Existing Vite chunk size warning",
+      "Existing Rust unused_mut warning in tests"
+    ]
+  },
+  "electronSequentialAcceptance": [
+    {
+      "name": "input-completion",
+      "code": 0,
+      "elapsedSeconds": 21.688,
+      "log": "/tmp/lad-input-acceptance-input-completion.log"
+    },
+    {
+      "name": "model-availability",
+      "code": 0,
+      "elapsedSeconds": 5.747,
+      "log": "/tmp/lad-input-acceptance-model-availability.log"
+    },
+    {
+      "name": "adaptive-budget",
+      "code": 0,
+      "elapsedSeconds": 33.725,
+      "log": "/tmp/lad-input-acceptance-adaptive-budget.log"
+    },
+    {
+      "name": "hmr",
+      "code": 0,
+      "elapsedSeconds": 12.374,
+      "log": "/tmp/lad-input-acceptance-hmr.log"
+    },
+    {
+      "name": "stop-workspace",
+      "code": 0,
+      "elapsedSeconds": 32.706,
+      "log": "/tmp/lad-input-acceptance-stop-workspace.log"
+    },
+    {
+      "name": "feedback",
+      "code": 0,
+      "elapsedSeconds": 14.297,
+      "log": "/tmp/lad-input-acceptance-feedback.log"
+    },
+    {
+      "name": "feedback-dpr2",
+      "code": 0,
+      "elapsedSeconds": 11.791,
+      "log": "/tmp/lad-input-acceptance-feedback-dpr2.log"
+    },
+    {
+      "name": "qa-loop",
+      "code": 0,
+      "elapsedSeconds": 6.683,
+      "log": "/tmp/lad-input-acceptance-qa-loop.log"
+    },
+    {
+      "name": "controls",
+      "code": 0,
+      "elapsedSeconds": 7.219,
+      "log": "/tmp/lad-input-acceptance-controls.log"
+    },
+    {
+      "name": "responsive",
+      "code": 0,
+      "elapsedSeconds": 7.1,
+      "log": "/tmp/lad-input-acceptance-responsive.log"
+    },
+    {
+      "name": "visual-workflow",
+      "code": 0,
+      "elapsedSeconds": 46.453,
+      "log": "/tmp/lad-input-acceptance-visual-workflow.log"
+    }
+  ],
+  "finalStrictGateElectronRecheck": {
+    "result": "PASS",
+    "provider": "scripted",
+    "root": "/tmp/lad-input-completion-BHCFhX",
+    "requests": 17,
+    "firstTaskRequests": 13,
+    "anonymousTaskRequests": 4,
+    "nativeId": 2,
+    "originalViewport": {
+      "width": 390,
+      "height": 844
+    },
+    "ledgerOutcome": "observed_css",
+    "checks": [
+      "X11 pointer/wheel/keyboard/scrollbar/drag blocking",
+      "Agent fill/scroll",
+      "User input after handover",
+      "CSS HMR",
+      "Ancestor geometry bound to original region",
+      "Optional plan skips",
+      "Generic runtime check accepts scoped CSS observation without a forced review",
+      "HashRouter empty query equivalence",
+      "Supplementary routes not original evidence",
+      "Anonymous CSS completion without extra Gate turns",
+      "Dispute chip and conservative user override"
+    ]
+  },
+  "realQwen": {
+    "model": "Qwen3.6-35B-A3B",
+    "result": "FAIL",
+    "timeoutSeconds": 180,
+    "cssFixed": true,
+    "originalViewport": {
+      "width": 390,
+      "height": 844
+    },
+    "observedClientWidth": 375,
+    "observedScrollWidth": 375,
+    "finalAttemptRejectedByGate": "Deliverable check runtime was excluded from scoped CSS observation exemption",
+    "subsequentInvalidEvidenceId": "Runtime rejected invented ev-003 with actionable unknown-ID guidance",
+    "serverStopped": true,
+    "traceRoot": "/tmp/lad-adaptive-real-qwen-8kD6WC",
+    "newInferenceAfterGateFix": false,
+    "preflightFailuresBeforeInference": 2
+  },
+  "processCheck": {
+    "fixtureProcesses": [],
+    "signalsSent": false,
+    "method": "Read-only host /proc argv and LOCAL_AI_RUNTIME_ROOT matching"
+  },
+  "limitations": [
+    "Final corrected workflow confirmed by scripted integration, not a successful new Qwen inference",
+    "Legacy p2-controls expects 4 groups; current HEAD already has 5. Maintained control-panel-modes passed instead",
+    "MTP modal unsupported by the control-panel fixture",
+    "Historical individual Qwen80B/HyperNova startup failures cannot all be attributed to the reproduced async race",
+    "Original 390px Qwen observation does not establish behavior at other widths"
+  ]
+}
