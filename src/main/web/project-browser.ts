@@ -1,3 +1,6 @@
+import {inspectBrowserDom} from './dom-diagnostics';
+import {diagnosticStyles} from '../../shared/browser-style';
+import {allowedViteSocket,viteClientMessage} from '../../shared/preview-hmr';
 import {visualRegionsOverlay} from './visual-regions-overlay';
 import {projectVisualRegion} from '../../shared/browser-coordinates';
 import { visualPromptUrl } from '../../shared/visual-debugging';
@@ -32,12 +35,12 @@ import { qaHash, qaScenarioIdentity } from './qa-loop-guard';
 const qaStepSchema = {type:'object',properties:{action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll','focus','mousemove','drag','wait','pointer-lock']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},x:{type:'number'},y:{type:'number'},to_x:{type:'number'},to_y:{type:'number'},delta_y:{type:'number'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false};
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, WebSocket, POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, arbitrary WebSocket (only approved same-port Vite HMR), POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: { analyze: { type: 'boolean', description: 'For screenshot: explicitly request model image analysis; capture works without Vision.' },
-    action: { type: 'string', enum: ['open', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
+    action: { type: 'string', enum: ['open', 'inspect', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
-    selector: { type: 'string', description: 'CSS selector for click or fill.' },
+    selector: { type: 'string', description: 'CSS selector for click, fill or bounded read-only inspect (computed CSS, text and geometry; no private input values).' },
     key: {type:'string',description:'Real keyboard key/combination, e.g. w, Shift+w, q, e. Never use fill(body) for keyboard testing.'},
     duration_ms: {type:'integer',minimum:0,maximum:2000,description:'Hold duration; default 300 ms.'},
     repeat: {type:'integer',minimum:1,maximum:8},
@@ -110,7 +113,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
   } finally { await file.close(); }
 }
 
-export type ProjectQaOptions = { regionContext?:Array<{id:string;groupId:string;url:string}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { takeScreenshot?:()=>boolean; regionContext?:Array<{id:string;groupId:string;url:string;selectors?:string[];viewport?:{width:number;height:number}}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
@@ -158,7 +161,7 @@ export class ProjectBrowserSession {
     void this.clearSelection();
     this.qaOptions = qaOptions;
     if (!qaOptions.guard) this.fallbackGuard.rearm();
-    this.authorized = false; this.denied = undefined; this.captures = 0; this.observer = observer;
+    this.authorized = false; this.denied = undefined; this.observer = observer;
     if (this.page) this.bindObserver();
   }
   async finishRun(refresh = true) {
@@ -415,16 +418,24 @@ export class ProjectBrowserSession {
   private dirty = false;
   private reloadTimer?: ReturnType<typeof setTimeout>;
   private serverManaged = false;
+  private sourceChangedAt=0;
+  private loadedAt=0;
+  private freshnessTimer?:ReturnType<typeof setTimeout>;
+  private async freshness(){
+    const applied=await this.page?.evaluate(()=>Number((window as unknown as {__ladHmrAt?:number}).__ladHmrAt??0)).catch(()=>0)??0;
+    const value={status:!this.sourceChangedAt?'unknown' as const:Math.max(applied,this.loadedAt)>=this.sourceChangedAt?'updated' as const:'possibly-stale' as const,origin:this.origin,sourceChangedAt:this.sourceChangedAt,observedAt:Date.now()};
+    this.observer?.freshness?.(value);return value;
+  }
   private autoReloadQueued = false;
   private exclusive<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.operations.then(operation);
     this.operations = result.then(() => undefined, () => undefined);
     return result;
   }
-  private stopWatching() { this.watcher?.close(); this.watcher = undefined; clearTimeout(this.reloadTimer); this.dirty = false; }
+  private stopWatching() { this.watcher?.close(); this.watcher = undefined; clearTimeout(this.reloadTimer);clearTimeout(this.freshnessTimer); this.dirty = false; }
   private async ensureWatching() {
-    if (this.isolatedQa || !this.observer || this.watcher || this.serverManaged || this.closed || !this.page || this.page.isClosed()) return;
-    this.watcher = new ProjectFileWatcher(this.root, () => { this.dirty = true; this.scheduleRefresh(); }, error => this.observer?.state('error', undefined, `Auto-reload unavailable: ${String(error).slice(0, 200)}`));
+    if (this.isolatedQa || !this.observer || this.watcher || this.closed || !this.page || this.page.isClosed()) return;
+    this.watcher = new ProjectFileWatcher(this.root, at => { this.sourceChangedAt=at;this.dirty = true;if(this.serverManaged){clearTimeout(this.freshnessTimer);this.freshnessTimer=setTimeout(()=>{void this.freshness();},1200);}else this.scheduleRefresh(); }, error => this.observer?.state('error', undefined, `Auto-reload unavailable: ${String(error).slice(0, 200)}`));
     await this.watcher.start();
   }
   private scheduleRefresh() {
@@ -455,11 +466,11 @@ export class ProjectBrowserSession {
   private detectServerReload(path: string, body: Buffer, html: boolean) {
     if (this.origin === staticOrigin || this.serverManaged) return;
     if (/^\/(?:@vite\/client|@react-refresh|_next\/|__webpack_hmr)/.test(path) || (html && /(?:\/@vite\/client|\/_next\/|__NEXT_DATA__|webpack-dev-server|webpack-hot-middleware|parcelRequire.*hmr)/i.test(body.toString('utf8')))) {
-      this.serverManaged = true; this.stopWatching();
+      this.serverManaged = true;this.native?.hmr?.(true);
     }
   }
   constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver, private qaOptions: ProjectQaOptions = {}, private readonly isolatedQa=false) {}
-  private note(list: string[], text: string) { if (list.length < 40) list.push(text.slice(0, 500)); }
+  private note(list: string[], text: string) { if (list.length < 40) list.push(text.replace(/([?&](?:token|access_token|secret|password|session|api_key)=)[^\s&#"'<>]+/gi,'$1[redacted]').slice(0, 500)); }
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     await this.clearSelection();
     const isolated=responsiveRequest(args)&&!this.isolatedQa&&Boolean(this.page);
@@ -478,7 +489,7 @@ export class ProjectBrowserSession {
       if (signal.aborted || this.closed || this.page?.isClosed() || this.browser&&!this.browser.isConnected())return {error:'Project browser is unavailable; open it explicitly in an authorized new task, or recreate a lost connection.',code:signal.aborted&&!this.closed?'BROWSER_OPERATION_CANCELLED':'BROWSER_SESSION_UNAVAILABLE',retrySameArguments:!signal.aborted&&['connection_lost','page_closed','renderer_crashed'].includes(this.endReason),browser_session:this.stateIdentity};
       const references=this.qaOptions.regionContext??[];
       const expected=references.map(r=>r.url),current=this.page?.url();
-      if(references.length&&['read','screenshot','qa'].includes(String(args.action))&&current){
+      if(references.length&&['inspect','read','screenshot','qa'].includes(String(args.action))&&current){
         let mismatch=!expected.includes(current);
         if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>new URL(scenario.target,current).href===r.url))mismatch=true;}
         if(mismatch)return {error:'REGION_ROUTE_MISMATCH: the current/QA route differs from the selected region. Preserve full URL query and hash; explicitly open the reference URL before analyzing it.',code:'REGION_ROUTE_MISMATCH',current_url:visualPromptUrl(current),region_urls:expected.map(visualPromptUrl),retrySameArguments:false};
@@ -507,7 +518,7 @@ export class ProjectBrowserSession {
       if(args.analyze!==undefined&&typeof args.analyze!=='boolean')throw Error('analyze must be boolean');
       const waitMs = args.wait_ms ?? 100;
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
-      if (['read', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher && !responsiveRequest(args)) { await this.watcher.flush(); await this.refresh(); }
+      if (['read', 'inspect', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher && !responsiveRequest(args)) { await this.watcher.flush(); await this.refresh(); }
       signal.throwIfAborted();
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
@@ -556,6 +567,7 @@ export class ProjectBrowserSession {
           const [step] = qaSteps([{action:args.action,key:args.key,duration_ms:args.duration_ms,repeat:args.repeat}]);
           await keyboardStep(this.page, step, this.heldKeys);
         } else if (args.action === 'qa') {
+          if(this.serverManaged&&(await this.freshness()).status==='possibly-stale')return {error:'Page may be out of date: source changed without an observed HMR update. Preserve unsaved forms; explicitly reload this approved page or ask the user before verifying it.',code:'PREVIEW_POSSIBLY_STALE',retrySameArguments:false,origin:this.origin,alternative:{action:'reload'}};
           let steps, scenarios, responsive; try {
             steps=qaSteps(args.checks);scenarios=qaScenarios(args.scenarios);responsive=responsiveOptions(args.responsive);
             if(!this.isolatedQa&&responsive&&scenarios.length&&(args.responsive as Record<string,unknown>).viewports!==undefined)throw new Error('Declare viewport separately in each immutable scenario, rather than applying global viewports to bound criteria');
@@ -598,8 +610,12 @@ export class ProjectBrowserSession {
           this.qaGuard.record(key, qa, await this.qaState(scenarios));
           if(this.isolatedQa)this.qaGuard.rememberResponsive(scope,qa);
           return { ...source, qa, visual_analysis: qa.visual.analyzed };
+        } else if (args.action === 'inspect') {
+          if(typeof args.selector!=='string'||!args.selector.trim()||args.selector.length>500)return {error:'inspect requires a bounded CSS selector. Example: {action:"inspect",selector:"#sticker"}',code:'INVALID_SELECTOR',retrySameArguments:false};
+          const inspection=await this.page.evaluate(inspectBrowserDom,{selector:args.selector,properties:diagnosticStyles});
+          return {...await this.read(),inspection:{...inspection.inspection,url:visualPromptUrl(inspection.inspection!.url)}};
         } else if (args.action === 'screenshot') {
-          if (this.captures >= 8) throw new Error('Screenshot limit reached (8 explicit screenshots per run; QA captures are independent)');
+          if(this.qaOptions.takeScreenshot?!this.qaOptions.takeScreenshot():this.captures>=8)return {error:'Screenshot limit for this logical task is exhausted. Use DOM/CSS inspection or finish with verification incomplete.',code:'SCREENSHOT_LIMIT',retrySameArguments:false,alternative:{action:'inspect',selector:'<current confirmed selector>'},budget:{limit:8,scope:'logical_task'}};
           this.qaOptions.status?.({phase:'capturing'});
           await this.page.waitForTimeout(Number(waitMs));
           const capture = await this.capture(args, signal);
@@ -619,7 +635,7 @@ export class ProjectBrowserSession {
     } catch (error) {
       if(this.reusable){await this.releaseInput();this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();}
       // Failed startup cannot leave a half-initialized reusable session.
-      const code=String(error).includes('Screenshot limit reached')?'SCREENSHOT_LIMIT':this.endReason==='user_closed'?'BROWSER_USER_CLOSED':this.endReason==='operation_cancelled'?'BROWSER_OPERATION_CANCELLED':['connection_lost','renderer_crashed'].includes(this.endReason)?'BROWSER_CONNECTION_LOST':this.endReason==='page_closed'?'BROWSER_PAGE_CLOSED':this.endReason==='policy_changed'?'BROWSER_POLICY_CHANGED':this.endReason==='preview_unavailable'?'BROWSER_PREVIEW_UNAVAILABLE':signal.aborted?'BROWSER_OPERATION_CANCELLED':!this.page&&this.origin?'BROWSER_UNAVAILABLE':'PROJECT_BROWSER_FAILED';
+      const code=/Screenshot region|Crop moved|Invalid screenshot selector|Screenshot element/.test(String(error))?'INVALID_CROP':args.selector&&/selector|locator|querySelector/i.test(String(error))?'INVALID_SELECTOR':/page.goto|page.reload|net::ERR_/.test(String(error))?'BROWSER_NAVIGATION_FAILED':String(error).includes('Screenshot limit reached')?'SCREENSHOT_LIMIT':this.endReason==='user_closed'?'BROWSER_USER_CLOSED':this.endReason==='operation_cancelled'?'BROWSER_OPERATION_CANCELLED':['connection_lost','renderer_crashed'].includes(this.endReason)?'BROWSER_CONNECTION_LOST':this.endReason==='page_closed'?'BROWSER_PAGE_CLOSED':this.endReason==='policy_changed'?'BROWSER_POLICY_CHANGED':this.endReason==='preview_unavailable'?'BROWSER_PREVIEW_UNAVAILABLE':signal.aborted?'BROWSER_OPERATION_CANCELLED':!this.page&&this.origin?'BROWSER_UNAVAILABLE':'PROJECT_BROWSER_FAILED';
       if (this.origin && (!this.page || this.page.isClosed())) this.observer?.state('error', undefined, String(error).slice(0, 300));
       if (!this.page && this.origin) await this.close(false,'startup_failed');
       return { error: (error instanceof Error ? error.message : String(error)).slice(0, 4000), code, retrySameArguments: ['startup_failed','connection_lost','renderer_crashed','page_closed'].includes(this.endReason),browser_session:this.stateIdentity };
@@ -635,7 +651,8 @@ export class ProjectBrowserSession {
     this.responsiveSession=child;
     try {
       const operation=AbortSignal.any([signal,AbortSignal.timeout(90000),...(this.qaOptions.signal?[this.qaOptions.signal]:[])]);
-      return await child.execute({...args,scenarios,...(this.origin===staticOrigin?{path:target.pathname+target.search+target.hash,url:undefined}:{url:target.href,path:undefined})},operation,async()=>({approved:true,reason:'once'}),actionId);
+      const result=await child.execute({...args,scenarios,...(this.origin===staticOrigin?{path:target.pathname+target.search+target.hash,url:undefined}:{url:target.href,path:undefined})},operation,async()=>({approved:true,reason:'once'}),actionId);
+      return {...result as object,verification_context:{qa_origin:target.origin,native_origin:this.origin,native_url:visualPromptUrl(this.page!.url()),native_freshness:await this.freshness(),same_origin:target.origin===this.origin}};
     } finally {await child.close();this.responsiveSession=undefined;}
   }
   private async privacyCapture<T>(capture:()=>Promise<T>):Promise<T>{
@@ -767,7 +784,9 @@ export class ProjectBrowserSession {
     }
     const response = await fetchLoopback(url,AbortSignal.any([signal,this.abort.signal])); this.networkBudget.bytes += response.body.length;
     this.detectServerReload(url.pathname,response.body,Boolean(response.headers['content-type']?.includes('text/html')));
-    return {...response,headers:{...response.headers,...safetyHeaders,'content-security-policy':[response.headers['content-security-policy'],previewCsp].filter(Boolean).join(', ')}};
+    if(url.pathname==='/@vite/client'&&response.status===200){response.body=Buffer.concat([response.body,Buffer.from('\nconst __ladHot=createHotContext("/@lad-observer");__ladHot.on("vite:afterUpdate",()=>{window.__ladHmrAt=Date.now()});\n')]);}
+    const csp=this.serverManaged?previewCsp.replace("connect-src 'self'","connect-src 'self' "+this.origin!.replace('http:','ws:')):previewCsp;
+    return {...response,headers:{...response.headers,...safetyHeaders,'content-security-policy':[response.headers['content-security-policy'],csp].filter(Boolean).join(', ')}};
   }
   private async start() {
     this.native = await this.observer?.createPage?.(this.origin!);
@@ -776,7 +795,13 @@ export class ProjectBrowserSession {
     this.context = this.native?.context ?? await this.browser.newContext({ acceptDownloads: false, serviceWorkers: 'block', viewport: { width: 1280, height: 900 } });
     await this.context.clearPermissions();
     await this.context.addInitScript(() => { Object.defineProperty(window, 'RTCPeerConnection', { value: undefined, configurable: false }); Object.defineProperty(navigator, 'serviceWorker', {value:undefined,configurable:false}); });
-    await this.context.routeWebSocket('**/*', socket => socket.close());
+    await this.context.routeWebSocket('**/*', socket => {
+      if(!allowedViteSocket(socket.url(),this.origin!,this.serverManaged)){socket.close();return;}
+      const upstream=socket.connectToServer();let began=Date.now(),messages=0,bytes=0;
+      socket.onMessage(raw=>{const safe=typeof raw==='string'?viteClientMessage(raw):undefined;if(safe)upstream.send(safe);else socket.close({code:1008,reason:'Only Vite HMR control messages are allowed'});});
+      upstream.onMessage(raw=>{if(Date.now()-began>30000){began=Date.now();messages=0;bytes=0;}bytes+=typeof raw==='string'?raw.length:raw.length;
+        if(++messages>256||bytes>2*1024*1024||raw.length>256*1024){socket.close({code:1008,reason:'HMR resource budget exceeded'});return;}socket.send(raw);});
+    });
     if (this.native) this.native.handleRequests(async (url, method, signal) => {
       try { return await this.resource(url, method, signal); }
       catch (error) { this.blockedNavigation = true; this.note(this.blocked, `${method} ${url}: ${String(error)}`); throw error; }
@@ -799,6 +824,7 @@ export class ProjectBrowserSession {
     this.page.on('close', () => {clearInterval(this.displayTimer);this.displayTimer=undefined; if(!this.closed)this.endReason='page_closed';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser page closed'); });
     this.bindObserver();
     if(!this.isolatedQa)this.browser.on('disconnected', () => { if(!this.closed)this.endReason='connection_lost';this.stopWatching(); if (!this.closed) this.observer?.state('error', undefined, 'Browser disconnected'); this.observer?.closed(this.endReason); });
+    this.page.on('load',()=>{this.loadedAt=Date.now();void this.freshness();});
     this.page.setDefaultTimeout(5_000); this.page.setDefaultNavigationTimeout(10_000);
     this.context.on('page', page => { if (page !== this.page) void page.close(); });
     this.page.on('framenavigated', frame => {
@@ -825,9 +851,9 @@ export class ProjectBrowserSession {
   private async read() {
     const page = this.page!;
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
-    const dom = await page.evaluate(() => ({ title: document.title, url: location.href, content: document.body.innerText.slice(0, 12_000), links: Array.from(document.querySelectorAll('a[href]')).slice(0, 40).map(a => ({ text: a.textContent, href: (a as HTMLAnchorElement).href })) }));
+    const dom=await page.evaluate(inspectBrowserDom,{});
     const workspace=this.native?.workspaceState?.();
-    return { ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom, ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

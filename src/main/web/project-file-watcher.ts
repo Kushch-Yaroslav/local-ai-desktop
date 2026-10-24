@@ -3,7 +3,7 @@ import { lstat, opendir, realpath } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 
 const ignored = new Set(['node_modules', 'vendor', 'coverage', 'tmp', 'temp', '__pycache__']);
-const webExtensions = new Set(['.html', '.htm', '.css', '.js', '.mjs']);
+const webExtensions = new Set(['.html', '.htm', '.css', '.js', '.mjs', '.jsx', '.tsx', '.ts', '.scss', '.sass', '.less']);
 /** Directory watches survive atomic file saves. Rescan metadata only after a quiet period.
  * No recursive native watch (which can follow symlinks), polling, or file content reads. */
 export class ProjectFileWatcher {
@@ -13,7 +13,7 @@ export class ProjectFileWatcher {
   private scanning?: Promise<void>;
   private closed = false;
   private base = '';
-  constructor(private readonly root: string, private readonly changed: () => void, private readonly failed: (error: unknown) => void) {}
+  constructor(private readonly root: string, private readonly changed: (at:number) => void, private readonly failed: (error: unknown) => void) {}
   async start() {
     try { this.base = await realpath(this.root); await this.scan(true); }
     catch (error) { this.fail(error); }
@@ -85,7 +85,7 @@ export class ProjectFileWatcher {
       for (const [directory, item] of this.watches) if (!directories.has(directory)) { item.handle.close(); this.watches.delete(directory); }
       const changed = files.size !== this.files.size || [...files].some(([path, stamp]) => this.files.get(path) !== stamp);
       this.files = files;
-      if (!initial && changed) this.changed();
+      if (!initial && changed) this.changed(Math.max(Date.now()-1000,...[...files.values()].map(stamp=>Number(stamp.split(':')[3]))));
     };
     this.scanning = run();
     try { await this.scanning; } finally { this.scanning = undefined; }

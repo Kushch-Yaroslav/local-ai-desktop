@@ -1,3 +1,4 @@
+import {allowedViteSocket} from '../../shared/preview-hmr';
 import {t} from '../../shared/locale';
 import {cssToPresentation} from '../../shared/browser-coordinates';
 import {defaultBrowserWorkspace,type BrowserWorkspaceSettings,type BrowserWorkspaceState} from '../../shared/live-browser';
@@ -62,6 +63,7 @@ class ViewTransport implements ConnectOverCDPTransport {
 
 export interface NativeProjectPage {
   page: Page; context: BrowserContext; browser: Browser; contents: WebContents;
+  hmr?(enabled:boolean):void;
   handleRequests(handler: (url: string, method: string, signal: AbortSignal) => Promise<{ status: number; headers: Record<string,string>; body: Buffer }>): void;
   layout(bounds: Rectangle | undefined): void;
   workspace(settings:BrowserWorkspaceSettings):Promise<void>;
@@ -71,7 +73,7 @@ export interface NativeProjectPage {
   captureCss?(rect:{x:number;y:number;width:number;height:number},dpr:number):Promise<Buffer>;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
-  highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>): void;
+  highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean;muted?:boolean}>): void;
   close(): Promise<void>;
 }
 
@@ -83,9 +85,10 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   isolated.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   isolated.setPermissionCheckHandler(() => false);
   isolated.on('will-download', event => event.preventDefault());
+  let hmrEnabled=false;
   const allowed = (raw: string) => { try { const url = new URL(raw); return url.origin === origin && ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password; } catch { return false; } };
   // This guard survives a lost Playwright/CDP connection. Routing never grants a network escape.
-  isolated.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.method !== 'GET' || !allowed(details.url) }));
+  isolated.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.method !== 'GET' || !(allowed(details.url)||allowedViteSocket(details.url,origin,hmrEnabled)) }));
   const view = new WebContentsView({ webPreferences: { session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false, navigateOnDragDrop: false, spellcheck: false, backgroundThrottling: false } });
   const contents = view.webContents;
   let ownerState = 'agent', destroyed = false, visible = false;
@@ -193,12 +196,12 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     browser = await chromium.connectOverCDP(transport, { timeout: 15000, noDefaults: true });
     const context = browser.contexts()[0], page = context.pages()[0];
     if (!page || context.pages().length !== 1) throw new Error('Native preview must expose exactly one Page');
-    let highlighted:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>=[],highlightKey='';
-    const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean}>)=>{
+    let highlighted:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean;muted?:boolean}>=[],highlightKey='';
+    const highlight=(rects:Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean;muted?:boolean}>)=>{
       highlighted=rects;if(destroyed||contents.isDestroyed()||shieldContents.isDestroyed())return;
       const zoom=contents.getZoomFactor()*(actual?.displayScale??1),pan=actual?.settings.pan??{x:0,y:0};
       const key=JSON.stringify([rects,zoom,pan]);if(key===highlightKey)return;highlightKey=key;
-      const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');if(b.id)node.dataset.regionId=b.id;node.style.cssText=`position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:${b.selected?5:3}px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
+      const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');if(b.id)node.dataset.regionId=b.id;node.style.cssText=`opacity:${b.muted?(b.selected?'.55':'.35'):'1'};position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:${b.selected?5:3}px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
       void shieldContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
 
     };
@@ -277,6 +280,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       },
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
       async workspace(value){settings=structuredClone(value);if(value.zoom!==undefined&&Math.abs(contents.getZoomFactor()-value.zoom)>.001)contents.setZoomFactor(value.zoom);await schedule();},
+      hmr(enabled){hmrEnabled=enabled;},
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(value) {

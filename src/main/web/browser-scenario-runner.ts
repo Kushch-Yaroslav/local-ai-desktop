@@ -69,6 +69,7 @@ async function observe(page:Page,a:QaAssertion,timeout:number,errors:()=>string[
     return value;
   }
   const target=page.locator(a.selector!).first();
+  if(a.source==='style'){if(await page.locator(a.selector!).count()!==1)throw new QaBlocked('INCONCLUSIVE','Style target must be unique');return target.evaluate((e,path)=>getComputedStyle(e).getPropertyValue(path).slice(0,120),a.path!,{timeout});}
   if(a.source==='viewport')return target.evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&r.right>0&&r.bottom>0&&r.left<innerWidth&&r.top<innerHeight;},undefined,{timeout});
   if(a.source==='visible')return target.isVisible();
   // body/html aggregate text and script content cannot attribute an input effect.
@@ -115,9 +116,10 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
     const functional=aggregate(checks.filter(c=>!visualChecks.has(c))),functionalScenarios=results.filter(r=>r.evidenceKind!=='visual'),hasScenarios=functionalScenarios.length>0,complete=hasScenarios&&functionalScenarios.every(r=>r.status==='Verified');
     return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'||results.some(r=>r.status==='Blocked')?'Blocked':results.length>0&&results.every(r=>r.status==='Verified')&&functional==='Verified'&&(!options.analyze||visual.status==='Verified'||results.every(r=>r.viewport&&r.evidenceKind!=='visual'))?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
   };
+  const styleOnly=Boolean(options.scenarios?.length&&options.scenarios.every(s=>s.assertion.source==='style'));
   notify({phase:'started'});
   try{
-    boundary();notify({phase:'capturing'});await capture();
+    boundary();if(!styleOnly){notify({phase:'capturing'});await capture();}
     checks.push(check('load','Document has a rendered body',await page.title(),await page.locator('body').isVisible()?'Verified':'Failed'));
     // Passive liveness observations are runtime diagnostics, never invented input tests.
     const t0=await qaSnapshot(page);await page.waitForTimeout(100);const t1=await qaSnapshot(page);await page.waitForTimeout(100);const t2=await qaSnapshot(page);
@@ -228,7 +230,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         // Explicit equality supports async UI without fixed sleeps masquerading as proof.
         while(a.source!=='layout'&&a.operator==='equals'&&!matches(a,before,after)&&performance.now()+60<deadline){await page.waitForTimeout(50);after=await read(a,timeout());}
         observations[observations.length-1]={...observations.at(-1)!,atMs:performance.now()-began,value:after};
-        if(scenario.viewport){
+        if(scenario.viewport&&a.source!=='style'){
           result.responsive??=await inspectResponsive(page);
           const image=await capture();
           observations[observations.length-1].captureId=image.id;
@@ -268,12 +270,12 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         if(width!==undefined&&results.length===scenarios.length)scenarios.push(layoutScenario(`responsive-probe-${scenarios.length+1}`,scenario.target,{width,height:scenario.viewport.height}));
       }
     }
-    boundary();notify({phase:'capturing'});const last=await capture();
+    boundary();const last=styleOnly?undefined:await capture();
     const state=await qaSnapshot(page),errors=[...options.errors(),...state.rejections];
     checks.push(check('exposed numeric diagnostics','No NaN/Infinity in exposed diagnostics',state.diagnosticInvalid.join(', ')||'None observed',state.diagnosticInvalid.length?'Failed':'Verified'));
     checks.push(check('runtime errors','No observed uncaught errors/console errors/rejections',errors.join('\n')||'None observed',errors.length?'Failed':'Verified'));
     if(results.some(r=>r.viewport)&&!results.some(r=>r.visual))visual={analyzed:false,status:'Not Verified',reason:'Scoped DOM/pixel measurements only; no model image analysis was performed.'};
-    if(options.analyze&&!results.some(r=>r.visual)&&!results.some(r=>r.viewport)){notify({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false,purpose:'passive'});}
+    if(last&&options.analyze&&!results.some(r=>r.visual)&&!results.some(r=>r.viewport)){notify({phase:'analyzing'});visual=await options.analyze(last,captures.find(c=>c.url===last.url),{goal:results.at(-1)?.goal??'Inspect the visible layout only; no interaction claim',temporal:false,purpose:'passive'});}
     const result=report(results.length?undefined:'Passive runtime smoke only. Declare scenarios and acceptance criteria to verify application behaviour.',errors.length||state.diagnosticInvalid.length?'FUNCTIONAL_REQUIREMENT_FAILED':(results.find(r=>r.status==='Failed')??results.find(r=>r.reasonCode))?.reasonCode);result.errors=errors;
     if(probes.length)result.reason=`Responsive geometry probes (not CSS breakpoint inference): ${probes.map(p=>`${p.width}px ${p.failed?'defect reproduced':'bounds passed'}`).join('; ')}. Narrowest observed pass/fail bracket is bounded by these observations only.`;
     notify({phase:'complete',report:result});return result;

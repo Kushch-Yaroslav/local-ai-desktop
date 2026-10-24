@@ -19,7 +19,7 @@ export function qaReasonCode(report: BrowserQaReport): QaReasonCode | undefined 
 /** Declarative observations only: never evaluates model-supplied JavaScript. */
 export type QaEvidenceKind = 'load' | 'runtime' | 'interaction' | 'temporal' | 'visual' | 'implementation';
 export interface QaAssertion {
-  source: 'text' | 'value' | 'visible' | 'url' | 'diagnostic' | 'pixels' | 'runtime_errors' | 'raf' | 'draws' | 'viewport' | 'layout' | 'visual_layout' | 'text_fit';
+  source: 'style' | 'text' | 'value' | 'visible' | 'url' | 'diagnostic' | 'pixels' | 'runtime_errors' | 'raf' | 'draws' | 'viewport' | 'layout' | 'visual_layout' | 'text_fit';
   selector?: string;
   path?: string;
   operator: 'equals' | 'changed' | 'increased' | 'decreased';

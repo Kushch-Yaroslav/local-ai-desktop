@@ -60,7 +60,7 @@ export async function groundRegion(page: Page, rect: VisualRect) {
           }
           const path=parts.join(' > ');if(path&&document.querySelectorAll(path).length===1){selector=path;unique=true;identity={text:safeText(e),context:safeText(e.parentElement??e)};}
         }
-        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','white-space','width','height','font-size','line-height','padding','box-sizing','color','background-color','max-width','font-weight','text-overflow','flex-wrap','align-items'])styles[key]=style.getPropertyValue(key).slice(0,120);
+        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','white-space','width','height','font-size','line-height','padding','box-sizing','color','background-color','max-width','font-weight','text-overflow','flex-wrap','align-items','border-radius','border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius'])styles[key]=style.getPropertyValue(key).slice(0,120);
         // Read bounded descendant text while excluding private controls and sensitive subtrees.
         const walker=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);let excerpt='',count=0,node:Node|null;
         while((node=walker.nextNode())&&count++<200&&excerpt.length<240){if(!node.parentElement?.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))excerpt+=' '+node.textContent;}

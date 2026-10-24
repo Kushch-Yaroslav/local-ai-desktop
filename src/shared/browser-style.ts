@@ -1,0 +1,2 @@
+/** Read-only scalar CSS observations; no URLs, custom properties or JS paths. */
+export const diagnosticStyles=['border-radius','border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius','width','height','min-width','max-width','overflow','overflow-x','overflow-y','white-space','text-overflow','visibility','display','position','opacity','color','background-color','transform','padding','box-sizing','font-size','line-height','z-index'];

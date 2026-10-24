@@ -5,6 +5,7 @@ export type BrowserStatus = 'loading' | 'live' | 'ended' | 'error';
 export interface BrowserAction { kind: string; x?: number; y?: number; at: number }
 export interface LiveBrowserState {
   conversationId: string; generationId: string; sessionId: string;
+  freshness?: {status:'unknown'|'updated'|'possibly-stale';origin?:string;sourceChangedAt?:number;observedAt:number};
   visualFeedback?:import('./visual-debugging').VisualSelectionFeedback;
   workspace?:BrowserWorkspaceState;
   ownership?: BrowserOwnership;

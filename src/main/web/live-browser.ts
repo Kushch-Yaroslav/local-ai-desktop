@@ -11,6 +11,7 @@ export interface ProjectBrowserObserver {
   createPage?(origin: string): Promise<NativeProjectPage>;
   createQaPage?(origin: string): Promise<NativeProjectPage>;
   ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> }): void;
+  freshness?(value:NonNullable<LiveBrowserState['freshness']>):void;
   visual?(feedback:import('../../shared/visual-debugging').VisualSelectionFeedback):void;
   ownership?(ownership: BrowserOwnership): void;
   state(status: BrowserStatus, url?: string, error?: string): void;
@@ -80,6 +81,7 @@ export class LiveBrowserHub {
         // Hidden, scoped to this owner; never registered as the user's Live Browser.
         return createNativeProjectPage(owner,origin);
       } } : {}),
+      freshness:freshness=>{const item=ensure();if(!item.ended){item.state={...item.state,freshness};this.send(item,{type:'state',state:item.state});}},
       visual:visualFeedback=>{const item=ensure();if(!item.ended){item.state={...item.state,visualFeedback};this.send(item,{type:'state',state:item.state});}},
       ownership: ownership => { if(!current())return;const item = ensure(); if (!item.ended) { item.state = { ...item.state, ownership }; item.native?.ownership(ownership); this.send(item, { type: 'state', state: item.state }); } },
       ready: (page, visibility, controls) => {
