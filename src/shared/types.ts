@@ -118,6 +118,8 @@ export interface AgentTelemetry {
 
 export interface ModelInfo {
   fileStatus?: 'ready' | 'unavailable' | 'invalid';
+  projectorFileStatus?: 'ready' | 'unavailable' | 'invalid';
+  projectorAvailabilityIssue?: string;
   modelPath?: string;
   availabilityIssue?: string;
   inspection?: import('./model-profiles').ModelInspection;

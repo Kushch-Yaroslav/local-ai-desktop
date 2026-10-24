@@ -94,6 +94,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
   const views = new Map<string, ConversationView>();
   let routedId: string | null = null;
   let selection = 0;
+  let modelListRequest = 0;
   const get = (): State => {
     const state = rawGet();
     return routedId && routedId !== state.activeId ? { ...state, ...views.get(routedId), activeId: routedId } : state;
@@ -175,8 +176,9 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     set({ continuationTaskId: logicalTaskId, continuationLabel: logicalTaskId ? label ?? t('Продолжение задачи') : null });
   },
   initialize: async () => {
+    const request = ++modelListRequest;
     const [conversations, models, settings] = await Promise.all([window.localAi.conversations.list(), window.localAi.models.list(), window.localAi.settings.get()]);
-    set({ conversations, models, settings });
+    set({ conversations, settings, ...(request === modelListRequest ? { models } : {}) });
     if (conversations[0]) await get().selectConversation(conversations[0].id);
     else await get().createConversation();
     await get().refreshHardware();
@@ -248,13 +250,16 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
   },
   refreshModels: async () => {
-    try { set({ models: await window.localAi.models.list() }); } catch { /* Preserve the last list on a transient IPC failure. */ }
+    const request = ++modelListRequest;
+    const models = await window.localAi.models.list();
+    if (request === modelListRequest) set({ models });
   },
   refreshRuntime: async () => {
+    const request = ++modelListRequest;
     try {
       const [settings, models] = await Promise.all([window.localAi.settings.get(), window.localAi.models.list()]);
       const chat = get().conversations.find(item => item.id === get().activeId);
-      set({ settings, models, activeContextWindow: activeConversationModel(chat, settings.llamaRuntime) ? settings.llamaRuntime?.contextWindow ?? null : null });
+      set({ settings, ...(request === modelListRequest ? { models } : {}), activeContextWindow: activeConversationModel(chat, settings.llamaRuntime) ? settings.llamaRuntime?.contextWindow ?? null : null });
     } catch { /* the next poll retries */ }
   },
   refreshRuntimeStatus: async () => {

@@ -731,3 +731,6 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .sidebar-resizing,.sidebar-resizing * { cursor:col-resize!important; user-select:none!important; }
 .sidebar-collapse:hover,.sidebar-reopen:hover { color:var(--text); background:var(--surface-hover); }
 .sidebar-collapse:focus-visible,.sidebar-reopen:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+.model-availability-control { display:flex; align-items:center; gap:6px; min-width:0; }
+.model-availability-control select { flex:1; min-width:0; }

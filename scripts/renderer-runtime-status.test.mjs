@@ -63,6 +63,16 @@ try {
   emit({type:'done'});assert.equal(useAppStore.getState().pausePhase,null);
   useAppStore.setState({generationId,isGenerating:true,pausePhase:'Resuming'});emit({type:'cancelled'});
   assert.equal(useAppStore.getState().pausePhase,null,'Stop clears resume phase');
+  // Cold-start, background poll, explicit refresh and Save may overlap.
+  const beforeRefresh=useAppStore.getState();
+  const pending=[];window.localAi.models.list=()=>new Promise(resolve=>pending.push(resolve));
+  const old=useAppStore.getState().refreshModels();
+  const newer=useAppStore.getState().refreshRuntime();
+  pending[1]([{id:'a',installed:true},{id:'b',installed:true}]);await newer;
+  pending[0]([{id:'a',installed:false},{id:'b',installed:false}]);await old;
+  assert(useAppStore.getState().models.every(m=>m.installed),'Late startup/poll result overwrote fresh availability');
+  assert.strictEqual(useAppStore.getState().messages,beforeRefresh.messages);
+  assert.strictEqual(useAppStore.getState().agentPlan,agentPlan);
   unsubscribe();
   console.log('Runtime health polling: no model/settings IPC or store update when unchanged; real runtime changes publish once; device restart preserves conversation, images/reasoning, projects and Agent state');
 } finally {

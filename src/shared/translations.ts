@@ -1,5 +1,7 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Обновить доступность моделей': 'Refresh model availability',
+  'Не удалось обновить доступность моделей': 'Could not refresh model availability',
   'Страница может быть устаревшей': 'Page may be out of date',
   'Активная область': 'Active area',
   'Работа завершена': 'Work completed',

@@ -11,6 +11,7 @@ const str=s=>Buffer.concat([u64(Buffer.byteLength(s)),Buffer.from(s)]);
 const gguf=arch=>{const entries=Object.entries({'general.architecture':arch,[arch+'.context_length']:131072,[arch+'.block_count']:48,[arch+'.expert_count']:128,'tokenizer.chat_template':'{% if tools %}tools{% endif %}'});return Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(entries.length),...entries.flatMap(([k,v])=>[str(k),u32(typeof v==='string'?8:4),typeof v==='string'?str(v):u32(v)])]);};
 const server=join(root,'fixture-server');
 await writeFile(server,'#!/bin/sh\necho "--model --ctx-size --port --fit --threads --threads-batch --n-cpu-moe --batch-size --ubatch-size --flash-attn --load-mode"\n',{mode:0o700});
+const projector=join(modelsPath,'projector.gguf');await writeFile(projector,gguf('clip'));
 const qwen=join(modelsPath,'qwen.gguf'),gpt=join(modelsPath,'gpt-00001-of-00002.gguf'),shard=join(modelsPath,'gpt-00002-of-00002.gguf');
 await writeFile(qwen,gguf('qwen3next'));await writeFile(gpt,gguf('gpt-oss'));await writeFile(shard,Buffer.from('fixture shard'));
 const ids=['custom:123e4567-e89b-42d3-a456-426614174011','custom:123e4567-e89b-42d3-a456-426614174012'];
@@ -25,7 +26,7 @@ const open=async()=>{if(!await page.locator('.runtime-setup').isVisible())await 
 const configPath=join(root,'app-data/runtime-settings.json');
 try{
  await launch();assert.deepEqual((await get()).setup.config.models,[],'fresh install registers no Qwen templates');assert.deepEqual(await list(),[]);
- const profiles=ids.map((id,i)=>({id,displayName:i?'GPT persisted':'Qwen persisted',modelPath:i?gpt:qwen,mmprojPath:'',family:'auto',gpuLayers:48,supportsTools:true,toolCallingMode:'auto',speculative:'none',mtpMode:'off',builtin:false,advanced:{mode:'gpu-layers',cpuMoe:'first',cpuMoeLayers:32,threads:8,threadsBatch:8,batchSize:2048,ubatchSize:512,flashAttention:'on',loadMode:'mmap'},defaults:{contextWindow:65536,kvCacheType:'q8_0',kvOffload:true}}));
+ const profiles=ids.map((id,i)=>({id,displayName:i?'GPT persisted':'Qwen persisted',modelPath:i?gpt:qwen,mmprojPath:i?'':projector,family:'auto',gpuLayers:48,supportsTools:true,toolCallingMode:'auto',speculative:'none',mtpMode:'off',builtin:false,advanced:{mode:'gpu-layers',cpuMoe:'first',cpuMoeLayers:32,threads:8,threadsBatch:8,batchSize:2048,ubatchSize:512,flashAttention:'on',loadMode:'mmap'},defaults:{contextWindow:65536,kvCacheType:'q8_0',kvOffload:true}}));
  const initial=(await get()).setup.config;
  await page.evaluate(config=>window.localAi.settings.save(config),{...initial,llamaServerPath:server,llamaServerInput:server,modelsPath,models:profiles,setupDismissed:true});
  let saved=await readFile(configPath,'utf8');
@@ -43,17 +44,19 @@ try{
  page.on('dialog',dialog=>dialog.accept());
  await page.locator('.runtime-model-list li').nth(1).locator('button').last().click();assert.equal(await buttons.nth(0).getAttribute('aria-expanded'),'true','delete does not toggle selection');assert.equal(await buttons.count(),1);
  await page.getByRole('button',{name:'Close settings',exact:true}).click();
- await rename(shard,shard+'.offline');
+ await rename(shard,shard+'.offline');await rename(projector,projector+'.offline');
  assert.equal((await list()).find(m=>m.id===ids[1]).installed,false);
- await page.reload();await page.locator('.runtime-setup-action:not([disabled])').waitFor();
+ await app.close();app=null;await launch();
+ assert.equal((await list()).find(m=>m.id===ids[0]).projectorFileStatus,'unavailable');
  if(await page.locator('.runtime-setup').isVisible())await page.getByRole('button',{name:'Close settings',exact:true}).click();
  await page.locator('.panel-mode-toggle').click();
  const option=page.locator(`select[aria-label="Model"] option[value="${ids[1]}"]`);
  await page.waitForFunction(id=>document.querySelector(`select[aria-label="Model"] option[value="${id}"]`)?.disabled,ids[1]);
  assert.equal(await option.getAttribute('disabled'),'');
- await rename(shard+'.offline',shard);
- await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ await rename(shard+'.offline',shard);await rename(projector+'.offline',projector);
+ await page.getByRole('button',{name:'Refresh model availability',exact:true}).click();
  await page.waitForFunction(id=>!document.querySelector(`select[aria-label="Model"] option[value="${id}"]`)?.disabled,ids[1]);
+ assert.equal((await list()).find(m=>m.id===ids[0]).projectorFileStatus,'ready');
  assert.equal(await readFile(configPath,'utf8'),saved,'availability recovery does not write settings');
  await app.close();app=null;await launch();
  assert((await list()).every(m=>m.installed),'Electron restart needs no Save or backend');
@@ -64,5 +67,5 @@ try{
  await page.reload();await page.locator('.runtime-setup-action:not([disabled])').waitFor();
  assert((await list()).every(m=>m.installed));assert.equal(await readFile(configPath,'utf8'),saved);
  assert((await page.evaluate(()=>window.localAi.conversations.list())).some(c=>c.id===chat.id&&c.modelId===ids[0]));
- console.log(JSON.stringify({result:'PASS',root,checks:['fresh empty registry','real IPC save','renderer recreation','Electron restart','offline backend','missing/restored split shard','automatic focus refresh','advanced settings persistence','accordion toggle/keyboard/switch','drafts survive collapse','delete independent','no incidental settings writes','chat model identity']}));
+ console.log(JSON.stringify({result:'PASS',root,checks:['fresh empty registry','real IPC save','renderer recreation','Electron restart','offline backend','cold process with missing/restored split shard and mmproj','explicit availability refresh button','advanced settings persistence','accordion toggle/keyboard/switch','drafts survive collapse','delete independent','no incidental settings writes','chat model identity']}));
 }finally{await app?.close();}

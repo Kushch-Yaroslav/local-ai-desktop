@@ -9,7 +9,7 @@ import { t, tr, localizeMessage } from '../../shared/locale';
 import { activeConversationModel, initialModelContext } from '../../shared/model-selection';
 import { useEffect, useId, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useAppStore } from '../store/app-store';
 import { ContextSelector } from './ContextSelector';
 import { MtpControl } from './MtpControl';
@@ -31,6 +31,8 @@ const qaStatusLabel = (status: string | undefined) => status === 'Verified' ? t(
 export function Toolbar() {
   const [expanded, setExpanded] = useState(() => { try { return localStorage.getItem(panelModeKey) === 'expanded'; } catch { return false; } });
   const panelId = useId();
+  const [modelsRefreshing, setModelsRefreshing] = useState(false);
+  const [modelsRefreshError, setModelsRefreshError] = useState<string>();
   const [mtpStatus, setMtpStatus] = useState<import('../../shared/types').MtpStatus>();
   const [browserStatus, setBrowserStatus] = useState<Awaited<ReturnType<typeof window.localAi.browserQa.status>>>();
   const savedQa = useAppStore(state => state.agentPlan?.taskMemory?.browser_qa);
@@ -69,7 +71,7 @@ export function Toolbar() {
     const refresh = async () => {
       if (pending) return;
       pending = true;
-      try { await useAppStore.getState().refreshModels(); } finally { pending = false; }
+      try { await useAppStore.getState().refreshModels(); } catch { /* Keep last known availability on transient IPC failure. */ } finally { pending = false; }
     };
     const timer = window.setInterval(() => void refresh(), 10_000);
     window.addEventListener('focus', refresh);
@@ -212,7 +214,9 @@ export function Toolbar() {
       <div className="toolbar-controls">
         <section className="control-group inference-group" aria-label={ru?'Модель и инференс':'Model & Inference'}><div className="control-group-heading"><strong>{ru?'МОДЕЛЬ И ИНФЕРЕНС':'MODEL & INFERENCE'}</strong><span>{ru?'Модель, контекст, MTP':'Model, context, MTP'}</span><ControlHelp label={ru?'Модель и контекст':'Model & context'}>{ru?'Модель, контекст и MTP изменяются после ответа. Перезагрузка пересоздаёт KV-cache, сохраняя чат и checkpoint. Выберите конфигурацию, затем примените её кнопкой загрузки.':'Model, context and MTP change after response. Reload recreates KV cache while preserving chat and checkpoints. Select a configuration, then apply it with the load button.'}</ControlHelp></div><div className="control-group-fields">
         <ControlField label={t('Модель')} help={inferenceBusy ? t('Пока модель генерирует, дождитесь ответа или остановите задачу.') : t('Выбор модели задаёт, какая локальная LLM отвечает и выполняет задачи. Смена модели пересоздаёт её вычислительный контекст; история чата сохраняется.')}>
-          <select aria-label={t('Модель')} disabled={discoveryLoading || inferenceBusy} value={selectedModelId ?? ''} onChange={(event) => { const id = event.target.value; setModelDraft(id === chat.modelId ? undefined : id); setContextDraft(null); setContextLoadError(null); }}><option value="" disabled>{t('Выберите модель')}</option>{models.map((model) => <option value={model.id} key={model.id} title={[model.modelPath, model.availabilityIssue].filter(Boolean).join('\n')} disabled={!model.installed}>{model.name} · {activeModelId === model.id ? (ru ? 'Загружена' : 'Loaded') : model.installed ? (ru ? 'Готова к загрузке' : 'Ready to load') : model.fileStatus === 'invalid' ? (ru ? 'Требуется настройка' : 'Needs setup') : (ru ? 'Файл недоступен' : 'File unavailable')}</option>)}</select>
+          <div className="model-availability-control"><select aria-label={t('Модель')} disabled={discoveryLoading || inferenceBusy} value={selectedModelId ?? ''} onChange={(event) => { const id = event.target.value; setModelDraft(id === chat.modelId ? undefined : id); setContextDraft(null); setContextLoadError(null); }}><option value="" disabled>{t('Выберите модель')}</option>{models.map((model) => <option value={model.id} key={model.id} title={[model.modelPath, model.availabilityIssue, model.projectorAvailabilityIssue].filter(Boolean).join('\n')} disabled={!model.installed}>{model.name} · {activeModelId === model.id ? (ru ? 'Загружена' : 'Loaded') : model.installed ? (ru ? 'Готова к загрузке' : 'Ready to load') : model.fileStatus === 'invalid' ? (ru ? 'Требуется настройка' : 'Needs setup') : (ru ? 'Файл недоступен' : 'File unavailable')}</option>)}</select>
+          <button type="button" className="icon-button" disabled={modelsRefreshing} aria-busy={modelsRefreshing} aria-label={t('Обновить доступность моделей')} title={t('Обновить доступность моделей')} onClick={async () => { setModelsRefreshing(true); setModelsRefreshError(undefined); try { await useAppStore.getState().refreshModels(); } catch { setModelsRefreshError(t('Не удалось обновить доступность моделей')); } finally { setModelsRefreshing(false); } }}><RefreshCw size={16}/></button></div>
+          {modelsRefreshError && <span role="alert">{modelsRefreshError}</span>}
         </ControlField>
         <MtpControl modelId={selectedModelId} onStatusChange={setMtpStatus} /><VisionControl modelId={selectedModelId} onStatusChange={setBrowserStatus}/>
         <ContextSelector options={contextOptions} selected={selectedContextOption} disabled={discoveryLoading || !selectedModelId || inferenceBusy} onChange={choice => setContextDraft(choice.contextWindow === baselineContext.contextWindow && choice.kvCacheType === baselineContext.kvCacheType && choice.kvOffload === baselineContext.kvOffload ? null : choice)} />

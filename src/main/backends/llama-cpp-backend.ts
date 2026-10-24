@@ -152,11 +152,14 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       const active = runtime.id === this.runtimeModelId;
       const availability = ggufFileAvailability(runtime.modelPath ?? '');
       const installed = availability.status === 'ready';
+      const projectorPath = configuration.models.find(model => model.id === runtime.id)?.mmprojPath;
+      const projector = projectorPath ? ggufFileAvailability(projectorPath) : undefined;
       const trainedLimit = active ? data.data?.[0]?.meta?.n_ctx_train : undefined;
       const capability = Math.min(runtime.maxContext, runtime.inspection?.trainedContext ?? runtime.maxContext, trainedLimit ?? runtime.maxContext);
       result.push({
         ...modelInfo(profile, active && (data.data ?? []).length > 0 ? true : installed, active ? data.data?.[0]?.meta?.size : undefined, capability, profile.supportsReasoning),
         backend: 'llama-cpp',inspection:runtime.inspection,profileDefaults:runtime.defaults,
+        ...(projector ? { projectorFileStatus: projector.status, projectorAvailabilityIssue: projector.issue } : {}),
         fileStatus: availability.status, modelPath: runtime.modelPath, availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
         supportedContextPresets: llamaContextPresets(runtime.id, capability),
         supportedKvCacheTypes: ['f16', 'q8_0'],
