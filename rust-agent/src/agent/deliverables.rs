@@ -292,6 +292,11 @@ impl Deliverables {
                 if criterion.kind=="visual" && !matches!(spec["assertion"]["source"].as_str(),Some("pixels"|"visual_layout")) {return Err("Visual criteria require actual image observations".into());}
                 if spec["assertion"]["source"]=="visual_layout" && (criterion.kind!="visual" || spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0 || !matches!(spec["assertion"]["path"].as_str(),Some("coverage"|"backing"|"seams"))) {return Err("Visual layout criteria require kind visual, explicit viewport, and equals 0 coverage/backing/seams measurement".into());}
                 if spec.get("viewport").is_some() && super::responsive::viewport(&spec["viewport"]).is_none(){return Err("Acceptance scenario viewport must be a supported profile or bounded width/height".into());}
+                if spec["assertion"]["source"]=="style" && (spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["selector"].as_str().is_none_or(|s|s.trim().is_empty()||s.len()>500) || spec["assertion"]["expected"].as_str().is_none_or(|s|s.len()>120) || spec["assertion"].get("tolerance").is_some() || spec["assertion"].get("sample_ms").is_some() || !matches!(spec["assertion"]["path"].as_str(),Some("border-radius"|"border-top-left-radius"|"border-top-right-radius"|"border-bottom-left-radius"|"border-bottom-right-radius"|"width"|"height"|"min-width"|"max-width"|"overflow"|"overflow-x"|"overflow-y"|"white-space"|"text-overflow"|"visibility"|"display"|"position"|"opacity"|"color"|"background-color"|"transform"|"padding"|"box-sizing"|"font-size"|"line-height"|"z-index"))) {
+                    let assertion=&spec["assertion"];
+                    let field=if spec.get("viewport").is_none(){"scenario.viewport"}else if assertion["selector"].as_str().is_none_or(|s|s.trim().is_empty()||s.len()>500){"scenario.assertion.selector"}else if assertion["operator"]!="equals"{"scenario.assertion.operator"}else if assertion["expected"].as_str().is_none_or(|s|s.len()>120){"scenario.assertion.expected"}else if assertion.get("tolerance").is_some(){"scenario.assertion.tolerance"}else if assertion.get("sample_ms").is_some(){"scenario.assertion.sample_ms"}else{"scenario.assertion.path"};
+                    return Err(serde_json::json!({"error":"Invalid style criterion. Nothing was registered. Supply original viewport, a bounded unique CSS selector, supported property, equals and a CSS string; omit tolerance/sample_ms.","code":"INVALID_STYLE_CRITERION","field":field,"retrySameArguments":false,"retryWithCorrectedArguments":true,"example":{"action":"criteria","id":id,"criteria":[{"id":"radius","kind":"runtime","description":"Checkout corner radius is 28px","scenario":{"target":"/index.html#/product/1","viewport":{"width":1920,"height":1080},"preconditions":[],"required_state":[],"steps":[],"assertion":{"source":"style","selector":"#checkout","path":"border-top-left-radius","operator":"equals","expected":"28px"},"timeout_ms":5000}}]}}).to_string());
+                }
                 if spec["assertion"]["source"]=="text_fit" && (spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0 || spec["assertion"]["selector"].as_str().is_none_or(|s|s.trim().is_empty())) {return Err("Text fitting criteria require an explicit original viewport, a unique selector, and equals 0 rendered text overflow".into());}
                 if spec["assertion"]["source"]=="layout" && (spec.get("viewport").is_none() || spec["assertion"]["operator"]!="equals" || spec["assertion"]["expected"]!=0){return Err("Responsive DOM bounds criteria require an explicit viewport and a zero-defect layout assertion".into());}
             }
@@ -717,6 +722,22 @@ mod tests {
             if field=="viewport" {spec.as_object_mut().unwrap().remove(field);} else {spec["assertion"].as_object_mut().unwrap().remove(field);}
             let mut other=two_tasks();
             assert!(other.set_criteria("d-001",vec![criterion(spec)]).is_err());
+        }
+    }
+
+    #[test]
+    fn malformed_style_criteria_are_rejected_before_becoming_immutable() {
+        let valid=serde_json::json!({"target":"/index.html#/product/1","viewport":{"width":1920,"height":1080},"preconditions":[],"required_state":[],"steps":[],"assertion":{"source":"style","selector":"#checkout","path":"border-top-left-radius","operator":"equals","expected":"28px"},"timeout_ms":5000});
+        let criterion=|s|AcceptanceCriterion{id:"radius".into(),description:"Computed radius at original conditions".into(),kind:"runtime".into(),scenario:Some(s)};
+        for field in ["selector","path","expected","viewport","tolerance"] {
+            let mut bad=valid.clone();if field=="viewport"{bad.as_object_mut().unwrap().remove(field);}else if field=="tolerance"{bad["assertion"][field]=serde_json::json!(0);}else{bad["assertion"].as_object_mut().unwrap().remove(field);}
+            let mut list=two_tasks();let error=list.set_criteria("d-001",vec![criterion(bad)]).unwrap_err();
+            let error:serde_json::Value=serde_json::from_str(&crate::tools::failure::deliverables(&error)).unwrap();
+            assert_eq!(error["code"],"INVALID_STYLE_CRITERION");assert_eq!(error["retrySameArguments"],false);
+            assert!(error["field"].as_str().unwrap().starts_with("scenario."));
+            let example:Vec<AcceptanceCriterion>=serde_json::from_value(error["example"]["criteria"].clone()).unwrap();
+            assert!(two_tasks().set_criteria("d-001",example).is_ok());
+            assert!(list.set_criteria("d-001",vec![criterion(valid.clone())]).is_ok(),"rejected invalid assertion must not freeze a broken contract");
         }
     }
 

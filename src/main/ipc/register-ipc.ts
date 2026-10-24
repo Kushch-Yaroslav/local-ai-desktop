@@ -517,6 +517,7 @@ async function cancelGeneration(conversationId: string, generationId?: string, r
 }
 
 export function registerIpc(): void {
+  database.migrateVerificationPreference(effectiveRuntimeConfiguration().autonomousBrowserQa===true);
   const diagramValidation = new DiagramValidationBridge();
   ipcMain.handle('chat:diagram-validation-result', (event, id: unknown, error: unknown) => diagramValidation.reply(event.sender.id, id, error));
   const interruptedRuns = database.recoverInterruptedRuns();
@@ -732,7 +733,8 @@ export function registerIpc(): void {
     const capability = profile ? visionCapability(profile, await probeBackendFeatures(config.llamaServerPath), live)
       : {state:'unknown' as const,detected:false,backendVerified:false,active:false,reason:'Select a saved model profile to inspect image support.'};
     if(!active&&runtime.activation?.phase==='failed'&&runtime.activation.modelId===targetId){capability.state='initialization-failed';capability.reason=runtime.activation.error??'Model initialization failed';}
-    return {mode,autonomous:config.autonomousBrowserQa===true,capability,available:capability.active,pending:mode!=='off'&&capability.state==='supported'&&!capability.active,reason:capability.reason};
+    if(chat && chat.verificationEnabled == null) database.updateConversation(chat.id,{verificationEnabled:config.autonomousBrowserQa===true});
+    return {mode,autonomous:chat?.verificationEnabled ?? config.autonomousBrowserQa===true,capability,available:capability.active,pending:mode!=='off'&&capability.state==='supported'&&!capability.active,reason:capability.reason};
   });
   ipcMain.handle('browser-qa:configure', async (_event, mode: BrowserVisionMode, autonomous: boolean, confirmed: boolean, conversationId?: string, modelId?: string) => {
     if (!['off','auto','on'].includes(mode) || typeof autonomous !== 'boolean' || confirmed !== true) throw Error('Invalid Vision preference');
@@ -745,9 +747,9 @@ export function registerIpc(): void {
       const capability=visionCapability(model,await probeBackendFeatures(config.llamaServerPath),active&&target?await liveVision(target):undefined);
       if(capability.state!=='supported')throw Error(capability.reason);
     }
-    if(chat) database.updateConversation(chat.id,{visionMode:mode});
+    if(chat) database.updateConversation(chat.id,{visionMode:mode,verificationEnabled:autonomous});
     // Legacy callers retain their global default; a chat preference never edits a model profile.
-    if(config.autonomousBrowserQa!==autonomous || !chat) saveRuntimeConfiguration({...config,...(!chat?{browserVision:mode}:{}),autonomousBrowserQa:autonomous});
+    if(!chat) saveRuntimeConfiguration({...config,...(!chat?{browserVision:mode}:{}),autonomousBrowserQa:autonomous});
   });
   ipcMain.handle('mtp:status', (_event, modelId: string, conversationId?: string) => mtpStatus(modelId, conversationId));
   ipcMain.handle('mtp:apply', async (_event, modelId: string, mode: MtpMode, confirmed: boolean, conversationId?: string) => {
@@ -1046,7 +1048,7 @@ export function registerIpc(): void {
       database.setRegionReferences(user.id,request.conversationId,user.regionReferences);
       if(logicalTaskId)for(const project of selectedProjects){
         const visual=database.visualDocument(request.conversationId,project.id);
-        for(const issue of visual.issues)if(user.regionReferences.some(r=>r.groupId===issue.id)){issue.logicalTaskId=logicalTaskId;issue.runId=generation.id;if(issue.statusSource==='check'){issue.statusSource='runtime';issue.status='In progress';}issue.events=[...(issue.events??[]),{at:new Date().toISOString(),source:'runtime' as const,action:'submitted'}].slice(-30);}
+        for(const issue of visual.issues)if(user.regionReferences.some(r=>r.groupId===issue.id)){issue.logicalTaskId=logicalTaskId;if(issue.workflow?.state==='disputed'&&issue.workflow.runId!==generation.id)issue.workflow={state:'active',source:'runtime',at:new Date().toISOString(),runId:generation.id};issue.runId=generation.id;if(issue.statusSource==='check'){issue.statusSource='runtime';issue.status='In progress';}issue.events=[...(issue.events??[]),{at:new Date().toISOString(),source:'runtime' as const,action:'submitted'}].slice(-30);}
         database.saveVisualDocument(request.conversationId,project.id,visual);
       }
     }
@@ -1118,7 +1120,7 @@ export function registerIpc(): void {
       const reasoningInput: ReasoningInput = reasoningCapabilityForModel ? { mode: conversation.reasoningMode, selection: reasoningSelection } : conversation.reasoningMode;
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
-        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); }, visionMode)
+        ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); }, visionMode, conversation.verificationEnabled ?? effectiveRuntimeConfiguration().autonomousBrowserQa===true, logicalTaskId ? ()=>database.takeTaskScreenshot(request.conversationId,logicalTaskId!) : undefined)
         : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));

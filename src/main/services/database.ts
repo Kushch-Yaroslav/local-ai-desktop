@@ -11,7 +11,7 @@ import { extractAbsolutePaths } from './agent-workspace';
 import { posix } from 'node:path';
 import type { AgentTaskSummary } from '../../shared/types';
 
-type ConversationRow = {
+type ConversationRow = { verification_enabled?: number | null;
   id: string; title: string; model_id: string | null; mode: ChatMode; working_directory: string | null;
   primary_project_id: string | null; secondary_working_directory: string | null; secondary_project_id: string | null;
   context_window: number;
@@ -32,7 +32,7 @@ type AnalysisActionRow = { id: string; run_id: string; label: string; detail: st
 type AgentPlanRow = { plan: string };
 
 const mapConversation = (row: ConversationRow): Conversation => ({
-  id: row.id, title: row.title, modelId: row.model_id, mode: row.mode,
+  id: row.id, title: row.title, modelId: row.model_id, mode: row.mode, verificationEnabled: row.verification_enabled == null ? null : row.verification_enabled !== 0,
   visionMode: ['auto','on','off'].includes(row.vision_mode ?? '') ? row.vision_mode as 'auto'|'on'|'off' : null, mtpMode: ['auto','on','off'].includes(row.mtp_mode ?? '') ? row.mtp_mode as 'auto'|'on'|'off' : null, workingDirectory: row.working_directory, primaryProjectId: row.primary_project_id ?? null, secondaryWorkingDirectory: row.secondary_working_directory ?? null, secondaryProjectId: row.secondary_project_id ?? null, contextWindow: row.context_window ?? 32_768, llamaKvCacheType: row.llama_kv_cache_type === 'q8_0' ? 'q8_0' : 'f16', llamaKvOffload: row.llama_kv_offload !== 0, reasoningMode: row.reasoning_mode === 'deep' ? 'deep' : 'fast', thinkingEnabled: row.thinking_enabled === null || row.thinking_enabled === undefined ? null : row.thinking_enabled !== 0, reasoningEffort: isReasoningEffort(row.reasoning_effort) ? row.reasoning_effort : null, contextTokens: row.context_tokens ?? null, contextModelId: row.context_model_id ?? null, webMode: row.web_mode ?? 'auto', createdAt: row.created_at, updatedAt: row.updated_at,
 });
 const mapAttachment = (row: AttachmentRow): Attachment => ({
@@ -178,6 +178,7 @@ export class Database {
     try { this.db.exec("ALTER TABLE conversations ADD COLUMN llama_kv_cache_type TEXT NOT NULL DEFAULT 'f16'"); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN llama_kv_offload INTEGER NOT NULL DEFAULT 1'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN reasoning_mode TEXT'); } catch { /* Existing databases already have this column. */ }
+    try { this.db.exec('ALTER TABLE conversations ADD COLUMN verification_enabled INTEGER'); } catch { /* Existing column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN vision_mode TEXT'); } catch { /* Existing column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN mtp_mode TEXT'); } catch { /* Existing column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN thinking_enabled INTEGER'); } catch { /* Existing databases already have this column. */ }
@@ -216,7 +217,7 @@ export class Database {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS agent_tasks (
         id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, checkpoint TEXT NOT NULL,
-        scope TEXT, legacy INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        screenshot_count INTEGER NOT NULL DEFAULT 0, scope TEXT, legacy INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       ) STRICT;
       CREATE INDEX IF NOT EXISTS agent_tasks_conversation_idx ON agent_tasks(conversation_id);
       CREATE TABLE IF NOT EXISTS agent_task_snapshots (
@@ -228,6 +229,7 @@ export class Database {
         SELECT 'legacy:' || conversation_id, conversation_id, plan, 1, updated_at, updated_at FROM agent_plans;
     `);
 
+    try { this.db.exec('ALTER TABLE agent_tasks ADD COLUMN screenshot_count INTEGER NOT NULL DEFAULT 0'); } catch { /* Existing column. */ }
     try { this.db.exec('ALTER TABLE generation_diagnostics ADD COLUMN reasoning_mode TEXT'); } catch { /* Existing databases already have this column. */ }
     // Map values persisted by the removed four-level control once. The legacy
     // columns stay in place for old SQLite files but are never read again.
@@ -240,6 +242,15 @@ export class Database {
     this.db.prepare("UPDATE conversations SET model_id=NULL WHERE model_id='qwen3-coder:30b'").run();
   }
 
+  migrateVerificationPreference(legacyEnabled:boolean):void {
+    this.db.prepare('UPDATE conversations SET verification_enabled=? WHERE verification_enabled IS NULL').run(Number(legacyEnabled));
+  }
+  takeTaskScreenshot(conversationId:string,logicalTaskId:string):boolean {
+    return Boolean(this.db.prepare('UPDATE agent_tasks SET screenshot_count=screenshot_count+1 WHERE id=? AND conversation_id=? AND screenshot_count<8 RETURNING screenshot_count').get(logicalTaskId,conversationId));
+  }
+  taskScreenshotCount(conversationId:string,logicalTaskId:string):number {
+    return (this.db.prepare('SELECT screenshot_count FROM agent_tasks WHERE id=? AND conversation_id=?').get(logicalTaskId,conversationId) as {screenshot_count:number}|undefined)?.screenshot_count??0;
+  }
   close(): void { this.db.close(); }
 
   /** Legacy conversation state has no reliable per-request owner. Display it
@@ -319,10 +330,11 @@ export class Database {
     const id = randomUUID(); const now = new Date().toISOString();
     const title = 'Новый чат';
     this.db.prepare("INSERT INTO conversations (id, title, model_id, mode, working_directory, primary_project_id, secondary_working_directory, secondary_project_id, context_window, llama_kv_cache_type, llama_kv_offload, reasoning_mode, context_tokens, context_model_id, web_mode, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, 'f16', 1, ?, NULL, NULL, 'auto', ?, ?)").run(id, title, modelId, 'chat', 32_768, 'fast', now, now);
-    return { id, title, modelId, visionMode: null, mtpMode: null, mode: 'chat', workingDirectory: null, primaryProjectId: null, secondaryWorkingDirectory: null, secondaryProjectId: null, contextWindow: 32_768, llamaKvCacheType: 'f16', llamaKvOffload: true, reasoningMode: 'fast', thinkingEnabled: null, reasoningEffort: null, contextTokens: null, contextModelId: null, webMode: 'auto', createdAt: now, updatedAt: now };
+    this.db.prepare('UPDATE conversations SET verification_enabled=1 WHERE id=?').run(id);
+    return { id, title, modelId, verificationEnabled: true, visionMode: null, mtpMode: null, mode: 'chat', workingDirectory: null, primaryProjectId: null, secondaryWorkingDirectory: null, secondaryProjectId: null, contextWindow: 32_768, llamaKvCacheType: 'f16', llamaKvOffload: true, reasoningMode: 'fast', thinkingEnabled: null, reasoningEffort: null, contextTokens: null, contextModelId: null, webMode: 'auto', createdAt: now, updatedAt: now };
   }
 
-  updateConversation(id: string, patch: Partial<Pick<Conversation, 'title' | 'modelId' | 'mode' | 'workingDirectory' | 'secondaryWorkingDirectory' | 'contextWindow' | 'llamaKvCacheType' | 'llamaKvOffload' | 'reasoningMode' | 'thinkingEnabled' | 'reasoningEffort' | 'webMode' | 'visionMode' | 'mtpMode'>>): Conversation {
+  updateConversation(id: string, patch: Partial<Pick<Conversation, 'title' | 'modelId' | 'mode' | 'workingDirectory' | 'secondaryWorkingDirectory' | 'contextWindow' | 'llamaKvCacheType' | 'llamaKvOffload' | 'reasoningMode' | 'thinkingEnabled' | 'reasoningEffort' | 'webMode' | 'visionMode' | 'mtpMode' | 'verificationEnabled'>>): Conversation {
     const current = this.getConversation(id);
     if (!current) throw new Error('Чат не найден');
     for (const key of ['visionMode','mtpMode'] as const) if (patch[key] !== undefined && patch[key] !== null && !['auto','on','off'].includes(patch[key]!)) throw Error('Invalid model feature preference');
@@ -335,9 +347,10 @@ export class Database {
     const reasoningMode: ReasoningMode = next.reasoningMode === 'deep' ? 'deep' : 'fast';
     const thinkingEnabled = typeof next.thinkingEnabled === 'boolean' ? next.thinkingEnabled : null;
     const reasoningEffort = isReasoningEffort(next.reasoningEffort) ? next.reasoningEffort : null;
+    if (patch.verificationEnabled !== undefined && patch.verificationEnabled !== null && typeof patch.verificationEnabled !== 'boolean') throw Error('Invalid verification preference');
     const webMode: WebMode = next.webMode === 'off' ? 'off' : 'auto';
-    this.db.prepare('UPDATE conversations SET title=?, model_id=?, mode=?, working_directory=?, primary_project_id=?, secondary_working_directory=?, secondary_project_id=?, context_window=?, llama_kv_cache_type=?, llama_kv_offload=?, reasoning_mode=?, thinking_enabled=?, reasoning_effort=?, web_mode=?, vision_mode=?, mtp_mode=?, updated_at=? WHERE id=?')
-      .run(next.title, next.modelId, next.mode, next.workingDirectory, next.primaryProjectId, next.secondaryWorkingDirectory, next.secondaryProjectId, contextWindow, llamaKvCacheType, llamaKvOffload ? 1 : 0, reasoningMode, thinkingEnabled === null ? null : thinkingEnabled ? 1 : 0, reasoningEffort, webMode, next.visionMode ?? null, next.mtpMode ?? null, next.updatedAt, id);
+    this.db.prepare('UPDATE conversations SET title=?, model_id=?, mode=?, working_directory=?, primary_project_id=?, secondary_working_directory=?, secondary_project_id=?, context_window=?, llama_kv_cache_type=?, llama_kv_offload=?, reasoning_mode=?, thinking_enabled=?, reasoning_effort=?, web_mode=?, vision_mode=?, mtp_mode=?, verification_enabled=?, updated_at=? WHERE id=?')
+      .run(next.title, next.modelId, next.mode, next.workingDirectory, next.primaryProjectId, next.secondaryWorkingDirectory, next.secondaryProjectId, contextWindow, llamaKvCacheType, llamaKvOffload ? 1 : 0, reasoningMode, thinkingEnabled === null ? null : thinkingEnabled ? 1 : 0, reasoningEffort, webMode, next.visionMode ?? null, next.mtpMode ?? null, next.verificationEnabled == null ? null : Number(next.verificationEnabled), next.updatedAt, id);
     next.contextWindow = contextWindow;
     next.llamaKvCacheType = llamaKvCacheType;
     next.llamaKvOffload = llamaKvOffload;

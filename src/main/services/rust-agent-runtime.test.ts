@@ -1,3 +1,4 @@
+import { ensureAppDirectories } from './paths';
 import { setLanguage } from '../../shared/locale';
 import assert from 'node:assert/strict';
 import type { ChatMessage } from '../../shared/types';
@@ -360,11 +361,11 @@ require('node:readline').createInterface({input:process.stdin}).on('line',line=>
       const abort = new AbortController(), timer = setTimeout(() => abort.abort(), 5000);
       try {
         // No approval transport: must fail closed before launching a browser.
-        for await (const event of new RustAgentRuntime('', script).stream('fixture', [message('user','verify project')], projects, abort.signal,4096,'fast',mode,`preview-${mode}`)) { assert.notEqual(event.type, 'error'); }
+        for await (const event of new RustAgentRuntime('', script).stream('fixture', [message('user','verify project')], projects, abort.signal,4096,'fast',mode,`preview-${mode}`)) { assert.notEqual(event.type, 'error', JSON.stringify(event)); }
         assert(!abort.signal.aborted);
         const reply = JSON.parse(readFileSync(received,'utf8'));
         assert.equal(reply.run.web_tools.some((tool: { function: { name: string } }) => tool.function.name === 'web_project'), mode === 'auto');
-        if (mode === 'auto') assert.equal(reply.result.code, 'PERMISSION_DENIED');
+        if (mode === 'auto') assert.equal(reply.result.code, 'PERMISSION_DENIED', JSON.stringify(reply.result));
         else assert.match(reply.result.error,/unavailable/);
       } finally { clearTimeout(timer); }
     }
@@ -372,6 +373,7 @@ require('node:readline').createInterface({input:process.stdin}).on('line',line=>
 }
 
 if (require.main === module) {
+  ensureAppDirectories();
   runRustAgentRuntimeRegression();
   void (async () => {
     await runProjectBrowserBridgeRegression();

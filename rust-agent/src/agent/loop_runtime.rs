@@ -668,11 +668,7 @@ fn dynamic_tail(
         tail.push(deliverables);
     }
     if state.browser_qa_enabled {
-        let criteria=state.task_memory.deliverables.items.iter().flat_map(|item|item.criteria.iter().map(|c|c.description.as_str())).collect::<Vec<_>>().join(" ");
-        let changes=state.task_memory.verification.changed.keys().map(|path|(path.clone(),state.responsive_changes.get(path).cloned().unwrap_or_default())).collect::<Vec<_>>();
-        let issue=state.task_memory.browser_qa.as_ref().and_then(|qa|qa["scenarios"].as_array()).is_some_and(|scenarios|scenarios.iter().any(|s|s.pointer("/responsive/findings").and_then(Value::as_array).is_some_and(|f|!f.is_empty()) || s.pointer("/visualLayout/frames").and_then(Value::as_array).is_some_and(|frames|frames.iter().any(|frame|frame["findings"].as_array().is_some_and(|f|!f.is_empty())))));
-        let active_plan=state.task_memory.plan.steps.iter().filter(|step|step.status!=StepStatus::Completed).map(|step|step.text.as_str()).collect::<Vec<_>>().join(" ");
-        tail.push(super::responsive::advice(objective,&criteria,&active_plan,&changes,issue));
+        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence.".into());
     }
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
@@ -914,7 +910,7 @@ fn save_runtime_pause(config: &Config, state: &AgentState, transcript: &mut Tran
     emit(&config.run_id, Event::RunState { state: "saving_checkpoint".into() });
     let mut memory = serde_json::to_value(&state.task_memory).expect("serializable runtime memory");
     memory["loop_guard"] = serde_json::to_value(&state.loop_detector).expect("serializable loop guard");
-    memory["stop_reason"] = json!(if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3 && notice.evidence.starts_with("Browser QA validation")) { "repeated_tool_failure" } else if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3) { "loop_detected" } else { "user_stop" });
+    memory["stop_reason"] = json!(if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3 && (notice.evidence.starts_with("Browser QA validation")||notice.evidence.starts_with("Browser capability refused"))) { "repeated_tool_failure" } else if state.loop_notice.as_ref().is_some_and(|notice| notice.level == 3) { "loop_detected" } else { "user_stop" });
     transcript.checkpoint_pause(memory.clone());
     checkpoint_work_budget(config, state, transcript);
     let mut saved = state.clone();
@@ -1441,7 +1437,9 @@ fn apply_deliverables(
                 &cited,
                 state.strategy.is_deep(),
                 state.browser_available,
-            )?;
+            ).map_err(|error|if sufficient_css_observation(state,item) && state.task_memory.verification.failure_for(item).is_none(){
+                json!({"error":"Live computed CSS was observed at the original region conditions, but no expected-value assertion was executed. The deliverable remains implemented; this is not a failed CSS check.","code":"CSS_OBSERVATION_ONLY","retrySameArguments":false,"next":"Report the actual observed CSS values and finish. A terminal command, helper script or new immutable criterion is not required merely to obtain a Verified label. If the user explicitly needs formal assertion proof, use one valid scoped style scenario."}).to_string()
+            }else{error})?;
             candidate.verify(&id, proof)?;
         }
         "block" => candidate.block(&id()?, &text_of("reason"))?,
@@ -1860,6 +1858,10 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
     }
 
     if result.get("error").is_some() || result["reused_evidence"]==true || result.pointer("/qa/reasonCode").and_then(Value::as_str)==Some("EVIDENCE_STALE") {return;}
+    if args["action"]=="inspect" {
+        record_css_observation(state,root,args,result);
+        return;
+    }
     let Some(source)=result.get("source_path").and_then(Value::as_str) else {return;};
     let Ok(base)=std::fs::canonicalize(root) else {return;};
     let Ok(path)=std::fs::canonicalize(source) else {return;};
@@ -1931,6 +1933,53 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
         }
     }
     sync_verification_failure(state);
+}
+
+/// Live scalar observations can justify finishing a small CSS edit without
+/// manufacturing a scenario. They never pass an immutable acceptance criterion.
+fn record_css_observation(state:&mut AgentState,root:&Path,args:&Value,result:&Value) {
+    let inspection=&result["inspection"];
+    if inspection["matches"]!=1 || result.pointer("/freshness/status").and_then(Value::as_str)!=Some("updated") {return;}
+    let Some(styles)=inspection.pointer("/elements/0/styles").and_then(Value::as_object).filter(|v|!v.is_empty()&&v.len()<=32) else{return;};
+    let Some(selector)=args["selector"].as_str().filter(|v|!v.is_empty()&&v.len()<=500) else{return;};
+    let Some(url)=inspection["url"].as_str().filter(|v|Some(*v)==result["url"].as_str()) else{return;};
+    let mut revisions=std::collections::BTreeMap::new();
+    let scope=crate::tools::filesystem::Scope{root,grants:&[]};
+    for (file,hash) in result["source_revisions"].as_object().into_iter().flatten().take(64) {
+        if let Some((path,current))=crate::tools::filesystem::file_revision(&scope,file) {
+            if hash.as_str()==Some(current.as_str()) {revisions.insert(path.to_string_lossy().into_owned(),current);}
+        }
+    }
+    // A dev server serves transformed assets, so its proxy has no raw-file
+    // hashes. Bind observations to trusted task mutations, not model paths or
+    // invented source maps. This still is an observation, never assertion proof.
+    let task_scope=revisions.is_empty();
+    if task_scope {
+        for file in state.task_memory.verification.changed.keys().take(48) {
+            if !matches!(Path::new(file).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less")){continue;}
+            if let Some((path,current))=crate::tools::filesystem::file_revision(&scope,file) {
+                if state.task_memory.verification.revisions.get(file)==Some(&current){revisions.insert(path.to_string_lossy().into_owned(),current);}
+            }
+        }
+    }
+    let ids=result.pointer("/region_context/references").and_then(Value::as_array).into_iter().flatten()
+        .filter(|r|r["matches_current"]==true && r["url"]==inspection["url"] && r["viewport"]==inspection["viewport"] && r["selectors"].as_array().is_some_and(|v|v.iter().any(|s|s.as_str()==Some(selector))))
+        .filter_map(|r|r["groupId"].as_str().map(str::to_owned)).collect::<Vec<_>>();
+    state.task_memory.verification.record_outcome(verification::Kind::Browser,&format!("web_project inspect {selector} {url}"),false,"Live computed CSS observation; no expected-value assertion or formal Verified",state.turn,&inspection.to_string());
+    let ledger=&mut state.task_memory.verification;
+    ledger.revisions.extend(revisions.clone());
+    let record=ledger.records.last_mut().unwrap();
+    record.outcome=Some("observed_css".into());record.checked_paths=revisions.keys().cloned().collect();record.source_revisions=revisions;record.deliverable_ids=ids;
+    record.inspection=Some(json!({"url":url,"viewport":inspection["viewport"],"selector":selector,"styles":styles,"sourceBinding":if task_scope{"task_mutations"}else{"served_assets"}}));
+}
+
+fn sufficient_css_observation(state:&AgentState,item:&deliverables::Deliverable)->bool {
+    if !item.criteria.is_empty() || item.paths.is_empty() || item.required_check().is_some_and(|need|need!=Need::Browser) {return false;}
+    // A scalar style read must never stand in for JS, tests, clipping or an
+    // explicit visual/interactive contract. This only avoids a redundant review.
+    if !item.paths.iter().all(|p|matches!(Path::new(p).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less"))) {return false;}
+    state.task_memory.verification.records.iter().any(|r|r.outcome.as_deref()==Some("observed_css") && r.deliverable_ids.contains(&item.id)
+        && state.task_memory.verification.fresh(r) && item.paths.iter().all(|p|r.checked_paths.contains(p)))
 }
 
 fn prepare_browser_contracts(state:&AgentState,args:&Value)->Result<Value,String> {
@@ -2022,6 +2071,35 @@ fn managed_task_effect(action: &str) -> verification::Effect {
 #[cfg(test)]
 mod wrapped_evidence_tests {
     use super::*;
+    #[test]
+    fn live_scalar_css_observation_allows_finishing_without_forging_verified() {
+        let root=std::env::temp_dir().join(format!("css-observation-{}",std::process::id()));std::fs::create_dir_all(&root).unwrap();
+        let path=root.join("Card.module.css");std::fs::write(&path,".sticker{border-radius:28px}").unwrap();
+        let scope=crate::tools::filesystem::Scope{root:&root,grants:&[]};let (path,hash)=crate::tools::filesystem::file_revision(&scope,path.to_str().unwrap()).unwrap();
+        let file=path.to_string_lossy().into_owned();let url="http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1";
+        let mut state=AgentState::default();
+        apply_deliverables(&mut state,&json!({"action":"add","id":"area-1","text":"Round badge","paths":[file],"check":"browser"}),&Transcript::default()).unwrap();
+        apply_deliverables(&mut state,&json!({"action":"implemented","id":"area-1","evidence":"Changed CSS"}),&Transcript::default()).unwrap();
+        let result=json!({"url":url,"freshness":{"status":"updated"},"source_revisions":{file.clone():hash},"inspection":{"url":url,"viewport":{"width":1920,"height":1080},"matches":1,"elements":[{"styles":{"border-radius":"28px"}}]},"region_context":{"references":[{"url":url,"groupId":"area-1","selectors":["#checkout"],"matches_current":true,"viewport":{"width":1920,"height":1080}}]}});
+        record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"#checkout"}),&result);
+        let item=&state.task_memory.deliverables.items[0];assert!(sufficient_css_observation(&state,item));
+        let record=state.task_memory.verification.records.last().unwrap();assert!(!record.pass);assert!(record.coverage.is_empty());assert!(record.inspection.is_some());
+        assert_ne!(item.status,deliverables::DeliverableStatus::Verified);
+        let prompt=state.task_memory.verification.prompt(&state.task_memory.deliverables,false,true);assert!(prompt.contains("observed (no assertion)"));assert!(prompt.contains("28px"));assert!(!prompt.contains("[browser FAIL]"));
+        let mut dev=result.clone();dev["source_revisions"]=json!({});
+        state.task_memory.verification.changed.insert(file.clone(),1);
+        state.task_memory.verification.records.clear();
+        record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"#checkout"}),&dev);
+        assert!(sufficient_css_observation(&state,&state.task_memory.deliverables.items[0]));
+        let error=apply_deliverables(&mut state,&json!({"action":"verify","id":"area-1"}),&Transcript::default()).unwrap_err();
+        let error:Value=serde_json::from_str(&crate::tools::failure::deliverables(&error)).unwrap();assert_eq!(error["code"],"CSS_OBSERVATION_ONLY");assert_eq!(error["retrySameArguments"],false);
+        let mut wrong=result.clone();wrong["inspection"]["viewport"]["width"]=json!(390);
+        let mut other=state.clone();other.task_memory.verification.records.clear();record_project_browser_evidence(&mut other,&root,&json!({"action":"inspect","selector":"#checkout"}),&wrong);
+        assert!(!sufficient_css_observation(&other,&other.task_memory.deliverables.items[0]));
+        state.task_memory.verification.note_change(Some(&file));state.task_memory.verification.revisions.insert(file,"new-source-revision".into());assert!(!sufficient_css_observation(&state,&state.task_memory.deliverables.items[0]));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn project_browser_evidence_is_scoped_and_never_derived_from_screenshot_or_http() {
         let root = std::env::temp_dir().join(format!("project-browser-evidence-{}", std::process::id()));
@@ -4598,7 +4676,7 @@ fn verification_gap(state: &AgentState) -> Option<String> {
     let reachable = deliverables
         .unverified()
         .into_iter()
-        .filter(|item| !unreachable.iter().any(|other| other.id == item.id))
+        .filter(|item| !unreachable.iter().any(|other| other.id == item.id) && !sufficient_css_observation(state,item))
         .collect::<Vec<_>>();
     if !reachable.is_empty() {
         let mut line = format!(
@@ -4648,7 +4726,7 @@ fn verification_review_text(gap: &str, failing: bool) -> String {
     } else {
         ""
     };
-    format!("Before finishing: the runtime has not seen your work verified: {gap}.{fix} Run the most relevant check now: the project's tests, or a short script that runs the changed code (for a page, a real headless browser; jsdom is only a stand-in and does not prove page behaviour). Reading the file back does not show it works. Then call deliverables verify for what the check covers. If it cannot be checked here, finish and say plainly that it is implemented but not verified. Do not call it working without a passing check.")
+    format!("Before finishing: the runtime has not seen your work verified: {gap}.{fix} Choose the smallest relevant check using existing tools. For a scalar CSS edit, a current live computed-style inspection at the original URL and viewport can be sufficient; formal QA and helper scripts are not mandatory. Reading a source file alone does not show behaviour. Only call deliverables verify when fresh evidence actually covers its registered claim. If it cannot be checked here, finish and say plainly that it is implemented but not verified. Do not call it working without a passing check.")
 }
 
 enum FinalCandidateReview {
@@ -4687,12 +4765,6 @@ fn review_tool_free_final(
             state.strategy.is_deep(),
         ));
     }
-    let web_changed = state.task_memory.verification.changed.keys().any(|path| [".html", ".css", ".tsx", ".jsx"].iter().any(|suffix| path.ends_with(suffix)));
-    if state.browser_qa_enabled && state.browser_qa_unavailable && (state.browser_qa_used || web_changed) {
-        state.browser_qa_denied = true;
-        state.browser_qa_at_epoch = Some(state.task_memory.verification.epoch);
-        state.task_memory.browser_qa = Some(json!({"status":"Blocked","reasonCode":"PERMISSION_REQUIRED","reason":"Browser tool disabled or unavailable. Enable Web and authorize the browser in a new run; do not bypass with terminal browser launches.","checks":[],"visual":{"analyzed":false,"status":"Not Verified"}}));
-    }
     let qa_stale = state.browser_qa_at_epoch != Some(state.task_memory.verification.epoch);
     if qa_stale && !state.browser_qa_denied {
         if let Some(qa) = state.task_memory.browser_qa.as_mut() {
@@ -4702,14 +4774,6 @@ fn review_tool_free_final(
             qa["reason"] = json!("No fresh QA for this revision/run. Previous evidence is retained but does not verify subsequent changes.");
             if let Some(visual) = qa.get_mut("visual") { visual["status"] = json!("Not Verified"); visual["reason"] = json!("Image analysis refers to the previous captured revision"); }
         }
-    }
-    let qa_status = state.task_memory.browser_qa.as_ref().and_then(|qa| qa.get("status")).and_then(Value::as_str);
-    if state.browser_qa_enabled && (state.browser_qa_used || web_changed)
-        && (qa_stale || qa_status == Some("Failed") || state.task_memory.browser_qa.as_ref().is_some_and(|qa| qa["scope"] == "capture"))
-        && !state.browser_qa_denied && state.browser_qa_reviewed_epoch != Some(state.task_memory.verification.epoch) {
-        state.browser_qa_reviews += 1;
-        state.browser_qa_reviewed_epoch = Some(state.task_memory.verification.epoch);
-        return FinalCandidateReview::VerificationPending(format!("Autonomous Browser QA: verify the current source revision with web_project action=qa and concrete application-state expectations. There is no lifetime repair/check count limit: after a real edit, fix and retest as needed. Unchanged repeated scenarios are protected by progress-aware loop detection. Use actual key/keydown/keyup/hold for Canvas input, never fill(body), hidden inputs or a terminal browser workaround. Preserve approvals and prior evidence; do not retry explicit security denies. Current evidence: {}. If blocked, continue useful non-QA work and finish honestly with the remaining Failed, Blocked or Partially Verified checks.", state.task_memory.browser_qa.as_ref().map(Value::to_string).unwrap_or_else(|| "Not Verified".into())));
     }
     if let Some(gap) = verification_gap(state) {
         let failure = state
@@ -6420,23 +6484,12 @@ mod tests {
     }
 
     #[test]
-    fn browser_qa_gate_is_progress_bound_not_a_lifetime_check_limit() {
-        let mut state = AgentState::default(); state.browser_qa_enabled = true; state.browser_qa_used = true;
-        let mut transcript = Transcript::default(); let ledger = Ledger::default();
-        // Any number of changed revisions can earn a fresh check; unchanged
-        // final drafts do not cause an endless completion reminder loop.
-        for epoch in 0..10 {
-            state.task_memory.verification.epoch = epoch;
-            assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)));
-            assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
+    fn adaptive_verification_does_not_force_browser_or_repeated_reviews() {
+        let mut state=AgentState::default();state.browser_qa_enabled=true;state.browser_qa_used=true;
+        for epoch in 0..10 {state.task_memory.verification.epoch=epoch;
+            assert!(matches!(review_tool_free_final(&mut state,&mut Transcript::default(),&Ledger::default()),FinalCandidateReview::Accept));
         }
-        assert_eq!(state.browser_qa_reviews, 10);
-        state.browser_qa_at_epoch=Some(9); state.task_memory.browser_qa=Some(json!({"status":"Verified"}));
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
-        state.task_memory.browser_qa=Some(json!({"status":"Blocked"})); state.browser_qa_denied=true;
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::Accept));
-        state.browser_qa_denied=false; state.browser_qa_at_epoch=None; state.browser_qa_reviewed_epoch=None;
-        assert!(matches!(review_tool_free_final(&mut state, &mut transcript, &ledger), FinalCandidateReview::VerificationPending(_)));
+        assert_eq!(state.browser_qa_reviews,0);
     }
 
     #[test]
@@ -6453,7 +6506,7 @@ mod tests {
     fn autonomous_qa_respects_an_unavailable_browser_instead_of_requesting_a_bypass() {
         let mut state=AgentState::default();state.browser_qa_enabled=true;state.browser_qa_unavailable=true;state.browser_qa_used=true;
         assert!(matches!(review_tool_free_final(&mut state,&mut Transcript::default(),&Ledger::default()),FinalCandidateReview::Accept));
-        assert_eq!(state.task_memory.browser_qa.as_ref().unwrap()["status"],"Blocked");assert_eq!(state.browser_qa_reviews,0);
+        assert!(state.task_memory.browser_qa.is_none());assert_eq!(state.browser_qa_reviews,0);
     }
 
     #[test]

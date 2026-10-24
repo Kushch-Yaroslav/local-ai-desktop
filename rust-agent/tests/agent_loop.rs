@@ -3743,3 +3743,22 @@ fn pause_during_compaction_does_not_commit_an_interrupted_summary() {
     assert!(!journal.iter().any(|entry| entry.get("Compaction").is_some()));
     assert_eq!(provider.requests().len(), 1);
 }
+
+#[test]
+fn adaptive_verification_is_advice_not_a_language_or_browser_executor() {
+    for enabled in [false,true] {
+        for (path,body) in [("package.json","{\"scripts\":{\"check\":\"node check.js\"}}"),("pnpm-lock.yaml","lockfileVersion: '9.0'"),("pnpm-workspace.yaml","packages: [apps/*]"),("Cargo.toml","[package]\nname='fixture'\nversion='0.1.0'"),("pyproject.toml","[project]\nname='fixture'"),("README.md","No build script; inspect real project commands.")] {
+            let workspace=Workspace::new(&[(path,body)]);
+            let provider=Provider::start(move |request,n| {
+                let prompt=request["messages"].to_string();
+                assert_eq!(prompt.contains("Adaptive verification:"),enabled);
+                assert!(!prompt.contains("Autonomous Browser QA: verify"));
+                assert!(request["tools"].as_array().unwrap().iter().any(|t|t["function"]["name"]=="run_terminal"));
+                assert_eq!(n,0,"advice must not create a mandatory verification loop");
+                Reply::Text("No changes required; no verification result claimed.".into())
+            });
+            let mut config=workspace.config(&provider.endpoint,"Inspect available project verification; do not guess commands.");config.browser_qa=enabled;
+            run(config);assert!(completed(&workspace.journal()));assert_eq!(provider.requests().len(),1);
+        }
+    }
+}

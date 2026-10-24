@@ -27,6 +27,7 @@ pub struct LoopDetector {
     pub warning_count: usize,
     pub pause_count: usize,
     invalid_qa: BTreeMap<String, usize>,
+    mutation_cycle: VecDeque<(String,String)>,
 }
 fn hash(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
@@ -97,6 +98,20 @@ impl LoopDetector {
         changed: bool,
     ) -> Option<LoopNotice> {
         self.observations = self.observations.saturating_add(1);
+        // Recreating/deleting exactly the same helper is not new target
+        // progress. Keep this separate from read/QA windows cleared by writes.
+        if changed && matches!(name,"create_file"|"write_file"|"delete_file"|"replace_text") && result.get("error").is_none() {
+            if let Some(path)=args["path"].as_str() {
+                if self.mutation_cycle.back().is_some_and(|(p,_)|p!=path){self.mutation_cycle.clear();}
+                let signature=if name=="delete_file"{"delete".to_owned()}else{call_key("put",&serde_json::json!({"content":args.get("content"),"old_text":args.get("old_text"),"new_text":args.get("new_text")}))};
+                self.mutation_cycle.push_back((path.into(),signature.clone()));while self.mutation_cycle.len()>12{self.mutation_cycle.pop_front();}
+                let repetitions=self.mutation_cycle.iter().filter(|(_,s)|s==&signature).count();
+                if repetitions>=3 && self.mutation_cycle.iter().any(|(_,s)|s=="delete") && self.mutation_cycle.iter().any(|(_,s)|s!="delete") {
+                    let level=if repetitions>=4{3}else{1};
+                    return Some(LoopNotice{signature:hash(&format!("mutation-cycle:{path}")),level,evidence:format!("Repeated creation/deletion of {path} without a change to another target"),guidance:"Stop recreating the same helper solely to obtain proof. Reuse fresh source-scoped browser evidence or finish honestly with verification incomplete. Editing a real target with new content resets this cycle.".into(),repair_exhausted:true});
+                }
+            }
+        }
         if changed {
             self.progress();
             self.invalid_qa.clear();
@@ -108,8 +123,8 @@ impl LoopDetector {
             let code = result.get("code").and_then(Value::as_str).unwrap_or("");
             if code == "INVALID_QA_ARGUMENTS" {
                 let category = result.get("category").and_then(Value::as_str).unwrap_or("qa_schema");
-                let conditions = args.get("scenarios").and_then(Value::as_array).map(|scenarios| scenarios.iter().map(|s| serde_json::json!({"target":s.get("target"),"viewport":s.get("viewport"),"source":s.pointer("/assertion/source")})).collect::<Vec<_>>());
-                let signature = hash(&serde_json::json!({"category":category,"conditions":conditions,"url":args.get("url"),"path":args.get("path")}).to_string());
+                let conditions = args.get("scenarios").and_then(Value::as_array).map(|scenarios| scenarios.iter().map(|s| serde_json::json!({"target":s.get("target"),"source":s.pointer("/assertion/source")})).collect::<Vec<_>>());
+                let signature = hash(&serde_json::json!({"conditions":conditions,"url":args.get("url"),"path":args.get("path")}).to_string());
                 let count = self.invalid_qa.entry(signature.clone()).or_default();
                 *count += 1;
                 let count = *count;
@@ -123,6 +138,21 @@ impl LoopDetector {
                     repair_exhausted: true });
             }
             if result.get("error").is_none() && result.get("qa").is_some() { self.invalid_qa.clear(); }
+        }
+        if name=="web_project" && result.get("retrySameArguments")==Some(&Value::Bool(false)) && matches!(result.get("code").and_then(Value::as_str),Some("SCREENSHOT_LIMIT"|"INVALID_CROP"|"INVALID_SELECTOR"|"PREVIEW_ORIGIN_SCOPE_MISMATCH"|"BROWSER_NAVIGATION_FAILED")) {
+            let signature=hash(&format!("browser-block:{}:{}",result["code"],args["action"]));
+            let count=self.invalid_qa.entry(signature.clone()).or_default();*count+=1;let count=*count;
+            if count<3{return None;}
+            let level=if count>=4{3}else{1};
+            return Some(LoopNotice{signature,level,evidence:format!("Browser capability refused {} equivalent attempts",count),guidance:"This operation is unavailable under current conditions. Use inspect for bounded DOM/computed styles, a supported assertion and the approved original URL/viewport, or finish with verification incomplete. Do not repeat screenshot/crop/origin failures. Continuation retains the blocker; screenshot budget is task-scoped.".into(),repair_exhausted:true});
+        }
+        if name=="deliverables" && result["code"]=="INVALID_STYLE_CRITERION" {
+            // IDs, descriptions and alternating invalid fields are not progress.
+            let signature=hash("invalid-style-criterion");
+            let count=self.invalid_qa.entry(signature.clone()).or_default();*count+=1;let count=*count;
+            if count<3{return None;}
+            let level=if count>=4{3}else{1};
+            return Some(LoopNotice{signature,level,evidence:format!("Browser QA validation: invalid immutable style criterion repeated {count} times"),guidance:"Nothing was registered. Use the complete corrected example, inspect live computed styles, or finish with the actual observation and limits. Do not create helper scripts merely for a Verified label. Continuation retains this guard until project progress.".into(),repair_exhausted:true});
         }
         // The browser's pre-execution guard already suppresses no-progress QA.
         // First offer alternatives; ignoring the same blocker is a resumable stop.
@@ -305,6 +335,29 @@ impl LoopDetector {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn recreating_the_same_check_file_does_not_reset_loop_detection() {
+        let mut detector=LoopDetector::default();
+        for n in 0..4 {
+            let notice=detector.observe("create_file",&json!({"path":"check.js","content":"same check"}),&json!({"ok":true}),true);
+            if n==2 {assert_eq!(notice.as_ref().unwrap().level,1);}if n==3 {assert_eq!(notice.unwrap().level,3);}
+            detector.observe("delete_file",&json!({"path":"check.js"}),&json!({"ok":true}),true);
+        }
+        detector.observe("replace_text",&json!({"path":"real.css","old_text":"2px","new_text":"28px"}),&json!({"ok":true}),true);
+        assert!(detector.observe("create_file",&json!({"path":"check.js","content":"same check"}),&json!({"ok":true}),true).is_none());
+    }
+
+    #[test]
+    fn malformed_criteria_cannot_evade_guard_by_changing_ids_or_fields() {
+        let mut detector=LoopDetector::default();
+        for n in 0..4 {
+            let notice=detector.observe("deliverables",&json!({"action":"criteria","id":format!("new-{n}")}),&json!({"error":"Invalid style","code":"INVALID_STYLE_CRITERION","field":format!("field-{n}"),"retrySameArguments":false}),false);
+            if n<2{assert!(notice.is_none());}else{assert_eq!(notice.unwrap().level,if n==2{1}else{3});}
+        }
+        let mut resumed:LoopDetector=serde_json::from_value(serde_json::to_value(detector).unwrap()).unwrap();resumed.continued();
+        assert_eq!(resumed.observe("deliverables",&json!({"action":"criteria"}),&json!({"error":"Invalid","code":"INVALID_STYLE_CRITERION"}),false).unwrap().level,3);
+    }
+
     #[test]
     fn equivalent_invalid_qa_is_bounded_and_survives_continuation() {
         let mut detector = LoopDetector::default();

@@ -1,5 +1,12 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Страница может быть устаревшей': 'Page may be out of date',
+  'Активная область': 'Active area',
+  'Работа завершена': 'Work completed',
+  'Оспорено': 'Disputed',
+  'Оспорить': 'Dispute',
+  'Отметить выполненной': 'Mark completed',
+  'Тестирование и проверка': 'Testing and verification',
   'CSS-область браузера': 'CSS viewport',
 
   'Открыть историю чатов': 'Open chat history',

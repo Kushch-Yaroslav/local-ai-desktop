@@ -196,7 +196,7 @@ export class RustAgentRuntime {
     return send(content, intent).then(() => { if (intent !== 'pause') this.activeQaGuards.get(runId)?.rearm(); });
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode, verificationEnabled = true, takeScreenshot?:()=>boolean): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     // Preparation can fail (invalid history/settings). Validate before owning
@@ -252,7 +252,7 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { regionContext:[] as Array<{id:string;groupId:string;url:string}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];viewport?:{width:number;height:number}}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -293,7 +293,7 @@ export class RustAgentRuntime {
     const acceptedArtifacts = new Map<string, RichArtifact>();
     const galleryFailures = new Map<string, Record<string, unknown>>();
     const request: RuntimeRequest = {
-      browser_qa: browserConfig.autonomousBrowserQa === true,
+      browser_qa: verificationEnabled,
       type: 'run', run_id: runId, endpoint: this.endpoint, model,
       approval_ui: Boolean(confirm), permissions,
       ui_language: getLanguage(),
@@ -348,7 +348,7 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
-              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url}));
+              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url,viewport:r.viewport,selectors:r.anchors.map(a=>a.selector).slice(0,8)}));
               const recover=projectBrowser&&!projectBrowser.reusable&&event.arguments?.action==='open'&&!signal.aborted&&!qaPause.signal.aborted&&['connection_lost','page_closed','renderer_crashed','policy_changed','permission_revoked','startup_failed'].includes(projectBrowser.endReason)&&browserRecoveries<1;
               const browserArgs=recover?projectBrowser!.recoveryRequest(event.arguments??{}):event.arguments??{};
               if(recover){browserRecoveries++;await projectBrowser!.close();projectBrowser=undefined;browserObserver=browserObserver?.renew?.()??browserObserver;browserObserver?.ownership?.('recovering');}

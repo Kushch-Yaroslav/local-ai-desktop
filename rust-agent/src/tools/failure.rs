@@ -86,6 +86,7 @@ pub fn concise(message: &str) -> String {
 /// not an immediate identical retry. This only describes the existing refusal;
 /// validation, evidence associations and permission decisions stay unchanged.
 pub fn deliverables(message: &str) -> String {
+    if serde_json::from_str::<Value>(message).ok().is_some_and(|value|value.get("code").is_some()&&value.get("error").is_some()) {return message.to_owned();}
     let next = if message.starts_with("task is too long (") {
         Some("Shorten task to the schema maxLength; keep detailed requirements in text.")
     } else if message.starts_with("unknown evidence '") {

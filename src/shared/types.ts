@@ -143,6 +143,7 @@ export interface ModelInfo {
 }
 
 export interface Conversation {
+  verificationEnabled?: boolean | null;
   visionMode?: import('./browser-qa').BrowserVisionMode | null;
   mtpMode?: MtpMode | null;
   id: string;

@@ -170,6 +170,9 @@ pub struct CriterionEvidence {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evidence {
+    /// Observed scalar CSS, not an assertion pass or criterion coverage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inspection: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub coverage: Vec<CriterionEvidence>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -388,7 +391,7 @@ impl Verification {
             })
             .flatten();
         self.records.push(Evidence {
-            coverage:Vec::new(),source_revisions:BTreeMap::new(),run_serial:self.run_serial,unknown_epoch:self.unknown_epoch,outcome:None,
+            inspection:None,coverage:Vec::new(),source_revisions:BTreeMap::new(),run_serial:self.run_serial,unknown_epoch:self.unknown_epoch,outcome:None,
             id: id.clone(),
             kind,
             class: kind.class(),
@@ -810,7 +813,7 @@ impl Verification {
                 "  {} [{} {}] {}{}",
                 record.id,
                 record.kind.label(),
-                if record.pass { "pass" } else { "FAIL" },
+                if record.pass { "pass" } else if record.outcome.as_deref()==Some("observed_css") {"observed (no assertion)"} else if record.outcome.as_deref()==Some("inconclusive") {"inconclusive"} else { "FAIL" },
                 record.subject,
                 if record.pass || record.detail.is_empty() {
                     String::new()
@@ -818,6 +821,7 @@ impl Verification {
                     format!(" — {}", record.detail)
                 }
             ));
+            if let Some(inspection)=&record.inspection {lines.push(format!("    Live CSS facts: {}",inspection.to_string().chars().take(2000).collect::<String>()));}
             lines.push(format!(
                 "    scope: {}{}",
                 if record.deliverable_ids.is_empty() {
@@ -871,7 +875,9 @@ impl Verification {
         {
             lines.push("A page was changed and no real browser is available here: report its behaviour as not checked in a browser.".to_owned());
         }
-        if self.page_changed && self.best_passing(Need::Browser).is_none() && browser_available {
+        let live_css=fresh.iter().any(|r|r.outcome.as_deref()==Some("observed_css"));
+        if live_css {lines.push("Live computed CSS was observed in the actual browser. For a small CSS-only task at its original conditions, report those measured values and finish if they answer the request. This is not formal criterion coverage; do not create criteria, checker scripts or extra QA solely for a Verified label. Explicit unmet criteria and genuine failed checks still apply.".into());}
+        if self.page_changed && self.best_passing(Need::Browser).is_none() && browser_available && !live_css {
             lines.push("A page was changed; no real-browser run has passed since the last change. A jsdom or node script is not a browser: report page behaviour only from a browser run.".to_owned());
         }
         if closed {
