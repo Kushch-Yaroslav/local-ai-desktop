@@ -141,7 +141,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   // Native hit-test shield: blocks physical pointer input without cancelling
   // Playwright's CDP mouse events or freezing the underlying compositor.
   const shieldSession = session.fromPartition(`native-shield-${randomUUID()}`, { cache: false });
-  const shieldUrl = 'data:text/html,' + encodeURIComponent('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><html style="background:transparent;height:100%;cursor:wait"><body style="margin:0;height:100%;background:transparent"></body></html>');
+  const shieldUrl = 'data:text/html,' + encodeURIComponent('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><html style="background:transparent;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none;cursor:wait"><body style="margin:0;height:100%;background:transparent"></body></html>');
   shieldSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   shieldSession.setPermissionCheckHandler(() => false);
   shieldSession.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.url !== shieldUrl }));
@@ -182,6 +182,10 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   try {
     for (const scheme of ['http','https']) { isolated.protocol.handle(scheme,handleRequest); protocols.add(scheme); }
     await shieldContents.loadURL(shieldUrl);
+    // Consume native scroll/touch defaults in the hit-test surface itself.
+    // The project Page stays live and its CDP input remains available to tools.
+    await shieldContents.executeJavaScript(`for(const name of ['wheel','touchstart','touchmove','dragstart','drop','contextmenu','auxclick'])addEventListener(name,e=>{e.preventDefault();e.stopImmediatePropagation()},{passive:false,capture:true})`);
+    shieldContents.on('before-input-event', event => event.preventDefault());
     await contents.loadURL('about:blank');
     contents.debugger.attach('1.3');
     await contents.debugger.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true });
@@ -256,7 +260,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       if(!panTimer)panTimer=setTimeout(()=>{panTimer=undefined;void schedule();},16);
     };
     const projectMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState==='user')middle(e,i);};
-    const shieldMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState!=='user'&&i.button==='middle')e.preventDefault();middle(e,i);};const ownerMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(gesture&&i.type==='mouseUp'&&i.button==='middle'){e.preventDefault();endPan?.();}};
+    const shieldMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState!=='user'){e.preventDefault();return;}middle(e,i);};const ownerMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(gesture&&i.type==='mouseUp'&&i.button==='middle'){e.preventDefault();endPan?.();}};
     contents.on('before-mouse-event',projectMouse);shieldContents.on('before-mouse-event',shieldMouse);owner.on('before-mouse-event',ownerMouse);
     const blur=()=>endPan?.();contents.on('blur',blur);window.on('blur',blur);
     detachPan=()=>{clearInterval(panWatch);contents.removeListener('blur',blur);window.removeListener('blur',blur);contents.removeListener('before-mouse-event',projectMouse);shieldContents.removeListener('before-mouse-event',shieldMouse);owner.removeListener('before-mouse-event',ownerMouse);};
