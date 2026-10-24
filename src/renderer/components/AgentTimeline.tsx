@@ -31,7 +31,7 @@ function structuredEntries(result: unknown): unknown[] | undefined {
   return result && typeof result === 'object' && !Array.isArray(result) && Array.isArray((result as { entries?: unknown }).entries) ? (result as { entries: unknown[] }).entries : undefined;
 }
 const deliverableMarker = { verified: '✓', implemented: '◐', done: '◐', blocked: '⊘', pending: '○', dropped: '–' } as const;
-const planMarker = { completed: '✓', in_progress: '▶', blocked: '⊘', pending: '○' } as const;
+const planMarker = { skipped: '–', completed: '✓', in_progress: '▶', blocked: '⊘', pending: '○' } as const;
 /** The requested-deliverables list from a `deliverables` tool result, as a checklist.
  * Only `verified` counts as checked; `implemented` is shown as not yet verified. */
 export function deliverablesChecklist(output: string | undefined): { lines: string[]; verified: number; implemented: number; open: number; total: number } | undefined {
@@ -56,7 +56,7 @@ export function planChecklist(output: string | undefined): { lines: string[]; co
   try {
     const steps = (JSON.parse(output) as { plan?: { steps?: PlanStepItem[] } }).plan?.steps;
     if (!Array.isArray(steps)) return undefined;
-    return { lines: steps.map((step) => `${planMarker[step.status] ?? '○'} ${step.text}${step.status === 'blocked' && step.note ? ` — ${step.note}` : ''}`), completed: steps.filter((step) => step.status === 'completed').length, total: steps.length };
+    return { lines: steps.map((step) => `${planMarker[step.status] ?? '○'} ${step.text}${(step.status === 'blocked' || step.status === 'skipped') && step.note ? ` — ${step.note}` : ''}`), completed: steps.filter((step) => step.status === 'completed').length, total: steps.length };
   } catch { return undefined; }
 }
 export function toolResultSummary(activity: ToolActivity): string | undefined {

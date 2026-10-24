@@ -8,7 +8,7 @@ import { agentStatus, showAgentStatus, criterionStatus } from '../../shared/agen
 import { agentStatusText, deliverableStatusLabel, planStatusLabel } from '../../shared/localization';
 import { useAppStore } from '../store/app-store';
 
-const planMarker = { pending: '○', in_progress: '●', completed: '✓', blocked: '⊘', abandoned: '–' } as const;
+const planMarker = { skipped: '–', pending: '○', in_progress: '●', completed: '✓', blocked: '⊘', abandoned: '–' } as const;
 const resultMarker = { pending: '○', implemented: '◐', done: '◐', verified: '✓', blocked: '⊘', dropped: '–' } as const;
 
 /** Subscribes only to the current chat's planning projection, never token/clock updates. */

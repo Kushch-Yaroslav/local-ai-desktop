@@ -668,7 +668,7 @@ fn dynamic_tail(
         tail.push(deliverables);
     }
     if state.browser_qa_enabled {
-        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence.".into());
+        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence.".into());
     }
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
@@ -762,7 +762,7 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
     let mut tools = vec![
         json!({"type":"function","function":{"name":"task_memory","description":"Durable semantic memory for the current task across compaction. Record/update meaningful findings, decisions, blockers, or unresolved questions; view reads it; invalidate needs id. Record requires finding; update needs the id of an existing entry and changes only the fields you pass (an empty string clears one). Both may include evidence, implication, next, supersedes, status. Cite observations by exact id (obs-00000012), one per item in observations or comma-separated in evidence. Trust precise unchanged-file memory; reread only for a concrete missing, ambiguous, changed, exact-detail, or verification need.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["record","update","invalidate","view"]},"id":{"type":"string"},"finding":{"type":"string"},"evidence":{"type":"string"},"implication":{"type":"string"},"next":{"type":"string"},"supersedes":{"type":"string"},"status":{"type":"string","enum":["confirmed","inferred","unknown","contradicted"],"description":"How well established the finding is: confirmed (observed, cited), inferred (reasoned, not observed), unknown (open; put the resolving step in next), contradicted (evidence disagrees)."},"observations":{"type":"array","items":{"type":"string"},"description":"Observation IDs (obs-…) that support the finding; same as evidence, one id per item."}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"deliverables","description":"The user's requested deliverables for this task (execution contract). This tool changes metadata only, never project code; view/implemented are not file edits. Reuse an unchanged view instead of calling it repeatedly. Use it only when the request has two or more separate things to produce or change, or one result that must work end to end. criteria: define immutable acceptance criteria before checking; every browser deliverable requires them. Each scenario must bind the criterion. Never weaken a criterion after recording. add: record each requested deliverable once (text, optional task, paths = absolute file/project targets constraining proof, optional check: the weakest evidence that proves the claim: readback = it exists, static = lint/typecheck, build = it builds, test = the tests pass, runtime = running the code works, browser = it works in a real browser, integrity = files remained unchanged (requires a trusted pre-operation baseline/journal; currently unavailable, leave unverified); a changed page is always held to browser). implemented: you built it (id, evidence): this is your claim and is not proof. verify: the item must already be implemented; select relevant run_terminal checks with deliverable_ids before executing them; the runtime has a passing check of it (id; evidence = ev-… ids from <verification_state>; Fast may omit them): only checks the runtime saw run after your last change count, and any later change to the project takes the verification back. block: it cannot be completed (id, concrete reason). drop: the user withdrew it (id, reason). view: list them. Record only what the user asked for, never your own optional ideas.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["add","criteria","implemented","verify","block","drop","view"]},"id":{"type":"string"},"task":{"type":"string","maxLength":deliverables::MAX_TASK_CHARS,"description":"Optional short task label. Put full requirements in text; task must fit maxLength."},"text":{"type":"string"},"evidence":{"type":"string"},"reason":{"type":"string"},"criteria":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","properties":{"id":{"type":"string"},"description":{"type":"string"},"kind":{"type":"string","enum":["load","runtime","interaction","temporal","visual","implementation"]},"scenario":{"type":"object","description":"Immutable executable specification: target, optional viewport (named mobile/desktop/etc profile or bounded width/height), preconditions [], required_state [], steps [], assertion {source, operator, expected/path/selector/sample_ms}, timeout_ms. Responsive DOM bounds use source=layout, equals, expected=0 with an explicit viewport; each required route/viewport has its own criterion. Execute with web_project scenario_refs to avoid redefining it."}},"required":["id","description","kind"],"additionalProperties":false}},"paths":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"Absolute file/project targets of this claim. These constrain evidence scope and never grant access. Do not omit an unrelated project target to reuse another project's test."},"check":{"type":"string","enum":["integrity","readback","static","build","test","runtime","browser"]}},"required":["action"]}}}),
-        json!({"type":"function","function":{"name":"plan","description":"Your own short execution plan: how you will get the work done. Optional: skip it for a trivial or single-step request. set: replace the unfinished steps with a short ordered list of one-line steps (steps); the first becomes active. update: change a step (id; status pending|in_progress|completed|blocked, optional text or note; blocked needs a note); completing the active step activates the next. add: insert a step (text, optional after). view: list. Update at meaningful milestones or when your approach changes; do not narrate it or update it after every call. A plan is not proof: finishing steps does not complete the user's deliverables.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["set","update","add","view"]},"steps":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed","blocked"]},"text":{"type":"string"},"note":{"type":"string"},"after":{"type":"string"}},"required":["action"]}}}),
+        json!({"type":"function","function":{"name":"plan","description":"Your own short execution plan: how you will get the work done. Optional: skip it for a trivial or single-step request. set: replace the unfinished steps with a short ordered list of one-line steps (steps); the first becomes active. update: change a step (id; status pending|in_progress|completed|blocked|skipped, optional text or note; blocked/skipped need a note explaining the blocker or why optional work is no longer needed); completing the active step activates the next. add: insert a step (text, optional after). view: list. Update at meaningful milestones or when your approach changes; do not narrate it or update it after every call. A plan is not proof: finishing steps does not complete the user's deliverables.","parameters":{"type":"object","properties":{"action":{"type":"string","enum":["set","update","add","view"]},"steps":{"type":"array","items":{"type":"string"}},"id":{"type":"string"},"status":{"type":"string","enum":["pending","in_progress","completed","blocked","skipped"]},"text":{"type":"string"},"note":{"type":"string"},"after":{"type":"string"}},"required":["action"]}}}),
         json!({"type":"function","function":{"name":"observation_index","description":"List historical tool observations by stable ID, with source path and outcome metadata. Use source to select the raw observation for the needed file. If more=true, continue at the returned next_offset. Observation IDs start with obs-.","parameters":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":50}}}}}),
         json!({"type":"function","function":{"name":"observation_read","description":"Recover a bounded exact slice of a stored historical tool result by observation ID. The response distinguishes historical evidence from current source and reports whether the source changed.","parameters":{"type":"object","properties":{"id":{"type":"string"},"offset_chars":{"type":"integer","minimum":0},"max_chars":{"type":"integer","minimum":1,"maximum":16000}},"required":["id"]}}}),
     ];
@@ -1325,7 +1325,7 @@ fn apply_plan(state: &mut AgentState, arguments: &Value) -> Result<(Value, bool)
         "update" | "complete" | "done" => {
             let status = match text_arg("status") {
                 Some(value) => Some(StepStatus::parse(value).ok_or_else(|| {
-                    "status must be pending, in_progress, completed or blocked".to_owned()
+                    "status must be pending, in_progress, completed, blocked or skipped".to_owned()
                 })?),
                 None if action.trim().eq_ignore_ascii_case("update") => None,
                 None => Some(StepStatus::Completed),
@@ -1937,6 +1937,14 @@ fn record_project_browser_evidence(state: &mut AgentState, root: &Path, args: &V
 
 /// Live scalar observations can justify finishing a small CSS edit without
 /// manufacturing a scenario. They never pass an immutable acceptance criterion.
+fn same_browser_route(a:&Value,b:&Value)->bool {
+    fn normalized(s:&str)->String {
+        let (base,hash)=s.split_once('#').unwrap_or((s,""));
+        let base=match base.split_once('?'){Some((path,""))=>path,_=>base};
+        if hash.is_empty(){base.into()}else{format!("{base}#{hash}")}
+    }
+    matches!((a.as_str(),b.as_str()),(Some(a),Some(b)) if normalized(a)==normalized(b))
+}
 fn record_css_observation(state:&mut AgentState,root:&Path,args:&Value,result:&Value) {
     let inspection=&result["inspection"];
     if inspection["matches"]!=1 || result.pointer("/freshness/status").and_then(Value::as_str)!=Some("updated") {return;}
@@ -1954,7 +1962,7 @@ fn record_css_observation(state:&mut AgentState,root:&Path,args:&Value,result:&V
     // hashes. Bind observations to trusted task mutations, not model paths or
     // invented source maps. This still is an observation, never assertion proof.
     let task_scope=revisions.is_empty();
-    if task_scope {
+    if task_scope && result["source_revisions"].as_object().is_none_or(|sources|sources.is_empty()) {
         for file in state.task_memory.verification.changed.keys().take(48) {
             if !matches!(Path::new(file).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less")){continue;}
             if let Some((path,current))=crate::tools::filesystem::file_revision(&scope,file) {
@@ -1963,23 +1971,46 @@ fn record_css_observation(state:&mut AgentState,root:&Path,args:&Value,result:&V
         }
     }
     let ids=result.pointer("/region_context/references").and_then(Value::as_array).into_iter().flatten()
-        .filter(|r|r["matches_current"]==true && r["url"]==inspection["url"] && r["viewport"]==inspection["viewport"] && r["selectors"].as_array().is_some_and(|v|v.iter().any(|s|s.as_str()==Some(selector))))
+        .filter(|r|r["matches_current"]==true && same_browser_route(&r["url"],&inspection["url"]) && r["viewport"]==inspection["viewport"] && r["selectors"].as_array().is_some_and(|v|v.iter().any(|s|s.as_str()==Some(selector) || inspection.pointer("/elements/0/containedAnchors").and_then(Value::as_array).is_some_and(|a|a.contains(s)))))
         .filter_map(|r|r["groupId"].as_str().map(str::to_owned)).collect::<Vec<_>>();
+    // Mutation tools retain the caller's relative spelling as well as its
+    // canonical revision. Resolve aliases inside the trusted project scope;
+    // identical hashes in different files are not path equivalence.
+    let mut checked_paths=revisions.keys().cloned().collect::<Vec<_>>();
+    for alias in state.task_memory.verification.changed.keys().take(48) {
+        if let Some((canonical,current))=crate::tools::filesystem::file_revision(&scope,alias) {
+            if revisions.get(canonical.to_string_lossy().as_ref())==Some(&current)
+                && state.task_memory.verification.revisions.get(alias)==Some(&current) {checked_paths.push(alias.clone());}
+        }
+    }
+    checked_paths.sort();checked_paths.dedup();
     state.task_memory.verification.record_outcome(verification::Kind::Browser,&format!("web_project inspect {selector} {url}"),false,"Live computed CSS observation; no expected-value assertion or formal Verified",state.turn,&inspection.to_string());
     let ledger=&mut state.task_memory.verification;
     ledger.revisions.extend(revisions.clone());
     let record=ledger.records.last_mut().unwrap();
-    record.outcome=Some("observed_css".into());record.checked_paths=revisions.keys().cloned().collect();record.source_revisions=revisions;record.deliverable_ids=ids;
-    record.inspection=Some(json!({"url":url,"viewport":inspection["viewport"],"selector":selector,"styles":styles,"sourceBinding":if task_scope{"task_mutations"}else{"served_assets"}}));
+    record.outcome=Some("observed_css".into());record.checked_paths=checked_paths;record.source_revisions=revisions;record.deliverable_ids=ids;
+    record.inspection=Some(json!({"url":url,"viewport":inspection["viewport"],"selector":selector,"styles":styles,"pageGeometry":inspection["page"],"elementGeometry":inspection["elements"][0],"sourceBinding":if task_scope{"task_mutations"}else{"served_assets"}}));
 }
 
 fn sufficient_css_observation(state:&AgentState,item:&deliverables::Deliverable)->bool {
-    if !item.criteria.is_empty() || item.paths.is_empty() || item.required_check().is_some_and(|need|need!=Need::Browser) {return false;}
+    if !item.criteria.is_empty() || item.paths.is_empty() || item.required_check().is_some_and(|need|!matches!(need,Need::Browser|Need::Runtime)) {return false;}
+    let ledger=&state.task_memory.verification;
+    if ledger.unknown_epoch!=0 || ledger.changed.keys().any(|p|!matches!(Path::new(p).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less"))) {return false;}
     // A scalar style read must never stand in for JS, tests, clipping or an
     // explicit visual/interactive contract. This only avoids a redundant review.
     if !item.paths.iter().all(|p|matches!(Path::new(p).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less"))) {return false;}
     state.task_memory.verification.records.iter().any(|r|r.outcome.as_deref()==Some("observed_css") && r.deliverable_ids.contains(&item.id)
         && state.task_memory.verification.fresh(r) && item.paths.iter().all(|p|r.checked_paths.contains(p)))
+}
+
+// The same completion rule applies when a small region task did not register
+// deliverables. Observations remain unverified; only redundant review is waived.
+fn sufficient_unregistered_css_observation(state:&AgentState)->bool {
+    let ledger=&state.task_memory.verification;
+    state.task_memory.deliverables.is_empty() && ledger.blocking_failure(&state.task_memory.deliverables).is_none() && ledger.unknown_epoch==0 && !ledger.changed.is_empty()
+        && ledger.changed.keys().all(|p|matches!(Path::new(p).extension().and_then(|e|e.to_str()),Some("css"|"scss"|"sass"|"less")))
+        && ledger.records.iter().any(|r|r.outcome.as_deref()==Some("observed_css") && !r.deliverable_ids.is_empty()
+            && ledger.fresh(r) && ledger.changed.keys().all(|p|r.checked_paths.contains(p)))
 }
 
 fn prepare_browser_contracts(state:&AgentState,args:&Value)->Result<Value,String> {
@@ -2083,9 +2114,35 @@ mod wrapped_evidence_tests {
         let result=json!({"url":url,"freshness":{"status":"updated"},"source_revisions":{file.clone():hash},"inspection":{"url":url,"viewport":{"width":1920,"height":1080},"matches":1,"elements":[{"styles":{"border-radius":"28px"}}]},"region_context":{"references":[{"url":url,"groupId":"area-1","selectors":["#checkout"],"matches_current":true,"viewport":{"width":1920,"height":1080}}]}});
         record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"#checkout"}),&result);
         let item=&state.task_memory.deliverables.items[0];assert!(sufficient_css_observation(&state,item));
+        let mut runtime_check=state.clone();runtime_check.task_memory.deliverables.items[0].check=Some(Need::Runtime);
+        runtime_check.can_verify=true;runtime_check.browser_available=true;runtime_check.mutations=1;
+        runtime_check.task_memory.verification.code_changed=true;
+        assert!(sufficient_css_observation(&runtime_check,&runtime_check.task_memory.deliverables.items[0]));
+        assert!(verification_gap(&runtime_check).is_none());
+        for strict in [Need::Test,Need::Build,Need::Static] {
+            runtime_check.task_memory.deliverables.items[0].check=Some(strict);
+            assert!(!sufficient_css_observation(&runtime_check,&runtime_check.task_memory.deliverables.items[0]));
+        }
         let record=state.task_memory.verification.records.last().unwrap();assert!(!record.pass);assert!(record.coverage.is_empty());assert!(record.inspection.is_some());
         assert_ne!(item.status,deliverables::DeliverableStatus::Verified);
         let prompt=state.task_memory.verification.prompt(&state.task_memory.deliverables,false,true);assert!(prompt.contains("observed (no assertion)"));assert!(prompt.contains("28px"));assert!(!prompt.contains("[browser FAIL]"));
+        // Ancestor inspection measures document overflow while retaining the
+        // original input anchor; another route/viewport still cannot bind it.
+        let mut ancestor=result.clone();ancestor["inspection"]["elements"][0]["containedAnchors"]=json!(["#checkout"]);
+        ancestor["inspection"]["page"]=json!({"root":{"clientWidth":1920,"scrollWidth":1920}});
+        record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"html"}),&ancestor);
+        assert!(state.task_memory.verification.records.last().unwrap().deliverable_ids.contains(&"area-1".to_string()));
+        assert_eq!(state.task_memory.verification.records.last().unwrap().inspection.as_ref().unwrap()["pageGeometry"]["root"]["scrollWidth"],1920);
+        assert!(same_browser_route(&json!("http://localhost:5173/?#/it/products-page"),&json!("http://localhost:5173/#/it/products-page")));
+        assert!(!same_browser_route(&json!("http://localhost:5173/?q=?#/it/products-page"),&json!("http://localhost:5173/?q=#/it/products-page")));
+        let mut anonymous=state.clone();anonymous.task_memory.deliverables=Default::default();anonymous.can_verify=true;anonymous.browser_available=true;
+        anonymous.task_memory.verification.changed.insert("Card.module.css".into(),1);
+        anonymous.task_memory.verification.revisions.insert("Card.module.css".into(),anonymous.task_memory.verification.revisions[&file].clone());
+        record_project_browser_evidence(&mut anonymous,&root,&json!({"action":"inspect","selector":"html"}),&ancestor);
+        assert!(sufficient_unregistered_css_observation(&anonymous));assert!(verification_gap(&anonymous).is_none());
+        let mut failed=anonymous.clone();failed.task_memory.verification.record(verification::Kind::Browser,"qa failure",false,"failed",1);assert!(!sufficient_unregistered_css_observation(&failed));
+        anonymous.task_memory.verification.changed.insert(root.join("logic.ts").to_string_lossy().into_owned(),1);
+        assert!(!sufficient_unregistered_css_observation(&anonymous));
         let mut dev=result.clone();dev["source_revisions"]=json!({});
         state.task_memory.verification.changed.insert(file.clone(),1);
         state.task_memory.verification.records.clear();
@@ -2096,6 +2153,27 @@ mod wrapped_evidence_tests {
         let mut wrong=result.clone();wrong["inspection"]["viewport"]["width"]=json!(390);
         let mut other=state.clone();other.task_memory.verification.records.clear();record_project_browser_evidence(&mut other,&root,&json!({"action":"inspect","selector":"#checkout"}),&wrong);
         assert!(!sufficient_css_observation(&other,&other.task_memory.deliverables.items[0]));
+        for field in ["url", "freshness", "selector", "revision"] {
+            let mut invalid=result.clone();
+            match field {
+                "url" => {invalid["url"]=json!("http://127.0.0.1:5173/#/another");invalid["inspection"]["url"]=invalid["url"].clone();},
+                "freshness" => invalid["freshness"]["status"]=json!("possibly_stale"),
+                "selector" => invalid["region_context"]["references"][0]["selectors"]=json!(["#another"]),
+                _ => invalid["source_revisions"][&file]=json!("stale-source-revision"),
+            }
+            let mut rejected=state.clone();rejected.task_memory.verification.records.clear();
+            // An explicitly stale served revision must not use mutation fallback.
+            record_project_browser_evidence(&mut rejected,&root,&json!({"action":"inspect","selector":"#checkout"}),&invalid);
+            assert!(!sufficient_css_observation(&rejected,&rejected.task_memory.deliverables.items[0]),"{field}");
+        }
+        let mut explicit=state.clone();explicit.task_memory.deliverables.items[0].criteria.push(deliverables::AcceptanceCriterion {
+            id:"interaction".into(),description:"Explicit independent interaction requirement".into(),kind:"runtime".into(),scenario:None,
+        });
+        assert!(!sufficient_css_observation(&explicit,&explicit.task_memory.deliverables.items[0]));
+        let mut logic=state.clone();logic.task_memory.deliverables.items[0].paths.push("logic.ts".into());
+        assert!(!sufficient_css_observation(&logic,&logic.task_memory.deliverables.items[0]));
+        logic=state.clone();logic.task_memory.verification.changed.insert("logic.ts".into(),1);
+        assert!(!sufficient_css_observation(&logic,&logic.task_memory.deliverables.items[0]));
         state.task_memory.verification.note_change(Some(&file));state.task_memory.verification.revisions.insert(file,"new-source-revision".into());assert!(!sufficient_css_observation(&state,&state.task_memory.deliverables.items[0]));
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -2342,7 +2420,7 @@ fn anonymous_verification_gap(state: &AgentState) -> bool {
     // A stopped unregistered implementation still needs a check on Continue,
     // even if the caller has no saved Task Memory projection.
     if need == Need::Readback && state.work_budget.has_changed_code() { need = Need::Runtime; }
-    state.task_memory.deliverables.is_empty() && has_project_changes(state)
+    state.task_memory.deliverables.is_empty() && !sufficient_unregistered_css_observation(state) && has_project_changes(state)
         && state.can_verify && need != Need::Readback
         && (ledger.best_passing(need).is_none() || ledger.blocking_failure(&state.task_memory.deliverables).is_some())
 }
@@ -2360,7 +2438,7 @@ fn terminal_status_note(
         Status::Pending | Status::Implemented | Status::Blocked));
     let anonymous_gap = anonymous_verification_gap(state);
     let steps = &state.task_memory.plan.steps;
-    let unfinished_plan = steps.iter().any(|step| step.status != StepStatus::Completed);
+    let unfinished_plan = steps.iter().any(|step| matches!(step.status, StepStatus::Pending | StepStatus::InProgress | StepStatus::Blocked));
     if state.task_memory.browser_qa.is_none() && !outstanding && !unfinished_plan && !anonymous_gap {
         return String::new();
     }
@@ -4001,7 +4079,14 @@ fn clear_edit_failures_after_read(state: &mut AgentState, tool: &ValidatedCall) 
 }
 
 fn clear_browser_failures_after_recovery(state:&mut AgentState,tool:&ValidatedCall,value:&Value) {
-    if tool.name!="web_project" || tool.arguments["action"]!="open" || value.pointer("/browser_session/recovered").and_then(Value::as_bool)!=Some(true){return;}
+    if tool.name!="web_project" || value.get("error").is_some(){return;}
+    let recovered=tool.arguments["action"]=="open" && value.pointer("/browser_session/recovered").and_then(Value::as_bool)==Some(true);
+    let restored=matches!(tool.arguments["action"].as_str(),Some("open"|"back"|"forward"|"reload"))
+        && value["url"].as_str().is_some()
+        && value.pointer("/region_context/references").and_then(Value::as_array).is_some_and(|refs|refs.iter().any(|r|r["matches_current"]==true));
+    // Explicitly restoring the original route changes browser preconditions.
+    // Keep security denials, other projects, task budgets and loop history.
+    if !recovered && !restored{return;}
     let slot=tool.arguments["project"].as_u64().unwrap_or(1);
     state.failed_tool_calls.retain(|fingerprint,_|{
         let Some(args)=fingerprint.strip_prefix("web_project:").and_then(|args|serde_json::from_str::<Value>(args).ok())else{return true;};
@@ -4690,7 +4775,7 @@ fn verification_gap(state: &AgentState) -> Option<String> {
             line.push_str(" (needs a run in a real browser, e.g. a headless browser or a Playwright or Puppeteer script; a jsdom or node script is not one)");
         }
         lines.push(line);
-    } else if deliverables.is_empty() {
+    } else if deliverables.is_empty() && !sufficient_unregistered_css_observation(state) {
         let need = ledger.effective_need(None);
         if need != Need::Readback
             && ledger.reachable(need, state.browser_available)
@@ -4703,6 +4788,7 @@ fn verification_gap(state: &AgentState) -> Option<String> {
         }
     }
     if state.strategy.is_deep()
+        && !sufficient_unregistered_css_observation(state)
         && (deliverables.is_empty()
             || deliverables
                 .unverified()
@@ -6912,6 +6998,10 @@ mod tests {
         for key in [one,two,"run_terminal:danger","denied:scope"]{state.failed_tool_calls.insert(key.into(),2);}
         clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":false}}));assert!(failed_call_retry_exhausted(&state,one,0));
         clear_browser_failures_after_recovery(&mut state,&tool,&json!({"browser_session":{"recovered":true}}));assert!(!failed_call_retry_exhausted(&state,one,0));
+        for key in [two,"run_terminal:danger","denied:scope"]{assert!(failed_call_retry_exhausted(&state,key,0));}
+        state.failed_tool_calls.insert(one.into(),2);
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"url":"http://localhost:5173/#/it/products-page","region_context":{"references":[{"matches_current":true}]}}));
+        assert!(!failed_call_retry_exhausted(&state,one,0));
         for key in [two,"run_terminal:danger","denied:scope"]{assert!(failed_call_retry_exhausted(&state,key,0));}
     }
 

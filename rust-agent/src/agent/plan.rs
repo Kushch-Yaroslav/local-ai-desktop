@@ -27,6 +27,8 @@ pub enum StepStatus {
     Pending,
     InProgress,
     Completed,
+    /// Optional work deliberately omitted; note preserves the reason.
+    Skipped,
     /// Cannot proceed; `note` says why.
     Blocked,
 }
@@ -42,6 +44,7 @@ impl StepStatus {
             "pending" | "todo" | "open" => Some(Self::Pending),
             "in_progress" | "active" | "current" | "doing" | "started" => Some(Self::InProgress),
             "completed" | "complete" | "done" | "finished" => Some(Self::Completed),
+            "skipped" => Some(Self::Skipped),
             "blocked" | "stuck" => Some(Self::Blocked),
             _ => None,
         }
@@ -53,6 +56,7 @@ impl StepStatus {
             Self::InProgress => "[>]",
             Self::Completed => "[x]",
             Self::Blocked => "[!]",
+            Self::Skipped => "[-]",
         }
     }
 }
@@ -147,7 +151,7 @@ impl Plan {
         let completed = self
             .steps
             .iter()
-            .filter(|step| step.status == StepStatus::Completed)
+            .filter(|step| matches!(step.status, StepStatus::Completed | StepStatus::Skipped))
             .cloned()
             .collect::<Vec<_>>();
         if completed.len() + cleaned.len() > MAX_STEPS {
@@ -229,7 +233,7 @@ impl Plan {
             .iter()
             .position(|step| step.id == id)
             .ok_or_else(|| format!("unknown step '{id}': use action view to list the steps"))?;
-        if status == Some(StepStatus::Blocked)
+        if matches!(status, Some(StepStatus::Blocked | StepStatus::Skipped))
             && note
                 .as_deref()
                 .unwrap_or(&self.steps[position].note)
@@ -237,7 +241,7 @@ impl Plan {
                 .count()
                 < 8
         {
-            return Err("note is required: say concretely what blocks this step".into());
+            return Err("note is required: explain why this step is blocked or optional work is skipped".into());
         }
         if status.is_none() && text.is_none() && note.is_none() {
             return Err("nothing to update: pass status, text or note".into());
@@ -257,7 +261,7 @@ impl Plan {
                 }
             }
             self.steps[position].status = status;
-            if status != StepStatus::Blocked && status != StepStatus::Pending {
+            if !matches!(status, StepStatus::Blocked | StepStatus::Pending | StepStatus::Skipped) {
                 self.steps[position].note.clear();
             }
             self.normalize_active();
@@ -443,6 +447,17 @@ mod tests {
         assert_eq!(Plan::default().prompt(), "");
     }
 
+    #[test]
+    fn optional_steps_can_be_skipped_without_claiming_completion() {
+        let mut plan=Plan::default();plan.set(&texts(&["Fix CSS", "Audit unrelated routes"])).unwrap();
+        plan.update("s1",Some(StepStatus::Completed),None,None).unwrap();
+        assert!(plan.update("s2",Some(StepStatus::Skipped),None,None).is_err());
+        plan.update("s2",Some(StepStatus::Skipped),None,Some("Local rule; original viewport evidence is sufficient")).unwrap();
+        assert!(plan.active().is_none());assert_eq!(plan.steps[1].status,StepStatus::Skipped);
+        assert!(plan.steps[1].note.contains("Local rule"));
+        let restored:Plan=serde_json::from_str(&serde_json::to_string(&plan).unwrap()).unwrap();assert_eq!(restored,plan);
+        plan.set(&texts(&["Report result"])).unwrap();assert_eq!(plan.steps[1].status,StepStatus::Skipped);
+    }
     #[test]
     fn a_plan_round_trips_through_json_and_loads_when_absent() {
         let mut plan = Plan::default();

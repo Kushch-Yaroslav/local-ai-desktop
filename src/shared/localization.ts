@@ -23,7 +23,7 @@ export const reasoningControlText = localizedLabels({
 export const chatModeLabel = localizedLabels({ chat: 'Чат', agent: 'Агент' } as const);
 
 export const agentStatusText = localizedLabels({ panel: 'План и результат', plan: 'План', deliverables: 'Требуемый результат', result: 'Результат', warnings: 'Предупреждения проекта', preExisting: 'Сбой наблюдался до изменений', baseline: 'Проверка до изменений', failed: 'Не прошла', passed: 'Пройдена', saved: 'Сохранённое состояние', unfinishedStep: 'Незавершённый шаг' } as const);
-export const planStatusLabel = localizedLabels({ pending: 'Предстоит', in_progress: 'Текущий шаг', completed: 'Выполнено', blocked: 'Заблокировано', abandoned: 'Исключено' } as const);
+export const planStatusLabel = localizedLabels({ skipped: 'Пропущено', pending: 'Предстоит', in_progress: 'Текущий шаг', completed: 'Выполнено', blocked: 'Заблокировано', abandoned: 'Исключено' } as const);
 export const budgetReasonLabel: Record<string, string> = localizedLabels({
   initial_allowance: 'Начальный бюджет', changed_code_check_passed: 'Изменённый код прошёл проверку',
   relevant_failure_resolved: 'Исправлен сбой релевантной проверки',
