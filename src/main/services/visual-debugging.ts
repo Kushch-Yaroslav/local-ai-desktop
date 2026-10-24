@@ -9,6 +9,15 @@ import type { Database } from './database';
 import type { ProjectBrowserSession } from '../web/project-browser';
 import type { VisualCommand, VisualDocument, VisualRegion } from '../../shared/visual-debugging';
 
+/** Completed file-tool results, never claims from a final assistant answer. */
+function changedPaths(action:import('../../shared/types').ToolActivity):string[]{
+  if(action.state!=='completed'||!['write_file','replace_text','apply_patch','create_file','delete_file'].includes(action.toolName??''))return [];
+  let result:Record<string,unknown>={};try{result=JSON.parse(action.rawOutput??action.output??'{}');}catch{/* Older actions may lack a structured result. */}
+  if(result.unchanged===true||result.applied===false||action.toolName==='replace_text'&&action.arguments?.old_text===action.arguments?.new_text)return [];
+  if(Array.isArray(result.files))return result.files.filter((p):p is string=>typeof p==='string').slice(0,64);
+  return typeof action.arguments?.path==='string'?[action.arguments.path]:[];
+}
+
 /** Chat-local evidence, not long-term memory and not a second Verification Ledger. */
 export class VisualDebugging {
   private readonly drafts = new Map<string, import('../../shared/visual-debugging').VisualIssue>();
@@ -50,7 +59,16 @@ export class VisualDebugging {
         if(!proof||proof.epoch!==ledger?.epoch||proof.run_serial!==ledger.run_serial||proof.unknown_epoch!==ledger.unknown_epoch){issue.check={...issue.check,status:'Not Verified',reason:'evidence-stale'};issue.verification='Not Verified';if(issue.status==='Verified')issue.status='Fixed';}
       }
       if(item?.paths)issue.suspectedSourceFiles=item.paths.slice(0,12);
+      const run=issue.runId?this.db.listAnalysisRuns(chatId).find(r=>r.generationId===issue.runId):undefined;
+      const root=document.regions.find(r=>r.groupId===issue.id)?.projectRoot;
+      const related=Boolean(root&&item?.paths?.length&&run?.actions.some(a=>changedPaths(a).some(path=>(item.paths??[]).some(p=>resolve(root,p)===resolve(root,path)))));
+      if(run?.status==='completed'&&related&&issue.workflow?.source!=='user'&&issue.workflow?.runId!==issue.runId){
+        issue.workflow={state:'completed',source:'runtime',at:run.completedAt??new Date().toISOString(),runId:issue.runId};
+      }
+
     }
+    normalizeVisualDocument(document);
+    if(JSON.stringify(document)!==before)this.save(chatId,projectId,document);
     return document;
   }
   private readonly projectHashes=new Map<string,{at:number;hash:string}>();
@@ -103,6 +121,10 @@ export class VisualDebugging {
       if(command.enabled!==undefined&&typeof command.enabled!=='boolean'||command.selectedIds!==undefined&&(!Array.isArray(command.selectedIds)||command.selectedIds.length>100||!command.selectedIds.every(id=>typeof id==='string')))throw new Error('Invalid visual display state');
       const display=await session?.visualDisplay(document.regions,command.enabled,command.selectedIds);
       return {...document,display};
+    }else if(command.action==='workflow'){
+      const issue=document.issues.find(i=>i.id===command.issueId);if(!issue||!['completed','disputed'].includes(command.state))throw new Error('Invalid area decision');
+      issue.workflow={state:command.state,source:'user',at:new Date().toISOString(),runId:issue.runId};
+      issue.events=[...(issue.events??[]),{at:issue.workflow.at,source:'user' as const,action:command.state}].slice(-30);
     }else if(command.action==='new-area'){
       if(document.issues.length>=100)throw new Error('Area limit reached');
       document.issues=document.issues.filter(i=>i.regionIds.length);this.activatedDrafts.delete(this.key(chatId,projectId));

@@ -20,14 +20,21 @@ export function ControlHelp({ label, children }: { label: string; children: Reac
     if (!anchor) return;
     const margin = 12;
     const width = Math.min(340, Math.max(0, window.innerWidth - margin * 2));
-    const maxHeight = Math.min(360, Math.max(120, window.innerHeight - margin * 2));
+    let maxHeight = Math.min(360, Math.max(120, window.innerHeight - margin * 2));
     const height = Math.min(tooltip.current?.getBoundingClientRect().height ?? 120, maxHeight);
     const below = window.innerHeight - anchor.bottom - 9 - margin;
     const above = anchor.top - 9 - margin;
-    const top = below >= Math.min(height, 120) || below >= above
+    let top = below >= Math.min(height, 120) || below >= above
       ? Math.min(anchor.bottom + 9, window.innerHeight - height - margin)
       : Math.max(margin, anchor.top - height - 9);
     const left = Math.max(margin, Math.min(anchor.left + anchor.width / 2 - width / 2, window.innerWidth - width - margin));
+    // Native views are separate compositor surfaces. Keep help in renderer chrome
+    // rather than hiding the entire live page to display a small portal.
+    const surface=document.querySelector('.live-workspace:not(.mode-chat) .native-browser-surface')?.getBoundingClientRect();
+    if(surface&&left<surface.right&&left+width>surface.left&&top<surface.bottom&&top+height>surface.top){
+      maxHeight=Math.max(40,Math.min(maxHeight,surface.top-margin*2));
+      top=Math.max(margin,surface.top-Math.min(height,maxHeight)-margin);
+    }
     setPoint({ left, top, maxHeight });
   }, []);
 

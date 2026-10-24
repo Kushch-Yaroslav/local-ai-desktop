@@ -104,7 +104,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const statusText = status === 'loading' ? t('Загрузка') : status === 'live' ? t('Подключён') : status === 'error' ? t('Ошибка') : t('Браузер закрыт');
   const action = browser?.action;
   return <div ref={root} className={`live-workspace mode-${mode} ${narrow ? 'is-narrow' : ''}`} style={{ '--chat-share': `${ratio}%` } as CSSProperties}>
-    <div className="live-chat">{chat?.workingDirectory&&mode==='chat'&&<button className="live-manual-open" disabled={running&&!browser} onClick={()=>browser&&browser.status!=='ended'?changeMode('split'):openBrowser()}><Globe size={15}/>{browser&&browser.status!=='ended'?t('Браузер'):t('Открыть браузер')}{browser&&<span>{statusText}</span>}</button>}{children}</div>
+    <div className="live-chat">{chat?.workingDirectory&&mode==='chat'&&<button className="live-manual-open" disabled={running&&!browser} onClick={()=>browser&&browser.status!=='ended'?changeMode('split'):openBrowser()}><Globe size={15}/>{browser&&browser.status!=='ended'?t('Браузер'):t('Открыть браузер')}{browser&&browser.status!=='ended'&&<span>{statusText}</span>}</button>}{children}</div>
     {mode === 'split' && <div className="live-divider" role="separator" aria-label={t('Размер панелей')} aria-orientation="vertical" aria-valuemin={25} aria-valuemax={75} aria-valuenow={Math.round(ratio)} tabIndex={0}
       onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setRatio(value => Math.max(25, Math.min(75, value + (event.key === 'ArrowLeft' ? -3 : 3)))); } }}
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
@@ -128,6 +128,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       </form>
       {openError&&<p className="live-error" role="alert">{openError}</p>}
       {editingAddress&&previewUrl!==browser?.url&&<p className="live-navigation-draft" role="status">{t('Черновик адреса. Текущая страница')}: <code>{browser?.url||t('Браузер закрыт')}</code></p>}
+      {browser?.freshness?.status==='possibly-stale'&&<p className="live-navigation-draft" role="status">{t('Страница может быть устаревшей')} · {browser.freshness.origin} <button disabled={!interactive||running} onClick={()=>input({kind:'reload'})}>{t('Обновить')}</button></p>}
       <BrowserWorkspaceControls state={workspace} disabled={!interactive||running} onChange={configure}/>
       <div className={`live-ownership ownership-${browser?.ownership??'unavailable'}`} role="status">
         {browser?.ownership==='agent'?<Bot size={16}/>:<UserRound size={16}/>}
