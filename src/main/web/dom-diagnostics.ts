@@ -1,5 +1,5 @@
 /** Self-contained browser function: never reads input values or executable paths. */
-export function inspectBrowserDom(input:{selector?:string;properties?:string[]}) {
+export function inspectBrowserDom(input:{selector?:string;properties?:string[];anchorSelectors?:string[]}) {
   const privateSelector='input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style';
   const text=(root:Element,limit:number)=>{
     if(root.closest(privateSelector))return '[private]';
@@ -13,9 +13,10 @@ export function inspectBrowserDom(input:{selector?:string;properties?:string[]})
   };
   if(input.selector!==undefined){
     const all=document.querySelectorAll(input.selector);
-    return {inspection:{url:location.href,viewport:{width:innerWidth,height:innerHeight},matches:all.length,elements:Array.from(all).slice(0,10).map(e=>{
+    return {inspection:{url:location.href,viewport:{width:innerWidth,height:innerHeight},matches:all.length,page:{root:{clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth},body:document.body?{clientWidth:document.body.clientWidth,scrollWidth:document.body.scrollWidth}:null},elements:Array.from(all).slice(0,10).map(e=>{
       const r=e.getBoundingClientRect(),s=getComputedStyle(e);
-      return {tag:e.tagName,text:text(e,300),rect:{x:r.x,y:r.y,width:r.width,height:r.height},clientWidth:e.clientWidth,clientHeight:e.clientHeight,scrollWidth:e.scrollWidth,scrollHeight:e.scrollHeight,styles:Object.fromEntries((input.properties??[]).map(p=>[p,s.getPropertyValue(p).slice(0,120)]))};
+      const containedAnchors=(input.anchorSelectors??[]).filter(selector=>{try{const anchors=document.querySelectorAll(selector);return anchors.length===1&&e.contains(anchors[0]);}catch{return false;}});
+      return {containedAnchors,tag:e.tagName,text:text(e,300),rect:{x:r.x,y:r.y,width:r.width,height:r.height},clientWidth:e.clientWidth,clientHeight:e.clientHeight,scrollWidth:e.scrollWidth,scrollHeight:e.scrollHeight,styles:Object.fromEntries((input.properties??[]).map(p=>[p,s.getPropertyValue(p).slice(0,120)]))};
     })}};
   }
   return {title:document.title,url:location.href,content:document.body?text(document.body,12000):'',links:Array.from(document.querySelectorAll('a[href]')).slice(0,40).map(a=>({text:text(a,300),href:(a as HTMLAnchorElement).href}))};

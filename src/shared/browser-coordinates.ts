@@ -11,7 +11,8 @@ export type GroundedBox=Pick<VisualRegion,'url'|'rect'|'viewport'|'dpr'|'anchors
 /** Self-contained: also installed in the scoped page. Never substitute stale document coordinates. */
 export function projectVisualRegion(region:GroundedBox,lookup:(selector:string)=>ArrayLike<Element>=selector=>document.querySelectorAll(selector)):{rect?:VisualRect;stale:boolean;reason?:string}{
   if(document.readyState==='loading')return {stale:true,reason:'dom-not-ready'};
-  if(region.url!==location.href)return {stale:true,reason:'route'};
+  const route=(raw:string)=>{const u=new URL(raw);if(!u.search)u.search='';if(!u.hash)u.hash='';return u.href;};
+  if(route(region.url)!==route(location.href))return {stale:true,reason:'route'};
   const first=region.anchors[0];
   const anchor=first?.confidence>=.8?first:region.anchors.find(a=>a.confidence>=.8&&a.tag!=='main'&&a.tag!=='body'&&a.tag!=='html');
   if(anchor){

@@ -1,3 +1,4 @@
+import { sameBrowserUrl } from '../../shared/browser-url';
 import {inspectBrowserDom} from './dom-diagnostics';
 import {diagnosticStyles} from '../../shared/browser-style';
 import {allowedViteSocket,viteClientMessage} from '../../shared/preview-hmr';
@@ -38,6 +39,7 @@ export const projectBrowserTool: ProjectToolDefinition = { type: 'function', fun
   description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, arbitrary WebSocket (only approved same-port Vite HMR), POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: { analyze: { type: 'boolean', description: 'For screenshot: explicitly request model image analysis; capture works without Vision.' },
     action: { type: 'string', enum: ['open', 'inspect', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
+    supplementary_reason: { type: 'string', minLength: 8, maxLength: 240, description: 'Only for additional route diagnostics justified by a shared changed component or an explicit user request. Never counts as verification of a region on another route.' },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
     selector: { type: 'string', description: 'CSS selector for click, fill or bounded read-only inspect (computed CSS, text and geometry; no private input values).' },
@@ -281,7 +283,7 @@ export class ProjectBrowserSession {
     const page=this.page;
     if(!this.reusable||!page||region.projectRoot!==this.root)throw new Error('Region outside current preview scope');
     const epoch=this.visualEpoch;
-    const currentUrl=page.url(),needsNavigation=currentUrl!==region.url;
+    const currentUrl=page.url(),needsNavigation=!sameBrowserUrl(currentUrl,region.url);
     const view={regionId:region.id,url:region.url,currentUrl,needsNavigation,stale:false,reason:undefined as string|undefined,screenshotOnly:!region.anchors.length,scrollDeferred:this.ownership!=='user'||Boolean(this.operationAbort),diagnostics:[] as string[]};
     if(needsNavigation){view.diagnostics.push('Region belongs to another route; explicit navigation is required');return view;}
     // While the agent owns the page, read geometry without scrolling or changing its DOM.
@@ -294,7 +296,7 @@ export class ProjectBrowserSession {
       return {stale:before.stale,reason:before.reason,url:location.href,boxes:siblings.flatMap(r=>{const result=project(r);return result.rect?[{...result.rect,color:r.color??'#22d3ee',label:`${r.groupNumber??''} · #${r.id}`}]:[];})};
     };
     const result=await page.evaluate<ReturnType<typeof inspect>>(`(${inspect.toString()})(${JSON.stringify({region:safe(region),siblings:siblings.map(safe),scroll:data.scroll})},${projectVisualRegion.toString()})`);
-    if(result.url!==region.url){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
+    if(!sameBrowserUrl(result.url,region.url)){view.currentUrl=result.url;view.needsNavigation=true;view.diagnostics.push('The page changed while viewing; no original-route claim was made');return view;}
     if(epoch!==this.visualEpoch)return {...view,stale:true,diagnostics:['Selection changed while viewing; highlight cancelled']};
     view.stale=result.stale;view.reason=result.reason;
     if(result.stale)view.diagnostics.push('Anchor stale: '+result.reason+'. Original crop only; live coordinates were not drawn.');
@@ -305,7 +307,7 @@ export class ProjectBrowserSession {
     return view;
   }
   async visualNavigate(region: VisualRegion){
-    await this.exclusive(async()=>{if(this.ownership!=='user'||!this.page||region.projectRoot!==this.root||new URL(region.url).origin!==this.origin)throw new Error('Region outside current preview scope');await this.clearSelection();if(this.page.url()!==region.url)await this.page.goto(region.url,{waitUntil:'load'});});
+    await this.exclusive(async()=>{if(this.ownership!=='user'||!this.page||region.projectRoot!==this.root||new URL(region.url).origin!==this.origin)throw new Error('Region outside current preview scope');await this.clearSelection();if(!sameBrowserUrl(this.page.url(),region.url))await this.page.goto(region.url,{waitUntil:'load'});});
     return this.visualReveal(region);
   }
   get visualWorkspace(){return this.native?.workspaceState?.()?.settings;}
@@ -314,7 +316,7 @@ export class ProjectBrowserSession {
       if(this.ownership!=='user'||!this.page||!this.reusable)throw new Error('Recheck requires user ownership');
       if(!regions.length||regions.length>6)throw new Error('Recheck supports one to six selections');
       const first=regions[0],page=this.page;
-      if(regions.some(r=>r.projectRoot!==this.root||new URL(r.url).origin!==this.origin||r.url!==first.url||r.viewport.width!==first.viewport.width||r.viewport.height!==first.viewport.height))throw new Error('Recheck requires one approved route and original viewport');
+      if(regions.some(r=>r.projectRoot!==this.root||new URL(r.url).origin!==this.origin||!sameBrowserUrl(r.url,first.url)||r.viewport.width!==first.viewport.width||r.viewport.height!==first.viewport.height))throw new Error('Recheck requires one approved route and original viewport');
       for(const r of regions){const a=r.anchors[0];if(!a||a.confidence<.8||!a.findings?.some(f=>['text-clipping','horizontal-overflow','vertical-overflow'].includes(f.category)))throw new Error('Recheck supports DOM text fitting candidates only');}
       const saved=this.native?.workspaceState?.()?.settings;
       const originalWorkspace=saved?structuredClone(saved):undefined,originalViewport=page.viewportSize();
@@ -490,9 +492,10 @@ export class ProjectBrowserSession {
       const references=this.qaOptions.regionContext??[];
       const expected=references.map(r=>r.url),current=this.page?.url();
       if(references.length&&['inspect','read','screenshot','qa'].includes(String(args.action))&&current){
-        let mismatch=!expected.includes(current);
-        if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>new URL(scenario.target,current).href===r.url))mismatch=true;}
-        if(mismatch)return {error:'REGION_ROUTE_MISMATCH: the current/QA route differs from the selected region. Preserve full URL query and hash; explicitly open the reference URL before analyzing it.',code:'REGION_ROUTE_MISMATCH',current_url:visualPromptUrl(current),region_urls:expected.map(visualPromptUrl),retrySameArguments:false};
+        const supplementary=typeof args.supplementary_reason==='string'&&args.supplementary_reason.trim().length>=8&&args.supplementary_reason.length<=240;
+        let mismatch=!supplementary&&!expected.some(url=>sameBrowserUrl(url,current));
+        if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>sameBrowserUrl(new URL(scenario.target,current).href,r.url)))mismatch=true;}
+        if(mismatch)return {error:'REGION_ROUTE_MISMATCH: the current/QA route differs from the selected region. Open a returned region_url and restore its viewport before checking the original defect. Empty query separators are normalized. Additional routes need supplementary_reason explaining a shared-change/user-request scope; they never verify the original region. Do not repeat this rejected call.',code:'REGION_ROUTE_MISMATCH',current_url:visualPromptUrl(current),region_urls:expected.map(visualPromptUrl),retrySameArguments:false};
       }
       if (!keyboardActions.has(String(args.action))&&(!responsiveRequest(args)||this.isolatedQa)) await this.releaseInput();
       if (args.action === 'qa' && (!this.page || !responsiveRequest(args)&&(args.path !== undefined || args.url !== undefined)) && !this.denied) {
@@ -612,7 +615,7 @@ export class ProjectBrowserSession {
           return { ...source, qa, visual_analysis: qa.visual.analyzed };
         } else if (args.action === 'inspect') {
           if(typeof args.selector!=='string'||!args.selector.trim()||args.selector.length>500)return {error:'inspect requires a bounded CSS selector. Example: {action:"inspect",selector:"#sticker"}',code:'INVALID_SELECTOR',retrySameArguments:false};
-          const inspection=await this.page.evaluate(inspectBrowserDom,{selector:args.selector,properties:diagnosticStyles});
+          const inspection=await this.page.evaluate(inspectBrowserDom,{selector:args.selector,properties:diagnosticStyles,anchorSelectors:(this.qaOptions.regionContext??[]).filter(r=>sameBrowserUrl(r.url,this.page!.url())).flatMap(r=>r.selectors??[]).slice(0,24)});
           return {...await this.read(),inspection:{...inspection.inspection,url:visualPromptUrl(inspection.inspection!.url)}};
         } else if (args.action === 'screenshot') {
           if(this.qaOptions.takeScreenshot?!this.qaOptions.takeScreenshot():this.captures>=8)return {error:'Screenshot limit for this logical task is exhausted. Use DOM/CSS inspection or finish with verification incomplete.',code:'SCREENSHOT_LIMIT',retrySameArguments:false,alternative:{action:'inspect',selector:'<current confirmed selector>'},budget:{limit:8,scope:'logical_task'}};
@@ -853,7 +856,7 @@ export class ProjectBrowserSession {
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom=await page.evaluate(inspectBrowserDom,{});
     const workspace=this.native?.workspaceState?.();
-    return { freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:r.url===page.url()}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:sameBrowserUrl(r.url,page.url())}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

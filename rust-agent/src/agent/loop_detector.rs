@@ -139,12 +139,12 @@ impl LoopDetector {
             }
             if result.get("error").is_none() && result.get("qa").is_some() { self.invalid_qa.clear(); }
         }
-        if name=="web_project" && result.get("retrySameArguments")==Some(&Value::Bool(false)) && matches!(result.get("code").and_then(Value::as_str),Some("SCREENSHOT_LIMIT"|"INVALID_CROP"|"INVALID_SELECTOR"|"PREVIEW_ORIGIN_SCOPE_MISMATCH"|"BROWSER_NAVIGATION_FAILED")) {
-            let signature=hash(&format!("browser-block:{}:{}",result["code"],args["action"]));
+        if name=="web_project" && result.get("retrySameArguments")==Some(&Value::Bool(false)) && matches!(result.get("code").and_then(Value::as_str),Some("SCREENSHOT_LIMIT"|"INVALID_CROP"|"INVALID_SELECTOR"|"REGION_ROUTE_MISMATCH"|"DUPLICATE_FAILED_OPERATION"|"PREVIEW_ORIGIN_SCOPE_MISMATCH"|"BROWSER_NAVIGATION_FAILED")) {
+            let signature=hash("browser-blocked-strategy");
             let count=self.invalid_qa.entry(signature.clone()).or_default();*count+=1;let count=*count;
             if count<3{return None;}
             let level=if count>=4{3}else{1};
-            return Some(LoopNotice{signature,level,evidence:format!("Browser capability refused {} equivalent attempts",count),guidance:"This operation is unavailable under current conditions. Use inspect for bounded DOM/computed styles, a supported assertion and the approved original URL/viewport, or finish with verification incomplete. Do not repeat screenshot/crop/origin failures. Continuation retains the blocker; screenshot budget is task-scoped.".into(),repair_exhausted:true});
+            return Some(LoopNotice{signature,level,evidence:format!("Browser capability refused {} equivalent attempts",count),guidance:"This operation is unavailable under current conditions. Use inspect for bounded DOM/computed styles, a supported assertion and the approved original URL/viewport, or finish with verification incomplete. For REGION_ROUTE_MISMATCH explicitly open a returned saved URL; for a selector error inspect real DOM before changing it. Equivalent rejected actions across error categories are not progress. Do not alternate failed strategies or expand to unrelated routes. Continuation retains the blocker; screenshot budget is task-scoped.".into(),repair_exhausted:true});
         }
         if name=="deliverables" && result["code"]=="INVALID_STYLE_CRITERION" {
             // IDs, descriptions and alternating invalid fields are not progress.
@@ -335,6 +335,16 @@ impl LoopDetector {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn alternating_browser_refusals_share_a_bounded_guard() {
+        let mut detector=LoopDetector::default();
+        for (i,code) in ["REGION_ROUTE_MISMATCH","INVALID_SELECTOR","DUPLICATE_FAILED_OPERATION","REGION_ROUTE_MISMATCH"].iter().enumerate() {
+            let notice=detector.observe("web_project",&serde_json::json!({"action":if i%2==0{"inspect"}else{"read"}}),&serde_json::json!({"code":code,"error":"blocked","retrySameArguments":false}),false);
+            if i<2{assert!(notice.is_none());}else{assert_eq!(notice.unwrap().level,if i==2{1}else{3});}
+        }
+        detector.continued();
+        assert_eq!(detector.observe("web_project",&serde_json::json!({"action":"inspect"}),&serde_json::json!({"code":"REGION_ROUTE_MISMATCH","error":"blocked","retrySameArguments":false}),false).unwrap().level,3);
+    }
     #[test]
     fn recreating_the_same_check_file_does_not_reset_loop_detection() {
         let mut detector=LoopDetector::default();
