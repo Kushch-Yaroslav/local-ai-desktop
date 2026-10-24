@@ -1,0 +1,264 @@
+{
+  "branch": "improvement/v0.3-adaptive-verification-visual-debugging",
+  "date": "2026-10-24",
+  "electronExecution": "sequential on DISPLAY; all runtime/project roots under /tmp",
+  "initialSequentialSuite": [
+    {
+      "name": "policy",
+      "code": 0,
+      "seconds": 0.979,
+      "log": "/tmp/lad-acceptance-policy.log"
+    },
+    {
+      "name": "preview-cache",
+      "code": 0,
+      "seconds": 6.974,
+      "log": "/tmp/lad-acceptance-preview-cache.log"
+    },
+    {
+      "name": "workflow-ledger",
+      "code": 0,
+      "seconds": 1.928,
+      "log": "/tmp/lad-acceptance-workflow-ledger.log"
+    },
+    {
+      "name": "pipeline",
+      "code": 0,
+      "seconds": 1.056,
+      "log": "/tmp/lad-acceptance-pipeline.log"
+    },
+    {
+      "name": "qa-diagnostics",
+      "code": 0,
+      "seconds": 0.033,
+      "log": "/tmp/lad-acceptance-qa-diagnostics.log"
+    },
+    {
+      "name": "stop-workspace",
+      "code": 0,
+      "seconds": 34.424,
+      "log": "/tmp/lad-acceptance-stop-workspace.log"
+    },
+    {
+      "name": "workflow-electron",
+      "code": 0,
+      "seconds": 47.21,
+      "log": "/tmp/lad-acceptance-workflow-electron.log"
+    },
+    {
+      "name": "usability",
+      "code": 1,
+      "seconds": 81.414,
+      "log": "/tmp/lad-acceptance-usability.log"
+    },
+    {
+      "name": "feedback",
+      "code": 1,
+      "seconds": 5.807,
+      "log": "/tmp/lad-acceptance-feedback.log"
+    },
+    {
+      "name": "feedback-dpr2",
+      "code": 0,
+      "seconds": 12.226,
+      "log": "/tmp/lad-acceptance-feedback-dpr2.log"
+    },
+    {
+      "name": "regions",
+      "code": 0,
+      "seconds": 17.944,
+      "log": "/tmp/lad-acceptance-regions.log"
+    },
+    {
+      "name": "regions-dpr2",
+      "code": 0,
+      "seconds": 17.174,
+      "log": "/tmp/lad-acceptance-regions-dpr2.log"
+    },
+    {
+      "name": "responsive",
+      "code": 0,
+      "seconds": 7.217,
+      "log": "/tmp/lad-acceptance-responsive.log"
+    },
+    {
+      "name": "visual-layout",
+      "code": 0,
+      "seconds": 17.557,
+      "log": "/tmp/lad-acceptance-visual-layout.log"
+    },
+    {
+      "name": "shutdown",
+      "code": 0,
+      "seconds": 3.375,
+      "log": "/tmp/lad-acceptance-shutdown.log"
+    },
+    {
+      "name": "qa-loop",
+      "code": 0,
+      "seconds": 6.495,
+      "log": "/tmp/lad-acceptance-qa-loop.log"
+    },
+    {
+      "name": "autoreload",
+      "code": 0,
+      "seconds": 7.053,
+      "log": "/tmp/lad-acceptance-autoreload.log"
+    }
+  ],
+  "reruns": [
+    {
+      "name": "usability",
+      "log": "/tmp/lad-usability-final.log",
+      "result": {
+        "result": "PASS",
+        "root": "/tmp/lad-visual-usability-zQFkBA",
+        "project": "/tmp/lad-visual-usability-project-DRwONr",
+        "scope": "Real Electron/Chromium/Rust with scripted local provider",
+        "checks": 19,
+        "compactions": 1,
+        "originalNativeId": 2,
+        "requests": 12
+      }
+    },
+    {
+      "name": "feedback",
+      "log": "/tmp/lad-feedback-final.log",
+      "result": {
+        "result": "PASS",
+        "root": "/tmp/lad-region-feedback-htMOBO",
+        "dpr2": false,
+        "raster": {
+          "frames": 180,
+          "darkFrames": 0,
+          "minLuma": 240
+        },
+        "pan": {
+          "before": {
+            "x": 700,
+            "y": 150
+          },
+          "after": {
+            "x": 796,
+            "y": 198
+          }
+        }
+      }
+    },
+    {
+      "name": "adaptive-acceptance",
+      "log": "/tmp/lad-adaptive-final-acceptance.log",
+      "result": {
+        "result": "PASS",
+        "root": "/tmp/lad-adaptive-policy-B8JEzF",
+        "project": "/tmp/lad-adaptive-policy-project-oNbwgn",
+        "checks": [
+          "ON instruction reaches actual inference; related completed patch completes issue without forging Verified",
+          "Dimmed actual DOM overlay; Dispute restores state and composer chip without run; manual acceptance survives reload",
+          "OFF removes additional policy while browser inspect remains available for explicit checks",
+          "Eight persisted screenshots; ninth refused across real Stop/Continue; CSS alternative remains usable",
+          "New logical task receives new budget on same Page; computed-style QA passes without consuming explicit captures",
+          "Actual process restart preserves both task counters; cross-chat task use refused, independent chat has own budget"
+        ],
+        "requests": 24,
+        "compactions": 1,
+        "nativeId": 2
+      }
+    },
+    {
+      "name": "hmr-ledger",
+      "log": "/tmp/lad-hmr-ledger-final.log",
+      "result": {
+        "result": "PASS",
+        "root": "/tmp/lad-adaptive-hmr-vdj72p",
+        "url": "http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1",
+        "native": {
+          "radius": "36px",
+          "width": 236,
+          "text": "Updated badge",
+          "url": "http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1"
+        },
+        "nativeId": 2,
+        "checks": [
+          "Rust scripted CSS patch + HMR + scoped Ledger observation + no formal-detour + completion/dispute",
+          "CSS Modules radius/width HMR",
+          "React update",
+          "same Page route/query/hash and workspace",
+          "tooltip without hiding surface",
+          "hover and no document reload during CSS/React HMR",
+          "blocked HMR warning preserves unsaved input; explicit reload restores CSS"
+        ]
+      }
+    },
+    {
+      "name": "explicit-qa",
+      "log": "/tmp/lad-explicit-qa-final2.log",
+      "result": {
+        "result": "PASS",
+        "provider": "scripted SSE, actual Rust and Chromium",
+        "requests": 3,
+        "approvals": 2,
+        "qa": "Verified",
+        "visual": "Not Verified"
+      }
+    },
+    {
+      "name": "control-panel",
+      "log": "/tmp/lad-control-panel-final3.log",
+      "result": {
+        "result": "PASS",
+        "compactHeight": 50,
+        "expandedHeight": 418.25,
+        "realElectronRestart": true,
+        "liveBrowser": true,
+        "modalFocus": false,
+        "modalNotExercised": "Fixture model does not support MTP",
+        "noRemount": true,
+        "root": "/tmp/lad-panel-modes-VvrQzM"
+      }
+    }
+  ],
+  "qualityGates": {
+    "typecheck": "PASS (also included in final build)",
+    "eslint": "PASS",
+    "build": "PASS; existing >500KB chunk warning",
+    "rust": {
+      "passed": 416,
+      "ignored": 1,
+      "log": "/tmp/lad-rust-final-ledger.log"
+    },
+    "adapter": "PASS (exit 0; isolated runtime)"
+  },
+  "earlierFailures": [
+    {
+      "name": "usability",
+      "cause": "Technical status intentionally collapsed; reveal details before RU status assertion",
+      "correctedRun": "/tmp/lad-usability-final.log"
+    },
+    {
+      "name": "feedback",
+      "cause": "Fixed raster probe moved onto red button when issue card shifted native bounds; not a disappearing surface",
+      "proof": "native bounds + trace + fixture window raster; new probe checked inside all bounds",
+      "correctedRun": "/tmp/lad-feedback-final.log"
+    },
+    {
+      "name": "adapter",
+      "cause": "Temporary runtime log directory was not initialized",
+      "fix": "Use standard ensureAppDirectories in test bootstrap"
+    },
+    {
+      "name": "explicit-qa-legacy-test",
+      "cause": "Old test required mandatory Browser QA final review and only one approval",
+      "fix": "Explicit user-requested QA; preserve both strict approvals"
+    },
+    {
+      "name": "control-panel-legacy-locators",
+      "cause": "Old Browser Vision label and unsupported MTP fixture capability",
+      "fix": "Use current Vision label; retain modal test only where capability exists and explicitly report unexercised modal instead of enabling unsupported MTP"
+    }
+  ],
+  "limitations": [
+    "MTP modal focus not exercised: this fixture correctly reports unsupported MTP; no capability was forced.",
+    "Last Vite CSS Ledger binding and CSS_OBSERVATION_ONLY fix tested with scripted provider + actual Rust/Electron/Vite; genuine Qwen was not rerun afterward."
+  ]
+}

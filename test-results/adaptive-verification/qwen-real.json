@@ -1,0 +1,39 @@
+{
+  "provider": "actual Qwen3.6-35B-A3B (not scripted), Vision Off",
+  "result": "PASS",
+  "wallSeconds": 91.658,
+  "geometry": {
+    "radius": "28px",
+    "url": "http://127.0.0.1:40439/index.html?currency=EUR#/it/product/1",
+    "width": 1920
+  },
+  "screenshots": 0,
+  "issueWorkflow": {
+    "state": "completed",
+    "source": "runtime",
+    "at": "2026-10-24T15:31:13.843Z",
+    "runId": "a301094b-0cd7-43a7-9546-41deea5ff5c7"
+  },
+  "formalVerification": "Not Verified",
+  "serverStopped": true,
+  "remainingProcessesMatchedByExactRuntimeAndEnvironment": [],
+  "rawTraceRoot": "/tmp/lad-adaptive-real-qwen-DfoTUt",
+  "toolCounts": {
+    "list_directory": 1,
+    "web_project": 5,
+    "read_file": 3,
+    "replace_text": 1,
+    "deliverables": 6,
+    "task_memory": 1
+  },
+  "initialMetadataErrors": [
+    "text exceeded 240 characters; rejected, corrected",
+    "implemented called after failed add; rejected, corrected"
+  ],
+  "formalVerifyAttempt": "one rejected attempt; no criterion registered",
+  "helpersCreated": 0,
+  "qaScenarios": 0,
+  "immutableCriteriaRegistered": 0,
+  "limitation": "Real run finished before final dev-server Ledger binding fix. It had one bounded completion review and no observed_css record. Final task_mutations binding, CSS_OBSERVATION_ONLY guidance and no extra formal-detour were tested separately using actual Rust/Electron/Vite with a scripted provider; no second heavy inference was run.",
+  "previousContinuationRun": "Earlier real run timed out at 300s after successful CSS edit; not counted as successful."
+}

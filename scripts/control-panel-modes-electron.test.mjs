@@ -12,22 +12,22 @@ const mode=async(page,value)=>{const toggle=page.locator('.panel-mode-toggle');i
 try{
  let page=await launch();const errors=[];page.on('pageerror',e=>errors.push(String(e)));
  assert.equal(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded'),'false','fresh profile defaults to Compact');
- assert(await page.locator('.panel-model').isVisible());assert(await page.locator('.compact-context').isVisible());assert.match(await page.locator('.compact-indicators').innerText(),/MTP:.*Vision:.*QA:/s);
+ assert(await page.locator('.panel-model').isVisible());assert(await page.locator('.compact-context').isVisible());assert.match(await page.locator('.compact-indicators').innerText(),/MTP:.*Vision:.*Testing and verification:/s);
  const compactHeight=await page.locator('.control-panel').evaluate(e=>e.getBoundingClientRect().height);assert(compactHeight<110,'compact header uses minimal vertical space');
  const snapshot=()=>page.evaluate(async()=>({chats:await window.localAi.conversations.list(),vision:await window.localAi.browserQa.status()}));
  const before=await snapshot();
- await page.locator('.panel-mode-toggle').focus();await page.keyboard.press('Enter');await page.getByRole('combobox',{name:'Browser Vision'}).waitFor();await page.waitForTimeout(240);
+ await page.locator('.panel-mode-toggle').focus();await page.keyboard.press('Enter');await page.getByRole('combobox',{name:'Vision',exact:true}).waitFor();await page.waitForTimeout(240);
  const expandedHeight=await page.locator('.control-panel').evaluate(e=>e.getBoundingClientRect().height);assert(expandedHeight>compactHeight);
  await page.evaluate(()=>{window.originalControls=[...document.querySelectorAll('.toolbar-controls select')];});
  await page.locator('.context-estimate > summary').click();await page.locator('.context-estimate-details').waitFor();
  await page.locator('.panel-mode-toggle').evaluate(e=>e.click());assert(!(await page.locator('.context-estimate-details').isVisible()),'fixed popover is hidden together with collapsed settings');
  await mode(page,true);await page.keyboard.press('Escape');
- const mtp=page.getByRole('combobox',{name:'MTP'});await mtp.focus();await mtp.selectOption('off');await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();
+ const mtp=page.getByRole('combobox',{name:'MTP'});const mtpModalAvailable=await mtp.isEnabled();if(mtpModalAvailable){await mtp.focus();await mtp.selectOption('off');await page.getByRole('dialog',{name:'Apply MTP'}).waitFor();
  // Native modal blocks pointer interaction outside it; exercise a programmatic display update too.
  await page.locator('.panel-mode-toggle').evaluate(e=>e.click());assert(await page.getByRole('dialog').isVisible());
  await page.keyboard.press('Tab');assert(await page.evaluate(()=>!!document.activeElement.closest('dialog')));
  await page.keyboard.press('Escape');assert(await page.locator('.panel-mode-toggle').evaluate(e=>document.activeElement===e),'hidden modal trigger falls back to visible expand button');
- await mode(page,true);assert.equal(await mtp.inputValue(),'auto','cancel keeps actual selection');
+ await mode(page,true);assert.equal(await mtp.inputValue(),'auto','cancel keeps actual selection');}else{assert(await mtp.isDisabled(),'Unsupported MTP remains disabled; do not fake capability to exercise a modal');}
  const help=page.getByRole('button',{name:'Help for Model & context',exact:true});await help.focus();await page.getByRole('tooltip').waitFor();await page.keyboard.press('Escape');await page.locator('.panel-mode-toggle').focus();await page.keyboard.press('Space');
  assert(await page.evaluate(()=>window.originalControls.every((e,i)=>e===document.querySelectorAll('.toolbar-controls select')[i])),'controls keep DOM identity without remount');
  await page.keyboard.press('Tab');assert(await page.evaluate(()=>!document.activeElement.closest('.panel-expansion')),'collapsed controls are excluded from keyboard focus');
@@ -45,5 +45,5 @@ try{
  await mkdir(resolve('artifacts/p2'),{recursive:true});await page.screenshot({path:resolve('artifacts/p2/controls-compact.png')});
  await mode(page,true);await app.close();app=null;page=await launch();assert.equal(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded'),'true','Expanded survives full Electron restart');
  await mode(page,false);await app.close();app=null;page=await launch();assert.equal(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded'),'false','Compact survives full Electron restart');
- assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',compactHeight,expandedHeight,realElectronRestart:true,liveBrowser:true,modalFocus:true,noRemount:true,root}));
+ assert.deepEqual(errors,[]);console.log(JSON.stringify({result:'PASS',compactHeight,expandedHeight,realElectronRestart:true,liveBrowser:true,modalFocus:mtpModalAvailable,modalNotExercised:mtpModalAvailable?undefined:'Fixture model does not support MTP',noRemount:true,root}));
 }finally{await app?.close();}

@@ -3,6 +3,8 @@ const {resolve,join}=require('node:path');
 const root=process.env.LOCAL_AI_RUNTIME_ROOT;
 if(!root||!root.startsWith('/tmp/'))throw Error('A temporary runtime is required');
 app.setPath('userData',join(root,'electron'));
+let quitting=false;
+app.on('before-quit',event=>{if(quitting)return;event.preventDefault();quitting=true;void require(resolve('dist/main/ipc/register-ipc.js')).shutdownRuntime().catch(error=>console.error('Fixture shutdown failed',error)).finally(()=>app.quit());});
 app.whenReady().then(async()=>{
  const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true,process.env.LOCAL_AI_TEST_MODEL_ID??'qwen3.8:27b-q4_K_M');
  const controller=require(resolve('dist/main/services/llama-runtime-controller.js')).LlamaRuntimeController;controller.prototype.unload=async()=>{fixture.set({cold:true});return {ok:true,state:fixture.state()};};

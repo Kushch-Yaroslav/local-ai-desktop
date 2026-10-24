@@ -1,0 +1,67 @@
+{
+  "status": "completed",
+  "requestCount": 6,
+  "observation": {
+    "inspection": {
+      "url": "http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "selector": "#sticker",
+      "styles": {
+        "border-radius": "32px",
+        "border-top-left-radius": "32px",
+        "border-top-right-radius": "32px",
+        "border-bottom-left-radius": "32px",
+        "border-bottom-right-radius": "32px",
+        "width": "220px",
+        "height": "21px",
+        "min-width": "0px",
+        "max-width": "none",
+        "overflow": "visible",
+        "overflow-x": "visible",
+        "overflow-y": "visible",
+        "white-space": "normal",
+        "text-overflow": "clip",
+        "visibility": "visible",
+        "display": "inline-block",
+        "position": "static",
+        "opacity": "1",
+        "color": "rgb(20, 30, 40)",
+        "background-color": "rgb(239, 239, 239)",
+        "transform": "none",
+        "padding": "1px 6px",
+        "box-sizing": "border-box",
+        "font-size": "13.3333px",
+        "line-height": "normal",
+        "z-index": "auto"
+      },
+      "sourceBinding": "task_mutations"
+    },
+    "source_revisions": {
+      "/tmp/lad-adaptive-react-ILfCJ1/Card.module.css": "1e4db9c75493dd6865c1fb4af5fe278cdc1305ee2105b48eba1678e668c30f4f"
+    },
+    "run_serial": 1,
+    "unknown_epoch": 0,
+    "outcome": "observed_css",
+    "id": "ev-002",
+    "kind": "browser",
+    "class": "functional",
+    "subject": "web_project inspect #sticker http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1",
+    "pass": false,
+    "epoch": 1,
+    "turn": 3,
+    "detail": "Live computed CSS observation; no expected-value assertion or formal Verified",
+    "check_key": "web_project inspect #sticker http://127.0.0.1:5173/index.html?currency=EUR#/it/product/1",
+    "deliverable_ids": [
+      "area-2c2dbcd9-007e-40a4-9fd2-6a4e7f0eb3f8"
+    ],
+    "baseline": false,
+    "outcome_hash": "d0560d42df4773e451af90aebd6a68274c6f136d714e77732d051b015e387c6d",
+    "checked_paths": [
+      "/tmp/lad-adaptive-react-ILfCJ1/Card.module.css"
+    ]
+  },
+  "formalVerified": false
+}
