@@ -43,7 +43,7 @@ try {
   assert.equal(await application.evaluate(() => global.contextFixture.launches.length), 0, 'reading old chat cannot start the server');
   await choose(page,'110592:q8_0:gpu');
   assert.equal((await state()).status, 'idle', 'selection alone must not load');
-  assert.match(await page.locator('.context-selected').innerText(), /Selected: 108K \(Q8\)/);
+  assert.match(await page.locator('.context-selected').innerText(), /On next model load: 108K \(Q8\)/);
   const loadSelected=page.getByRole('button',{name:/Load selected configuration|Загрузить выбранную конфигурацию/});
   assert(await loadSelected.isEnabled());
   assert.match(await loadSelected.getAttribute('class'),/primary/);
@@ -55,17 +55,17 @@ try {
 
   await page.waitForFunction(() => document.querySelector('.context-active')?.textContent.includes('108K (Q8)'));
   assert.equal((await state()).contextWindow, 110592); assert.equal((await state()).kvCacheType, 'q8_0');
-  await page.waitForFunction(() => document.querySelector('.context-load')?.getAttribute('aria-busy') === 'false');
-  assert(await page.locator('.context-load').isDisabled());
+  await page.waitForFunction(() => !document.querySelector('.context-load'));
+  assert.equal(await page.locator('.context-load').count(),0);
   await application.evaluate(()=>global.contextFixture.set({loadDelayMs:0}));
-  assert.match(await page.locator('.context-active').innerText(),/Active: 108K \(Q8\)/);
+  assert.match(await page.locator('.context-active').innerText(),/Active now: 108K \(Q8\)/);
   await choose(page,'73728:f16:gpu');
-  assert.match(await page.locator('.context-selected').innerText(),/Selected: 72K \(FP16\)/);
-  assert.match(await page.locator('.context-active').innerText(),/Active: 108K \(Q8\)/);
+  assert.match(await page.locator('.context-selected').innerText(),/On next model load: 72K \(FP16\)/);
+  assert.match(await page.locator('.context-active').innerText(),/Active now: 108K \(Q8\)/);
   assert(await loadSelected.isEnabled());
   const launches=await application.evaluate(()=>global.contextFixture.launches.length);
   await choose(page,'110592:q8_0:gpu');
-  assert(await loadSelected.isDisabled(),'reselecting the effective tuple needs no reload');
+  assert.equal(await loadSelected.count(),0,'reselecting the effective tuple needs no reload');
   assert.equal(await application.evaluate(()=>global.contextFixture.launches.length),launches);
 
   await selector(page).click();

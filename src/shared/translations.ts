@@ -1,5 +1,7 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'При следующей загрузке': 'On next model load',
+  'Активно сейчас': 'Active now',
   'Обновить доступность моделей': 'Refresh model availability',
   'Не удалось обновить доступность моделей': 'Could not refresh model availability',
   'Пропущено': 'Skipped',
