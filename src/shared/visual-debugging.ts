@@ -69,15 +69,13 @@ export function visualGroupColor(id: string): string {
 }
 /** Fill optional fields of old documents without changing any region/group identity. */
 export function normalizeVisualDocument(document: VisualDocument): VisualDocument {
-  let next=Math.max(document.nextAreaNumber??1,1,...document.issues.map(i=>(i.number??0)+1));
   const used=new Set(document.issues.map(i=>i.color).filter(Boolean));
-  for(const issue of document.issues){
-    // Before status provenance existed, Unresolved could only be set manually.
+  for(const [index,issue] of document.issues.entries()){
     if(issue.status==='Unresolved'&&!issue.statusSource)issue.statusSource='user';
-    if(!issue.number)issue.number=next++;
+    issue.number=index+1;
     if(!issue.color){issue.color=visualColors.find(c=>!used.has(c))??areaColor(issue.number);used.add(issue.color);}
   }
-  document.nextAreaNumber=next;
+  document.nextAreaNumber=document.issues.length+1;
   for(const region of document.regions){region.route=visualRoute(region.url);const area=document.issues.find(i=>i.id===region.groupId);if(area){region.completed=area.workflow?.state==='completed';region.groupNumber=area.number;region.color=area.color;region.areaName=area.generatedDescription===false?area.description:undefined;}}
   for(const area of document.issues){const first=document.regions.find(r=>r.groupId===area.id);if(first)area.route=first.route;}
   return document;
