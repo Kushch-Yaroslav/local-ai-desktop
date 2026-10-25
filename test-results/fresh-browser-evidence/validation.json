@@ -1,0 +1,1019 @@
+{
+  "recordedAt": "2026-10-25T14:20:18.247416+00:00",
+  "baseCommit": "c6d7fe8",
+  "branch": "fix/v0.3-fresh-browser-evidence-grounding",
+  "quality": {
+    "typescript": "PASS via npm run build",
+    "eslint": "PASS",
+    "build": "PASS",
+    "rust": {
+      "passed": 419,
+      "failed": 0,
+      "ignored": 1,
+      "log": "/tmp/lad-fresh-rust-final.log"
+    },
+    "node": [
+      "Runtime bridge and taskVisualRegions isolation",
+      "runtime controller",
+      "route equivalence",
+      "adaptive policy",
+      "QA guard/validation",
+      "attachment pipeline",
+      "Vision capability/provider/policy"
+    ],
+    "unhandledPromiseRejectionsInFinalLogs": []
+  },
+  "electronSequential": [
+    {
+      "name": "fresh-evidence",
+      "code": 0,
+      "elapsedSeconds": 10.003,
+      "log": "/tmp/lad-fresh-acceptance-fresh-evidence.log"
+    },
+    {
+      "name": "fresh-resume",
+      "code": 0,
+      "elapsedSeconds": 14.185,
+      "log": "/tmp/lad-fresh-acceptance-fresh-resume.log"
+    },
+    {
+      "name": "fresh-dpr2",
+      "code": 0,
+      "elapsedSeconds": 10.302,
+      "log": "/tmp/lad-fresh-acceptance-fresh-dpr2.log"
+    },
+    {
+      "name": "context-state",
+      "code": 0,
+      "elapsedSeconds": 2.558,
+      "log": "/tmp/lad-fresh-acceptance-context-state.log"
+    },
+    {
+      "name": "input-completion",
+      "code": 0,
+      "elapsedSeconds": 18.844,
+      "log": "/tmp/lad-fresh-acceptance-input-completion.log"
+    },
+    {
+      "name": "model-availability",
+      "code": 0,
+      "elapsedSeconds": 4.84,
+      "log": "/tmp/lad-fresh-acceptance-model-availability.log"
+    },
+    {
+      "name": "adaptive-budget",
+      "code": 0,
+      "elapsedSeconds": 27.27,
+      "log": "/tmp/lad-fresh-acceptance-adaptive-budget.log"
+    },
+    {
+      "name": "hmr",
+      "code": 0,
+      "elapsedSeconds": 12.326,
+      "log": "/tmp/lad-fresh-acceptance-hmr.log"
+    },
+    {
+      "name": "stop-workspace",
+      "code": 0,
+      "elapsedSeconds": 28.238,
+      "log": "/tmp/lad-fresh-acceptance-stop-workspace.log"
+    },
+    {
+      "name": "feedback",
+      "code": 0,
+      "elapsedSeconds": 13.729,
+      "log": "/tmp/lad-fresh-acceptance-feedback.log"
+    },
+    {
+      "name": "feedback-dpr2",
+      "code": 0,
+      "elapsedSeconds": 10.598,
+      "log": "/tmp/lad-fresh-acceptance-feedback-dpr2.log"
+    },
+    {
+      "name": "qa-loop",
+      "code": 0,
+      "elapsedSeconds": 5.939,
+      "log": "/tmp/lad-fresh-acceptance-qa-loop.log"
+    },
+    {
+      "name": "controls",
+      "code": 0,
+      "elapsedSeconds": 6.637,
+      "log": "/tmp/lad-fresh-acceptance-controls.log"
+    },
+    {
+      "name": "responsive",
+      "code": 0,
+      "elapsedSeconds": 6.817,
+      "log": "/tmp/lad-fresh-acceptance-responsive.log"
+    },
+    {
+      "name": "visual-workflow",
+      "code": 0,
+      "elapsedSeconds": 40.52,
+      "log": "/tmp/lad-fresh-acceptance-visual-workflow.log"
+    }
+  ],
+  "additionalContextProfiles": "PASS /tmp/lad-fresh-context-profiles.log; mocked GPU/launcher, actual Electron/preload/IPC/SQLite",
+  "finalFreshRechecks": [
+    {
+      "result": "PASS",
+      "provider": "scripted",
+      "resume": false,
+      "dpr2": false,
+      "compactions": 0,
+      "root": "/tmp/lad-fresh-evidence-ObEFwW",
+      "project": "/tmp/lad-fresh-react-RkvEAJ",
+      "regionId": "region-900908f2-4827-4697-ad51-79c0fe2d4d56",
+      "originalEvidence": {
+        "createdAt": "2026-10-25T14:16:44.259Z",
+        "snapshot": "1792937802936.1:13",
+        "crop": {
+          "width": 94,
+          "height": 47,
+          "space": "native-presentation"
+        },
+        "sourceHints": [],
+        "provenance": "historical-user-selection"
+      },
+      "sourceRevisionBefore": "93c1d016e0460568367ffc5d96d6ed5945d9e60b0ed93953233069c8ba1e6e54",
+      "nativeId": 2,
+      "before": {
+        "background": "rgb(255, 228, 230)",
+        "selector": "aside._summaryCard_3nc3h_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "after": {
+        "background": "rgb(255, 255, 255)",
+        "selector": "aside._summaryCard_9z7dr_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "inspection": {
+        "observedAt": "2026-10-25T14:16:49.500Z",
+        "documentVersion": {
+          "timeOrigin": 1792937809264.9,
+          "hmrAppliedAt": 0
+        },
+        "provenance": "current-browser-observation",
+        "anchorResolution": {
+          "selector": "aside._summaryCard_9z7dr_1",
+          "rebound": true,
+          "originalSelector": "aside._summaryCard_3nc3h_1"
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "matches": 1,
+        "page": {
+          "root": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          },
+          "body": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          }
+        },
+        "elements": [
+          {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          }
+        ]
+      },
+      "ledger": {
+        "inspection": {
+          "url": "http://127.0.0.1:5173/?#/it/product/1",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "selector": "aside._summaryCard_3nc3h_1",
+          "styles": {
+            "border-radius": "2px",
+            "border-top-left-radius": "2px",
+            "border-top-right-radius": "2px",
+            "border-bottom-left-radius": "2px",
+            "border-bottom-right-radius": "2px",
+            "width": "320px",
+            "height": "160px",
+            "min-width": "0px",
+            "max-width": "none",
+            "overflow": "visible",
+            "overflow-x": "visible",
+            "overflow-y": "visible",
+            "white-space": "normal",
+            "text-overflow": "clip",
+            "visibility": "visible",
+            "display": "block",
+            "position": "static",
+            "opacity": "1",
+            "color": "rgb(0, 0, 0)",
+            "background-color": "rgb(255, 255, 255)",
+            "transform": "none",
+            "padding": "0px",
+            "box-sizing": "content-box",
+            "font-size": "16px",
+            "line-height": "normal",
+            "z-index": "auto"
+          },
+          "pageGeometry": {
+            "root": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            },
+            "body": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            }
+          },
+          "elementGeometry": {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          },
+          "observedAt": "2026-10-25T14:16:49.500Z",
+          "provenance": "current-browser-observation",
+          "anchorResolution": {
+            "selector": "aside._summaryCard_9z7dr_1",
+            "rebound": true,
+            "originalSelector": "aside._summaryCard_3nc3h_1"
+          },
+          "sourceBinding": "task_mutations"
+        },
+        "source_revisions": {
+          "/tmp/lad-fresh-react-RkvEAJ/Card.module.css": "f4321ef63e708eea84ac9b0d7298492064899f3182cef515eb16c04fd3d97aa6"
+        },
+        "run_serial": 1,
+        "unknown_epoch": 0,
+        "outcome": "observed_css",
+        "id": "ev-002",
+        "kind": "browser",
+        "class": "functional",
+        "subject": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "pass": false,
+        "epoch": 1,
+        "turn": 3,
+        "detail": "Live computed CSS observation; no expected-value assertion or formal Verified",
+        "check_key": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "deliverable_ids": [
+          "area-cef1ea4b-3ded-422d-a43b-141e43f40d27"
+        ],
+        "baseline": false,
+        "outcome_hash": "0705449746b848047b330c72d67c6d7054782ad3e1b21c32679e08a321742d21",
+        "checked_paths": [
+          "/tmp/lad-fresh-react-RkvEAJ/Card.module.css",
+          "Card.module.css"
+        ]
+      },
+      "requests": 6,
+      "payloadCount": 6,
+      "checks": [
+        "CSS Modules changed hash resolved with bounded identity",
+        "Immutable original SQLite snapshot",
+        "Live Native CSS equals tool, observation file, inference and Ledger",
+        "No pixels under Vision Off",
+        "Missing/ambiguous anchor refusals",
+        "React refresh same Page",
+        "Original URL/viewport",
+        "No private input values"
+      ]
+    },
+    {
+      "result": "PASS",
+      "provider": "scripted",
+      "resume": true,
+      "dpr2": false,
+      "compactions": 2,
+      "root": "/tmp/lad-fresh-evidence-oH6syj",
+      "project": "/tmp/lad-fresh-react-q2w69D",
+      "regionId": "region-a5cba269-9310-46ab-9c3f-5a5b208eda13",
+      "originalEvidence": {
+        "createdAt": "2026-10-25T14:16:54.343Z",
+        "snapshot": "1792937813141:13",
+        "crop": {
+          "width": 94,
+          "height": 47,
+          "space": "native-presentation"
+        },
+        "sourceHints": [],
+        "provenance": "historical-user-selection"
+      },
+      "sourceRevisionBefore": "93c1d016e0460568367ffc5d96d6ed5945d9e60b0ed93953233069c8ba1e6e54",
+      "nativeId": 2,
+      "before": {
+        "background": "rgb(255, 228, 230)",
+        "selector": "aside._summaryCard_3nc3h_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "after": {
+        "background": "rgb(255, 255, 255)",
+        "selector": "aside._summaryCard_9z7dr_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "inspection": {
+        "observedAt": "2026-10-25T14:16:59.706Z",
+        "documentVersion": {
+          "timeOrigin": 1792937819476.3,
+          "hmrAppliedAt": 0
+        },
+        "provenance": "current-browser-observation",
+        "anchorResolution": {
+          "selector": "aside._summaryCard_9z7dr_1",
+          "rebound": true,
+          "originalSelector": "aside._summaryCard_3nc3h_1"
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "matches": 1,
+        "page": {
+          "root": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          },
+          "body": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          }
+        },
+        "elements": [
+          {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          }
+        ]
+      },
+      "ledger": {
+        "inspection": {
+          "url": "http://127.0.0.1:5173/?#/it/product/1",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "selector": "aside._summaryCard_3nc3h_1",
+          "styles": {
+            "border-radius": "2px",
+            "border-top-left-radius": "2px",
+            "border-top-right-radius": "2px",
+            "border-bottom-left-radius": "2px",
+            "border-bottom-right-radius": "2px",
+            "width": "320px",
+            "height": "160px",
+            "min-width": "0px",
+            "max-width": "none",
+            "overflow": "visible",
+            "overflow-x": "visible",
+            "overflow-y": "visible",
+            "white-space": "normal",
+            "text-overflow": "clip",
+            "visibility": "visible",
+            "display": "block",
+            "position": "static",
+            "opacity": "1",
+            "color": "rgb(0, 0, 0)",
+            "background-color": "rgb(255, 255, 255)",
+            "transform": "none",
+            "padding": "0px",
+            "box-sizing": "content-box",
+            "font-size": "16px",
+            "line-height": "normal",
+            "z-index": "auto"
+          },
+          "pageGeometry": {
+            "root": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            },
+            "body": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            }
+          },
+          "elementGeometry": {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          },
+          "observedAt": "2026-10-25T14:16:59.706Z",
+          "provenance": "current-browser-observation",
+          "anchorResolution": {
+            "selector": "aside._summaryCard_9z7dr_1",
+            "rebound": true,
+            "originalSelector": "aside._summaryCard_3nc3h_1"
+          },
+          "sourceBinding": "task_mutations"
+        },
+        "source_revisions": {
+          "/tmp/lad-fresh-react-q2w69D/Card.module.css": "f4321ef63e708eea84ac9b0d7298492064899f3182cef515eb16c04fd3d97aa6"
+        },
+        "run_serial": 1,
+        "unknown_epoch": 0,
+        "outcome": "observed_css",
+        "id": "ev-002",
+        "kind": "browser",
+        "class": "functional",
+        "subject": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "pass": false,
+        "epoch": 1,
+        "turn": 3,
+        "detail": "Live computed CSS observation; no expected-value assertion or formal Verified",
+        "check_key": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "deliverable_ids": [
+          "area-928d4432-e0d2-4c75-bdbc-951d5208dc10"
+        ],
+        "baseline": false,
+        "outcome_hash": "aefeeeaadf5b2d63b0a70e0bedb47647c30c35349f38538e9986d5ced9ac23e8",
+        "checked_paths": [
+          "/tmp/lad-fresh-react-q2w69D/Card.module.css",
+          "Card.module.css"
+        ]
+      },
+      "requests": 9,
+      "payloadCount": 11,
+      "checks": [
+        "CSS Modules changed hash resolved with bounded identity",
+        "Immutable original SQLite snapshot",
+        "Live Native CSS equals tool, observation file, inference and Ledger",
+        "No pixels under Vision Off",
+        "Missing/ambiguous anchor refusals",
+        "React refresh same Page",
+        "Original URL/viewport",
+        "No private input values"
+      ]
+    },
+    {
+      "result": "PASS",
+      "provider": "scripted",
+      "resume": false,
+      "dpr2": true,
+      "compactions": 0,
+      "root": "/tmp/lad-fresh-evidence-jfa5bo",
+      "project": "/tmp/lad-fresh-react-EailBF",
+      "regionId": "region-d6e8abc2-f218-4379-b81b-7c6de6ddf3ae",
+      "originalEvidence": {
+        "createdAt": "2026-10-25T14:17:08.528Z",
+        "snapshot": "1792937827304.3:13",
+        "crop": {
+          "width": 92,
+          "height": 46,
+          "space": "native-presentation"
+        },
+        "sourceHints": [],
+        "provenance": "historical-user-selection"
+      },
+      "sourceRevisionBefore": "93c1d016e0460568367ffc5d96d6ed5945d9e60b0ed93953233069c8ba1e6e54",
+      "nativeId": 2,
+      "before": {
+        "background": "rgb(255, 228, 230)",
+        "selector": "aside._summaryCard_3nc3h_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "after": {
+        "background": "rgb(255, 255, 255)",
+        "selector": "aside._summaryCard_9z7dr_1",
+        "rect": {
+          "x": 40,
+          "y": 40,
+          "width": 320,
+          "height": 160,
+          "top": 40,
+          "right": 360,
+          "bottom": 200,
+          "left": 40
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        }
+      },
+      "inspection": {
+        "observedAt": "2026-10-25T14:17:14.327Z",
+        "documentVersion": {
+          "timeOrigin": 1792937833922.5,
+          "hmrAppliedAt": 0
+        },
+        "provenance": "current-browser-observation",
+        "anchorResolution": {
+          "selector": "aside._summaryCard_9z7dr_1",
+          "rebound": true,
+          "originalSelector": "aside._summaryCard_3nc3h_1"
+        },
+        "url": "http://127.0.0.1:5173/?#/it/product/1",
+        "viewport": {
+          "width": 1920,
+          "height": 1080
+        },
+        "matches": 1,
+        "page": {
+          "root": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          },
+          "body": {
+            "clientWidth": 1905,
+            "scrollWidth": 1905
+          }
+        },
+        "elements": [
+          {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          }
+        ]
+      },
+      "ledger": {
+        "inspection": {
+          "url": "http://127.0.0.1:5173/?#/it/product/1",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          },
+          "selector": "aside._summaryCard_3nc3h_1",
+          "styles": {
+            "border-radius": "2px",
+            "border-top-left-radius": "2px",
+            "border-top-right-radius": "2px",
+            "border-bottom-left-radius": "2px",
+            "border-bottom-right-radius": "2px",
+            "width": "320px",
+            "height": "160px",
+            "min-width": "0px",
+            "max-width": "none",
+            "overflow": "visible",
+            "overflow-x": "visible",
+            "overflow-y": "visible",
+            "white-space": "normal",
+            "text-overflow": "clip",
+            "visibility": "visible",
+            "display": "block",
+            "position": "static",
+            "opacity": "1",
+            "color": "rgb(0, 0, 0)",
+            "background-color": "rgb(255, 255, 255)",
+            "transform": "none",
+            "padding": "0px",
+            "box-sizing": "content-box",
+            "font-size": "16px",
+            "line-height": "normal",
+            "z-index": "auto"
+          },
+          "pageGeometry": {
+            "root": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            },
+            "body": {
+              "clientWidth": 1905,
+              "scrollWidth": 1905
+            }
+          },
+          "elementGeometry": {
+            "containedAnchors": [
+              "aside._summaryCard_3nc3h_1"
+            ],
+            "tag": "ASIDE",
+            "text": "Purchase summary",
+            "rect": {
+              "x": 40,
+              "y": 40,
+              "width": 320,
+              "height": 160
+            },
+            "clientWidth": 320,
+            "clientHeight": 160,
+            "scrollWidth": 320,
+            "scrollHeight": 160,
+            "styles": {
+              "border-radius": "2px",
+              "border-top-left-radius": "2px",
+              "border-top-right-radius": "2px",
+              "border-bottom-left-radius": "2px",
+              "border-bottom-right-radius": "2px",
+              "width": "320px",
+              "height": "160px",
+              "min-width": "0px",
+              "max-width": "none",
+              "overflow": "visible",
+              "overflow-x": "visible",
+              "overflow-y": "visible",
+              "white-space": "normal",
+              "text-overflow": "clip",
+              "visibility": "visible",
+              "display": "block",
+              "position": "static",
+              "opacity": "1",
+              "color": "rgb(0, 0, 0)",
+              "background-color": "rgb(255, 255, 255)",
+              "transform": "none",
+              "padding": "0px",
+              "box-sizing": "content-box",
+              "font-size": "16px",
+              "line-height": "normal",
+              "z-index": "auto"
+            }
+          },
+          "observedAt": "2026-10-25T14:17:14.327Z",
+          "provenance": "current-browser-observation",
+          "anchorResolution": {
+            "selector": "aside._summaryCard_9z7dr_1",
+            "rebound": true,
+            "originalSelector": "aside._summaryCard_3nc3h_1"
+          },
+          "sourceBinding": "task_mutations"
+        },
+        "source_revisions": {
+          "/tmp/lad-fresh-react-EailBF/Card.module.css": "f4321ef63e708eea84ac9b0d7298492064899f3182cef515eb16c04fd3d97aa6"
+        },
+        "run_serial": 1,
+        "unknown_epoch": 0,
+        "outcome": "observed_css",
+        "id": "ev-002",
+        "kind": "browser",
+        "class": "functional",
+        "subject": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "pass": false,
+        "epoch": 1,
+        "turn": 3,
+        "detail": "Live computed CSS observation; no expected-value assertion or formal Verified",
+        "check_key": "web_project inspect aside._summaryCard_3nc3h_1 http://127.0.0.1:5173/?#/it/product/1",
+        "deliverable_ids": [
+          "area-5df7f517-1c9c-4199-b121-0820c159b836"
+        ],
+        "baseline": false,
+        "outcome_hash": "8e38f7e9dd3b78a5fd2103da3c5fb7a5739cbb47e04730c51167c47ffcacaf66",
+        "checked_paths": [
+          "/tmp/lad-fresh-react-EailBF/Card.module.css",
+          "Card.module.css"
+        ]
+      },
+      "requests": 6,
+      "payloadCount": 6,
+      "checks": [
+        "CSS Modules changed hash resolved with bounded identity",
+        "Immutable original SQLite snapshot",
+        "Live Native CSS equals tool, observation file, inference and Ledger",
+        "No pixels under Vision Off",
+        "Missing/ambiguous anchor refusals",
+        "React refresh same Page",
+        "Original URL/viewport",
+        "No private input values"
+      ]
+    }
+  ],
+  "realQwen": {
+    "result": "PASS",
+    "provider": "real Qwen3.6-35B-A3B",
+    "visionMode": "off",
+    "inferenceImageParts": 0,
+    "inferencePayloads": 15,
+    "sourceFixSeconds": 51.128,
+    "nativeUpdateSeconds": 51.13,
+    "totalSeconds": 110.126,
+    "whiteObservationToDoneSeconds": 53.626,
+    "toolCalls": 13,
+    "formalCriteriaCalls": 0,
+    "terminalCalls": 2,
+    "screenshotCount": 0,
+    "runtimeParameters": {
+      "contextWindow": 32768,
+      "kvCacheType": "f16",
+      "kvOffload": true
+    },
+    "background": "rgb(255, 255, 255)",
+    "issueWorkflow": "completed",
+    "formalVerified": false,
+    "serverStopped": true,
+    "traceRoot": "/tmp/lad-adaptive-real-qwen-tZK32O",
+    "limitations": [
+      "One explicit reload after successful HMR",
+      "One Gate review caused by conservative classification of earlier grep/find redirects as unknown/glob changes",
+      "One observation-only verify refusal; run then completed",
+      "Final model table repeated original selector despite tool reporting rebound selector"
+    ]
+  },
+  "historicalTraceFindings": {
+    "freshPinkAfterPatchProven": false,
+    "staleCssModuleSelectorReturnedZero": true,
+    "stylesOffset": 16229,
+    "recoveryMaxChars": 16000,
+    "originalRunUserPngCountPerTrace": 1,
+    "screenshotAnalysis": "Vision Auto, analyzed false; not proof of historical Vision OFF",
+    "originalProviderHttpPayloadAvailable": false
+  },
+  "cleanup": {
+    "fixtureProcesses": [],
+    "signalsSent": false,
+    "ownQwenServerExited": true,
+    "checkedAt": "2026-10-25T14:23:13.215770+00:00"
+  },
+  "remainingLimits": [
+    "Bounded CSS Modules resolver requires unique tag/stem/text/context; otherwise stale, never coordinate guessing",
+    "64K Q8 validated with launcher fixture; real inference used 32K FP16 only",
+    "Observation/current labels are point-in-time provenance, not a promise after future DOM changes",
+    "Existing Vite chunk and Rust unused_mut warnings remain"
+  ],
+  "finalContextState": {
+    "result": "PASS",
+    "root": "/tmp/lad-context-state-tbF9ND",
+    "controller": "fixture launcher state, not a real GGUF load",
+    "active": {
+      "status": "ready",
+      "modelId": "qwen3.8:27b-q4_K_M",
+      "contextWindow": 65536,
+      "kvCacheType": "q8_0",
+      "kvOffload": true,
+      "serverPid": 29277,
+      "launcherPid": 29277,
+      "speculativeMode": "none",
+      "mtpMode": "off"
+    },
+    "checks": [
+      "32K FP16 applied",
+      "64K Q8 selection alone leaves 32K active",
+      "Explicit reload applies 64K Q8",
+      "32K pending clearly differs from 64K active",
+      "Renderer reload preserves actual runtime and does not launch",
+      "Saved 32K FP16 vs active 64K Q8 mismatch is visible without a new draft"
+    ]
+  }
+}
