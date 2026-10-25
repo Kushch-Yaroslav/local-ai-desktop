@@ -24,6 +24,9 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const [browser, setBrowser] = useState<LiveBrowserState | null>(null);
   const [ratio, setRatio] = useState(50);
   const [narrow, setNarrow] = useState(false);
+  const browserPanel=useRef<HTMLElement>(null);
+  const [toolsNarrow,setToolsNarrow]=useState(false);
+  useEffect(()=>{const element=browserPanel.current;if(!element)return;const ro=new ResizeObserver(()=>setToolsNarrow(element.clientWidth<650));ro.observe(element);return()=>ro.disconnect();},[]);
   const screen = useRef<HTMLDivElement>(null);
   const panTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   const root = useRef<HTMLDivElement>(null);
@@ -110,13 +113,15 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
       onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId) || !root.current) return; const rect = root.current.getBoundingClientRect(); setRatio(Math.max(25, Math.min(75, 100 * (event.clientX - rect.left) / rect.width))); }}
       onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />}
-    <aside className="live-browser" aria-label={t('Браузер')} aria-hidden={mode === 'chat'}>
-      <header className="live-header"><span className="live-title"><Globe size={16} />{t('Браузер')}</span><div className="live-view-controls">
+    <aside ref={browserPanel} style={{'--tools-width':`${workspace?.settings.toolsWidth??300}px`} as CSSProperties} className={`live-browser workspace-${workspace?.settings.layout==='horizontal'&&!toolsNarrow?'horizontal':'vertical'}`} aria-label={t('Браузер')} aria-hidden={mode === 'chat'}>
+      <header className="live-header"><div className="browser-layout-choice"><select aria-label={t('Компоновка браузера')} disabled={!interactive} value={workspace?.settings.layout??'vertical'} onChange={e=>workspace&&configure({...workspace.settings,layout:e.target.value as 'vertical'|'horizontal'})}><option value="vertical">{t('Вертикально')}</option><option value="horizontal">{t('Горизонтально')}</option></select></div><span className="live-title"><Globe size={16} />{t('Браузер')}</span><div className="live-view-controls">
         <button className={mode === 'split' ? 'selected' : ''} title={t('Разделённый вид')} aria-label={t('Разделённый вид')} onClick={() => changeMode('split')}><Columns2 size={15} /></button>
         <button className={mode === 'expanded' ? 'selected' : ''} title={t('Браузер на весь экран')} aria-label={t('Браузер на весь экран')} onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
         <button title={t('Только чат')} aria-label={t('Только чат')} onClick={() => changeMode('chat')}><MessageSquare size={15} />{narrow&&t('Показать чат')}</button>
         <button title={t('Закрыть браузер')} aria-label={t('Закрыть браузер')} onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
       </div></header>
+      <div className="browser-tools">
+      {toolsNarrow&&workspace?.settings.layout==='horizontal'&&<small>{t('Узкая панель: используется вертикальная компоновка')}</small>}
       <form className="live-address" data-current-url={browser?.url??''} onSubmit={e=>{e.preventDefault();openBrowser(previewUrl);}}>
         <button type="button" disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={()=>input({kind:'back'})}><ArrowLeft size={16}/></button>
         <button type="button" disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={()=>input({kind:'forward'})}><ArrowRight size={16}/></button>
@@ -137,6 +142,8 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
         {!running&&browser&&!interactive&&<button onClick={()=>openBrowser()}>{t('Вернуть управление')}</button>}
       </div>
       <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>
+      </div>
+      {workspace?.settings.layout==='horizontal'&&!toolsNarrow&&<div className="browser-tools-divider" role="separator" aria-label={t('Ширина инструментов браузера')} aria-orientation="vertical" tabIndex={0} aria-valuemin={220} aria-valuemax={520} aria-valuenow={workspace.settings.toolsWidth??300} onKeyDown={e=>{if(interactive&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,(workspace.settings.toolsWidth??300)+(e.key==='ArrowLeft'?-10:10)))});}}} onPointerDown={e=>{if(interactive)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(!interactive||!e.currentTarget.hasPointerCapture(e.pointerId)||!browserPanel.current)return;const r=browserPanel.current.getBoundingClientRect();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,r.width-240,e.clientX-r.left))});}} onPointerUp={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}/>}
       <div ref={screen} className="live-screen native-browser-surface" onScroll={e=>{if(!workspace||!interactive||running)return;const element=e.currentTarget,factor=workspace.panel.width/Math.max(1,element.clientWidth),pan=presentationToCss({x:element.scrollLeft,y:element.scrollTop},workspace.displayScale*workspace.browserZoom/factor);if(Math.abs(pan.x-workspace.settings.pan.x)<1&&Math.abs(pan.y-workspace.settings.pan.y)<1)return;clearTimeout(panTimer.current);panTimer.current=setTimeout(()=>configure({...workspace.settings,pan}),60);}} tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
         {workspace&&<div aria-hidden="true" className="browser-virtual-surface" style={{width:workspace.surface.width/(Math.max(1,workspace.panel.width)/Math.max(1,screen.current?.clientWidth??workspace.panel.width)),height:workspace.surface.height/(Math.max(1,workspace.panel.height)/Math.max(1,screen.current?.clientHeight??workspace.panel.height))}}/>}
         {!browser && <div className="live-empty"><Globe size={28} />{t('Откройте страницу проекта по адресу выше. Затем создайте область или проверьте страницу.')}</div>}

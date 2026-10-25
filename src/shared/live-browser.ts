@@ -22,6 +22,9 @@ export interface LiveBrowserApi {
 }
 
 export interface BrowserWorkspaceSettings {
+  layout?:'vertical'|'horizontal';
+  toolsWidth?:number;
+  previewScale?:number;
   viewport:'auto'|{width:number;height:number};
   /** Native page zoom; absent in legacy saved workspaces. */
   zoom?:number;
@@ -38,7 +41,8 @@ export const defaultBrowserWorkspace:BrowserWorkspaceSettings={viewport:'auto',s
 export function validateBrowserWorkspace(value:unknown):BrowserWorkspaceSettings {
   const s=value as BrowserWorkspaceSettings;
   if(!s||!['fit',.5,.75,1,1.25].includes(s.scale)||!s.pan||![s.pan.x,s.pan.y].every(n=>Number.isFinite(n)&&n>=0&&n<=8192))throw new Error('Invalid browser presentation');
+  if(s.layout!==undefined&&!['vertical','horizontal'].includes(s.layout)||s.toolsWidth!==undefined&&(!Number.isFinite(s.toolsWidth)||s.toolsWidth<220||s.toolsWidth>520)||s.previewScale!==undefined&&![.5,.75,1,1.25].includes(s.previewScale))throw new Error('Invalid workspace layout');
   if(s.zoom!==undefined&&![.5,.67,.75,.8,.9,1,1.1,1.25,1.5].includes(s.zoom))throw new Error('Invalid page zoom');
   if(s.viewport!=='auto'&&(!s.viewport||![s.viewport.width,s.viewport.height].every(n=>Number.isInteger(n)&&n>=240&&n<=4096)||s.viewport.width*s.viewport.height>8847360))throw new Error('Viewport must fit 240–4096 px and 8.84 megapixels');
-  return {...(s.zoom!==undefined?{zoom:s.zoom}:{}),viewport:s.viewport==='auto'?'auto':{...s.viewport},scale:s.scale,pan:{...s.pan}};
+  return {...(s.layout?{layout:s.layout}:{}),...(s.toolsWidth?{toolsWidth:s.toolsWidth}:{}),...(s.previewScale?{previewScale:s.previewScale}:{}),...(s.zoom!==undefined?{zoom:s.zoom}:{}),viewport:s.viewport==='auto'?'auto':{...s.viewport},scale:s.scale,pan:{...s.pan}};
 }
