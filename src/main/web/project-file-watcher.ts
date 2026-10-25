@@ -1,6 +1,6 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { lstat, opendir, realpath } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 
 const ignored = new Set(['node_modules', 'vendor', 'coverage', 'tmp', 'temp', '__pycache__']);
 const webExtensions = new Set(['.html', '.htm', '.css', '.js', '.mjs', '.jsx', '.tsx', '.ts', '.scss', '.sass', '.less']);
@@ -13,10 +13,17 @@ export class ProjectFileWatcher {
   private scanning?: Promise<void>;
   private closed = false;
   private base = '';
-  constructor(private readonly root: string, private readonly changed: (at:number) => void, private readonly failed: (error: unknown) => void) {}
+  constructor(private readonly root: string, private readonly changed: (at:number) => void, private readonly failed: (error: unknown) => void, private outputDirectories: readonly string[] = []) {}
   async start() {
     try { this.base = await realpath(this.root); await this.scan(true); }
     catch (error) { this.fail(error); }
+  }
+  private isOutput(directory:string){return this.outputDirectories.some(output=>{const path=resolve(this.base,output);return path!==this.base&&path.startsWith(this.base+sep)&&(directory===path||directory.startsWith(path+sep));});}
+  async ignoreOutputs(outputs:readonly string[]){
+    await this.scanning;if(this.closed)return;this.outputDirectories=outputs;
+    // Removing generated files from the baseline is not a new source change.
+    for(const path of this.files.keys())if(this.isOutput(path))this.files.delete(path);
+    for(const [path,item] of this.watches)if(this.isOutput(path)){item.handle.close();this.watches.delete(path);}
   }
   get settled() { return !this.timer && !this.scanning; }
   async flush() {
@@ -40,6 +47,7 @@ export class ProjectFileWatcher {
       let entries = 0;
       const visit = async (directory: string) => {
         if (this.closed) return;
+        if(this.isOutput(directory))return;
         const info = await lstat(directory);
         if (!info.isDirectory() || info.isSymbolicLink() || await realpath(directory) !== directory) return;
         if (directories.size >= 512) throw new Error('Auto-reload directory limit exceeded (512)');

@@ -668,7 +668,7 @@ fn dynamic_tail(
         tail.push(deliverables);
     }
     if state.browser_qa_enabled {
-        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence.".into());
+        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence. After a build, if browser verification is appropriate, call web_project preview_status on the original preview. Build success does not imply dev server failure. Do not restart a responding server or open dist/index.html through its dev origin. Inspect real package/workspace scripts and lockfiles before recovery. Restart only an existing app-owned managed task through task_action status/stop/start and normal approvals; never adopt or kill external/unknown PIDs or port listeners, silently change ports, or start a competing server. Confirm readiness and original URL before checking; retain viewport/zoom/presentation and return to the original route after justified supplementary navigation. If recovery is unavailable, preserve the Page and finish with the limitation.".into());
     }
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
@@ -6567,6 +6567,20 @@ mod tests {
             assert!(!paused.contains(resumed), "{resumed}");
         }
         assert!(!paused.to_lowercase().contains("todo"));
+    }
+
+    #[test]
+    fn preview_recovery_guidance_is_opt_in_and_requires_owned_tasks() {
+        let mut state=AgentState::default();
+        let transcript=Transcript::default();
+        assert!(!dynamic_tail(&state,None,"Fix CSS",&transcript,"").contains("preview_status"));
+        state.browser_qa_enabled=true;
+        let tail=dynamic_tail(&state,None,"Fix CSS",&transcript,"");
+        assert!(tail.contains("preview_status"));
+        assert!(tail.contains("Do not restart a responding server"));
+        assert!(tail.contains("task_action status/stop/start"));
+        assert!(tail.contains("never adopt or kill external/unknown PIDs"));
+        assert!(tail.contains("dist/index.html"));
     }
 
     #[test]

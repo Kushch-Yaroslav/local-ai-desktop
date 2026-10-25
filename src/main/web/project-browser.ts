@@ -1,3 +1,4 @@
+import {literalViteOutputs} from '../../shared/vite-build-output';
 import { sameBrowserUrl } from '../../shared/browser-url';
 import {resolveBrowserAnchor} from '../../shared/browser-anchor';
 import {inspectBrowserDom} from './dom-diagnostics';
@@ -37,9 +38,9 @@ import { qaHash, qaScenarioIdentity } from './qa-loop-guard';
 const qaStepSchema = {type:'object',properties:{action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll','focus','mousemove','drag','wait','pointer-lock']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},x:{type:'number'},y:{type:'number'},to_x:{type:'number'},to_y:{type:'number'},delta_y:{type:'number'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false};
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. The task receives metadata/path and any explicit Vision analysis text, not PNG pixels. For colors use live inspect. Original region styles are historical; inspect returns CURRENT BROWSER OBSERVATION. A stale CSS Modules hash can be rebound only by unique saved identity; STALE_DOM_ANCHOR is not a current color measurement. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, arbitrary WebSocket (only approved same-port Vite HMR), POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'After a build, preview_status probes the ORIGINAL approved preview HTML and up to four same-origin entry assets without navigation. It does not establish process ownership or verify the defect. Never open dist/index.html on a Vite dev server as a failed-preview fallback. Keep the original route and session; inspect project scripts before considering recovery through existing owned task handles and approvals. Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. The task receives metadata/path and any explicit Vision analysis text, not PNG pixels. For colors use live inspect. Original region styles are historical; inspect returns CURRENT BROWSER OBSERVATION. A stale CSS Modules hash can be rebound only by unique saved identity; STALE_DOM_ANCHOR is not a current color measurement. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, arbitrary WebSocket (only approved same-port Vite HMR), POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: { analyze: { type: 'boolean', description: 'For screenshot: explicitly request model image analysis; capture works without Vision.' },
-    action: { type: 'string', enum: ['open', 'inspect', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
+    action: { type: 'string', enum: ['open', 'preview_status', 'inspect', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
     supplementary_reason: { type: 'string', minLength: 8, maxLength: 240, description: 'Only for additional route diagnostics justified by a shared changed component or an explicit user request. Never counts as verification of a region on another route.' },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
     url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
@@ -89,12 +90,13 @@ async function fetchLoopback(url: URL, signal: AbortSignal) {
     req.once('close', () => clearTimeout(deadline)); req.on('error', reject); req.end();
   });
 }
-export async function readPreviewAsset(root: string, pathname: string): Promise<{ body: Buffer; contentType: string }> {
+export async function readPreviewAsset(root: string, pathname: string, allowConfiguration = false): Promise<{ body: Buffer; contentType: string }> {
   const decoded = decodeURIComponent(pathname);
   const parts = decoded.replace(/^\//, '').split('/');
   if (parts.some(part => part.startsWith('.') || part.includes('\\') || part.includes('\0'))) throw new Error('Hidden paths and traversal are blocked');
   const input = parts.join('/') || 'index.html';
-  const contentType = mime[extname(input).toLowerCase()];
+  const configuration=allowConfiguration&&/^vite\.config\.[cm]?[jt]s$/.test(input);
+  const contentType = configuration?'text/plain':mime[extname(input).toLowerCase()];
   if (!contentType) throw new Error('Only static web asset extensions are allowed');
   const base = await realpath(root); const target = await projectPath(base, input);
   for (let current = resolve(base, input); current !== base; current = dirname(current)) {
@@ -106,7 +108,7 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
     // the authorized root on the supported Linux production platform.
     const actual = await realpath(process.platform === 'linux' ? `/proc/self/fd/${file.fd}` : target);
     const rel = relative(base, actual);
-    if (rel.startsWith(`..${sep}`) || rel === '..' || rel.startsWith(sep) || rel.split(sep).some(part => part.startsWith('.')) || !mime[extname(actual).toLowerCase()]) throw new Error('Opened asset escaped preview scope');
+    if (rel.startsWith(`..${sep}`) || rel === '..' || rel.startsWith(sep) || rel.split(sep).some(part => part.startsWith('.')) || !mime[extname(actual).toLowerCase()]&&!configuration) throw new Error('Opened asset escaped preview scope');
     const info = await file.stat();
     if (!info.isFile() || info.size > maxBytes) throw new Error('Preview asset must be a regular file of at most 4 MiB');
     const body = Buffer.alloc(Math.min(maxBytes + 1, info.size + 1));
@@ -114,6 +116,22 @@ export async function readPreviewAsset(root: string, pathname: string): Promise<
     if (bytesRead > maxBytes) throw new Error('Preview asset exceeds limit');
     return { body: body.subarray(0, bytesRead), contentType };
   } finally { await file.close(); }
+}
+
+/** Read literal Vite output directories without evaluating project configuration. */
+async function viteBuildDirectories(root:string):Promise<string[]>{
+  const directories=new Set<string>();let dynamic=false;
+  for(const file of ['vite.config.js','vite.config.mjs','vite.config.ts','vite.config.cjs','vite.config.mts','vite.config.cts']){
+    try{const config=await readPreviewAsset(root,'/'+file,true),output=literalViteOutputs(config.body.toString('utf8'));
+      dynamic ||= output.present;for(const dir of output.directories)directories.add(dir);
+    }catch{/* Missing, unsupported or out-of-scope configuration is never executed. */}
+  }
+  return directories.size?[...directories]:dynamic?[]:['dist'];
+}
+async function devBuildPath(root:string,pathname:string):Promise<boolean>{
+  const directories=new Set(['dist','build',...await viteBuildDirectories(root)]);
+  const path=decodeURIComponent(pathname).replace(/^\//,'');
+  return [...directories].some(dir=>path===dir+'/index.html'||path===dir+'/');
 }
 
 export type ProjectQaOptions = { takeScreenshot?:()=>boolean; regionContext?:Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<VisualRegion['anchors'][number],'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number}}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
@@ -160,15 +178,27 @@ export class ProjectBrowserSession {
     if(args.url!==undefined&&loopbackTarget(String(args.url)).origin!==this.origin)throw new Error('Recovery cannot change the approved preview origin');
     return this.origin&&this.origin!==staticOrigin&&args.url===undefined?{...args,path:undefined,url:new URL('/'+String(args.path??'index.html').replace(/^\//,''),this.origin).href}:args;
   }
+  private runPreviewUrl?:string;
   beginRun(observer: ProjectBrowserObserver, qaOptions: ProjectQaOptions = {}) {
     void this.clearSelection();
+    this.runPreviewUrl = this.page?.url();
     this.qaOptions = qaOptions;
     if (!qaOptions.guard) this.fallbackGuard.rearm();
     this.authorized = false; this.denied = undefined; this.observer = observer;
     if (this.page) this.bindObserver();
   }
   async finishRun(refresh = true) {
-    if (refresh) await this.exclusive(async () => { await this.watcher?.flush(); await this.refresh(true); }).catch(error=>{if(!this.closed)this.observer?.state('error',undefined,`Preview refresh failed; reopen the approved URL: ${String(error).slice(0,200)}`);});
+    if (refresh) await this.exclusive(async () => {
+      // Supplementary verification must not strand the user's existing Page on another route.
+      // No reload on Stop, and no navigation to a server whose original HTML cannot respond.
+      const original=this.runPreviewUrl;
+      if(this.userSession&&this.qaOptions.regionContext?.length&&original&&this.page&&!sameBrowserUrl(original,this.page.url())&&new URL(original).origin===this.origin){
+        const response=this.origin===staticOrigin?undefined:await fetchLoopback(loopbackTarget(original),AbortSignal.timeout(3000));
+        if(response&&(response.status<200||response.status>=300||!(response.headers['content-type']??'').includes('text/html')))throw new Error('Original preview unavailable; current Page retained');
+        await this.page.goto(original,{waitUntil:'load',timeout:5000});
+      }
+      await this.watcher?.flush(); await this.refresh(true);
+    }).catch(error=>{if(!this.closed)this.observer?.state('error',undefined,`Preview refresh failed; reopen the approved URL: ${String(error).slice(0,200)}`);});
     if (!this.reusable || !this.previewApproved) { await this.close(); return; }
     await this.releaseInput();
     this.ownership = 'user'; this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();
@@ -421,6 +451,7 @@ export class ProjectBrowserSession {
   private dirty = false;
   private reloadTimer?: ReturnType<typeof setTimeout>;
   private serverManaged = false;
+  private viteManaged = false;
   private sourceChangedAt=0;
   private loadedAt=0;
   private freshnessTimer?:ReturnType<typeof setTimeout>;
@@ -438,7 +469,9 @@ export class ProjectBrowserSession {
   private stopWatching() { this.watcher?.close(); this.watcher = undefined; clearTimeout(this.reloadTimer);clearTimeout(this.freshnessTimer); this.dirty = false; }
   private async ensureWatching() {
     if (this.isolatedQa || !this.observer || this.watcher || this.closed || !this.page || this.page.isClosed()) return;
-    this.watcher = new ProjectFileWatcher(this.root, at => { this.sourceChangedAt=at;this.dirty = true;if(this.serverManaged){clearTimeout(this.freshnessTimer);this.freshnessTimer=setTimeout(()=>{void this.freshness();},1200);}else this.scheduleRefresh(); }, error => this.observer?.state('error', undefined, `Auto-reload unavailable: ${String(error).slice(0, 200)}`));
+    const outputs=this.viteManaged?await viteBuildDirectories(this.root):[];
+    if(this.watcher||this.closed)return;
+    this.watcher = new ProjectFileWatcher(this.root, at => { this.sourceChangedAt=at;this.dirty = true;if(this.serverManaged){clearTimeout(this.freshnessTimer);this.freshnessTimer=setTimeout(()=>{void this.freshness();},1200);}else this.scheduleRefresh(); }, error => this.observer?.state('error', undefined, `Auto-reload unavailable: ${String(error).slice(0, 200)}`),outputs);
     await this.watcher.start();
   }
   private scheduleRefresh() {
@@ -466,10 +499,12 @@ export class ProjectBrowserSession {
     await this.page.waitForTimeout(150);
     if (!this.closed) { this.observer?.action({ kind: 'auto-reload', at: Date.now() }); this.observer?.state('live', this.page.url()); }
   }
-  private detectServerReload(path: string, body: Buffer, html: boolean) {
+  private async detectServerReload(path: string, body: Buffer, html: boolean) {
     if (this.origin === staticOrigin || this.serverManaged) return;
     if (/^\/(?:@vite\/client|@react-refresh|_next\/|__webpack_hmr)/.test(path) || (html && /(?:\/@vite\/client|\/_next\/|__NEXT_DATA__|webpack-dev-server|webpack-hot-middleware|parcelRequire.*hmr)/i.test(body.toString('utf8')))) {
+      this.viteManaged=path==='/@vite/client'||html&&body.includes('/@vite/client');
       this.serverManaged = true;this.native?.hmr?.(true);
+      if(this.viteManaged)await this.watcher?.ignoreOutputs(await viteBuildDirectories(this.root));
     }
   }
   constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver, private qaOptions: ProjectQaOptions = {}, private readonly isolatedQa=false) {}
@@ -524,11 +559,32 @@ export class ProjectBrowserSession {
       if (!Number.isInteger(waitMs) || Number(waitMs) < 0 || Number(waitMs) > 2000) throw new Error('wait_ms must be 0..2000');
       if (['read', 'inspect', 'screenshot', 'qa'].includes(String(args.action)) && this.watcher && !responsiveRequest(args)) { await this.watcher.flush(); await this.refresh(); }
       signal.throwIfAborted();
+      if (args.action === 'preview_status') {
+        if(!this.page||!this.origin||this.origin===staticOrigin)return {code:'NO_DEV_PREVIEW',error:'Open an approved loopback preview first. Static artifacts do not establish a dev server.',retrySameArguments:false};
+        const urls=[...new Set((this.qaOptions.regionContext??[]).map(r=>r.url))];
+        if(urls.length>1&&!urls.every(url=>sameBrowserUrl(url,urls[0])))return {code:'AMBIGUOUS_PREVIEW_ROUTE',error:'Selected regions have different routes. Inspect each original route explicitly.',retrySameArguments:false};
+        const target=loopbackTarget(urls[0]??this.runPreviewUrl??this.page.url());
+        if(target.origin!==this.origin)return {code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',error:'Original preview differs from approved origin',retrySameArguments:false};
+        const probeSignal=AbortSignal.any([signal,AbortSignal.timeout(6000)]);
+        const base={original_url:visualPromptUrl(target.href),current_url:visualPromptUrl(this.page.url()),origin:this.origin,browser_session:this.stateIdentity,process_ownership:'unknown; use only existing owned task handles, never adopt a PID or port',browser_workspace:this.native?.workspaceState?.(),formal_verification:false};
+        try {
+          const html=await fetchLoopback(target,probeSignal);
+          const isHtml=(html.headers['content-type']??'').includes('text/html');
+          const entries=[...html.body.toString('utf8').matchAll(/<(?:script|link)\b[^>]*?(?:src|href)=["']([^"']+)["']/gi)].map(m=>new URL(m[1],target)).filter(u=>u.origin===this.origin&&/\.(?:[cm]?jsx?|tsx?|css)(?:$|\?)/.test(u.pathname+u.search)).slice(0,4);
+          const assets=[];
+          for(const entry of entries){const response=await fetchLoopback(entry,probeSignal);assets.push({url:visualPromptUrl(entry.href),status:response.status,ok:response.status>=200&&response.status<300&&!(response.headers['content-type']??'').includes('text/html')});}
+          const healthy=html.status>=200&&html.status<300&&isHtml&&assets.every(a=>a.ok);
+          return {...base,status:healthy?'responding':'unhealthy',html_status:html.status,assets,freshness:await this.freshness(),guidance:healthy?'Server responds. Do not restart it. Inspect live DOM/CSS and freshness before verifying the changed behavior; HTTP success alone does not prove React/HMR correctness.':'Preserve this Page. Inspect actual project scripts and existing owned task status. Do not kill external/unknown servers or navigate to build HTML. If safe recovery is unavailable, finish with this limitation.'};
+        } catch(error){return {...base,status:'unreachable',code:'DEV_PREVIEW_UNREACHABLE',error:String(error).slice(0,240),retrySameArguments:false,guidance:'Do not infer ownership from a port. Use existing task_action status/start only after inspecting project scripts and permissions; never kill an external/unknown server. Preserve the original URL and report limitations if recovery is unavailable.'};}
+      }
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
         const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
         if (url.origin !== (this.origin??staticOrigin) && args.url === undefined) throw new Error('Invalid project path');
         if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
+        if(this.serverManaged&&await devBuildPath(this.root,url.pathname)){
+          return {code:'BUILD_ARTIFACT_ON_DEV_SERVER',error:'Built HTML must not replace the original route on a Vite dev server. A failed preview is not a verified production server. Use preview_status, keep the original route and inspect artifacts without navigation; production preview needs a confirmed approved URL.',original_url:visualPromptUrl(this.runPreviewUrl??this.page!.url()),retrySameArguments:false,alternative:{action:'preview_status'}};
+        }
         const newPage = !this.origin;
         if (!this.origin) {
           this.origin = url.origin;
@@ -577,6 +633,7 @@ export class ProjectBrowserSession {
             if(!this.isolatedQa&&responsive&&scenarios.length&&(args.responsive as Record<string,unknown>).viewports!==undefined)throw new Error('Declare viewport separately in each immutable scenario, rather than applying global viewports to bound criteria');
             if(!this.isolatedQa&&responsive?.breakpoint&&scenarios.length)throw new Error('Breakpoint probes are diagnostics; execute registered acceptance scenarios separately');
             if(responsive&&!scenarios.length){const target=String(args.url??args.path??this.page.url()),b=responsive.breakpoint;scenarios=(b?[{width:b.minWidth,height:844},{width:b.maxWidth,height:844}]:responsive.viewports).map((v,i)=>layoutScenario(`responsive-${i+1}`,target,v));}
+            if(this.serverManaged){for(const scenario of scenarios){if(await devBuildPath(this.root,new URL(scenario.target,this.page.url()).pathname))return {code:'BUILD_ARTIFACT_ON_DEV_SERVER',error:'QA target is built HTML on the dev origin. Keep the original route or use a confirmed approved production preview.',retrySameArguments:false,alternative:{action:'preview_status'}};}}
             if(new Set(scenarios.flatMap(s=>[...(s.viewport?[s.viewport]:[]),...(s.visual_layout?.resize??[])]).map(v=>`${v.width}x${v.height}`)).size>5)throw new Error('At most 5 viewports per QA checkpoint');
             if(!this.isolatedQa&&scenarios.some(s=>s.viewport))return await this.isolatedResponsive(args,scenarios,signal,actionId);
           } catch(error) { return qaArgumentFailure(error,args); }
@@ -601,7 +658,7 @@ export class ProjectBrowserSession {
           const reloaded = reloadNeeded ? await this.page.reload({ waitUntil: 'load' }) : null;
           if(reloaded && [401,403].includes(reloaded.status()))return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
           const qaSignal = AbortSignal.any([signal, AbortSignal.timeout(90000), ...(this.qaOptions.signal ? [this.qaOptions.signal] : [])]);
-          const qa = await runBrowserQa({ page: this.page, signal: qaSignal, steps, scenarios, responsive, sourceRevisions:()=>Object.fromEntries(this.servedRevisions), navigate:async target=>{const url=new URL(target,this.page!.url());if(url.origin!==this.origin)throw new Error('Scenario target outside approved origin');const current=new URL(this.page!.url());if(this.isolatedQa||url.pathname!==current.pathname||url.search!==current.search)this.servedRevisions.clear();if(this.isolatedQa){this.errors.length=0;this.blocked.length=0;}let response=await this.page!.goto(url.href,{waitUntil:'load',timeout:10000});if(this.isolatedQa&&!response)response=await this.page!.reload({waitUntil:'load',timeout:10000});if(response&&[401,403].includes(response.status()))return {authRequired:true};if(response&&!response.ok())throw new Error(`Preview HTTP ${response.status()}`);return {};}, errors: () => [...this.errors, ...this.blocked], metrics:()=>this.qaMetrics(), capture: cdp => this.capture({}, qaSignal, cdp), baseline:ref=>this.visualBaseline(ref), analyze: this.qaOptions.analyze ? (capture, before, scenario) => this.qaOptions.analyze!(capture, qaSignal, before, scenario) : undefined, status: this.qaOptions.status });
+          const qa = await runBrowserQa({ page: this.page, signal: qaSignal, steps, scenarios, responsive, sourceRevisions:()=>Object.fromEntries(this.servedRevisions), navigate:async target=>{const url=new URL(target,this.page!.url());if(this.serverManaged&&await devBuildPath(this.root,url.pathname))throw new Error('BUILD_ARTIFACT_ON_DEV_SERVER: use the original route; built HTML is not a dev-server preview');if(url.origin!==this.origin)throw new Error('Scenario target outside approved origin');const current=new URL(this.page!.url());if(this.isolatedQa||url.pathname!==current.pathname||url.search!==current.search)this.servedRevisions.clear();if(this.isolatedQa){this.errors.length=0;this.blocked.length=0;}let response=await this.page!.goto(url.href,{waitUntil:'load',timeout:10000});if(this.isolatedQa&&!response)response=await this.page!.reload({waitUntil:'load',timeout:10000});if(response&&[401,403].includes(response.status()))return {authRequired:true};if(response&&!response.ok())throw new Error(`Preview HTTP ${response.status()}`);return {};}, errors: () => [...this.errors, ...this.blocked], metrics:()=>this.qaMetrics(), capture: cdp => this.capture({}, qaSignal, cdp), baseline:ref=>this.visualBaseline(ref), analyze: this.qaOptions.analyze ? (capture, before, scenario) => this.qaOptions.analyze!(capture, qaSignal, before, scenario) : undefined, status: this.qaOptions.status });
           qa.runId = this.qaOptions.runId; qa.revisionFingerprint = revision;
           const sourceRevisions:Record<string,string> = Object.assign({},...qa.scenarios?.map(scenario=>scenario.sourceRevisions??{})??[],Object.fromEntries(this.servedRevisions));
           qa.sourceRevisions=sourceRevisions;
@@ -797,7 +854,7 @@ export class ProjectBrowserSession {
       return {status:200,body:asset.body,headers:{...safetyHeaders,'content-type':asset.contentType,'content-security-policy':previewCsp}};
     }
     const response = await fetchLoopback(url,AbortSignal.any([signal,this.abort.signal])); this.networkBudget.bytes += response.body.length;
-    this.detectServerReload(url.pathname,response.body,Boolean(response.headers['content-type']?.includes('text/html')));
+    await this.detectServerReload(url.pathname,response.body,Boolean(response.headers['content-type']?.includes('text/html')));
     if(url.pathname==='/@vite/client'&&response.status===200){response.body=Buffer.concat([response.body,Buffer.from('\nconst __ladHot=createHotContext("/@lad-observer");__ladHot.on("vite:afterUpdate",()=>{window.__ladHmrAt=Date.now()});\n')]);}
     const csp=this.serverManaged?previewCsp.replace("connect-src 'self'","connect-src 'self' "+this.origin!.replace('http:','ws:')):previewCsp;
     return {...response,headers:{...response.headers,...safetyHeaders,'content-security-policy':[response.headers['content-security-policy'],csp].filter(Boolean).join(', ')}};
