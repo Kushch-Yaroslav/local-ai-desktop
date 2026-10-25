@@ -4,6 +4,7 @@ import {mkdtemp,mkdir,writeFile,readFile,rename} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {_electron} from 'playwright-core';
 const root=await mkdtemp('/tmp/lad-profile-persistence-'), modelsPath=join(root,'models');
+const secondDisk=await mkdtemp('/tmp/lad-separate-model-directory-');
 await mkdir(modelsPath);
 const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};
 const u64=n=>{const b=Buffer.alloc(8);b.writeBigUInt64LE(BigInt(n));return b;};
@@ -12,7 +13,7 @@ const gguf=arch=>{const entries=Object.entries({'general.architecture':arch,[arc
 const server=join(root,'fixture-server');
 await writeFile(server,'#!/bin/sh\necho "--model --ctx-size --port --fit --threads --threads-batch --n-cpu-moe --batch-size --ubatch-size --flash-attn --load-mode"\n',{mode:0o700});
 const projector=join(modelsPath,'projector.gguf');await writeFile(projector,gguf('clip'));
-const qwen=join(modelsPath,'qwen.gguf'),gpt=join(modelsPath,'gpt-00001-of-00002.gguf'),shard=join(modelsPath,'gpt-00002-of-00002.gguf');
+const qwen=join(modelsPath,'qwen.gguf'),gpt=join(secondDisk,'gpt-00001-of-00002.gguf'),shard=join(secondDisk,'gpt-00002-of-00002.gguf');
 await writeFile(qwen,gguf('qwen3next'));await writeFile(gpt,gguf('gpt-oss'));await writeFile(shard,Buffer.from('fixture shard'));
 const ids=['custom:123e4567-e89b-42d3-a456-426614174011','custom:123e4567-e89b-42d3-a456-426614174012'];
 let app,page;

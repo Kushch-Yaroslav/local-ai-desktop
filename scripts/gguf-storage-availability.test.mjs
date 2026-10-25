@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),{ggufAvailabilityError,ggufFileAvailability}=require('../dist/main/services/gguf-artifacts.js');
+const error=code=>Object.assign(new Error(code),{code});
+assert.equal(ggufAvailabilityError('/media/fixture-user/absent-volume/model.gguf',error('ENOENT')).reason,'disk-unavailable');
+assert.equal(ggufAvailabilityError('/run/media/fixture-user/absent-volume/model.gguf',error('ENOENT')).reason,'disk-unavailable');
+assert.equal(ggufAvailabilityError('/tmp/missing-model.gguf',error('ENOENT')).reason,'not-found');
+assert.equal(ggufAvailabilityError('/media/fixture-user/absent-volume/model.gguf',error('EACCES')).reason,'access-denied');
+assert.equal(ggufAvailabilityError('/tmp/model.gguf',error('EIO')).reason,'io-error');
+assert.equal((await ggufFileAvailability('/media/fixture-user/absent-volume/model.gguf')).reason,'disk-unavailable');
+console.log('PASS unavailable media root, missing file, access denial and I/O error have distinct availability reasons. Actual hardware mount diagnosis is documented separately.');

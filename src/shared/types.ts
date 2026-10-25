@@ -118,6 +118,7 @@ export interface AgentTelemetry {
 
 export interface ModelInfo {
   fileStatus?: 'ready' | 'unavailable' | 'invalid';
+  availabilityReason?: 'not-found'|'disk-unavailable'|'access-denied'|'io-error';
   projectorFileStatus?: 'ready' | 'unavailable' | 'invalid';
   projectorAvailabilityIssue?: string;
   modelPath?: string;

@@ -160,7 +160,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
         ...modelInfo(profile, active && (data.data ?? []).length > 0 ? true : installed, active ? data.data?.[0]?.meta?.size : undefined, capability, profile.supportsReasoning),
         backend: 'llama-cpp',inspection:runtime.inspection,profileDefaults:runtime.defaults,
         ...(projector ? { projectorFileStatus: projector.status, projectorAvailabilityIssue: projector.issue } : {}),
-        fileStatus: availability.status, modelPath: runtime.modelPath, availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
+        fileStatus: availability.status, availabilityReason:availability.reason, modelPath: runtime.modelPath, availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
         supportedContextPresets: llamaContextPresets(runtime.id, capability),
         supportedKvCacheTypes: ['f16', 'q8_0'],
         ...(runtime.normalContext ? { normalContext: runtime.normalContext } : {}),

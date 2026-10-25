@@ -1,9 +1,16 @@
-import { accessSync, closeSync, constants, openSync, readSync, statSync } from 'node:fs';
+import { accessSync, existsSync, closeSync, constants, openSync, readSync, statSync } from 'node:fs';
 
 /** File readiness is independent of backend health and optional metadata capabilities. */
-export function ggufFileAvailability(path: string): { status: 'ready' | 'unavailable' | 'invalid'; issue?: string } {
+export type GgufAvailabilityReason='not-found'|'disk-unavailable'|'access-denied'|'io-error';
+export function ggufAvailabilityError(path:string,error:unknown):{status:'unavailable';reason:GgufAvailabilityReason;issue:string}{
+  const code=(error as NodeJS.ErrnoException)?.code;
+  const storage=path.match(/^(\/(?:run\/)?media\/[^/]+\/[^/]+)(?:\/|$)/)?.[1];
+  const reason:GgufAvailabilityReason=code==='ENOENT'?(storage&&!existsSync(storage)?'disk-unavailable':'not-found'):code==='EACCES'||code==='EPERM'?'access-denied':'io-error';
+  return {status:'unavailable',reason,issue:error instanceof Error?error.message:String(error)};
+}
+export function ggufFileAvailability(path: string): { status: 'ready' | 'unavailable' | 'invalid'; reason?:GgufAvailabilityReason; issue?: string } {
   try { verifyGgufArtifacts(path); }
-  catch (error) { return { status: 'unavailable', issue: error instanceof Error ? error.message : String(error) }; }
+  catch (error) { return ggufAvailabilityError(path,error); }
   let fd: number | undefined;
   try {
     fd = openSync(path, 'r');
@@ -12,7 +19,7 @@ export function ggufFileAvailability(path: string): { status: 'ready' | 'unavail
       return { status: 'invalid', issue: `Invalid GGUF v2/v3 header: ${path}` };
     }
     return { status: 'ready' };
-  } catch (error) { return { status: 'unavailable', issue: error instanceof Error ? error.message : String(error) }; }
+  } catch (error) { return ggufAvailabilityError(path,error); }
   finally { if (fd !== undefined) closeSync(fd); }
 }
 
