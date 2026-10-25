@@ -1989,7 +1989,7 @@ fn record_css_observation(state:&mut AgentState,root:&Path,args:&Value,result:&V
     ledger.revisions.extend(revisions.clone());
     let record=ledger.records.last_mut().unwrap();
     record.outcome=Some("observed_css".into());record.checked_paths=checked_paths;record.source_revisions=revisions;record.deliverable_ids=ids;
-    record.inspection=Some(json!({"url":url,"viewport":inspection["viewport"],"selector":selector,"styles":styles,"pageGeometry":inspection["page"],"elementGeometry":inspection["elements"][0],"sourceBinding":if task_scope{"task_mutations"}else{"served_assets"}}));
+    record.inspection=Some(json!({"url":url,"viewport":inspection["viewport"],"selector":selector,"styles":styles,"pageGeometry":inspection["page"],"elementGeometry":inspection["elements"][0],"observedAt":inspection["observedAt"],"provenance":inspection["provenance"],"anchorResolution":inspection["anchorResolution"],"sourceBinding":if task_scope{"task_mutations"}else{"served_assets"}}));
 }
 
 fn sufficient_css_observation(state:&AgentState,item:&deliverables::Deliverable)->bool {

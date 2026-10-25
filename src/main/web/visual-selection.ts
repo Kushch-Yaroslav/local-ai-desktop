@@ -49,7 +49,7 @@ export async function groundRegion(page: Page, rect: VisualRect) {
       const anchors=candidates.filter(({e})=>!['CANVAS','SVG'].includes(e.tagName.toUpperCase()) && !e.closest('canvas,svg')).map(({e,b})=>{
         let selector=e.id&&e.id.length<=128?'#'+CSS.escape(e.id):e.tagName.toLowerCase()+Array.from(e.classList).filter(c=>c.length<=128).slice(0,3).map(c=>'.'+CSS.escape(c)).join('');
         let unique=false;try{unique=document.querySelectorAll(selector).length===1;}catch{selector=e.tagName.toLowerCase();}
-        let identity:{text:string;context:string}|undefined;
+        let identity:{text:string;context:string}|undefined=unique&&/\._[a-zA-Z][\w-]*?_[a-z0-9]+_\d+/.test(selector)?{text:safeText(e),context:safeText(e.parentElement??e)}:undefined;
         if(!unique){
           // A scoped structural candidate is guarded by bounded, non-private identity.
           const parts:string[]=[];for(let node:Element|null=e,depth=0;node&&depth++<10;node=node.parentElement){

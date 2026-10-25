@@ -139,7 +139,7 @@ impl LoopDetector {
             }
             if result.get("error").is_none() && result.get("qa").is_some() { self.invalid_qa.clear(); }
         }
-        if name=="web_project" && result.get("retrySameArguments")==Some(&Value::Bool(false)) && matches!(result.get("code").and_then(Value::as_str),Some("SCREENSHOT_LIMIT"|"INVALID_CROP"|"INVALID_SELECTOR"|"REGION_ROUTE_MISMATCH"|"DUPLICATE_FAILED_OPERATION"|"PREVIEW_ORIGIN_SCOPE_MISMATCH"|"BROWSER_NAVIGATION_FAILED")) {
+        if name=="web_project" && (result.get("retrySameArguments")==Some(&Value::Bool(false)) || result["code"]=="BROWSER_OBSERVATION_CHANGED") && matches!(result.get("code").and_then(Value::as_str),Some("SCREENSHOT_LIMIT"|"INVALID_CROP"|"INVALID_SELECTOR"|"STALE_DOM_ANCHOR"|"BROWSER_OBSERVATION_CHANGED"|"PREVIEW_POSSIBLY_STALE"|"REGION_ROUTE_MISMATCH"|"DUPLICATE_FAILED_OPERATION"|"PREVIEW_ORIGIN_SCOPE_MISMATCH"|"BROWSER_NAVIGATION_FAILED")) {
             let signature=hash("browser-blocked-strategy");
             let count=self.invalid_qa.entry(signature.clone()).or_default();*count+=1;let count=*count;
             if count<3{return None;}
@@ -335,6 +335,14 @@ impl LoopDetector {
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn stale_browser_samples_cannot_loop_across_recovery_errors() {
+        let mut detector=LoopDetector::default();
+        for (i,code) in ["STALE_DOM_ANCHOR","BROWSER_OBSERVATION_CHANGED","PREVIEW_POSSIBLY_STALE","STALE_DOM_ANCHOR"].iter().enumerate() {
+            let notice=detector.observe("web_project",&json!({"action":"inspect"}),&json!({"code":code,"error":"not current evidence","retrySameArguments":*code=="BROWSER_OBSERVATION_CHANGED"}),false);
+            if i==3 {assert_eq!(notice.unwrap().level,3);}
+        }
+    }
     #[test]
     fn alternating_browser_refusals_share_a_bounded_guard() {
         let mut detector=LoopDetector::default();

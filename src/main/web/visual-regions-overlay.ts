@@ -1,6 +1,6 @@
 import type {Page} from 'playwright-core';
 import type {VisualRegion,VisualBindingState} from '../../shared/visual-debugging';
-import {projectVisualRegion} from '../../shared/browser-coordinates';
+import {projectVisualRegion,browserProjectionSource} from '../../shared/browser-coordinates';
 import {getLanguage} from '../../shared/locale';
 
 /** Persistent, pointer-transparent annotations. No host paths or image payloads enter the page. */
@@ -31,5 +31,5 @@ export async function visualRegionsOverlay(page:Page,regions:VisualRegion[],enab
     draw();frame=requestAnimationFrame(tick);return current;
   };
   const data={enabled,selected,author,regions:regions.map(r=>({id:r.id,url:r.url,rect:r.rect,viewport:r.viewport,dpr:r.dpr,snapshot:r.snapshot,anchors:r.anchors.map(a=>({tag:a.tag,selector:a.selector,confidence:a.confidence,rect:a.rect,identity:a.identity})),completed:r.completed,color:r.color,label:`${getLanguage()==='ru'?'Область':'Area'} ${r.groupNumber??'?'}`}))};
-  return page.evaluate<ReturnType<typeof install>>(`(${install.toString()})(${JSON.stringify(data)},${projectVisualRegion.toString()})`);
+  return page.evaluate<ReturnType<typeof install>>(`(${install.toString()})(${JSON.stringify(data)},${browserProjectionSource()})`);
 }

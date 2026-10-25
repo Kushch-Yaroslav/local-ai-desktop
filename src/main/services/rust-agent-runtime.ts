@@ -91,6 +91,13 @@ export function splitAgentRunHistory(history: ChatMessage[]): { user: string; im
   return { user, images: message.images ?? [], imageRefs: imageReferences(message), prior: history.slice(0, currentIndex).filter(node=>!contextIds.has(node.id)) };
 }
 
+/** Continue can have no new chips; retain grounding only inside this logical task. */
+export function taskVisualRegions(history:ChatMessage[],logicalTaskId?:string){
+  const current=history.filter(m=>m.role==='user').at(-1);
+  if(current?.regionReferences?.length)return current.regionReferences;
+  return logicalTaskId?history.filter(m=>m.role==='user'&&m.logicalTaskId===logicalTaskId&&m.regionReferences?.length).at(-1)?.regionReferences??[]:[];
+}
+
 function imageReferences(message: ChatMessage): string[] {
   return [...(message.attachments ?? []).filter(attachment => attachment.kind === 'image').map(attachment => attachment.id),...(message.regionReferences??[]).filter(r=>r.screenshotPath).map(r=>r.id)];
 }
@@ -204,7 +211,7 @@ export class RustAgentRuntime {
     const current = splitAgentRunHistory(history);
     const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
     const browserConfig = loadRuntimeConfiguration();
-    const visualRegions=history.filter(message=>message.role==='user').at(-1)?.regionReferences??[];
+    const visualRegions=taskVisualRegions(history,logicalTaskId);
     const effectiveVision = visionMode ?? browserConfig.browserVision ?? 'off';
     const vision = effectiveVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model, effectiveVision) : undefined;
     protectedRuntime.endpoint(this.endpoint);
@@ -252,7 +259,7 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];viewport?:{width:number;height:number}}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<import('../../shared/visual-debugging').VisualAnchor,'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number}}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -348,7 +355,7 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
-              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url,viewport:r.viewport,selectors:r.anchors.map(a=>a.selector).slice(0,8)}));
+              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url,viewport:r.viewport,selectors:r.anchors.map(a=>a.selector).slice(0,8),anchors:r.anchors.slice(0,8).map(a=>({selector:a.selector,tag:a.tag,identity:a.identity??{text:a.text,context:''}}))}));
               const recover=projectBrowser&&!projectBrowser.reusable&&event.arguments?.action==='open'&&!signal.aborted&&!qaPause.signal.aborted&&['connection_lost','page_closed','renderer_crashed','policy_changed','permission_revoked','startup_failed'].includes(projectBrowser.endReason)&&browserRecoveries<1;
               const browserArgs=recover?projectBrowser!.recoveryRequest(event.arguments??{}):event.arguments??{};
               if(recover){browserRecoveries++;await projectBrowser!.close();projectBrowser=undefined;browserObserver=browserObserver?.renew?.()??browserObserver;browserObserver?.ownership?.('recovering');}

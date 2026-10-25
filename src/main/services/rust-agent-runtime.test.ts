@@ -5,7 +5,7 @@ import type { ChatMessage } from '../../shared/types';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RustAgentRuntime, runtimeTextEvent, splitAgentRunHistory, taskPlan } from './rust-agent-runtime';
+import { RustAgentRuntime, runtimeTextEvent, splitAgentRunHistory, taskVisualRegions, taskPlan } from './rust-agent-runtime';
 import { deliverablesChecklist, displayToolResult, toolResultSummary } from '../../renderer/components/AgentTimeline';
 
 const message = (role: ChatMessage['role'], content: string): ChatMessage => ({
@@ -400,4 +400,14 @@ if (require.main === module) {
   assert(split.user.startsWith(user.content));
   assert(!split.prior.some(node=>node.id===context.id));
   assert.equal(user.content,'Inspect selected region');
+}
+
+// Region hints survive Continue without leaking across independent tasks.
+{
+  const region={id:'original-region'} as import('../../shared/visual-debugging').VisualRegion;
+  const old={...message('user','Original task'),logicalTaskId:'task-a',regionReferences:[region]};
+  const next={...message('user','Continue'),logicalTaskId:'task-a'};
+  assert.deepEqual(taskVisualRegions([old,next],'task-a'),[region]);
+  assert.deepEqual(taskVisualRegions([old,{...next,logicalTaskId:'task-b'}],'task-b'),[]);
+  assert.deepEqual(taskVisualRegions([old,next]),[]);
 }
