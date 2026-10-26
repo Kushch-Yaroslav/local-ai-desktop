@@ -34,16 +34,18 @@ import { qaScenarios, assertionSchema, qaArgumentFailure } from './browser-scena
 import { paths } from '../services/paths';
 import { layoutScenario, responsiveOptions, viewportSchema } from './responsive-qa';
 import { qaHash, qaScenarioIdentity } from './qa-loop-guard';
+import { carryBrowserRoute, sameBrowserRoute, type ManagedPreviewTask } from './managed-preview';
 
 const qaStepSchema = {type:'object',properties:{action:{type:'string',enum:['click','fill','key','keydown','keyup','hold','scroll','focus','mousemove','drag','wait','pointer-lock']},selector:{type:'string'},value:{type:'string'},key:{type:'string'},duration_ms:{type:'integer',minimum:0,maximum:2000},repeat:{type:'integer',minimum:1,maximum:8},x:{type:'number'},y:{type:'number'},to_x:{type:'number'},to_y:{type:'number'},delta_y:{type:'number'},expect:{type:'object',properties:{selector:{type:'string'},text:{type:'string'},value:{type:'string'},changed:{type:'boolean'}},required:['selector'],additionalProperties:false}},required:['action'],additionalProperties:false};
 export const projectBrowserTool: ProjectToolDefinition = { type: 'function', function: {
   name: 'web_project',
-  description: 'After a build, preview_status probes the ORIGINAL approved preview HTML and up to four same-origin entry assets without navigation. It does not establish process ownership or verify the defect. Never open dist/index.html on a Vite dev server as a failed-preview fallback. Keep the original route and session; inspect project scripts before considering recovery through existing owned task handles and approvals. Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. Read vision_input: only response-received establishes a separate image-analysis response; failed/not-sent establishes no visual analysis. Even then the task model receives analysis text, not screenshot pixels. Never claim that you personally saw colors or visually verified pixels from a PNG path. State CSS-based conclusions as inferences from computed CSS. The task receives metadata/path and any explicit Vision analysis text, not PNG pixels. For colors use live inspect. Original region styles are historical; inspect returns CURRENT BROWSER OBSERVATION. A stale CSS Modules hash can be rebound only by unique saved identity; STALE_DOM_ANCHOR is not a current color measurement. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only the approved project/origin is reachable; no external network, file://, arbitrary WebSocket (only approved same-port Vite HMR), POST or arbitrary JS evaluation. With web disabled this tool is unavailable.',
+  description: 'After a build, preview_status probes the ORIGINAL approved preview HTML and up to four same-origin entry assets without navigation. It does not establish process ownership or verify the defect. Never open dist/index.html on a Vite dev server as a failed-preview fallback. Keep the original route and session; inspect project scripts before considering recovery through existing owned task handles and approvals. Verify a local web project using the application Playwright browser. In Electron it is the visible native WebContentsView shared with the user (headed); only the CLI fallback is headless. Do not infer headless rendering just from Playwright. Use this browser without installing npm packages or launching Chrome in run_terminal. Screenshots capture pixels independently of Vision; set analyze=true for an explicit model image assessment when Vision is allowed. First open a project-relative HTML path (default index.html), or an explicitly approved http://localhost:PORT / http://127.0.0.1:PORT URL. Then read DOM, click a CSS selector (including hash navigation), go back/forward, reload explicitly if needed (Live Browser automatically refreshes ordinary HTML/CSS/JS edits when visible), fill a field, scroll, or capture a screenshot file. Returns JS/console/network errors. Use action qa for bounded real interaction tests and optional actual pixel analysis. For relevant UI checkpoints, responsive:{reason,viewports:[mobile,desktop]} runs isolated DOM geometry checks; omit for backend work and color-only edits. Bound acceptance scenarios specify their own viewport (named profile or width/height) and assertion source=layout, operator=equals, expected=0 for DOM bounds only. Layout candidates need review; absence of DOM defects does not prove Canvas visuals. At most 5 viewports per checkpoint. Optional breakpoint:{minWidth,maxWidth,attempts} performs 2..5 bounded diagnostic probes, without modifying acceptance criteria. Optional responsive.vision=auto analyzes candidates or Canvas only; off retains DOM checks. Never claim physical mobile/iOS testing from desktop Chromium. Visual layout QA uses an explicit viewport and assertion {source:visual_layout,path:coverage|backing|seams,selector,operator:equals,expected:0}. Coverage is only for an explicitly fullscreen target. Seams/backing-scale findings are suspects, never automatic bugs. Optional visual_layout {dpr:1|2,resize:[viewport,viewport],baseline:{report_id,scenario_id},state_key,vision:auto|on|off} captures two frames per size in the isolated QA page. Baselines must match route, viewport, DPR, scroll and scenario conditions. Targeted Vision reviews regions, never certifies all aesthetics. Use at meaningful visual/Canvas/background/height-fix checkpoints, omit for backend work. For Canvas keyboard use key/keydown/keyup/hold with real browser events, never fill(body) or hidden HTML inputs. QA may be repeated after meaningful edits without a fixed lifetime count; unchanged loops return QA_NO_PROGRESS with prior evidence. For deterministic CSS use {action:"inspect",selector:"#sticker"}; it returns bounded computed styles and geometry without arbitrary JS. For formal radius proof use a scenario with assertion {source:"style",selector:"#sticker",path:"border-top-left-radius",operator:"equals",expected:"28px"} at the original viewport. Use text_fit for clipping; screenshots are not a substitute for style metrics. Explicit screenshots have a persisted budget of 8 per logical task, shared across Stop/Continue; region crops, QA captures and live frames are separate. Screenshots alone are not vision. Read vision_input: only response-received establishes a separate image-analysis response; failed/not-sent establishes no visual analysis. Even then the task model receives analysis text, not screenshot pixels. Never claim that you personally saw colors or visually verified pixels from a PNG path. State CSS-based conclusions as inferences from computed CSS. The task receives metadata/path and any explicit Vision analysis text, not PNG pixels. For colors use live inspect. Original region styles are historical; inspect returns CURRENT BROWSER OBSERVATION. A stale CSS Modules hash can be rebound only by unique saved identity; STALE_DOM_ANCHOR is not a current color measurement. QA reports include per-action evidence; fix failures and retest. Declare scenarios with an ID, goal, correct target route/mode, preconditions, required_state, steps, assertion and timeout. Register deliverable acceptance criteria before binding deliverable_id/criterion_id. No automatic WASD or drag is performed. Use hold (300..2000 ms) for frame-based movement. Observe a stable camera/state scalar inside window.__qaDiagnostics or a specific UI value; whole-body text and background pixel animation do not prove controls. For motion supply sample_ms [0,300,800] with a numeric trend assertion; one image cannot prove dynamics. Missing observers/preconditions produce inconclusive/blocked, not an invented failure. Only HTTP loopback previews and project-relative static assets are supported; no external network, file://, POST or arbitrary JS evaluation. Same-origin navigation stays in the approved project. Switching this same Browser to another port requires a ready Vite URL from an owned current-run terminal task, an exact loopback port match and normal approval; other origins keep existing approval/refusal behavior. Vite HMR is restricted to the currently approved origin/port. With web disabled this tool is unavailable.',
   parameters: { type: 'object', properties: { analyze: { type: 'boolean', description: 'For screenshot: explicitly request model image analysis; capture works without Vision.' },
     action: { type: 'string', enum: ['open', 'preview_status', 'inspect', 'read', 'click', 'fill', 'scroll', 'back', 'forward', 'reload', 'screenshot', 'qa', 'key', 'keydown', 'keyup', 'hold'] },
     supplementary_reason: { type: 'string', minLength: 8, maxLength: 240, description: 'Only for additional route diagnostics justified by a shared changed component or an explicit user request. Never counts as verification of a region on another route.' },
     path: { type: 'string', description: 'Project-relative static HTML path; never file://.' },
-    url: { type: 'string', description: 'Loopback HTTP URL with explicit port. Requires approval for this origin.' },
+    url: { type: 'string', description: 'HTTP loopback URL with explicit port. A different origin requires approval; same-project Vite switches also require preview_task_id from a ready current-run managed task.' },
+    preview_task_id: { type: 'string', description: 'For switching this Browser to another port, the current-run run_terminal task_id whose registry reports that exact project Vite URL ready. Never use a PID or historical task handle.' },
     selector: { type: 'string', description: 'CSS selector for click, fill or bounded read-only inspect (computed CSS, text and geometry; no private input values).' },
     key: {type:'string',description:'Real keyboard key/combination, e.g. w, Shift+w, q, e. Never use fill(body) for keyboard testing.'},
     duration_ms: {type:'integer',minimum:0,maximum:2000,description:'Hold duration; default 300 ms.'},
@@ -89,6 +91,14 @@ async function fetchLoopback(url: URL, signal: AbortSignal) {
     const deadline = setTimeout(() => req.destroy(new Error('Preview request timed out')), 10_000);
     req.once('close', () => clearTimeout(deadline)); req.on('error', reject); req.end();
   });
+}
+async function isViteClient(target: URL, signal: AbortSignal): Promise<boolean> {
+  const client = new URL('/@vite/client', target);
+  const response = await fetchLoopback(client, signal);
+  const body = response.body.toString('utf8');
+  return response.status === 200
+    && /javascript|ecmascript/i.test(response.headers['content-type'] ?? '')
+    && /createHotContext|vite client/i.test(body);
 }
 /** Only exact original bytes from an inline dev source map bind a transform. */
 export function matchesDevSourceMap(body:Buffer,source:Buffer):boolean {
@@ -142,13 +152,14 @@ async function devBuildPath(root:string,pathname:string):Promise<boolean>{
   return [...directories].some(dir=>path===dir+'/index.html'||path===dir+'/');
 }
 
-export type ProjectQaOptions = { takeScreenshot?:()=>boolean; regionContext?:Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<VisualRegion['anchors'][number],'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number}}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
+export type ProjectQaOptions = { takeScreenshot?:()=>boolean; regionContext?:Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<VisualRegion['anchors'][number],'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number};dpr?:number;scroll?:{x:number;y:number};rect?:VisualRect;surroundings?:VisualRegion['surroundings']}>; projectId?:string; securityMode?:'strict'|'autonomous'; runId?: string; guard?: QaLoopGuard; runtimeIdentity?: unknown; resolveManagedPreview?:(taskId:string,targetUrl:string,root:string)=>ManagedPreviewTask|undefined; analyze?: (capture: BrowserCapture, signal: AbortSignal, before?: BrowserCapture, scenario?: VisionQuestion) => Promise<BrowserVisualResult>; status?: (status: BrowserQaStatus) => void; signal?: AbortSignal };
 export class ProjectBrowserSession {
   private browser?: Browser;
   private native?: NativeProjectPage;
   private context?: BrowserContext;
   private page?: Page;
   private origin?: string;
+  private lastManagedSwitch?: {fromOrigin:string;toOrigin:string;taskId:string;runId:string;at:string;routePreserved:boolean};
   private lastAllowedUrl?: string;
   private blockedNavigation = false;
   private recoveringNavigation = false;
@@ -531,14 +542,16 @@ export class ProjectBrowserSession {
   }
   private async executePage(args: Record<string, unknown>, signal: AbortSignal, confirm: ConfirmAction | undefined, actionId: string): Promise<unknown> {
     try {
+      let pendingManagedSwitch:{fromOrigin:string;toOrigin:string;taskId:string;runId:string;at:string;routePreserved:boolean}|undefined;
       this.networkBudget = { requests:0, bytes:0, started:Date.now() };
       if (signal.aborted || this.closed || this.page?.isClosed() || this.browser&&!this.browser.isConnected())return {error:'Project browser is unavailable; open it explicitly in an authorized new task, or recreate a lost connection.',code:signal.aborted&&!this.closed?'BROWSER_OPERATION_CANCELLED':'BROWSER_SESSION_UNAVAILABLE',retrySameArguments:!signal.aborted&&['connection_lost','page_closed','renderer_crashed'].includes(this.endReason),browser_session:this.stateIdentity};
       const references=this.qaOptions.regionContext??[];
       const expected=references.map(r=>r.url),current=this.page?.url();
       if(references.length&&['inspect','read','screenshot','qa'].includes(String(args.action))&&current){
         const supplementary=typeof args.supplementary_reason==='string'&&args.supplementary_reason.trim().length>=8&&args.supplementary_reason.length<=240;
-        let mismatch=!supplementary&&!expected.some(url=>sameBrowserUrl(url,current));
-        if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>sameBrowserUrl(new URL(scenario.target,current).href,r.url)))mismatch=true;}
+        const matchesOriginal=(url:string,target:string)=>sameBrowserUrl(url,target)||Boolean(this.lastManagedSwitch&&new URL(url).origin===this.lastManagedSwitch.fromOrigin&&new URL(target).origin===this.lastManagedSwitch.toOrigin&&sameBrowserRoute(url,target));
+        let mismatch=!supplementary&&!expected.some(url=>matchesOriginal(url,current));
+        if(args.action==='qa'&&Array.isArray(args.scenarios))for(const scenario of args.scenarios){const scoped=references.filter(r=>r.groupId===scenario.deliverable_id);if(scoped.length&&!scoped.some(r=>matchesOriginal(r.url,new URL(scenario.target,current).href)))mismatch=true;}
         if(mismatch)return {error:'REGION_ROUTE_MISMATCH: the current/QA route differs from the selected region. Open a returned region_url and restore its viewport before checking the original defect. Empty query separators are normalized. Additional routes need supplementary_reason explaining a shared-change/user-request scope; they never verify the original region. Do not repeat this rejected call.',code:'REGION_ROUTE_MISMATCH',current_url:visualPromptUrl(current),region_urls:expected.map(visualPromptUrl),retrySameArguments:false};
       }
       if (!keyboardActions.has(String(args.action))&&(!responsiveRequest(args)||this.isolatedQa)) await this.releaseInput();
@@ -549,15 +562,27 @@ export class ProjectBrowserSession {
       if (this.denied) return { error: 'Browser authorization was denied for this run', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', retrySameArguments: false };
       if (!this.authorized && (args.action === 'open' || this.page)) {
         const proposed = args.url !== undefined ? loopbackTarget(String(args.url)).origin : this.origin ?? staticOrigin;
-        if(this.origin&&proposed!==this.origin){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();return {error:'Requested origin differs from the approved preview origin; keep project-relative navigation on the existing origin.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};}
-        const automatic=this.qaOptions.securityMode==='autonomous'&&Boolean(this.qaOptions.projectId);
+        const switching=Boolean(this.origin&&proposed!==this.origin);
+        let managed:ManagedPreviewTask|undefined;
+        if(switching){
+          if(args.action!=='open'||args.url===undefined)return {error:'A different preview origin can only be opened with an explicit loopback URL.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',expectedOrigin:this.origin,requestedOrigin:proposed,retrySameArguments:false,browser_session:this.stateIdentity};
+          const requested=loopbackTarget(String(args.url));
+          const taskId=typeof args.preview_task_id==='string'?args.preview_task_id:'';
+          managed=this.qaOptions.resolveManagedPreview?.(taskId,requested.href,this.root);
+          if(managed){
+            try{if(!await isViteClient(requested,AbortSignal.any([signal,AbortSignal.timeout(3500)])))return {error:'The target port did not serve the Vite client reported by the managed project task. The Browser stayed on its current Page.',code:'PROJECT_PREVIEW_SERVICE_MISMATCH',retrySameArguments:false,expectedOrigin:this.origin,requestedOrigin:proposed,task_id:taskId};}
+            catch(error){return {error:`Could not confirm the managed Vite preview at the reported port: ${String(error).slice(0,200)}`,code:'PROJECT_PREVIEW_SERVICE_MISMATCH',retrySameArguments:false,expectedOrigin:this.origin,requestedOrigin:proposed,task_id:taskId};}
+          }
+          pendingManagedSwitch=managed?{fromOrigin:this.origin!,toOrigin:proposed,taskId:managed.taskId,runId:this.qaOptions.runId??'',at:new Date().toISOString(),routePreserved:false}:undefined;
+        }
+        const automatic=this.qaOptions.securityMode==='autonomous'&&Boolean(this.qaOptions.projectId)&&(!switching||Boolean(managed));
         if(automatic)log('agent.browser.preview.auto-approved',{projectId:this.qaOptions.projectId,root:this.root,origin:proposed,mode:'autonomous',capability:'read-only-local-preview'});
         const decision = automatic?{approved:true,reason:'once' as const}:await confirm?.({ title: 'Проверка локального проекта в браузере', root: this.root, category: 'browser_preview', preview:{projectId:this.qaOptions.projectId??this.root,origin:proposed},actionId,
-          detail: `Разрешить браузер проекта ${this.root} для этой операции? Разрешение «в этой сессии» действует в текущем чате до отзыва, смены проекта/режима или закрытия приложения. Origin: ${proposed}. Только GET, без внешней сети.` }, signal);
+          detail: `Разрешить браузеру проекта открыть ${proposed}? ${switching?(managed?`Этот loopback-порт сообщён готовым Vite task ${managed.taskId} из текущего запуска; сервис проверен через /@vite/client.`:'Целевой сервис не подтверждён как dev-сервер этого проекта. Открывайте его только если узнаёте локальный сервис.'):'Это выбранный project preview.'} Разрешение ограничивает браузер проектом и GET-запросами; внешняя сеть, credentials, POST и произвольный JavaScript недоступны.` }, signal);
         if (!decision?.approved || signal.aborted) {
           this.ownership='user';this.observer?.ownership?.('blocked');
           this.denied = decision?.reason ?? 'ui_unavailable';
-          return { error: 'Project browser authorization denied', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', origin: proposed, projectRoot: this.root, retrySameArguments: false };
+          return { error: switching&&!managed?'Unconfirmed local service was not opened; approve this exact origin through the normal Browser preview dialog or use a current-run project Vite task.':'Project browser authorization denied', code: 'PERMISSION_DENIED', reason: this.denied, layer: 'browser_approval', origin: proposed, projectRoot: this.root, retrySameArguments: false };
         }
         this.authorized = true;this.previewApproved=true;
       }
@@ -569,12 +594,15 @@ export class ProjectBrowserSession {
       signal.throwIfAborted();
       if (args.action === 'preview_status') {
         if(!this.page||!this.origin||this.origin===staticOrigin)return {code:'NO_DEV_PREVIEW',error:'Open an approved loopback preview first. Static artifacts do not establish a dev server.',retrySameArguments:false};
+        const switched=this.lastManagedSwitch?.toOrigin===this.origin;
+        const currentRunSwitch=Boolean(switched&&this.qaOptions.runId&&this.lastManagedSwitch?.runId===this.qaOptions.runId);
         const urls=[...new Set((this.qaOptions.regionContext??[]).map(r=>r.url))];
-        if(urls.length>1&&!urls.every(url=>sameBrowserUrl(url,urls[0])))return {code:'AMBIGUOUS_PREVIEW_ROUTE',error:'Selected regions have different routes. Inspect each original route explicitly.',retrySameArguments:false};
-        const target=loopbackTarget(urls[0]??this.runPreviewUrl??this.page.url());
+        const refsMatchCurrentOrigin=urls.some(url=>{try{return new URL(url).origin===this.origin;}catch{return false;}});
+        if(!switched&&refsMatchCurrentOrigin&&urls.length>1&&!urls.every(url=>sameBrowserUrl(url,urls[0])))return {code:'AMBIGUOUS_PREVIEW_ROUTE',error:'Selected regions have different routes. Inspect each original route explicitly.',retrySameArguments:false};
+        const target=loopbackTarget(switched||!refsMatchCurrentOrigin?this.page.url():urls[0]??this.runPreviewUrl??this.page.url());
         if(target.origin!==this.origin)return {code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',error:'Original preview differs from approved origin',retrySameArguments:false};
         const probeSignal=AbortSignal.any([signal,AbortSignal.timeout(6000)]);
-        const base={original_url:visualPromptUrl(target.href),current_url:visualPromptUrl(this.page.url()),origin:this.origin,browser_session:this.stateIdentity,process_ownership:'unknown; use only existing owned task handles, never adopt a PID or port',browser_workspace:this.native?.workspaceState?.(),formal_verification:false};
+        const base={original_url:visualPromptUrl(target.href),current_url:visualPromptUrl(this.page.url()),origin:this.origin,...(switched?{previous_origin:this.lastManagedSwitch!.fromOrigin,managed_task_id:this.lastManagedSwitch!.taskId,managed_switch_current_run:currentRunSwitch}:{}),browser_session:this.stateIdentity,process_ownership:currentRunSwitch?'reported by a current-run managed Vite task; process remains owned by run_terminal':switched?'unknown; prior-run task handles expired and do not establish current process ownership':'unknown; use only existing owned task handles, never adopt a PID or port',browser_workspace:this.native?.workspaceState?.(),formal_verification:false};
         try {
           const html=await fetchLoopback(target,probeSignal);
           const isHtml=(html.headers['content-type']??'').includes('text/html');
@@ -587,10 +615,11 @@ export class ProjectBrowserSession {
       }
       if (args.action === 'open') {
         if (args.path !== undefined && args.url !== undefined) throw new Error('Choose path or url');
-        const url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
+        let url = args.url !== undefined ? loopbackTarget(String(args.url)) : new URL('/' + String(args.path ?? 'index.html').replace(/^\//, ''), this.origin??staticOrigin);
         if (url.origin !== (this.origin??staticOrigin) && args.url === undefined) throw new Error('Invalid project path');
-        if (this.origin && this.origin !== url.origin){this.ownership='user';this.observer?.ownership?.('user');this.refreshVisualDisplaySoon();return {error:'Origin differs from the approved preview. Keep project-relative navigation on the current origin; another origin requires a new explicitly authorized session.',code:'PREVIEW_ORIGIN_SCOPE_MISMATCH',retrySameArguments:false,browser_session:this.stateIdentity};}
-        if(this.serverManaged&&await devBuildPath(this.root,url.pathname)){
+        const oldOrigin=this.origin,oldPageUrl=this.page?.url(),oldServerManaged=this.serverManaged,oldViteManaged=this.viteManaged;
+        if(pendingManagedSwitch&&oldPageUrl){const carried=carryBrowserRoute(oldPageUrl,url.href);url=new URL(carried);pendingManagedSwitch={...pendingManagedSwitch,routePreserved:carried!==args.url};}
+        if((this.serverManaged||Boolean(pendingManagedSwitch))&&await devBuildPath(this.root,url.pathname)){
           return {code:'BUILD_ARTIFACT_ON_DEV_SERVER',error:'Built HTML must not replace the original route on a Vite dev server. A failed preview is not a verified production server. Use preview_status, keep the original route and inspect artifacts without navigation; production preview needs a confirmed approved URL.',original_url:visualPromptUrl(this.runPreviewUrl??this.page!.url()),retrySameArguments:false,alternative:{action:'preview_status'}};
         }
         const newPage = !this.origin;
@@ -598,12 +627,34 @@ export class ProjectBrowserSession {
           this.origin = url.origin;
           this.observer?.state('loading', url.href);
           await this.start();
+        } else if(this.origin!==url.origin){
+          // Native Electron has a second, persistent session-level origin guard.
+          // Advance it only after the current-run managed-task/service check and
+          // normal approval above have authorized this exact preview origin.
+          this.native?.approveOrigin(url.origin);
+          this.origin=url.origin;
+          if(!pendingManagedSwitch){this.serverManaged=false;this.viteManaged=false;}
+          this.sourceChangedAt=0;this.loadedAt=0;
         }
-        signal.throwIfAborted();this.errors.length = 0; this.blocked.length = 0; this.servedRevisions.clear();
-        this.observer?.state('loading', url.href);
-        const response = await this.page!.goto(url.href, { waitUntil: 'load' });
-        if(response && [401,403].includes(response.status()))return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
-        if (response && !response.ok()) throw new Error(`Preview HTTP ${response.status()}`);
+        let response;
+        try{
+          signal.throwIfAborted();this.errors.length = 0; this.blocked.length = 0; this.servedRevisions.clear();
+          this.observer?.state('loading', url.href);
+          response=await this.page!.goto(url.href,{waitUntil:'load'});
+        }
+        catch(error){
+          if(oldOrigin&&oldPageUrl&&oldOrigin!==url.origin){this.origin=oldOrigin;this.native?.approveOrigin(oldOrigin);this.serverManaged=oldServerManaged;this.viteManaged=oldViteManaged;await this.page!.goto(oldPageUrl,{waitUntil:'load'}).then(()=>this.observer?.state('live',oldPageUrl)).catch(()=>undefined);}
+          throw error;
+        }
+        if(response&&[401,403].includes(response.status())){
+          if(oldOrigin&&oldPageUrl&&oldOrigin!==url.origin){this.origin=oldOrigin;this.native?.approveOrigin(oldOrigin);this.serverManaged=oldServerManaged;this.viteManaged=oldViteManaged;await this.page!.goto(oldPageUrl,{waitUntil:'load'}).then(()=>this.observer?.state('live',oldPageUrl)).catch(()=>undefined);}
+          return {error:'Authentication required; no authorization bypass was attempted',code:'AUTH_REQUIRED',retrySameArguments:false};
+        }
+        if(response&&!response.ok()){
+          if(oldOrigin&&oldPageUrl&&oldOrigin!==url.origin){this.origin=oldOrigin;this.native?.approveOrigin(oldOrigin);this.serverManaged=oldServerManaged;this.viteManaged=oldViteManaged;await this.page!.goto(oldPageUrl,{waitUntil:'load'}).then(()=>this.observer?.state('live',oldPageUrl)).catch(()=>undefined);}
+          throw new Error(`Preview HTTP ${response.status()}`);
+        }
+        if(pendingManagedSwitch){this.lastManagedSwitch=pendingManagedSwitch;this.runPreviewUrl=url.href;}
         if (newPage) this.qaGuard.reopened(await this.qaState());
         this.observer?.action({ kind: 'navigate', at: Date.now() });
       } else {
@@ -688,7 +739,7 @@ export class ProjectBrowserSession {
           const context=await this.read();
           const current={inspection:{...inspection.inspection,url:visualPromptUrl(inspection.inspection!.url)},...context,content:undefined,links:undefined,provenance:{kind:'current-browser-observation',observedAt:inspection.inspection!.observedAt,browserSession:this.stateIdentity}};
           if(inspection.inspection!.documentVersion.timeOrigin!==context.documentVersion?.timeOrigin||JSON.stringify(inspection.inspection!.viewport)!==JSON.stringify(context.documentVersion?.viewport)||sourceAtInspection!==this.sourceChangedAt||inspection.inspection!.documentVersion.hmrAppliedAt!==context.freshness.hmrAppliedAt||!sameBrowserUrl(inspection.inspection!.url,context.url))return {...current,freshness:{...context.freshness,status:'possibly-stale'},error:'Page/source changed while CSS was sampled. This observation cannot verify the current state. Retry inspection once after HMR settles; if unstable, finish with the freshness limitation.',code:'BROWSER_OBSERVATION_CHANGED',retrySameArguments:true};
-          if(!inspection.inspection!.matches)return {...current,error:'The selector no longer identifies a current element. Historical region styles are not current CSS. Use the bounded anchor diagnostic or inspect current DOM; do not repeat this selector unchanged.',code:'STALE_DOM_ANCHOR',retrySameArguments:false,alternative:{action:'read'},anchorState:inspection.inspection!.anchorResolution.reason??'element-missing'};
+          if(!inspection.inspection!.matches){const anchored=refs.some(r=>r.selectors?.includes(args.selector as string));return {...current,error:`No current DOM element matches this selector (${inspection.inspection!.matches}) at the reported URL and HMR state. candidate_elements lists live tags, IDs, CSS Modules classes and usable selector hints; choose one or use read. Absence is confirmed only for this current URL/DOM.`,code:anchored?'STALE_DOM_ANCHOR':'ELEMENT_NOT_FOUND',retrySameArguments:false,alternative:{action:'read'},anchorState:inspection.inspection!.anchorResolution.reason??'element-missing'};}
           return current;
         } else if (args.action === 'screenshot') {
           if(this.qaOptions.takeScreenshot?!this.qaOptions.takeScreenshot():this.captures>=8)return {error:'Screenshot limit for this logical task is exhausted. Use DOM/CSS inspection or finish with verification incomplete.',code:'SCREENSHOT_LIMIT',retrySameArguments:false,alternative:{action:'inspect',selector:'<current confirmed selector>'},budget:{limit:8,scope:'logical_task'}};
@@ -937,7 +988,9 @@ export class ProjectBrowserSession {
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom=await page.evaluate(inspectBrowserDom,{});
     const workspace=this.native?.workspaceState?.();
-    return { provenance:{kind:'current-browser-observation',observedAt:new Date().toISOString(),browserSession:this.stateIdentity}, freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:sameBrowserUrl(r.url,page.url())}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), source_binding:{state:this.origin===staticOrigin?'static-assets':this.servedRevisions.size?'matched-inline-source-map':'unavailable',...(this.origin!==staticOrigin&&!this.servedRevisions.size?{reason:'No exact project-source match for the served transform. DOM observations alone do not formally verify source changes.'}:{})}, ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : this.servedRevisions.size?{source_path:this.servedRevisions.keys().next().value!}:{}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    const refs=this.qaOptions.regionContext??[];
+    const currentRunSwitch=Boolean(this.lastManagedSwitch&&this.qaOptions.runId&&this.lastManagedSwitch.runId===this.qaOptions.runId);
+    return { provenance:{kind:'current-browser-observation',observedAt:new Date().toISOString(),browserSession:this.stateIdentity}, freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:refs.map(r=>{const changedOrigin=new URL(r.url).origin!==new URL(page.url()).origin;return {...r,url:visualPromptUrl(r.url),matches_current:sameBrowserUrl(r.url,page.url()),matches_route_after_port_switch:Boolean(changedOrigin&&this.lastManagedSwitch&&sameBrowserRoute(r.url,page.url())),origin_changed:changedOrigin,usable_as_current_evidence:sameBrowserUrl(r.url,page.url())};}),...(this.lastManagedSwitch?{approved_origin_switch:{...this.lastManagedSwitch,current_run:currentRunSwitch}}:{})}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), source_binding:{state:this.origin===staticOrigin?'static-assets':this.servedRevisions.size?'matched-inline-source-map':'unavailable',...(this.origin!==staticOrigin&&!this.servedRevisions.size?{reason:'No exact project-source match for the served transform. DOM observations alone do not formally verify source changes.'}:{})}, ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : this.servedRevisions.size?{source_path:this.servedRevisions.keys().next().value!}:{}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

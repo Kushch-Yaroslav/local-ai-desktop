@@ -19,7 +19,7 @@ app.whenReady().then(async()=>{
  const {liveBrowsers}=require(resolve('dist/main/web/live-browser.js'));
  const events=[];const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='chat:stream')events.push(event);return send(channel,event,...rest);};
  const Session=require(resolve('dist/main/web/project-browser.js')).ProjectBrowserSession,display=Session.prototype.visualDisplay;Session.prototype.visualDisplay=function(...args){global.visualFixture.session=this;return display.apply(this,args);};
- global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,
+ global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,approvals:[],
  entry(){return [...liveBrowsers.entries.values()].find(e=>e.state.conversationId===fixture.chat.id&&!e.ended)},
   setOwnership(value){const entry=this.entry();entry.native.ownership(value);entry.state={...entry.state,ownership:value};entry.owner.send('live-browser:event',{type:'state',state:entry.state});},
   nativeSurfaceBounds(){const container=window.contentView.children.find(view=>view.children?.length);return container?.children?.[0]?.getBounds();},

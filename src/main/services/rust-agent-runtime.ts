@@ -4,6 +4,7 @@ import { BrowserVisionProvider } from './browser-vision';
 import type { BrowserQaStatus } from '../../shared/browser-qa';
 import type { ProjectBrowserObserver } from '../web/live-browser';
 import { ProjectBrowserSession, projectBrowserTool, loopbackTarget, staticOrigin } from '../web/project-browser';
+import { resolveManagedPreviewTask, updateManagedPreviewTasks, type ManagedPreviewTask, type ManagedTaskCall } from '../web/managed-preview';
 import { QaLoopGuard } from '../web/qa-loop-guard';
 import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
@@ -59,6 +60,8 @@ type RuntimeRequest = {
   evidence_dir?: string; workspace_roots?: string[];
   approval_ui: boolean; permissions: AgentPermissions;
 };
+
+type PendingManagedTaskCall = ManagedTaskCall;
 
 export function statusActivity(runId: string, ordinal: number, content: string): ToolActivity {
   return {
@@ -261,7 +264,9 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
-    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<import('../../shared/visual-debugging').VisualAnchor,'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number}}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const managedPreviewTasks = new Map<string, ManagedPreviewTask>();
+    const terminalCalls = new Map<string, PendingManagedTaskCall>();
+    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<import('../../shared/visual-debugging').VisualAnchor,'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number};dpr?:number;scroll?:{x:number;y:number};rect?:import('../../shared/visual-debugging').VisualRect;surroundings?:import('../../shared/visual-debugging').VisualRegion['surroundings']}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, resolveManagedPreview:(taskId:string,targetUrl:string,root:string)=>resolveManagedPreviewTask(managedPreviewTasks,taskId,targetUrl,root,runId), runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -357,7 +362,7 @@ export class RustAgentRuntime {
               if (!project) throw new Error('Select an authorized project first');
               if (previewProject && previewProject !== project.id) throw new Error('Preview is scoped to one project per run');
               previewProject = project.id;
-              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url,viewport:r.viewport,selectors:r.anchors.map(a=>a.selector).slice(0,8),anchors:r.anchors.slice(0,8).map(a=>({selector:a.selector,tag:a.tag,identity:a.identity??{text:a.text,context:''}}))}));
+              qaOptions.projectId=project.id;qaOptions.regionContext=visualRegions.filter(r=>r.projectId===project.id).map(r=>({id:r.id,groupId:r.groupId,url:r.url,viewport:r.viewport,dpr:r.dpr,scroll:r.scroll,rect:r.rect,surroundings:r.surroundings,selectors:r.anchors.map(a=>a.selector).slice(0,8),anchors:r.anchors.slice(0,8).map(a=>({selector:a.selector,tag:a.tag,identity:a.identity??{text:a.text,context:''}}))}));
               const recover=projectBrowser&&!projectBrowser.reusable&&event.arguments?.action==='open'&&!signal.aborted&&!qaPause.signal.aborted&&['connection_lost','page_closed','renderer_crashed','policy_changed','permission_revoked','startup_failed'].includes(projectBrowser.endReason)&&browserRecoveries<1;
               const browserArgs=recover?projectBrowser!.recoveryRequest(event.arguments??{}):event.arguments??{};
               if(recover){browserRecoveries++;await projectBrowser!.close();projectBrowser=undefined;browserObserver=browserObserver?.renew?.()??browserObserver;browserObserver?.ownership?.('recovering');}
@@ -451,6 +456,7 @@ export class RustAgentRuntime {
         else if (event.type === 'tool_call_started') {
           if (lastQaFailed && ['replace_text','apply_patch','write_file','create_file','delete_file'].includes(event.name ?? '')) qaStatus?.({phase:'fixing'});
           const command = event.name === 'run_terminal' && typeof event.arguments?.command === 'string' ? event.arguments.command : undefined;
+          if(event.name==='run_terminal'&&event.id)terminalCalls.set(event.id,{action:typeof event.arguments?.task_action==='string'?event.arguments.task_action:undefined,taskId:typeof event.arguments?.task_id==='string'?event.arguments.task_id:undefined,command});
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), toolName: event.name, arguments: event.arguments, startedAt: new Date().toISOString(), label: activityLabel(event.name), ...(event.name === 'create_visual_artifact' ? { metadata: { artifactType: String((event.arguments?.artifact as { type?: string })?.type ?? '') } } : {}), detail: command ?? event.name, kind: activityKind(event.name), state: 'running', ...(command ? { terminal: { command, status: 'running' } } : {}) } };
         } else if (event.type === 'tool_process_started') {
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), label: activityLabel('run_terminal'), detail: event.command ?? 'Terminal', kind: 'terminal', state: 'running', terminal: { command: event.command, cwd: event.cwd, pid: event.pid, pgid: event.pgid, sessionId: event.session_id, startedAt: timestamp(event.started_at), status: 'running' } } };
@@ -458,6 +464,7 @@ export class RustAgentRuntime {
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), label: activityLabel('run_terminal'), kind: 'terminal', state: 'running', terminal: event.stream === 'stderr' ? { stderr: `${event.content ?? ''}\n` } : { stdout: `${event.content ?? ''}\n` } } };
         } else if (event.type === 'tool_result' || event.type === 'tool_error') {
           const failed = event.is_error || event.type === 'tool_error';
+          if(event.name==='run_terminal'&&event.id){const call=terminalCalls.get(event.id)??{};terminalCalls.delete(event.id);if(!failed&&event.content)updateManagedPreviewTasks(managedPreviewTasks,event.content,call,projects[0]?.root??'',runId);}
           // A result carries its call ID, so it finalizes the card the call
           // opened. Fields it does not know must stay absent rather than
           // undefined, or the merge would erase the started command.

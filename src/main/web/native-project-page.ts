@@ -71,6 +71,9 @@ export interface NativeProjectPage {
   onWorkspace?(callback:(state:BrowserWorkspaceState)=>void):void;
   workspaceState?():BrowserWorkspaceState|undefined;
   captureCss?(rect:{x:number;y:number;width:number;height:number},dpr:number):Promise<Buffer>;
+  /** Update the exact origin accepted by Electron's session guard after the
+   * owning Browser session has authorized a project preview switch. */
+  approveOrigin(origin:string):void;
   ownership(value: string): void;
   releaseInput(): Promise<void>;
   highlight?(rects: Array<{x:number;y:number;width:number;height:number;color:string;label:string;id?:string;selected?:boolean;muted?:boolean}>): void;
@@ -86,9 +89,10 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   isolated.setPermissionCheckHandler(() => false);
   isolated.on('will-download', event => event.preventDefault());
   let hmrEnabled=false;
-  const allowed = (raw: string) => { try { const url = new URL(raw); return url.origin === origin && ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password; } catch { return false; } };
+  let approvedOrigin=origin;
+  const allowed = (raw: string) => { try { const url = new URL(raw); return url.origin === approvedOrigin && ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password; } catch { return false; } };
   // This guard survives a lost Playwright/CDP connection. Routing never grants a network escape.
-  isolated.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.method !== 'GET' || !(allowed(details.url)||allowedViteSocket(details.url,origin,hmrEnabled)) }));
+  isolated.webRequest.onBeforeRequest((details, callback) => callback({ cancel: details.method !== 'GET' || !(allowed(details.url)||allowedViteSocket(details.url,approvedOrigin,hmrEnabled)) }));
   const view = new WebContentsView({ webPreferences: { session: isolated, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: false, navigateOnDragDrop: false, spellcheck: false, backgroundThrottling: false } });
   const contents = view.webContents;
   let ownerState = 'agent', destroyed = false, visible = false;
@@ -285,6 +289,14 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
       async workspace(value){settings=structuredClone(value);if(value.zoom!==undefined&&Math.abs(contents.getZoomFactor()-value.zoom)>.001)contents.setZoomFactor(value.zoom);await schedule();},
       hmr(enabled){hmrEnabled=enabled;},
+      approveOrigin(value){
+        if(destroyed)throw new Error('Native browser closed');
+        let target:URL;try{target=new URL(value);}catch{throw new Error('Invalid approved Browser origin');}
+        const local=target.protocol==='http:'&&['localhost','127.0.0.1'].includes(target.hostname)&&Boolean(target.port)&&!target.username&&!target.password&&target.origin===value;
+        const staticPreview=value==='https://project-preview.invalid';
+        if(!local&&!staticPreview)throw new Error('Native Browser can approve only an explicit loopback preview or the internal project preview');
+        approvedOrigin=value;hmrEnabled=false;
+      },
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
       ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(value) {
