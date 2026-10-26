@@ -3,7 +3,7 @@ import {BrowserWorkspaceControls} from './BrowserWorkspaceControls';
 import { VisualDebugPanel } from './VisualDebugPanel';
 import { useAppStore } from '../store/app-store';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight, Send, Square, UserRound, Bot } from 'lucide-react';
+import { Globe, Columns2, Maximize2, MessageSquare, X, Radio, RefreshCw, ArrowLeft, ArrowRight, Send, Square, UserRound, Bot, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { LiveBrowserState, BrowserInput } from '../../shared/live-browser';
 import { t,localizeMessage } from '../../shared/locale';
 import { useLocale } from '../use-locale';
@@ -22,6 +22,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const choices = useRef(new Map<string, Mode>());
   const [mode, setMode] = useState<Mode>('chat');
   const [browser, setBrowser] = useState<LiveBrowserState | null>(null);
+  const browserRef=useRef<LiveBrowserState|null>(null);
   const [ratio, setRatio] = useState(50);
   const [narrow, setNarrow] = useState(false);
   const browserPanel=useRef<HTMLElement>(null);
@@ -32,12 +33,12 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
   const root = useRef<HTMLDivElement>(null);
   const current = useRef<string | null>(null), session = useRef<string | null>(null);
   const visible = useRef(false);
-  const changeMode = useCallback((next: Mode) => { if (conversationId) choices.current.set(conversationId, next); setMode(next); },[conversationId]);
+  const changeMode = useCallback((next: Mode) => { if (conversationId) choices.current.set(conversationId, next); setMode(next);const current=browserRef.current;if(current?.conversationId===conversationId&&current.workspace){const visible=next!=='chat';if(current.workspace.settings.workspaceVisible!==visible)void window.localAi.liveBrowser?.workspace(current.sessionId,{...current.workspace.settings,workspaceVisible:visible}).catch(()=>undefined);}},[conversationId]);
   useEffect(()=>{const open=()=>{if(conversationId){changeMode('split');void window.localAi.visualDebug.open(conversationId).then(()=>window.localAi.liveBrowser?.watch(conversationId,true)).catch(e=>setOpenError(String(e)));}};window.addEventListener('visual-open-browser',open);return()=>window.removeEventListener('visual-open-browser',open);},[conversationId,changeMode]);
   useEffect(()=>{const show=()=>changeMode('split');window.addEventListener('visual-show-browser',show);return()=>window.removeEventListener('visual-show-browser',show);},[changeMode]);
   // Reset before paint so a chat switch can never flash the other chat's frame.
   useLayoutEffect(() => {
-    current.current = conversationId; session.current = null;
+    current.current = conversationId; session.current = null;browserRef.current=null;
     setPreviewUrl('');setEditingAddress(false);setOpenError('');setBrowser(null); setMode(conversationId ? choices.current.get(conversationId) ?? 'chat' : 'chat');
   }, [conversationId]);
   useEffect(() => {
@@ -46,8 +47,10 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
     const unsubscribe = api.onEvent(event => {
       if (event.state.conversationId !== current.current) return;
       session.current = event.state.sessionId;
+      browserRef.current=event.state;
       setBrowser(event.state);
-      if (!choices.current.has(event.state.conversationId)) setMode('split');
+      if (!choices.current.has(event.state.conversationId)) setMode(event.state.workspace?.settings.workspaceVisible===true?'split':'chat');
+      else if(event.state.workspace&&event.state.workspace.settings.workspaceVisible!==(choices.current.get(event.state.conversationId)!=='chat'))void api.workspace(event.state.sessionId,{...event.state.workspace.settings,workspaceVisible:choices.current.get(event.state.conversationId)!=='chat'}).catch(()=>undefined);
     });
     return () => { unsubscribe(); void api.watch(null, false).catch(() => undefined); };
   }, []);
@@ -113,15 +116,15 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); }}
       onPointerMove={event => { if (!event.currentTarget.hasPointerCapture(event.pointerId) || !root.current) return; const rect = root.current.getBoundingClientRect(); setRatio(Math.max(25, Math.min(75, 100 * (event.clientX - rect.left) / rect.width))); }}
       onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />}
-    <aside ref={browserPanel} style={{'--tools-width':`${workspace?.settings.toolsWidth??300}px`} as CSSProperties} className={`live-browser workspace-${workspace?.settings.layout==='horizontal'&&!toolsNarrow?'horizontal':'vertical'}`} aria-label={t('Браузер')} aria-hidden={mode === 'chat'}>
-      <header className="live-header"><div className="browser-layout-choice"><select aria-label={t('Компоновка браузера')} disabled={!interactive} value={workspace?.settings.layout??'vertical'} onChange={e=>workspace&&configure({...workspace.settings,layout:e.target.value as 'vertical'|'horizontal'})}><option value="vertical">{t('Вертикально')}</option><option value="horizontal">{t('Горизонтально')}</option></select></div><span className="live-title"><Globe size={16} />{t('Браузер')}</span><div className="live-view-controls">
+    <aside ref={browserPanel} style={{'--tools-width':`${workspace?.settings.toolsWidth??300}px`} as CSSProperties} className={`live-browser workspace-${workspace?.settings.layout==='horizontal'&&!toolsNarrow?'horizontal':'vertical'} ${workspace?.settings.toolsCollapsed?'tools-collapsed':''}`} aria-label={t('Браузер')} aria-hidden={mode === 'chat'}>
+      <header className="live-header"><div className="browser-layout-choice"><select aria-label={t('Компоновка браузера')} disabled={!browser} value={workspace?.settings.layout??'vertical'} onChange={e=>workspace&&configure({...workspace.settings,layout:e.target.value as 'vertical'|'horizontal'})}><option value="vertical">{t('Вертикально')}</option><option value="horizontal">{t('Горизонтально')}</option></select></div><span className="live-title"><Globe size={16} />{t('Браузер')}</span><div className="live-view-controls">
+        <button disabled={!browser} title={workspace?.settings.toolsCollapsed?t('Показать инструменты'):t('Скрыть инструменты')} aria-label={workspace?.settings.toolsCollapsed?t('Показать инструменты'):t('Скрыть инструменты')} aria-pressed={workspace?.settings.toolsCollapsed===true} onClick={()=>workspace&&configure({...workspace.settings,toolsCollapsed:!workspace.settings.toolsCollapsed})}>{workspace?.settings.toolsCollapsed?<PanelLeftOpen size={15}/>:<PanelLeftClose size={15}/>}<span>{workspace?.settings.toolsCollapsed?t('Показать инструменты'):t('Скрыть инструменты')}</span></button>
         <button className={mode === 'split' ? 'selected' : ''} title={t('Разделённый вид')} aria-label={t('Разделённый вид')} onClick={() => changeMode('split')}><Columns2 size={15} /></button>
         <button className={mode === 'expanded' ? 'selected' : ''} title={t('Браузер на весь экран')} aria-label={t('Браузер на весь экран')} onClick={() => changeMode('expanded')}><Maximize2 size={15} /></button>
         <button title={t('Только чат')} aria-label={t('Только чат')} onClick={() => changeMode('chat')}><MessageSquare size={15} />{narrow&&t('Показать чат')}</button>
-        <button title={t('Закрыть браузер')} aria-label={t('Закрыть браузер')} onClick={() => { if (browser) void window.localAi.liveBrowser?.close(browser.sessionId).catch(() => undefined); changeMode('chat'); }}><X size={16} /></button>
+        <button title={t('Скрыть браузер')} aria-label={t('Скрыть браузер')} onClick={() => changeMode('chat')}><X size={16} /></button>
       </div></header>
-      <div className="browser-tools">
-      {toolsNarrow&&workspace?.settings.layout==='horizontal'&&<small>{t('Узкая панель: используется вертикальная компоновка')}</small>}
+      <div className="browser-navigation">
       <form className="live-address" data-current-url={browser?.url??''} onSubmit={e=>{e.preventDefault();openBrowser(previewUrl);}}>
         <button type="button" disabled={!interactive} title={t('Назад')} aria-label={t('Назад')} onClick={()=>input({kind:'back'})}><ArrowLeft size={16}/></button>
         <button type="button" disabled={!interactive} title={t('Вперёд')} aria-label={t('Вперёд')} onClick={()=>input({kind:'forward'})}><ArrowRight size={16}/></button>
@@ -134,6 +137,9 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       {openError&&<p className="live-error" role="alert">{openError}</p>}
       {editingAddress&&previewUrl!==browser?.url&&<p className="live-navigation-draft" role="status">{t('Черновик адреса. Текущая страница')}: <code>{browser?.url||t('Браузер закрыт')}</code></p>}
       {browser?.freshness?.status==='possibly-stale'&&<p className="live-navigation-draft" role="status">{t('Страница может быть устаревшей')} · {browser.freshness.origin} <button disabled={!interactive||running} onClick={()=>input({kind:'reload'})}>{t('Обновить')}</button></p>}
+      </div>
+      <div className="browser-tools">
+      {toolsNarrow&&workspace?.settings.layout==='horizontal'&&<small>{t('Узкая панель: используется вертикальная компоновка')}</small>}
       <BrowserWorkspaceControls state={workspace} disabled={!interactive||running} onChange={configure}/>
       <div className={`live-ownership ownership-${browser?.ownership??'unavailable'}`} role="status">
         {browser?.ownership==='agent'?<Bot size={16}/>:<UserRound size={16}/>}
@@ -143,7 +149,7 @@ export function LiveBrowserWorkspace({ conversationId, children }: { conversatio
       </div>
       <VisualDebugPanel conversationId={conversationId} interactive={Boolean(interactive)}/>
       </div>
-      {workspace?.settings.layout==='horizontal'&&!toolsNarrow&&<div className="browser-tools-divider" role="separator" aria-label={t('Ширина инструментов браузера')} aria-orientation="vertical" tabIndex={0} aria-valuemin={220} aria-valuemax={520} aria-valuenow={workspace.settings.toolsWidth??300} onKeyDown={e=>{if(interactive&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,(workspace.settings.toolsWidth??300)+(e.key==='ArrowLeft'?-10:10)))});}}} onPointerDown={e=>{if(interactive)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(!interactive||!e.currentTarget.hasPointerCapture(e.pointerId)||!browserPanel.current)return;const r=browserPanel.current.getBoundingClientRect();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,r.width-240,e.clientX-r.left))});}} onPointerUp={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}/>}
+      {workspace?.settings.layout==='horizontal'&&!toolsNarrow&&<div className="browser-tools-divider" role="separator" aria-label={t('Ширина инструментов браузера')} aria-orientation="vertical" tabIndex={0} aria-valuemin={220} aria-valuemax={520} aria-valuenow={workspace.settings.toolsWidth??300} onKeyDown={e=>{if(browser&&['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,(workspace.settings.toolsWidth??300)+(e.key==='ArrowLeft'?-10:10)))});}}} onPointerDown={e=>{if(browser)e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(!browser||!e.currentTarget.hasPointerCapture(e.pointerId)||!browserPanel.current)return;const r=browserPanel.current.getBoundingClientRect();configure({...workspace.settings,toolsWidth:Math.max(220,Math.min(520,r.width-240,e.clientX-r.left))});}} onPointerUp={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);}}/>}
       <div ref={screen} className="live-screen native-browser-surface" onScroll={e=>{if(!workspace||!interactive||running)return;const element=e.currentTarget,factor=workspace.panel.width/Math.max(1,element.clientWidth),pan=presentationToCss({x:element.scrollLeft,y:element.scrollTop},workspace.displayScale*workspace.browserZoom/factor);if(Math.abs(pan.x-workspace.settings.pan.x)<1&&Math.abs(pan.y-workspace.settings.pan.y)<1)return;clearTimeout(panTimer.current);panTimer.current=setTimeout(()=>configure({...workspace.settings,pan}),60);}} tabIndex={interactive ? 0 : -1} onFocus={() => input({kind:'focus'})} aria-label={t('Страница браузера агента')}>
         {workspace&&<div aria-hidden="true" className="browser-virtual-surface" style={{width:workspace.surface.width/(Math.max(1,workspace.panel.width)/Math.max(1,screen.current?.clientWidth??workspace.panel.width)),height:workspace.surface.height/(Math.max(1,workspace.panel.height)/Math.max(1,screen.current?.clientHeight??workspace.panel.height))}}/>}
         {!browser && <div className="live-empty"><Globe size={28} />{t('Откройте страницу проекта по адресу выше. Затем создайте область или проверьте страницу.')}</div>}

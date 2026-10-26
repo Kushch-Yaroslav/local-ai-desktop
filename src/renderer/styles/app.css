@@ -736,16 +736,23 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .model-availability-control select { flex:1; min-width:0; }
 
 /* Tools have their own bounded track; issue cards never consume the Page track. */
-.live-browser.workspace-vertical,.live-browser.workspace-horizontal {display:grid;grid-template-areas:"header" "tools" "screen" "footer";grid-template-rows:auto minmax(0,min(260px,40%)) minmax(120px,1fr) auto;grid-template-columns:minmax(0,1fr)}
+.live-browser.workspace-vertical,.live-browser.workspace-horizontal {display:grid;grid-template-areas:"header" "navigation" "tools" "screen" "footer";grid-template-rows:auto auto minmax(0,min(260px,36%)) minmax(120px,1fr) auto;grid-template-columns:minmax(0,1fr)}
 .live-browser .live-header {grid-area:header;padding:6px;flex-wrap:wrap}
+.browser-navigation {grid-area:navigation;min-width:0}
 .browser-tools {grid-area:tools;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain}
 .live-browser .live-screen {grid-area:screen;min-height:120px}
 .live-browser .live-footer {grid-area:footer;min-width:0;flex-wrap:wrap}
 .browser-tools .visual-debug-panel,.browser-tools .visual-area-list,.browser-tools .browser-workspace-controls {max-height:none;overflow:visible}
-.live-browser.workspace-horizontal {grid-template-areas:"header header header" "tools divider screen" "footer footer footer";grid-template-rows:auto minmax(0,1fr) auto;grid-template-columns: minmax(220px,min(var(--tools-width),calc(100% - 250px))) 6px minmax(240px,1fr)}
+.live-browser.workspace-horizontal {grid-template-areas:"header header header" "navigation navigation navigation" "tools divider screen" "footer footer footer";grid-template-rows:auto auto minmax(120px,1fr) auto;grid-template-columns: minmax(220px,min(var(--tools-width),calc(100% - 250px))) 6px minmax(240px,1fr)}
 .browser-tools-divider {grid-area:divider;cursor:col-resize;touch-action:none;background:var(--border)}
 .browser-tools-divider:hover,.browser-tools-divider:focus-visible {background:var(--accent);outline:none}
 .browser-layout-choice select {font-size:11px;max-width:120px}
-.browser-tools .live-address {margin:6px;padding:5px;gap:4px}
+.browser-navigation .live-address {margin:6px;padding:5px;gap:4px}
 .browser-workspace-controls>.browser-workspace-row {gap:5px}
 .browser-workspace-controls>label {display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;margin:3px 6px 3px 0}
+.browser-workspace-controls>label>small {display:block;flex-basis:100%;font-size:11px;color:var(--text-muted)}
+.live-browser.tools-collapsed.workspace-vertical {grid-template-areas:"header" "navigation" "screen" "footer";grid-template-rows:auto auto minmax(120px,1fr) auto}
+.live-browser.tools-collapsed.workspace-horizontal {grid-template-areas:"header" "navigation" "screen" "footer";grid-template-rows:auto auto minmax(120px,1fr) auto;grid-template-columns:minmax(0,1fr)}
+.live-browser.tools-collapsed .browser-tools,.live-browser.tools-collapsed .browser-tools-divider {display:none}
+.live-header .live-view-controls button span {font-size:11px}
+.live-workspace.mode-chat .live-browser {display:none}

@@ -75,7 +75,7 @@ export class LiveBrowserHub {
           if (!item.ended) { item.state = {...item.state,status:'error',ownership:'unavailable',error}; this.send(item,{type:'state',state:item.state}); }
         });
         if (item.ended) { await native.close(); throw new Error('Browser closed during creation'); }
-        item.native = native;native.onWorkspace?.(workspace=>{this.preferences.set(this.key(owner.id,conversationId),workspace.settings);item.state={...item.state,workspace};this.send(item,{type:'state',state:item.state});});const saved=this.preferences.get(this.key(owner.id,conversationId));if(saved)await native.workspace(saved);this.reconcile(item); return native;
+        item.native = native;native.onWorkspace?.(workspace=>{const key=this.key(owner.id,conversationId),saved=this.preferences.get(key);const settings={...workspace.settings,...(saved?.layout?{layout:saved.layout}:{}),...(saved?.toolsWidth?{toolsWidth:saved.toolsWidth}:{}),...(saved?.toolsCollapsed!==undefined?{toolsCollapsed:saved.toolsCollapsed}:{}),...(saved?.workspaceVisible!==undefined?{workspaceVisible:saved.workspaceVisible}:{})};this.preferences.set(key,settings);item.state={...item.state,workspace:{...workspace,settings}};this.send(item,{type:'state',state:item.state});});const saved=this.preferences.get(this.key(owner.id,conversationId));if(saved)await native.workspace(saved);this.reconcile(item); return native;
       }, createQaPage: async (origin:string) => {
         const {createNativeProjectPage}=await import('./native-project-page');
         // Hidden, scoped to this owner; never registered as the user's Live Browser.
@@ -117,9 +117,22 @@ export class LiveBrowserHub {
   }
   async workspace(owner:WebContents,sessionId:unknown,settings:unknown){
     const item=this.authorizedEntry(owner,sessionId);
-    if(item.state.ownership!=='user'||!item.native)throw new Error('Browser viewport requires user ownership');
     const value=validateBrowserWorkspace(settings);
-    await item.native.workspace(value);const applied=item.native.workspaceState?.()?.settings??value;this.preferences.set(this.key(owner.id,item.state.conversationId),applied);
+    const current=item.native?.workspaceState?.()?.settings??item.state.workspace?.settings;
+    if(item.state.ownership!=='user'){
+      if(!current)throw new Error('Browser workspace settings are not ready');
+      const physical=(s:BrowserWorkspaceSettings)=>JSON.stringify({viewport:s.viewport,zoom:s.zoom,scale:s.scale,pan:s.pan,previewScale:s.previewScale});
+      if(physical(current)!==physical(value))throw new Error('Viewport, zoom and page presentation require user ownership');
+      const applied=validateBrowserWorkspace({...current,...(value.layout?{layout:value.layout}:{}),...(value.toolsWidth?{toolsWidth:value.toolsWidth}:{}),...(value.toolsCollapsed!==undefined?{toolsCollapsed:value.toolsCollapsed}:{}),...(value.workspaceVisible!==undefined?{workspaceVisible:value.workspaceVisible}:{})});
+      this.preferences.set(this.key(owner.id,item.state.conversationId),applied);
+      if(item.state.workspace)item.state={...item.state,workspace:{...item.state.workspace,settings:applied}};
+      this.send(item,{type:'state',state:item.state});
+      return {conversationId:item.state.conversationId,settings:applied};
+    }
+    if(!item.native)throw new Error('Browser workspace is not ready');
+    await item.native.workspace(value);const applied=validateBrowserWorkspace({...item.native.workspaceState?.()?.settings??value,...(value.layout?{layout:value.layout}:{}),...(value.toolsWidth?{toolsWidth:value.toolsWidth}:{}),...(value.toolsCollapsed!==undefined?{toolsCollapsed:value.toolsCollapsed}:{}),...(value.workspaceVisible!==undefined?{workspaceVisible:value.workspaceVisible}:{})});this.preferences.set(this.key(owner.id,item.state.conversationId),applied);
+    if(item.state.workspace)item.state={...item.state,workspace:{...item.state.workspace,settings:applied}};
+    this.send(item,{type:'state',state:item.state});
     return {conversationId:item.state.conversationId,settings:applied};
   }
   async input(owner: WebContents, sessionId: unknown, input: unknown) {
