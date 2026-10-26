@@ -598,7 +598,8 @@ export function registerIpc(): void {
         }
       }
       if (isRuntimeRequest) patch = { ...patch, llamaKvCacheType: kvCacheType, llamaKvOffload: kvOffload };
-      const runtimeDiffers = runtime.mtpMode !== requestedMtp || runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload;
+      const desiredFingerprint=runtimeProfileFingerprint(nextModelId,runtimeConfig);
+      const runtimeDiffers = runtime.mtpMode !== requestedMtp || runtime.status !== 'ready' || runtime.modelId !== nextModelId || runtime.contextWindow !== contextWindow || runtime.kvCacheType !== kvCacheType || runtime.kvOffload !== kvOffload || Boolean(desiredFingerprint&&runtime.profileFingerprint!==desiredFingerprint);
       // Re-selecting the stored model is a retry when the server is not running it.
       if (runtimeDiffers && (patch.modelId !== undefined || patch.contextWindow !== undefined || patch.llamaKvCacheType !== undefined || patch.llamaKvOffload !== undefined)) {
         if (activeGenerations.size > 0) throw new Error('Нельзя переключать llama.cpp во время генерации: остановите её или дождитесь завершения.');
@@ -731,7 +732,7 @@ export function registerIpc(): void {
     const active = runtime.status === 'ready' && runtime.modelId === targetId;
     const live = active && targetId ? await liveVision(targetId) : undefined;
     const capability = profile ? visionCapability(profile, await probeBackendFeatures(config.llamaServerPath), live)
-      : {state:'unknown' as const,detected:false,backendVerified:false,active:false,reason:'Select a saved model profile to inspect image support.'};
+      : {state:'unknown' as const,detected:false,backendVerified:false,active:false,reason:'Выберите сохранённый профиль для проверки поддержки изображений.'};
     if(!active&&runtime.activation?.phase==='failed'&&runtime.activation.modelId===targetId){capability.state='initialization-failed';capability.reason=runtime.activation.error??'Model initialization failed';}
     if(chat && chat.verificationEnabled == null) database.updateConversation(chat.id,{verificationEnabled:config.autonomousBrowserQa===true});
     return {mode,autonomous:chat?.verificationEnabled ?? config.autonomousBrowserQa===true,capability,available:capability.active,pending:mode!=='off'&&capability.state==='supported'&&!capability.active,reason:capability.reason};

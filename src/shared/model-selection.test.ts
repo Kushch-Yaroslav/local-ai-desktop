@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { activeConversationModel, initialModelContext } from './model-selection';
+import { activeConversationModel, initialModelContext, conversationRuntimeReady } from './model-selection';
 import { llamaRuntimeProfiles } from '../main/models/llama-runtime-policy';
 import { effectiveSpeculativeMode } from '../main/models/llama-launch-config';
 
@@ -20,3 +20,12 @@ assert.deepEqual(initialModelContext([16_384, 32_768, 65_536, 131_072], { initia
 assert.equal(initialModelContext([16_384, 32_768], { initialContextWindow: 65_536, kvCacheType: 'q8_0' }).contextWindow, 32_768, 'normal configuration respects the runtime ceiling');
 assert.deepEqual(llamaRuntimeProfiles.map((profile) => effectiveSpeculativeMode(profile, undefined)), ['mtp', 'mtp', 'mtp']);
 console.log('model startup/history/explicit selection regressions passed (installed models, all non-ready states, restart, ceiling and default MTP)');
+
+const readyChat={modelId:'fixture',contextWindow:32768,llamaKvCacheType:'f16',llamaKvOffload:true,mtpMode:'off',visionMode:'off'} as import('./types').Conversation;
+const readyRuntime={status:'ready',modelId:'fixture',contextWindow:32768,kvCacheType:'f16',kvOffload:true,mtpMode:'off',profileFingerprint:'launch-v1',launchArguments:[]} as NonNullable<import('./types').AppSettings['llamaRuntime']>;
+const readyProfile={id:'fixture',runtimeFingerprint:'launch-v1',preferredMtpMode:'off'} as import('./types').ModelInfo;
+assert(conversationRuntimeReady(readyChat,readyRuntime,readyProfile));
+for(const delta of [{status:'starting'},{status:'error'},{modelId:'other'},{contextWindow:65536},{kvCacheType:'q8_0'},{kvOffload:false},{mtpMode:'auto'},{profileFingerprint:'launch-v2'}])assert(!conversationRuntimeReady(readyChat,{...readyRuntime,...delta} as typeof readyRuntime,readyProfile),JSON.stringify(delta));
+assert(!conversationRuntimeReady({...readyChat,visionMode:'on'},readyRuntime,{...readyProfile,mmprojPath:'/tmp/projector.gguf'}));
+assert(conversationRuntimeReady({...readyChat,visionMode:'on'},{...readyRuntime,launchArguments:['--mmproj','/tmp/projector.gguf']},{...readyProfile,mmprojPath:'/tmp/projector.gguf'}));
+assert(!conversationRuntimeReady({...readyChat,mtpMode:null},readyRuntime,{...readyProfile,preferredMtpMode:'auto'}));

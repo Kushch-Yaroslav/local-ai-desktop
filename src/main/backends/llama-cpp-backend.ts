@@ -8,6 +8,7 @@ import { log } from '../services/logger';
 import type { LlamaKvCacheType } from '../../shared/types';
 import { ggufFileAvailability } from '../services/gguf-artifacts';
 import { effectiveRuntimeConfiguration } from '../services/runtime-settings';
+import { runtimeProfileFingerprint } from '../services/runtime-profile-identity';
 
 type NativeToolCall = { index?: number; id?: string; type?: string; function?: { name?: string; arguments?: string } };
 type Choice = { finish_reason?: string | null; message?: { content?: string | null; reasoning_content?: string | null; tool_calls?: NativeToolCall[] }; delta?: { content?: string | null; reasoning_content?: string | null; tool_calls?: NativeToolCall[] } };
@@ -160,7 +161,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
         ...modelInfo(profile, active && (data.data ?? []).length > 0 ? true : installed, active ? data.data?.[0]?.meta?.size : undefined, capability, profile.supportsReasoning),
         backend: 'llama-cpp',inspection:runtime.inspection,profileDefaults:runtime.defaults,
         ...(projector ? { projectorFileStatus: projector.status, projectorAvailabilityIssue: projector.issue } : {}),
-        fileStatus: availability.status, availabilityReason:availability.reason, modelPath: runtime.modelPath, availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
+        fileStatus: availability.status, availabilityReason:availability.reason, modelPath: runtime.modelPath, mmprojPath:runtime.mmprojPath,runtimeFingerprint:runtimeProfileFingerprint(runtime.id,configuration),preferredMtpMode:runtime.mtpMode,availabilityIssue: availability.issue ?? (runtime.inspection?.status === 'error' ? runtime.inspection.reason : undefined),
         supportedContextPresets: llamaContextPresets(runtime.id, capability),
         supportedKvCacheTypes: ['f16', 'q8_0'],
         ...(runtime.normalContext ? { normalContext: runtime.normalContext } : {}),
