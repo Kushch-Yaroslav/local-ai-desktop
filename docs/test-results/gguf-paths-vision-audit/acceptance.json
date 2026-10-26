@@ -1,0 +1,524 @@
+{
+  "result": "PASS",
+  "base": "2cb7c3e254863bb0cb1b90f7d577d4aa1a09d047",
+  "branch": "fix/v0.3-gguf-paths-vision-evidence-audit",
+  "implementationCommits": [
+    "ba9c91a",
+    "e6a4a7a"
+  ],
+  "limits": {
+    "historicalColdStartCauseEstablished": false,
+    "historicalPickerAutomountEstablished": false,
+    "realVisionInference": false,
+    "provider": "deterministic fixtures; real Electron, Chromium, Rust and HTTP transport",
+    "userDataModified": false
+  },
+  "readOnlyBaseline": {
+    "volumeAlreadyMounted": true,
+    "filesystem": "ntfs3",
+    "statAndReadAccessSucceeded": true,
+    "realpathAndSavedPathMatched": true,
+    "productionValidatorReady": true,
+    "relativeGgufPathsFound": false
+  },
+  "quality": {
+    "typescript": "PASS",
+    "eslint": "PASS",
+    "build": "PASS",
+    "buildWarning": "Existing Vite large-chunk warning",
+    "rust": {
+      "passed": 421,
+      "failed": 0,
+      "ignored": 1
+    },
+    "unitAndFilesystem": [
+      "runtime-settings",
+      "llama-cpp-backend",
+      "browser-vision",
+      "vision-capability",
+      "localization",
+      "localization-coverage",
+      "gguf-storage-availability",
+      "renderer-runtime-status",
+      "qa-validation-diagnostics",
+      "adaptive-verification-policy"
+    ]
+  },
+  "electron": [
+    {
+      "test": "gguf-path-reliability-electron",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "model-profile-persistence-electron",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "vision-image-routing-electron",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "adaptive-verification-electron",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "fresh-browser-evidence-electron",
+      "args": [
+        "--resume"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "visual-region-feedback-electron",
+      "args": [
+        "--dpr2"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "native-browser-shutdown-electron",
+      "args": [],
+      "result": "PASS"
+    }
+  ],
+  "paths": {
+    "result": "PASS",
+    "stages": [
+      {
+        "stage": "before-picker",
+        "mounted": false,
+        "available": false,
+        "savedPathUnchanged": true
+      },
+      {
+        "stage": "after-picker-before-save",
+        "mountSimulated": true,
+        "available": true,
+        "savedPathUnchanged": true
+      },
+      {
+        "stage": "after-save",
+        "available": true,
+        "savedPathUnchanged": true
+      },
+      {
+        "stage": "out-of-order-draft-validation",
+        "lateUnavailableIgnored": true
+      }
+    ],
+    "checks": [
+      "Cold start two individual directories outside missing default folder",
+      "Unavailable volume becomes available without Save",
+      "Available becomes unavailable on Refresh",
+      "Same absolute Unicode path picker recovery before Save",
+      "Legacy modelsPath retained internally, no mandatory directory",
+      "Last selected directory seeds next picker",
+      "Cold process restart retains availability; no model loaded"
+    ],
+    "automount": "Simulated in fixture; no real disk mounted or unmounted"
+  },
+  "visionTransport": {
+    "result": "PASS",
+    "transportAudit": [
+      {
+        "width": 1280,
+        "height": 900,
+        "color": [
+          253,
+          3,
+          185,
+          255
+        ],
+        "privateMask": [
+          255,
+          0,
+          255,
+          255
+        ],
+        "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+        "mime": "image/png",
+        "recipient": "separate Vision request"
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "color": [
+          253,
+          3,
+          185,
+          255
+        ],
+        "privateMask": [
+          255,
+          0,
+          255,
+          255
+        ],
+        "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+        "mime": "image/png",
+        "recipient": "separate Vision request"
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "color": [
+          253,
+          3,
+          185,
+          255
+        ],
+        "privateMask": [
+          255,
+          0,
+          255,
+          255
+        ],
+        "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+        "mime": "image/png",
+        "recipient": "separate Vision request"
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "color": [
+          253,
+          3,
+          185,
+          255
+        ],
+        "privateMask": [
+          255,
+          0,
+          255,
+          255
+        ],
+        "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+        "mime": "image/png",
+        "recipient": "separate Vision request"
+      },
+      {
+        "width": 1280,
+        "height": 900,
+        "color": [
+          253,
+          3,
+          185,
+          255
+        ],
+        "privateMask": [
+          255,
+          0,
+          255,
+          255
+        ],
+        "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+        "mime": "image/png",
+        "recipient": "separate Vision request"
+      }
+    ],
+    "checks": [
+      "Real PNG bytes equal capture hash",
+      "Actual pink pixels and masked private input decoded from inference payload",
+      "OFF not sent",
+      "ON separate multimodal request",
+      "Auto passive fallback and scoped request",
+      "Unsupported backend",
+      "Integrity rejection",
+      "HTTP error redaction",
+      "Stop rejects cached result"
+    ],
+    "realVisionInference": false
+  },
+  "configuredServerProbe": {
+    "build": {
+      "versionReadable": true
+    },
+    "flags": {
+      "--mmproj": true,
+      "--image-max-tokens": true,
+      "--no-mmproj-offload": true,
+      "--ctx-size": true
+    },
+    "helpExitCode": 0
+  },
+  "qaComparison": {
+    "provider": "deterministic; real Rust and Chromium, Vision Off",
+    "tools": [
+      "apply_patch",
+      "create_file",
+      "delete_file",
+      "deliverables",
+      "list_directory",
+      "observation_index",
+      "observation_read",
+      "plan",
+      "read_file",
+      "replace_text",
+      "run_terminal",
+      "task_memory",
+      "write_file",
+      "create_visual_artifact",
+      "download_file",
+      "web_search",
+      "web_image_search",
+      "web_open",
+      "web_read",
+      "web_follow_link",
+      "web_back",
+      "web_project"
+    ],
+    "sameSequence": [
+      {
+        "tool": "deliverables",
+        "action": "add"
+      },
+      {
+        "tool": "read_file",
+        "action": null
+      },
+      {
+        "tool": "replace_text",
+        "action": null
+      },
+      {
+        "tool": "web_project",
+        "action": "open"
+      },
+      {
+        "tool": "web_project",
+        "action": "inspect"
+      },
+      {
+        "tool": "web_project",
+        "action": "screenshot"
+      },
+      {
+        "tool": "deliverables",
+        "action": "implemented"
+      },
+      {
+        "tool": "web_project",
+        "action": "qa"
+      },
+      {
+        "tool": "deliverables",
+        "action": "verify"
+      }
+    ],
+    "cases": [
+      {
+        "scenario": "background",
+        "qaEnabled": true,
+        "additionalPolicy": true,
+        "inspection": "rgb(255, 255, 255)",
+        "screenshotCalls": 1,
+        "imageAttachments": 0,
+        "criterionIds": [
+          "computed"
+        ],
+        "evidence": [
+          {
+            "id": "ev-001",
+            "kind": "readback",
+            "pass": true,
+            "sourceRevisions": []
+          },
+          {
+            "id": "ev-002",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "3c3f665542188085fd8eec73d379c81ab8a9262c5477adbad881fa6040571f3c"
+            ]
+          },
+          {
+            "id": "ev-003",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "coverage": [
+              {
+                "deliverable_id": "css",
+                "criterion_id": "computed",
+                "kind": "runtime",
+                "qualified": false
+              }
+            ],
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "3c3f665542188085fd8eec73d379c81ab8a9262c5477adbad881fa6040571f3c"
+            ]
+          }
+        ],
+        "verification": "verified",
+        "additionalReviews": 0
+      },
+      {
+        "scenario": "background",
+        "qaEnabled": false,
+        "additionalPolicy": false,
+        "inspection": "rgb(255, 255, 255)",
+        "screenshotCalls": 1,
+        "imageAttachments": 0,
+        "criterionIds": [
+          "computed"
+        ],
+        "evidence": [
+          {
+            "id": "ev-001",
+            "kind": "readback",
+            "pass": true,
+            "sourceRevisions": []
+          },
+          {
+            "id": "ev-002",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "3c3f665542188085fd8eec73d379c81ab8a9262c5477adbad881fa6040571f3c"
+            ]
+          },
+          {
+            "id": "ev-003",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "coverage": [
+              {
+                "deliverable_id": "css",
+                "criterion_id": "computed",
+                "kind": "runtime",
+                "qualified": false
+              }
+            ],
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "3c3f665542188085fd8eec73d379c81ab8a9262c5477adbad881fa6040571f3c"
+            ]
+          }
+        ],
+        "verification": "verified",
+        "additionalReviews": 0
+      },
+      {
+        "scenario": "grayscale",
+        "qaEnabled": true,
+        "additionalPolicy": true,
+        "inspection": "none",
+        "screenshotCalls": 1,
+        "imageAttachments": 0,
+        "criterionIds": [
+          "computed"
+        ],
+        "evidence": [
+          {
+            "id": "ev-001",
+            "kind": "readback",
+            "pass": true,
+            "sourceRevisions": []
+          },
+          {
+            "id": "ev-002",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "480df428cc8c91821ab4b04dff3695f997ca19966f5f4c35ef289c3f455aead6"
+            ]
+          },
+          {
+            "id": "ev-003",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "coverage": [
+              {
+                "deliverable_id": "css",
+                "criterion_id": "computed",
+                "kind": "runtime",
+                "qualified": false
+              }
+            ],
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "480df428cc8c91821ab4b04dff3695f997ca19966f5f4c35ef289c3f455aead6"
+            ]
+          }
+        ],
+        "verification": "verified",
+        "additionalReviews": 0
+      },
+      {
+        "scenario": "grayscale",
+        "qaEnabled": false,
+        "additionalPolicy": false,
+        "inspection": "none",
+        "screenshotCalls": 1,
+        "imageAttachments": 0,
+        "criterionIds": [
+          "computed"
+        ],
+        "evidence": [
+          {
+            "id": "ev-001",
+            "kind": "readback",
+            "pass": true,
+            "sourceRevisions": []
+          },
+          {
+            "id": "ev-002",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "480df428cc8c91821ab4b04dff3695f997ca19966f5f4c35ef289c3f455aead6"
+            ]
+          },
+          {
+            "id": "ev-003",
+            "kind": "browser",
+            "pass": true,
+            "outcome": "passed",
+            "coverage": [
+              {
+                "deliverable_id": "css",
+                "criterion_id": "computed",
+                "kind": "runtime",
+                "qualified": false
+              }
+            ],
+            "sourceRevisions": [
+              "98bd9ac4a591613b16cd759bfb1938e1f80aff3b72d11aeed6ca275f69656d86",
+              "480df428cc8c91821ab4b04dff3695f997ca19966f5f4c35ef289c3f455aead6"
+            ]
+          }
+        ],
+        "verification": "verified",
+        "additionalReviews": 0
+      }
+    ]
+  },
+  "verificationGate": {
+    "result": "PASS",
+    "checks": [
+      "unknown criterion rejected",
+      "missing and unknown evidence rejected",
+      "open cannot prove interaction",
+      "independent edits preserve scoped proof",
+      "relevant source edits stale proof",
+      "repeated invalid verify loop blocked",
+      "fresh retest verifies",
+      "next run requires fresh execution"
+    ]
+  }
+}
