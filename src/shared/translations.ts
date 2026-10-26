@@ -1,5 +1,9 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  'Проектор Vision отсутствует или несовместим.': 'Vision projector is missing or incompatible.',
+  'Эта модель не поддерживает изображения.': 'This model does not support visual input.',
+  'Сбой Vision на этапе {0}; анализ изображения не подтверждён.': 'Vision {0} failed; no image analysis established.',
+
   "Используется для выбора файлов и относительных путей. Абсолютные пути GGUF не ограничиваются этой папкой.": "Used for choosing files and resolving relative paths. Absolute GGUF paths are not restricted to this folder.",
   "Папка по умолчанию недоступна. Абсолютные пути моделей проверяются отдельно.": "The default folder is unavailable. Absolute model paths are checked separately.",
   'Папка по умолчанию для выбора GGUF': 'Default folder for choosing GGUF',
