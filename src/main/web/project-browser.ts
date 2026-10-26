@@ -90,13 +90,21 @@ async function fetchLoopback(url: URL, signal: AbortSignal) {
     req.once('close', () => clearTimeout(deadline)); req.on('error', reject); req.end();
   });
 }
-export async function readPreviewAsset(root: string, pathname: string, allowConfiguration = false): Promise<{ body: Buffer; contentType: string }> {
+/** Only exact original bytes from an inline dev source map bind a transform. */
+export function matchesDevSourceMap(body:Buffer,source:Buffer):boolean {
+  const match=body.toString('utf8').match(/sourceMappingURL=data:application\/json(?:;charset=utf-8)?;base64,([A-Za-z0-9+/=]+)\s*$/);
+  if(!match||match[1].length>4*1024*1024)return false;
+  try{const map=JSON.parse(Buffer.from(match[1],'base64').toString('utf8'));return map.version===3&&Array.isArray(map.sourcesContent)&&map.sourcesContent.length<=32&&map.sourcesContent.some((value:unknown)=>value===source.toString('utf8'));}catch{return false;}
+}
+// allowSource is for internal source evidence only; static delivery never enables it.
+export async function readPreviewAsset(root: string, pathname: string, allowConfiguration = false, allowSource = false): Promise<{ body: Buffer; contentType: string }> {
   const decoded = decodeURIComponent(pathname);
   const parts = decoded.replace(/^\//, '').split('/');
   if (parts.some(part => part.startsWith('.') || part.includes('\\') || part.includes('\0'))) throw new Error('Hidden paths and traversal are blocked');
   const input = parts.join('/') || 'index.html';
   const configuration=allowConfiguration&&/^vite\.config\.[cm]?[jt]s$/.test(input);
-  const contentType = configuration?'text/plain':mime[extname(input).toLowerCase()];
+  const sourceAsset=allowSource&&['.jsx','.tsx','.ts'].includes(extname(input).toLowerCase());
+  const contentType = configuration||sourceAsset?'text/plain':mime[extname(input).toLowerCase()];
   if (!contentType) throw new Error('Only static web asset extensions are allowed');
   const base = await realpath(root); const target = await projectPath(base, input);
   for (let current = resolve(base, input); current !== base; current = dirname(current)) {
@@ -108,7 +116,7 @@ export async function readPreviewAsset(root: string, pathname: string, allowConf
     // the authorized root on the supported Linux production platform.
     const actual = await realpath(process.platform === 'linux' ? `/proc/self/fd/${file.fd}` : target);
     const rel = relative(base, actual);
-    if (rel.startsWith(`..${sep}`) || rel === '..' || rel.startsWith(sep) || rel.split(sep).some(part => part.startsWith('.')) || !mime[extname(actual).toLowerCase()]&&!configuration) throw new Error('Opened asset escaped preview scope');
+    if (rel.startsWith(`..${sep}`) || rel === '..' || rel.startsWith(sep) || rel.split(sep).some(part => part.startsWith('.')) || !mime[extname(actual).toLowerCase()]&&!configuration&&!sourceAsset) throw new Error('Opened asset escaped preview scope');
     const info = await file.stat();
     if (!info.isFile() || info.size > maxBytes) throw new Error('Preview asset must be a regular file of at most 4 MiB');
     const body = Buffer.alloc(Math.min(maxBytes + 1, info.size + 1));
@@ -666,7 +674,7 @@ export class ProjectBrowserSession {
           const afterRevision=this.isolatedQa&&Object.keys(qa.sourceRevisions??{}).length>0&&!await this.revisionsChanged(qa.sourceRevisions??{})?revision:await projectRevision(this.root,[this.captureDirectory,paths.userData,paths.configDirectory,paths.cache,paths.logs,paths.attachments,join(paths.dataRoot,'sqlite'),join(paths.dataRoot,'protected-runtime.json'),join(paths.dataRoot,'llama-cpp-runtime-state.json')]);
           if(afterRevision!==revision){qa.status='Not Verified';qa.functionalStatus='Not Verified';qa.reasonCode='EVIDENCE_STALE';qa.reason='Project changed during QA; retain observations and rerun the affected scenarios.';for(const result of qa.scenarios??[]){result.status='Not Verified';if(result.visualLayout)result.visualLayout.status='Blocked';}}
           const source = await this.read();
-          if (source.source_path) { const bytes = await readPreviewAsset(this.root, new URL(this.page.url()).pathname); qa.sourceFingerprint = screenshotHash(bytes.body); }
+          if (source.source_path) { const bytes = await readPreviewAsset(this.root, '/'+relative(this.root,source.source_path),false,true); qa.sourceFingerprint = screenshotHash(bytes.body); }
           await this.saveQa(qa);
           this.qaGuard.record(key, qa, await this.qaState(scenarios));
           if(this.isolatedQa)this.qaGuard.rememberResponsive(scope,qa);
@@ -813,7 +821,7 @@ export class ProjectBrowserSession {
   private async sourcesChanged() {
     let bytes=0;
     for(const [path,hash] of this.servedRevisions){
-      try{const asset=await readPreviewAsset(this.root,'/'+relative(this.root,path));bytes+=asset.body.length;if(bytes>32*1024*1024||screenshotHash(asset.body)!==hash)return true;}catch{return true;}
+      try{const asset=await readPreviewAsset(this.root,'/'+relative(this.root,path),false,true);bytes+=asset.body.length;if(bytes>32*1024*1024||screenshotHash(asset.body)!==hash)return true;}catch{return true;}
     }
     return false;
   }
@@ -822,7 +830,7 @@ export class ProjectBrowserSession {
     if(Object.keys(revisions).length>64)throw new Error('Responsive dependency set exceeds 64 assets');
     for(const path of Object.keys(revisions).sort()){
       if(bytes>=32*1024*1024){current[path]='[budget exceeded]';continue;}
-      try{const asset=await readPreviewAsset(this.root,'/'+relative(this.root,path));bytes+=asset.body.length;if(bytes>32*1024*1024)throw new Error('Responsive dependency bytes exceeded');current[path]=screenshotHash(asset.body);}catch{current[path]='[unavailable]';}
+      try{const asset=await readPreviewAsset(this.root,'/'+relative(this.root,path),false,true);bytes+=asset.body.length;if(bytes>32*1024*1024)throw new Error('Responsive dependency bytes exceeded');current[path]=screenshotHash(asset.body);}catch{current[path]='[unavailable]';}
     }
     return current;
   }
@@ -855,6 +863,11 @@ export class ProjectBrowserSession {
     }
     const response = await fetchLoopback(url,AbortSignal.any([signal,this.abort.signal])); this.networkBudget.bytes += response.body.length;
     await this.detectServerReload(url.pathname,response.body,Boolean(response.headers['content-type']?.includes('text/html')));
+    if(this.viteManaged&&response.status===200&&this.servedRevisions.size<64&&/\.(?:[cm]?js|jsx|tsx?|css)$/.test(url.pathname)&&!url.pathname.includes('/node_modules/')){
+      try{const asset=await readPreviewAsset(this.root,url.pathname,false,true);
+        if(matchesDevSourceMap(response.body,asset.body))this.servedRevisions.set(await projectPath(this.root,decodeURIComponent(url.pathname).slice(1)),screenshotHash(asset.body));
+      }catch{/* No source proof for virtual modules, symlinks, or unrelated transforms. */}
+    }
     if(url.pathname==='/@vite/client'&&response.status===200){response.body=Buffer.concat([response.body,Buffer.from('\nconst __ladHot=createHotContext("/@lad-observer");__ladHot.on("vite:afterUpdate",()=>{window.__ladHmrAt=Date.now()});\n')]);}
     const csp=this.serverManaged?previewCsp.replace("connect-src 'self'","connect-src 'self' "+this.origin!.replace('http:','ws:')):previewCsp;
     return {...response,headers:{...response.headers,...safetyHeaders,'content-security-policy':[response.headers['content-security-policy'],csp].filter(Boolean).join(', ')}};
@@ -924,7 +937,7 @@ export class ProjectBrowserSession {
     if (new URL(page.url()).origin !== this.origin) throw new Error('Page left approved preview origin');
     const dom=await page.evaluate(inspectBrowserDom,{});
     const workspace=this.native?.workspaceState?.();
-    return { provenance:{kind:'current-browser-observation',observedAt:new Date().toISOString(),browserSession:this.stateIdentity}, freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:sameBrowserUrl(r.url,page.url())}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : {}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
+    return { provenance:{kind:'current-browser-observation',observedAt:new Date().toISOString(),browserSession:this.stateIdentity}, freshness:await this.freshness(), ...(workspace?{browser_workspace:workspace}:{}), region_context:{current_url:visualPromptUrl(page.url()),references:(this.qaOptions.regionContext??[]).map(r=>({...r,url:visualPromptUrl(r.url),matches_current:sameBrowserUrl(r.url,page.url())}))}, browser_session:this.stateIdentity, source_revisions:Object.fromEntries(this.servedRevisions), source_binding:{state:this.origin===staticOrigin?'static-assets':this.servedRevisions.size?'matched-inline-source-map':'unavailable',...(this.origin!==staticOrigin&&!this.servedRevisions.size?{reason:'No exact project-source match for the served transform. DOM observations alone do not formally verify source changes.'}:{})}, ...dom,url:visualPromptUrl(page.url()), ...(this.origin === staticOrigin ? { source_path: await projectPath(this.root, decodeURIComponent(new URL(page.url()).pathname).slice(1) || 'index.html') } : this.servedRevisions.size?{source_path:this.servedRevisions.keys().next().value!}:{}), javascript_errors: [...this.errors], blocked_requests: [...this.blocked], browser_check: `DOM and runtime diagnostics only; screenshots require separate visual analysis. Display: ${this.native ? 'native Electron WebContentsView (headed), same Page as Live Browser' : 'headless CLI Chromium'}` };
   }
   private closing?: Promise<void>;
   private browserClosing?: Promise<void>;

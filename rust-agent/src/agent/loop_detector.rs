@@ -134,7 +134,7 @@ impl LoopDetector {
                 if level == 1 { self.guidance_count += 1; } else { self.pause_count += 1; }
                 return Some(LoopNotice { signature, level,
                     evidence: format!("Browser QA validation ({category}) repeated {count} times without a project change"),
-                    guidance: "The QA arguments are invalid, not evidence that the UI defect remains. Use the exact example from the error, inspect the real selector/geometry/styles, or finish with verification incomplete. Do not repeat equivalent malformed assertions. The next equivalent failure stops this run with a checkpoint; continuation retains this guard until actual progress.".into(),
+                    guidance: "The QA arguments are invalid, not evidence that the UI defect remains. Use the field diagnostics and inspected selector/geometry/styles to correct the original check. Examples are templates, not task evidence: preserve the intended property, expected value and route. Or finish with verification incomplete. Do not repeat equivalent malformed assertions. The next equivalent failure stops this run with a checkpoint; continuation retains this guard until actual progress.".into(),
                     repair_exhausted: true });
             }
             if result.get("error").is_none() && result.get("qa").is_some() { self.invalid_qa.clear(); }
