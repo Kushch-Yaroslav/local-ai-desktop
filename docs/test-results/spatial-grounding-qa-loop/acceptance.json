@@ -1,0 +1,266 @@
+{
+  "result": "PASS",
+  "branch": "fix/v0.3-spatial-grounding-qa-loop",
+  "base": "a8244ed",
+  "implementationCommits": [
+    "2920a86",
+    "876fd07",
+    "3de15c9",
+    "649c9ba"
+  ],
+  "provider": "Deterministic scripted provider; real Electron, Native Chromium, React/Vite, Rust, SQLite and HTTP",
+  "realQwenInference": false,
+  "quality": {
+    "typescript": "PASS",
+    "eslint": "PASS",
+    "build": "PASS",
+    "rust": {
+      "passed": 422,
+      "failed": 0,
+      "ignored": 1
+    }
+  },
+  "tests": [
+    {
+      "test": "scripts/spatial-grounding.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/qa-validation-diagnostics.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "dist/main/services/rust-agent-runtime.test.js",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "dist/main/services/database.test.js",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "dist/shared/localization.test.js",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "dist/shared/localization-coverage.test.js",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/spatial-grounding-electron.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/fresh-browser-evidence-electron.test.mjs",
+      "args": [
+        "--resume"
+      ],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/visual-debugging-workflow-electron.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/vision-image-routing-electron.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/adaptive-verification-electron.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/native-browser-shutdown-electron.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/vision-browser-policy.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/qa-loop-runtime.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/scenario-gate-runtime.test.mjs",
+      "args": [],
+      "result": "PASS"
+    },
+    {
+      "test": "scripts/invalid-qa-continuation.test.mjs",
+      "result": "PASS"
+    }
+  ],
+  "spatialWorkflow": {
+    "result": "PASS",
+    "provider": "scripted; real Electron Native Page, React/Vite, Rust, SQLite",
+    "realQwenInference": false,
+    "region": {
+      "rect": {
+        "x": 20,
+        "y": 180,
+        "width": 860,
+        "height": 140
+      },
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "surroundings": {
+        "relation": "between-siblings",
+        "above": {
+          "tag": "section",
+          "selector": "#above",
+          "text": "Consiglio del Tricologo",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 900,
+            "height": 200
+          }
+        },
+        "below": {
+          "tag": "section",
+          "selector": "#below",
+          "text": "Recensioni dei clienti",
+          "rect": {
+            "x": 0,
+            "y": 300,
+            "width": 900,
+            "height": 200
+          }
+        },
+        "container": "#composition",
+        "confidence": 0.7,
+        "coordinateSpace": "document-css",
+        "diagnostics": [
+          "Geometry at capture only; confirm current DOM and source order. No React component mapping."
+        ]
+      }
+    },
+    "autoDraft": true,
+    "viteImportFailureRecovered": true,
+    "originalRequirementsRetained": true,
+    "stopContinue": true,
+    "compactions": 7,
+    "verification": [
+      "verified",
+      "verified",
+      "verified"
+    ],
+    "routes": [
+      {
+        "id": 1,
+        "order": [
+          "above",
+          "new-section",
+          "below"
+        ],
+        "count": 1,
+        "font": "Georgia",
+        "above": "Consiglio del Tricologo",
+        "below": "Recensioni dei clienti",
+        "gap": 400,
+        "cards": 0
+      },
+      {
+        "id": 2,
+        "order": [
+          "above",
+          "new-section",
+          "below"
+        ],
+        "count": 1,
+        "font": "\"Courier New\"",
+        "above": "Consiglio del Tricologo",
+        "below": "Recensioni dei clienti",
+        "gap": 400,
+        "cards": 0
+      },
+      {
+        "id": 3,
+        "order": [
+          "above",
+          "below"
+        ],
+        "count": 0,
+        "font": null,
+        "above": "Consiglio del Tricologo",
+        "below": "Recensioni dei clienti",
+        "gap": 100,
+        "cards": 0
+      },
+      {
+        "id": 4,
+        "order": [
+          "above",
+          "below"
+        ],
+        "count": 0,
+        "font": null,
+        "above": "Consiglio del Tricologo",
+        "below": "Recensioni dei clienti",
+        "gap": 100,
+        "cards": 0
+      }
+    ]
+  },
+  "invalidQaContinuation": {
+    "result": "PASS",
+    "provider": "scripted; real Rust and Chromium",
+    "invalidCallsFirstRun": 4,
+    "invalidCallsAfterContinue": 1,
+    "stopReason": "repeated_tool_failure",
+    "status": "implemented",
+    "loopEvents": 5
+  },
+  "freshEvidence": {
+    "result": "PASS",
+    "provider": "scripted",
+    "resume": true,
+    "compactions": 2,
+    "requests": 11,
+    "checks": [
+      "CSS Modules changed hash resolved with bounded identity",
+      "Immutable original SQLite snapshot",
+      "Live Native CSS equals tool, observation file, inference and Ledger",
+      "No pixels under Vision Off",
+      "Missing/ambiguous anchor refusals",
+      "React refresh same Page",
+      "Original URL/viewport",
+      "No private input values"
+    ]
+  },
+  "fixtureAdjustment": {
+    "freshEvidenceContext": 36864,
+    "contextPressure": "Explicit temporary notes read after Continue",
+    "retainedAssertions": [
+      "actual compaction",
+      "complete current CSS reaches inference",
+      "same Native Page",
+      "fresh observation in Ledger without formal Verified",
+      "historical snapshot immutable",
+      "original route/viewport",
+      "stale and ambiguous anchors rejected"
+    ]
+  },
+  "limits": [
+    "No real Qwen semantic reproduction.",
+    "Exact historical HTTP inference payload unavailable; saved raw tool calls/results, user references and checkpoint inspected.",
+    "Source-map binding is conservative and covers only exact original bytes from approved project files.",
+    "No recorded successful historical production rebuild after Rating correction.",
+    "Old region captures are preserved; new surroundings are not fabricated for old snapshots."
+  ]
+}
