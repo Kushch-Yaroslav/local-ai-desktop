@@ -143,7 +143,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
         if (response.ok) data = await response.json() as ModelsResponse;
       }
     } catch { /* offline: only file availability is known */ }
-    if (this.runtimeModelId && !getModelProfile(this.runtimeModelId)) throw new Error(`llama.cpp запущен с неизвестной моделью: ${this.runtimeModelId}`);
+    // A stale/removed active alias must not hide independently configured files.
     const result: ModelInfo[] = [];
     // One persisted snapshot prevents a concurrent save from mixing registries.
     const configuration = effectiveRuntimeConfiguration();

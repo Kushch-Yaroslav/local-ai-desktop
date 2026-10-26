@@ -203,7 +203,8 @@ export function runtimeSetup(file = settingsFile) {
 
 export function saveRuntimeConfiguration(raw: unknown, file = settingsFile): RuntimeConfiguration {
   const config = normalizeConfiguration(raw);
-  if (!statSync(config.modelsPath, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Каталог моделей не найден: ${config.modelsPath}. Выберите существующую папку.`);
+  // modelsPath is retained only for legacy relative paths; absolute profiles
+  // and saving unrelated settings never require that directory to be mounted.
   let prior: RuntimeConfiguration | undefined;
   let corruptExistingFile = false;
   let legacyExistingFile = false;

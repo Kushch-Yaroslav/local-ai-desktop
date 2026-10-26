@@ -29,6 +29,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   const [selectedCandidate, setSelectedCandidate] = useState<string | undefined>(setup.config.llamaServerInput ? setup.config.llamaServerPath ?? undefined : undefined);
   const [availability, setAvailability] = useState<{ key: string; result: RuntimeDraftAvailability } | null>(null);
   const [availabilityError, setAvailabilityError] = useState('');
+  const [availabilityRevision,setAvailabilityRevision]=useState(0);
   const modelsKey = JSON.stringify({ modelsPath: config.modelsPath, models: config.models.map(({ id, modelPath, mmprojPath,mtpDraft,family }) => ({ id, modelPath, mmprojPath,mtpDraft:mtpDraft?{path:mtpDraft.path}:undefined,family })) });
   const draftModels = availability?.key === modelsKey ? availability.result : null;
 
@@ -74,16 +75,17 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
   useEffect(() => {
     let cancelled = false;
     setAvailabilityError('');
+    let request=0;
     const check = () => {
+      const current=++request;
       void window.localAi.settings.validateDraft(JSON.parse(modelsKey)).then((result) => {
-        if (!cancelled) setAvailability({ key: modelsKey, result });
-      }, () => { if (!cancelled) setAvailabilityError('Не удалось проверить файлы моделей.'); });
+        if (!cancelled&&current===request) {setAvailabilityError('');setAvailability({ key: modelsKey, result });}
+      }, () => { if (!cancelled&&current===request) setAvailabilityError('Не удалось проверить файлы моделей.'); });
     };
     const timer = setTimeout(check, 300);
-    const interval = window.setInterval(check, 10_000);
     window.addEventListener('focus', check);
-    return () => { cancelled = true; clearTimeout(timer); clearInterval(interval); window.removeEventListener('focus', check); };
-  }, [modelsKey]);
+    return () => { cancelled = true; clearTimeout(timer); window.removeEventListener('focus', check); };
+  }, [modelsKey,availabilityRevision]);
   const changeExecutableInput = (path: string) => {
     if (path === inputPath) return;
     setSelectedCandidate(undefined); setValidation(null); setDirectorySearch(null);
@@ -92,8 +94,8 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
 
   // A saved-state refresh must never overwrite edits already made in this form.
   useEffect(() => { setSavedConfig(setup.config); }, [setup.config]);
-  const draftReady = executableStatus === 'valid' && Boolean(draftModels?.folderExists && draftModels.models.some((model) => model.installed));
-  const invalidDraft = executableTone === 'danger' || draftModels?.folderExists === false && config.modelsPath !== savedConfig.modelsPath;
+  const draftReady = executableStatus === 'valid' && Boolean(draftModels?.models.some((model) => model.installed));
+  const invalidDraft = executableTone === 'danger';
   const readinessState = invalidDraft ? 'invalid' : dirty ? 'unsaved' : draftReady ? 'ready' : 'incomplete';
   const selected = config.models.find((model) => model.id === editingId) ?? null;
   useEffect(() => { setProfileAdvanced(false); }, [editingId]);
@@ -101,7 +103,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
     ...current, models: current.models.map((model) => model.id === id ? { ...model, ...patch } : model),
   }));
   const chooseFile = async (apply: (path: string) => void) => {
-    try { const path = await window.localAi.dialog.chooseFile(); if (path) apply(path); }
+    try { const path = await window.localAi.dialog.chooseFile(); if (path) {apply(path);setAvailabilityRevision(value=>value+1);void useAppStore.getState().refreshModels().catch(()=>undefined);} }
     catch { setMessage(t("Не удалось открыть выбор файла. Проверьте разрешения рабочего стола.")); }
   };
   const addModel = () => { void chooseFile((path) => {
@@ -176,8 +178,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
     {executableStatus !== 'valid' && (search?.selectedMissing || resolution?.selectedMissing) && <p className="runtime-search-note" role="status">{t('Ранее выбранный файл недоступен. Выберите другой файл или измените путь.')}</p>}
     {executableStatus === 'not-found' && <small className="runtime-path-helper">{t('Укажите папку ближе к сборке llama.cpp или путь к исполняемому файлу.')}</small>}
     <small className="runtime-path-helper">{t('Проверка запускает --help без загрузки модели. Корректный файл не означает, что сервер уже работает.')}</small>
-    <details><summary>{t("Папка по умолчанию для выбора GGUF")}</summary><label>{t("Папка по умолчанию для выбора GGUF")}<div className="setup-path"><input aria-label={t("Каталог моделей")} value={config.modelsPath} onChange={(event) => setConfig({ ...config, modelsPath: event.target.value })} /><button onClick={async () => { try { const path = await window.localAi.dialog.chooseDirectory(config.modelsPath); if (path) setConfig((current) => ({ ...current, modelsPath: path })); } catch { setMessage(t("Не удалось открыть выбор папки.")); } }}>{t("Обзор…")}</button></div><small>{t("Используется для выбора файлов и относительных путей. Абсолютные пути GGUF не ограничиваются этой папкой.")}</small></label>
-    {draftModels && <small role="status">{draftModels.folderExists ? t('Папка моделей доступна') : t('Папка по умолчанию недоступна. Абсолютные пути моделей проверяются отдельно.')}</small>}</details>
+
     <label>{t("GPU-слои по умолчанию")}<input aria-label={t("GPU-слои по умолчанию")} type="number" min="0" max="999" value={config.gpuLayers} onChange={(event) => setConfig({ ...config, gpuLayers: Number(event.target.value) })} /><small>{t("999 отправляет доступные слои на GPU; 0 использует CPU. Объём VRAM зависит от модели.")}</small></label>
 
     <fieldset><legend>{t('Веб-поиск')}</legend>

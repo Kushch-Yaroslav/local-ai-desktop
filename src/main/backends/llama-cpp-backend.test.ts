@@ -109,6 +109,9 @@ export async function runLlamaCppBackendRegression(): Promise<void> {
       assert.equal(await backend.getRuntimeContextEvidence(), null);
       await assert.rejects(backend.ensureModelAvailable(model));
       assert.equal(requests, 0, 'generation cannot implicitly select a model');
+      const staleAlias=new LlamaCppBackend('http://127.0.0.1:8081',32768,false,'removed:fixture');
+      assert.equal((await staleAlias.getModels()).length,profiles.length,'A stale active alias cannot hide configured absolute paths');
+
       backend.updateRuntimeSelection(model, 32_768);
       assert.equal(await backend.supportsVision(model), true);
       backend.updateRuntimeSelection('qwen3.6:35b-a3b-ud-q4_k_m', 65_536, 'q8_0', true);

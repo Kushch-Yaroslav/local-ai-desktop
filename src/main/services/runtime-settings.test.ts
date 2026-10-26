@@ -126,6 +126,8 @@ try {
   const movedDirectoryConfig = saveRuntimeConfiguration({ ...movedServer, modelsPath: missingDirectory,
     models: movedServer.models.map((model) => ({ ...model, modelPath: original, mmprojPath: '' })) }, movedDirectoryFile);
   rmSync(missingDirectory, { recursive: true, force: true });
+  const savedWithoutDirectory=saveRuntimeConfiguration(movedDirectoryConfig,movedDirectoryFile);
+  assert.equal(savedWithoutDirectory.modelsPath,missingDirectory,'absolute paths do not require the legacy default directory');
   const dismissedWithMovedDirectory = dismissRuntimeSetup(movedDirectoryFile);
   assert.equal(dismissedWithMovedDirectory.setupDismissed, true);
   assert.equal(dismissedWithMovedDirectory.modelsPath, movedDirectoryConfig.modelsPath,

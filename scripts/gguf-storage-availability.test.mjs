@@ -9,3 +9,10 @@ assert.equal(ggufAvailabilityError('/media/fixture-user/absent-volume/model.gguf
 assert.equal(ggufAvailabilityError('/tmp/model.gguf',error('EIO')).reason,'io-error');
 assert.equal((await ggufFileAvailability('/media/fixture-user/absent-volume/model.gguf')).reason,'disk-unavailable');
 console.log('PASS unavailable media root, missing file, access denial and I/O error have distinct availability reasons. Actual hardware mount diagnosis is documented separately.');
+const fs=await import('node:fs/promises'),{join}=await import('node:path'),{execFileSync}=await import('node:child_process');
+const root=await fs.mkdtemp('/tmp/lad-gguf-storage-');await fs.chmod(root,0o755);const header=Buffer.alloc(8);header.write('GGUF');header.writeUInt32LE(3,4);
+const a=join(root,'a'),b=join(root,'b');await fs.mkdir(a);await fs.mkdir(b);const file=join(b,'モデル with spaces.gguf');await fs.writeFile(file,header);assert.equal(ggufFileAvailability(file).status,'ready');
+await fs.rename(b,b+'-offline');assert.equal(ggufFileAvailability(file).status,'unavailable');await fs.rename(b+'-offline',b);assert.equal(ggufFileAvailability(file).status,'ready','same absolute path refreshes after storage returns');
+const split=join(a,'model-00001-of-00002.gguf');await fs.writeFile(split,header);assert.equal(ggufFileAvailability(split).status,'unavailable');await fs.writeFile(join(a,'model-00002-of-00002.gguf'),header);assert.equal(ggufFileAvailability(split).status,'ready');
+await fs.chmod(file,0);let denied;if(process.getuid?.()===0){denied=JSON.parse(execFileSync(process.execPath,['-e',`console.log(JSON.stringify(require(${JSON.stringify(require.resolve('../dist/main/services/gguf-artifacts.js'))}).ggufFileAvailability(${JSON.stringify(file)})))`],{uid:65534,gid:65534,encoding:'utf8'}));}else denied=ggufFileAvailability(file);assert.equal(denied.reason,'access-denied');await fs.chmod(file,0o644);assert.equal(ggufFileAvailability(file).status,'ready');
+console.log('PASS actual tiny files: separate Unicode directory, volume disappearance/reappearance, same absolute path, missing split shard, real access denial/recovery. No mount operations.');

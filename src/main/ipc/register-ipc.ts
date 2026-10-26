@@ -1,3 +1,4 @@
+import { dirname } from 'node:path';
 import { loopbackTarget } from '../web/project-browser';
 import { VisualDebugging } from '../services/visual-debugging';
 import type { VisualCommand } from '../../shared/visual-debugging';
@@ -72,6 +73,7 @@ const llamaCpp = new LlamaCppBackend(llamaCppUrl, 32_768, false, null);
 const backend = llamaCpp;
 // A live/stale launcher document is not an explicit selection in this Electron process.
 let modelSelectedThisProcess = false;
+let lastChosenFileDirectory:string|undefined;
 const remoteImages = new RemoteImageService();
 const web = new WebBrowserService(undefined, remoteImages);
 const attachments = new AttachmentService(database);
@@ -696,8 +698,9 @@ export function registerIpc(): void {
   });
   ipcMain.handle('analysis:list', (_event, conversationId: string) => database.listAnalysisRuns(conversationId));
   ipcMain.handle('models:list', async () => {
-    try { await syncLlamaBackend(); return await backend.getModels(); }
-    catch (error) { log('backend.models.failed', { backend: 'llama-cpp', message: error instanceof Error ? error.message : String(error) }); return []; }
+    try { await syncLlamaBackend(); } catch { log('backend.models.runtime-unavailable',{backend:'llama-cpp'}); }
+    // Availability is a fresh filesystem check even when runtime health fails.
+    return backend.getModels();
   });
   // The toolbar polls only live process health. Model paths and GGUF metadata
   // are checked on initialization and when model settings are opened/saved.
@@ -890,8 +893,10 @@ export function registerIpc(): void {
     await cancelGeneration(conversationId, generationId, 'user_stop');
   });
   ipcMain.handle('dialog:chooseFile', async () => {
-    const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow()!, { properties: ['openFile'] });
-    return result.canceled ? null : result.filePaths[0] ?? null;
+    const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow()!, { properties: ['openFile'],...(lastChosenFileDirectory?{defaultPath:lastChosenFileDirectory}:{}) });
+    const selected=result.canceled?undefined:result.filePaths[0];
+    if(selected)lastChosenFileDirectory=dirname(selected);
+    return selected??null;
   });
   ipcMain.handle('chat:steer', async (event, conversationId: string, generationId: string, content: string, intent?: SteeringIntent) => {
     const generation = activeGenerations.get(conversationId);

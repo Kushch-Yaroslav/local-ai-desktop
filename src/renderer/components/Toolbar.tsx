@@ -67,15 +67,15 @@ export function Toolbar() {
     return () => window.clearInterval(timer);
   }, [refreshRuntimeStatus]);
   useEffect(() => {
-    let pending = false;
+    let pending = false,lastCheck=0;
     const refresh = async () => {
-      if (pending) return;
+      if (pending||Date.now()-lastCheck<2000||!useAppStore.getState().models.some(model=>!model.installed)) return;
+      lastCheck=Date.now();
       pending = true;
       try { await useAppStore.getState().refreshModels(); } catch { /* Keep last known availability on transient IPC failure. */ } finally { pending = false; }
     };
-    const timer = window.setInterval(() => void refresh(), 10_000);
     window.addEventListener('focus', refresh);
-    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); };
+    return () => { window.removeEventListener('focus', refresh); };
   }, []);
   const chat = conversations.find((item) => item.id === activeId);
   const activeModelId = activeConversationModel(chat, settings?.llamaRuntime);
