@@ -1,5 +1,6 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Разбери выбранные области и уточни требуемое изменение. Используй выделения как контекст, а не как доказательство дефекта.": "Review the selected areas and clarify the requested change. Use selections as context, not proof of a defect.",
   'Проектор Vision отсутствует или несовместим.': 'Vision projector is missing or incompatible.',
   'Эта модель не поддерживает изображения.': 'This model does not support visual input.',
   'Сбой Vision на этапе {0}; анализ изображения не подтверждён.': 'Vision {0} failed; no image analysis established.',

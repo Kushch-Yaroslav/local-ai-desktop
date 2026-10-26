@@ -29,6 +29,17 @@ export function Composer() {
 
   useEffect(()=>{const listener=(event:Event)=>{const detail=(event as CustomEvent<{id:string;document:{regions:VisualRegion[]}}>).detail;if(detail.id===activeId)setRegionReferences(old=>old.filter(r=>detail.document.regions.some(live=>live.id===r.id)));};window.addEventListener('visual-document-updated',listener);return()=>window.removeEventListener('visual-document-updated',listener);},[activeId]);
 
+  // A newly drawn manual area belongs to the current draft, even without a
+  // separate transfer click. It remains visible/removable and never auto-sends.
+  useEffect(()=>{let alive=true;const seen=new Set<string>();const off=window.localAi.liveBrowser?.onEvent(event=>{
+    const feedback=event.state.visualFeedback;
+    if(event.state.conversationId!==activeId||feedback?.kind!=='saved'||!feedback.regionId||seen.has(feedback.regionId)||useAppStore.getState().isGenerating)return;
+    seen.add(feedback.regionId);
+    void window.localAi.visualDebug.document(activeId!).then(document=>{const region=document.regions.find(r=>r.id===feedback.regionId);
+      if(alive&&region&&region.projectId===chat?.primaryProjectId)setRegionReferences(old=>old.some(r=>r.id===region.id)?old:[...old,region].slice(0,12));
+    }).catch(()=>undefined);
+  });return()=>{alive=false;off?.();};},[activeId,chat?.primaryProjectId]);
+
   const runtime=settings?.llamaRuntime;
   const modelReady = conversationRuntimeReady(chat,runtime,models.find(model=>model.id===chat?.modelId));
   const projectEnabled = Boolean(chat?.workingDirectory);
@@ -53,7 +64,7 @@ export function Composer() {
       void steer(instruction).then((accepted) => { if (accepted) setValue((draft) => draft === instruction ? '' : draft); }).finally(() => setSteeringSubmitting(false));
       return;
     }
-    if (modelReady && !generationConversationId && (value.trim() || files.length || regionReferences.length)) { void sendMessage(value.trim()||t('Разбери выбранные области. Подтверди дефект и исходный компонент перед исправлением; проверь результат на исходных URL и viewport через Browser QA.'), files, projectReferences, regionReferences); setRegionReferences([]); setValue(''); setFiles([]); setProjectReferences([]); setSuggestions([]); setReferenceQuery(null); setAttachmentError(null); }
+    if (modelReady && !generationConversationId && (value.trim() || files.length || regionReferences.length)) { void sendMessage(value.trim()||t('Разбери выбранные области и уточни требуемое изменение. Используй выделения как контекст, а не как доказательство дефекта.'), files, projectReferences, regionReferences); setRegionReferences([]); setValue(''); setFiles([]); setProjectReferences([]); setSuggestions([]); setReferenceQuery(null); setAttachmentError(null); }
   };
   useEffect(() => {
     if (!projectEnabled || !activeId || !referenceQuery) { setSuggestions([]); return; }

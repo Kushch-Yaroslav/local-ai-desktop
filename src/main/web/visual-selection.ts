@@ -60,7 +60,7 @@ export async function groundRegion(page: Page, rect: VisualRect) {
           }
           const path=parts.join(' > ');if(path&&document.querySelectorAll(path).length===1){selector=path;unique=true;identity={text:safeText(e),context:safeText(e.parentElement??e)};}
         }
-        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','white-space','width','height','font-size','line-height','padding','box-sizing','color','background-color','filter','max-width','font-weight','text-overflow','flex-wrap','align-items','border-radius','border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius']){const value=style.getPropertyValue(key);styles[key]=/url\s*\(/i.test(value)?'[URL omitted]':value.slice(0,120);}
+        const style=getComputedStyle(e);const styles:Record<string,string>={};for(const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','white-space','width','height','font-family','font-size','line-height','padding','box-sizing','color','background-color','filter','max-width','font-weight','text-overflow','flex-wrap','align-items','border-radius','border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius']){const value=style.getPropertyValue(key);styles[key]=/url\s*\(/i.test(value)?'[URL omitted]':value.slice(0,120);}
         // Read bounded descendant text while excluding private controls and sensitive subtrees.
         const walker=document.createTreeWalker(e,NodeFilter.SHOW_TEXT);let excerpt='',count=0,node:Node|null;
         while((node=walker.nextNode())&&count++<200&&excerpt.length<240){if(!node.parentElement?.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))excerpt+=' '+node.textContent;}
@@ -77,8 +77,25 @@ export async function groundRegion(page: Page, rect: VisualRect) {
         if(!findings.length)findings.push({category:'unknown',fact:'No deterministic defect established; styling mismatch requires a baseline or explicit visual confirmation.',candidate:true});
         return {identity,tag:e.tagName.toLowerCase(),name:(e.getAttribute('aria-label')??text).slice(0,240),classes:Array.from(e.classList).filter(c=>c.length<=128).slice(0,6),selector,text,geometry,findings,neighbors,rect:{x:b.x+scrollX,y:b.y+scrollY,width:b.width,height:b.height},confidence:unique?.85:.45,diagnostics:[unique?'Unique at capture; may become stale':'Multiple matches; selector is ambiguous','Source component not confirmed'],styles};
       });
+      // The selection may point to an insertion gap rather than an existing defect.
+      // Semantic DOM siblings are hints only; never infer a React component here.
+      const center=rect.y+rect.height/2;
+      const sections=Array.from(document.querySelectorAll('section,article,[role="region"]')).slice(0,600)
+        .filter(e=>!e.closest('[data-private],[data-sensitive],input,textarea,select,[contenteditable]')&&visible(e))
+        .map(e=>({e,b:e.getBoundingClientRect()})).filter(({b})=>Math.min(b.right,rect.x+rect.width)>Math.max(b.left,rect.x));
+      const above=sections.filter(({b})=>b.bottom<=center).sort((a,b)=>b.b.bottom-a.b.bottom)[0];
+      const below=sections.filter(({b})=>b.top>=center).sort((a,b)=>a.b.top-b.b.top)[0];
+      const anchor=(item:typeof above)=>{if(!item)return undefined;const {e,b}=item;
+        const selector=e.id?'#'+CSS.escape(e.id):undefined;
+        return {tag:e.tagName.toLowerCase(),selector:selector&&document.querySelectorAll(selector).length===1?selector:undefined,text:safeText(e),rect:{x:b.x+scrollX,y:b.y+scrollY,width:b.width,height:b.height}};};
+      const competing=(item:typeof above,edge:'top'|'bottom')=>item&&sections.some(other=>other!==item&&!other.e.contains(item.e)&&!item.e.contains(other.e)&&Math.abs(other.b[edge]-item.b[edge])<2);
+      const between=Boolean(above&&below&&!competing(above,'bottom')&&!competing(below,'top')&&Math.min(above.b.right,below.b.right)>Math.max(above.b.left,below.b.left)&&above.e.parentElement===below.e.parentElement&&above.b.bottom<=below.b.top&&above.e.nextElementSibling===below.e);
+      const parent=between?above!.e.parentElement:undefined;
+      const surroundings={relation:between?'between-siblings' as const:'ambiguous' as const,above:anchor(above),below:anchor(below),
+        container:parent?.id?'#'+CSS.escape(parent.id):undefined,confidence:between?.7:.2,coordinateSpace:'document-css' as const,
+        diagnostics:['Geometry at capture only; confirm current DOM and source order. No React component mapping.',...(!between?['No unambiguous adjacent semantic pair; inspect further or ask for clarification.']:[])]};
       const first=candidates[0]?.e;const screenshotOnly=Boolean(first&&first.closest('canvas,svg'));
-      return {url:location.href,route:location.pathname,viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,scroll:{x:scrollX,y:scrollY},rect:{...rect,x:rect.x+scrollX,y:rect.y+scrollY},anchors:screenshotOnly?[]:anchors,snapshot:`${performance.timeOrigin}:${document.querySelectorAll('*').length}`,diagnostics:screenshotOnly?['Screenshot-only Canvas/SVG region; no source mapping']:['DOM candidates are hints, not verified source mappings']};
+      return {url:location.href,route:location.pathname,viewport:{width:innerWidth,height:innerHeight},dpr:devicePixelRatio,scroll:{x:scrollX,y:scrollY},rect:{...rect,x:rect.x+scrollX,y:rect.y+scrollY},anchors:screenshotOnly?[]:anchors,surroundings,snapshot:`${performance.timeOrigin}:${document.querySelectorAll('*').length}`,diagnostics:screenshotOnly?['Screenshot-only Canvas/SVG region; no source mapping']:['DOM candidates are hints, not verified source mappings']};
     }finally{if(overlay)overlay.style.display='';}
   },rect);
   return {...evidence,route:visualRoute(evidence.url)};
