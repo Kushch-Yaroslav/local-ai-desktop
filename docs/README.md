@@ -30,6 +30,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [Fresh Browser Evidence, grounding and active runtime state (RU)](fresh-browser-evidence-grounding.md)
 - [v0.3 Workspace, runtime reuse and Verification UX acceptance (RU)](workspace-runtime-verification-ux.md)
 - [v0.3 spatial grounding, conditional requirements and QA loop audit](spatial-grounding-qa-loop-audit.md)
+- [v0.3 managed preview switching and task fidelity audit](agent-local-preview-switching-audit.md)
 - [v0.3 individual GGUF paths and screenshot/Vision evidence audit](gguf-paths-vision-evidence-audit.md)
 - [Browser input ownership, model availability and CSS completion discipline (RU)](browser-input-model-completion.md)
 - [Stop, QA loops, native page zoom and workspace reliability (RU)](stop-qa-workspace-reliability.md)
