@@ -8,7 +8,9 @@ app.on('before-quit',event=>{if(quitting)return;event.preventDefault();quitting=
 app.whenReady().then(async()=>{
  const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true,process.env.LOCAL_AI_TEST_MODEL_ID??'qwen3.8:27b-q4_K_M');
  const controller=require(resolve('dist/main/services/llama-runtime-controller.js')).LlamaRuntimeController;controller.prototype.unload=async()=>{fixture.set({cold:true});return {ok:true,state:fixture.state()};};
- await controller.prototype.switchTo(fixture.modelId,32768);
+ const initialProfile=require(resolve('dist/main/services/runtime-settings.js')).effectiveRuntimeConfiguration().models.find(m=>m.id===fixture.modelId);
+ await controller.prototype.switchTo(fixture.modelId,32768,'f16',true,undefined,initialProfile.mtpMode??(initialProfile.speculative==='none'?'off':'auto'));
+ fixture.db.updateConversation(fixture.chat.id,{contextWindow:32768,llamaKvCacheType:'f16',llamaKvOffload:true});
  const settings=require(resolve('dist/main/services/runtime-settings.js'));settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),autonomousBrowserQa:false,browserVision:'off'});
  const project=process.env.LOCAL_AI_TEST_PROJECT_ROOT;if(!project?.startsWith('/tmp/'))throw Error('A separate temporary project is required');
  fixture.db.updateConversation(fixture.chat.id,{title:'Visual Debugging demo',mode:'agent',workingDirectory:project,webMode:'auto',visionMode:'off'});
@@ -18,9 +20,11 @@ app.whenReady().then(async()=>{
  const events=[];const send=window.webContents.send.bind(window.webContents);window.webContents.send=(channel,event,...rest)=>{if(channel==='chat:stream')events.push(event);return send(channel,event,...rest);};
  const Session=require(resolve('dist/main/web/project-browser.js')).ProjectBrowserSession,display=Session.prototype.visualDisplay;Session.prototype.visualDisplay=function(...args){global.visualFixture.session=this;return display.apply(this,args);};
  global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,
-  entry(){return [...liveBrowsers.entries.values()].find(e=>e.state.conversationId===fixture.chat.id&&!e.ended)},
+ entry(){return [...liveBrowsers.entries.values()].find(e=>e.state.conversationId===fixture.chat.id&&!e.ended)},
+  setOwnership(value){const entry=this.entry();entry.native.ownership(value);entry.state={...entry.state,ownership:value};entry.owner.send('live-browser:event',{type:'state',state:entry.state});},
+  nativeSurfaceBounds(){const container=window.contentView.children.find(view=>view.children?.length);return container?.children?.[0]?.getBounds();},
   async drag(selector){const page=this.entry().page,b=await page.locator(selector).boundingBox();if(!b)throw Error('Missing target');await page.mouse.move(b.x+1,b.y+1);await page.mouse.down();await page.mouse.move(b.x+b.width-1,b.y+b.height-1,{steps:5});await page.mouse.up();},
-  async info(){const entry=this.entry();return {id:entry?.native?.contents.id,pageCount:entry?.page?.context().pages().length,ownership:entry?.state.ownership,regions:this.db.visualDocument(this.chat,this.db.getConversation(this.chat).primaryProjectId),snapshot:entry?.page?await entry.page.evaluate(()=>({width:globalThis.innerWidth,height:globalThis.innerHeight,dpr:globalThis.devicePixelRatio,scrollY:globalThis.scrollY,overlay:!!globalThis.document.getElementById('__lad-visual-selection')})):null}},
+  async info(){const entry=this.entry();return {id:entry?.native?.contents.id,pageCount:entry?.page?.context().pages().length,ownership:entry?.state.ownership,regions:this.db.visualDocument(this.chat,this.db.getConversation(this.chat).primaryProjectId),snapshot:entry?.page?await entry.page.evaluate(()=>({width:globalThis.innerWidth,height:globalThis.innerHeight,dpr:globalThis.devicePixelRatio,scrollY:globalThis.scrollY,overlay:!!globalThis.document.getElementById('__lad-visual-selection')})).catch(error=>{if(/Execution context was destroyed/.test(String(error)))return null;throw error;}):null}},
  };
  await window.loadFile(resolve('dist/renderer/index.html'));
 }).catch(e=>{console.error(e);app.exit(1)});

@@ -65,7 +65,7 @@ async function run(): Promise<void> {
   await useAppStore.getState().sendMessage('Continue');
   const generationId = useAppStore.getState().generationId!;
   const emit = (type: string, more = {}) => useAppStore.getState().handleStream({ type, conversationId: 'A', generationId, ...structuredClone(more) });
-  const changed = structuredClone(memory);
+  const changed = {...structuredClone(memory),browser_qa:undefined,loop_guard:undefined,stop_reason:undefined};
   changed.plan!.steps[1].status = 'completed'; changed.deliverables!.items[1].status = 'verified';
   emit('task-memory', { memory: changed }); saved.set('A', { taskMemory: changed });
   assert.equal(agentStatus(useAppStore.getState().agentPlan).steps.filter((step) => step.status === 'completed').length, 2);

@@ -25,6 +25,7 @@ try{
  const count=task=>app.evaluate((_,task)=>global.visualFixture.db.taskScreenshotCount(global.visualFixture.chat,task),task);
  await ui.evaluate(id=>window.localAi.conversations.update(id,{modelId:'qwen3.8:27b-q4_K_M',contextWindow:32768}),chat);
  await ui.evaluate(id=>window.localAi.chat.setPermissions(id,'autonomous',true),chat);await ui.evaluate(id=>window.localAi.visualDebug.open(id,'index.html?lang=it#/it/product/1'),chat);
+ if(await ui.locator('.live-manual-open').isVisible())await ui.locator('.live-manual-open').click();
  const nativeId=(await app.evaluate(()=>global.visualFixture.info())).id;
  assert.equal(await ui.evaluate(id=>window.localAi.browserQa.status(id),chat).then(v=>v.autonomous),true,'New chat verification defaults on');
  await cmd({action:'new-area'});let area=(await doc()).issues[0];await cmd({action:'selection',enabled:true,groupId:area.id});await app.evaluate(()=>global.visualFixture.drag('#badge'));await until(async()=>(await doc()).regions.length===1,'Region creation');await cmd({action:'selection',enabled:false});
@@ -47,7 +48,7 @@ try{
  const second=await cmd({action:'new-area'});const activeArea=second.issues.at(-1);await cmd({action:'selection',enabled:true,groupId:activeArea.id});await app.evaluate(()=>global.visualFixture.drag('#badge'));await until(async()=>(await doc()).regions.length===2,'Second active area');await cmd({action:'selection',enabled:false});
  queue=[...Array.from({length:8},()=>['web_project',{action:'screenshot',selector:'#badge',analyze:false}]),['read_file',{path:'notes.txt'}],'hold'];const holds=holdCount;
  await send('Capture the badge eight times for this bounded budget fixture, then wait.');await until(()=>holdCount>holds,'Screenshot sequence did not reach held inference');const stopped=await lastRun();assert.equal(await count(stopped.logicalTaskId),8);
- await ui.locator('.send-button.stop').click();await done();await ui.evaluate(id=>window.localAi.conversations.update(id,{contextWindow:24576}),chat);assert.equal((await lastRun()).status,'interrupted');assert.notEqual((await doc()).issues.find(i=>i.id===activeArea.id).workflow?.state,'completed');
+ await ui.locator('.send-button.stop').click();await done();await ui.evaluate(id=>window.localAi.conversations.update(id,{contextWindow:24576}),chat);await ui.reload();await ui.locator('.chat-select').filter({hasText:'Visual Debugging demo'}).click();await ui.locator('.task-selector select').selectOption(stopped.logicalTaskId);assert.equal((await lastRun()).status,'interrupted');assert.notEqual((await doc()).issues.find(i=>i.id===activeArea.id).workflow?.state,'completed');
  queue=[['web_project',{action:'screenshot',selector:'#badge',analyze:false}],['web_project',{action:'inspect',selector:'#badge'}]];
  await ui.locator('.composer textarea').fill('Continue the stopped screenshot task; use CSS inspection if the budget is exhausted.');await ui.locator('.send-button:not(.stop)').click();await done();const resumed=await lastRun();assert.equal(resumed.logicalTaskId,stopped.logicalTaskId);assert.equal(await count(resumed.logicalTaskId),8);assert(resumed.actions.some(a=>a.state==='error'&&JSON.stringify(a).includes('SCREENSHOT_LIMIT')));
  checks.push('Eight persisted screenshots; ninth refused across real Stop/Continue; CSS alternative remains usable');

@@ -26,6 +26,7 @@ try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/visual-debugging/main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_PROJECT_ROOT:project,LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${provider.address().port}/v1/chat/completions`}});
  const ui=await app.firstWindow();await ui.locator('.conversation').waitFor();const chat=await app.evaluate(()=>global.visualFixture.chat);
  await ui.evaluate(({chat,url})=>window.localAi.visualDebug.open(chat,url),{chat,url});
+ if(await ui.locator('.live-manual-open').isVisible())await ui.locator('.live-manual-open').click();
  const sample=()=>app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>{const e=document.querySelector('#sticker');return e?{radius:getComputedStyle(e).borderRadius,width:e.clientWidth,text:e.textContent,url:location.href}:null;}));
  await until(async()=>!!await sample(),'Native React initial render');
  external=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await external.newPage();await page.goto(url);await page.locator('#sticker').waitFor();

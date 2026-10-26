@@ -1,0 +1,861 @@
+{
+  "result": "PASS",
+  "recordedAt": "2026-10-26T14:33:33.505216+00:00",
+  "branch": "improvement/v0.3-workspace-runtime-verification-ux",
+  "base": "da07316f72f6432843e07c292a4744e3ff65ad11",
+  "quality": {
+    "typecheck": "PASS",
+    "eslint": "PASS",
+    "build": "PASS",
+    "rust": {
+      "passed": 421,
+      "failed": 0,
+      "ignored": 1
+    },
+    "localization": "PASS RU/EN source audit and live Electron workflow",
+    "diffCheck": "PASS"
+  },
+  "electron": [
+    {
+      "test": "browser-workspace-layout-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 18.305,
+      "log": "/tmp/lad-v03-browser-workspace-layout-electron.log"
+    },
+    {
+      "test": "browser-workspace-layout-electron-dpr2",
+      "status": 0,
+      "signal": null,
+      "seconds": 17.059,
+      "log": "/tmp/lad-v03-browser-workspace-layout-electron-dpr2.log"
+    },
+    {
+      "test": "visual-debugging-workflow-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 46.287,
+      "log": "/tmp/lad-v03-visual-debugging-workflow-electron.log"
+    },
+    {
+      "test": "adaptive-verification-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 31.396,
+      "log": "/tmp/lad-v03-adaptive-verification-electron.log"
+    },
+    {
+      "test": "stop-qa-workspace-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 31.897,
+      "log": "/tmp/lad-v03-stop-qa-workspace-electron.log"
+    },
+    {
+      "test": "fresh-browser-evidence-electron-resume",
+      "status": 0,
+      "signal": null,
+      "seconds": 15.729,
+      "log": "/tmp/lad-v03-fresh-browser-evidence-electron-resume.log"
+    },
+    {
+      "test": "adaptive-native-hmr-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 12.362,
+      "log": "/tmp/lad-v03-adaptive-native-hmr-electron.log"
+    },
+    {
+      "test": "browser-input-completion-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 20.892,
+      "log": "/tmp/lad-v03-browser-input-completion-electron.log"
+    },
+    {
+      "test": "visual-region-feedback-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 16.714,
+      "log": "/tmp/lad-v03-visual-region-feedback-electron.log"
+    },
+    {
+      "test": "visual-region-feedback-electron-dpr2",
+      "status": 0,
+      "signal": null,
+      "seconds": 13.568,
+      "log": "/tmp/lad-v03-visual-region-feedback-electron-dpr2.log"
+    },
+    {
+      "test": "visual-regions-workspace-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 20.263,
+      "log": "/tmp/lad-v03-visual-regions-workspace-electron.log"
+    },
+    {
+      "test": "visual-regions-workspace-electron-dpr2",
+      "status": 0,
+      "signal": null,
+      "seconds": 18.89,
+      "log": "/tmp/lad-v03-visual-regions-workspace-electron-dpr2.log"
+    },
+    {
+      "test": "responsive-native-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 5.194,
+      "log": "/tmp/lad-v03-responsive-native-electron.log"
+    },
+    {
+      "test": "visual-layout-native-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 18.802,
+      "log": "/tmp/lad-v03-visual-layout-native-electron.log"
+    },
+    {
+      "test": "native-browser-shutdown-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 3.63,
+      "log": "/tmp/lad-v03-native-browser-shutdown-electron.log"
+    },
+    {
+      "test": "runtime-context-state-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 2.988,
+      "log": "/tmp/lad-v03-runtime-context-state-electron.log"
+    },
+    {
+      "test": "runtime-reuse-process-electron",
+      "status": 0,
+      "signal": null,
+      "seconds": 5.605,
+      "log": "/tmp/lad-v03-runtime-reuse-process-electron.log"
+    }
+  ],
+  "nativeGeometry": [
+    {
+      "result": "PASS",
+      "root": "/tmp/lad-workspace-layout-H4TPVH",
+      "checks": [
+        "10 real selections; bounded vertical tools height",
+        "horizontal same Page",
+        "pointer/keyboard width",
+        "390/768/1440/1920/4K CSS viewport",
+        "visible Fit/Scroll/preview scale",
+        "renderer reload persistence",
+        "narrow fallback",
+        "current numbering and immutable deleted history"
+      ],
+      "dpr2": false,
+      "geometry": [
+        {
+          "layout": "horizontal",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              }
+            }
+          ]
+        },
+        {
+          "layout": "vertical",
+          "viewport": "auto",
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 604,
+                "height": 233
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 465
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 906,
+                "height": 349
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 465
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1207,
+                "height": 465
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 465
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1509,
+                "height": 582
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 465
+              }
+            }
+          ]
+        },
+        {
+          "layout": "vertical",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            }
+          ]
+        },
+        {
+          "layout": "horizontal",
+          "viewport": "auto",
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 409,
+                "height": 363
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 725
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 614,
+                "height": 544
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 725
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 818,
+                "height": 725
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 725
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1023,
+                "height": 907
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 725
+              }
+            }
+          ]
+        },
+        {
+          "layout": "horizontal",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "result": "PASS",
+      "root": "/tmp/lad-workspace-layout-kcVdg0",
+      "checks": [
+        "10 real selections; bounded vertical tools height",
+        "horizontal same Page",
+        "pointer/keyboard width",
+        "390/768/1440/1920/4K CSS viewport",
+        "visible Fit/Scroll/preview scale",
+        "renderer reload persistence",
+        "narrow fallback",
+        "current numbering and immutable deleted history"
+      ],
+      "dpr2": true,
+      "geometry": [
+        {
+          "layout": "horizontal",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              }
+            }
+          ]
+        },
+        {
+          "layout": "vertical",
+          "viewport": "auto",
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 604,
+                "height": 127
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 253
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 906,
+                "height": 190
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 253
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1207,
+                "height": 253
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 253
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1509,
+                "height": 317
+              },
+              "cssViewport": {
+                "width": 1207,
+                "height": 253
+              }
+            }
+          ]
+        },
+        {
+          "layout": "vertical",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            }
+          ]
+        },
+        {
+          "layout": "horizontal",
+          "viewport": "auto",
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 409,
+                "height": 239
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 477
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 614,
+                "height": 358
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 477
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 818,
+                "height": 477
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 477
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1023,
+                "height": 597
+              },
+              "cssViewport": {
+                "width": 818,
+                "height": 477
+              }
+            }
+          ]
+        },
+        {
+          "layout": "horizontal",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scales": [
+            {
+              "scale": 0.5,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 720,
+                "height": 450
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 0.75,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1080,
+                "height": 675
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            },
+            {
+              "scale": 1.25,
+              "bounds": {
+                "x": 0,
+                "y": 0,
+                "width": 1800,
+                "height": 1125
+              },
+              "cssViewport": {
+                "width": 1440,
+                "height": 900
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "runtimeReuse": {
+    "result": "PASS",
+    "root": "/tmp/lad-runtime-reuse-process-DXjoy0",
+    "serverPid": 45384,
+    "launches": [
+      {
+        "pid": 45384,
+        "args": [
+          "--log-verbosity",
+          "5",
+          "-m",
+          "/tmp/lad-runtime-reuse-process-DXjoy0/models/fixture.gguf",
+          "--alias",
+          "custom:123e4567-e89b-42d3-a456-426614174099",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "34583",
+          "--ctx-size",
+          "32768",
+          "--gpu-layers",
+          "0",
+          "--flash-attn",
+          "on",
+          "--cache-type-k",
+          "f16",
+          "--cache-type-v",
+          "f16",
+          "--kv-offload",
+          "--parallel",
+          "1",
+          "--jinja",
+          "--reasoning",
+          "on",
+          "--reasoning-format",
+          "auto",
+          "--no-warmup",
+          "--spec-type",
+          "none"
+        ]
+      }
+    ],
+    "checks": [
+      "Production supervisor health/context/KV confirmation",
+      "Two real SQLite chats bind the same fingerprint",
+      "One live server PID across chat switching",
+      "Ready to use and enabled Composer"
+    ]
+  },
+  "visualWorkflow": {
+    "result": "PASS",
+    "provider": "scripted local provider, real Electron/Chromium and Rust Runtime",
+    "root": "/tmp/lad-visual-workflow-OZZS31",
+    "project": "/tmp/lad-visual-workflow-project-MC0mlx",
+    "results": [
+      "HashRouter/query navigation and non-destructive URL draft",
+      "Manual multi-selection, rename, color, privacy and failing rendered-text recheck",
+      "Auto DOM/layout discovery without LLM and explicit rejection",
+      "Real Rust Runtime scripted correction, original-viewport QA and linked verification",
+      "User Unresolved override, Ledger-linked manual QA and missing-anchor failure",
+      "Wide/narrow layout, bounded inspector, keyboard and RU/EN",
+      "SQLite reload, stable native identity, explicit delete and immutable history evidence",
+      "Approved loopback HashRouter preview, standalone QA report proof and source-fingerprint expiration"
+    ],
+    "requests": 11
+  },
+  "adaptiveVerification": {
+    "result": "PASS",
+    "root": "/tmp/lad-adaptive-policy-uONz22",
+    "project": "/tmp/lad-adaptive-policy-project-wE10Sj",
+    "checks": [
+      "ON instruction reaches actual inference; related completed patch completes issue without forging Verified",
+      "Dimmed actual DOM overlay; Dispute restores state and composer chip without run; manual acceptance survives reload",
+      "OFF removes additional policy while browser inspect remains available for explicit checks",
+      "Eight persisted screenshots; ninth refused across real Stop/Continue; CSS alternative remains usable",
+      "New logical task receives new budget on same Page; computed-style QA passes without consuming explicit captures",
+      "Actual process restart preserves both task counters; cross-chat task use refused, independent chat has own budget"
+    ],
+    "requests": 25,
+    "compactions": 2,
+    "nativeId": 2
+  },
+  "scenarioGate": {
+    "result": "PASS",
+    "provider": "scripted; real Rust/Chromium/filesystem",
+    "checks": [
+      "open cannot prove interaction",
+      "immutable scenario_refs",
+      "actual 450ms hold",
+      "independent edit retains proof",
+      "served app.js edit stales proof",
+      "identical verify loop blocked",
+      "other tools continue",
+      "fresh retest verifies",
+      "next run retains criteria but requires fresh execution",
+      "Unknown criterion ID rejected before execution",
+      "Unknown evidence ID rejected",
+      "Missing evidence cannot verify",
+      "Canonical verify evidence string reuses passing browser proof"
+    ]
+  },
+  "additionalChecks": [
+    "Visual workflow original URL/viewport/anchor mismatch and stale revision rejection",
+    "Mixed CSS + JS/TS cannot finish on CSS observation alone (Rust)",
+    "Browser QA refusal and incomplete required criteria (Rust/Electron)",
+    "Stop before verification; real compaction and resumed scoped CSS evidence",
+    "Manual/automatic dedup preserves descriptions and both evidence sources; distinct defects/anchors/routes/viewports stay separate",
+    "Two independent issues transfer structured references into Composer without message submission",
+    "Headless Chromium DOM-only responsive proof plus separate Canvas/Vision image routing",
+    "Privacy masks, DPR geometry/input mapping, pan and no ghost overlays",
+    "Seven native shutdown scenarios"
+  ],
+  "limitations": [
+    "No heavy Qwen inference rerun",
+    "Temporary metadata GGUF/HTTP server proves lifecycle and reuse, not real weight loading or inference quality",
+    "No real Vision inference claimed",
+    "One pre-existing Rust integration test remains ignored",
+    "Existing Vite large-chunk warning remains"
+  ],
+  "artifactPolicy": "Only fixture-derived summaries are committed; full logs/screenshots remain in referenced /tmp roots. Pre-existing untracked runtime/ is untouched."
+}

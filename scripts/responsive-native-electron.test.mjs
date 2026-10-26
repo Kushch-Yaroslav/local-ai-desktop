@@ -9,11 +9,11 @@ let app;
 try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/native-browser/workspace-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
  const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();
- const opened=await app.evaluate(()=>global.nativeFixture.open());assert(!opened.error,JSON.stringify(opened));await page.locator('.mode-split').waitFor();await page.waitForTimeout(250);
+ const opened=await app.evaluate(()=>global.nativeFixture.open());assert(!opened.error,JSON.stringify(opened));await page.locator('.live-manual-open').click();await page.locator('.mode-split').waitFor();await page.waitForTimeout(250);
  await app.evaluate(()=>global.nativeFixture.execute({action:'fill',selector:'#text',value:'user state'}));await app.evaluate(()=>global.nativeFixture.execute({action:'click',selector:'#route'}));await app.evaluate(()=>global.nativeFixture.finish());
  const before=await app.evaluate(()=>global.nativeFixture.info()),windows=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length);
  const args={action:'qa',responsive:{reason:'Check a responsive layout checkpoint',viewports:[{width:360,height:800},'desktop'],vision:'off'}};
- const result=await app.evaluate((_,args)=>global.nativeFixture.execute(args),args);assert(result.qa,JSON.stringify(result));assert.equal(result.qa.scenarios[0].status,'Failed');assert.equal(result.qa.scenarios[1].status,'Verified');
+ const result=await app.evaluate((_,args)=>global.nativeFixture.execute(args),args);await writeFile(join(root,'responsive-report.json'),JSON.stringify(result,null,2));console.log('Responsive evidence:',root);assert(result.qa?.scenarios?.length===2,JSON.stringify(result));assert.equal(result.qa.scenarios[0].status,'Failed');assert.equal(result.qa.scenarios[1].status,'Verified');
  const after=await app.evaluate(()=>global.nativeFixture.info());assert.equal(after.nativeId,before.nativeId);assert.equal(after.pageCount,1);assert.equal(after.views.length,before.views.length);assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length),windows,'No new Electron window');
  for(const key of ['url','identity','input','scrollY','viewport'])assert.deepEqual(after.snapshot[key],before.snapshot[key],`Active native ${key} is preserved`);
  assert.equal(after.approvals,before.approvals+1,'One operation approval; isolated QA viewports add no prompts or wider scope');

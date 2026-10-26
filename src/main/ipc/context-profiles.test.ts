@@ -108,7 +108,7 @@ export async function contextProfileFixture(root: string, realElectron = false, 
     if (loadDelayMs) await new Promise(resolve=>setTimeout(resolve,loadDelayMs));
     if (mismatch) return { ok: false, state, error: 'fixture configuration mismatch' };
     if (startupFailure && contextWindow !== 16384) { state = { ...state, rolledBack: true, error: 'fixture CUDA out of memory' }; return { ok: false, state, error: state.error! }; }
-    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'on' ? 'mtp' : 'none', ...(mtpMode ? { mtpMode } : {}),...(v2?{profileFingerprint:(await import('../services/runtime-profile-identity')).runtimeProfileFingerprint(id),profileConfiguration:configured,launchArguments:['/fixture/llama-server','--gpu-layers',String(configured?.gpuLayers)]}:{}) };
+    state = { status: 'ready', modelId: id, contextWindow, kvCacheType, kvOffload, serverPid: process.pid, launcherPid: process.pid, speculativeMode: mtpMode === 'on' ? 'mtp' : 'none', ...(mtpMode ? { mtpMode } : {}),profileFingerprint:(await import('../services/runtime-profile-identity')).runtimeProfileFingerprint(id),profileConfiguration:configured,launchArguments:['/fixture/llama-server','--gpu-layers',String(configured?.gpuLayers)] };
     return { ok: true, state };
   };
   if(v2)LlamaRuntimeController.prototype.unload=async()=>{state={status:'stopped',modelId:null,contextWindow:null};return {ok:true,state};};

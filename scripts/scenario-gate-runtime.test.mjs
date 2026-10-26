@@ -21,21 +21,24 @@ try{
  queue=[
   deliver({action:'add',id:'camera',text:'Holding forward changes the camera',check:'browser',criteria:[{id:'forward',description:'Actual camera response after a bounded hold',kind:'interaction',scenario:spec}]}),
   deliver({action:'implemented',id:'camera',evidence:'index.html and app.js inspected'}),
+  call('web_project',{action:'qa',scenario_refs:[{deliverable_id:'camera',criterion_id:'wrong-id'}]}),
+  deliver({action:'verify',id:'camera',evidence:'ev-999999'}),
+  deliver({action:'verify',id:'camera'}),
   call('web_project',{action:'open',path:'index.html',deliverable_id:'camera',criterion_id:'forward'}),
   call('web_project',{action:'qa',scenario_refs:[{deliverable_id:'camera',criterion_id:'forward'}]}),
-  ()=>{oldProof=proof();assert(oldProof);return deliver({action:'verify',id:'camera',evidence_ids:[oldProof]});},
+  ()=>{oldProof=proof();assert(oldProof);return deliver({action:'verify',id:'camera',evidence:oldProof});},
   call('write_file',{path:'independent.html',content:'<title>Independent document</title>'}),
-  ()=>deliver({action:'verify',id:'camera',evidence_ids:[oldProof]}),
+  ()=>deliver({action:'verify',id:'camera',evidence:oldProof}),
   call('write_file',{path:'app.js',content:source(2)}),
-  ...Array.from({length:3},()=>()=>deliver({action:'verify',id:'camera',evidence_ids:[oldProof]})),
+  ...Array.from({length:3},()=>()=>deliver({action:'verify',id:'camera',evidence:oldProof})),
   call('read_file',{path:'app.js'}),
   call('web_project',{action:'qa',scenario_refs:[{deliverable_id:'camera',criterion_id:'forward'}]}),
-  ()=>deliver({action:'verify',id:'camera',evidence_ids:[proof()]})
+  ()=>deliver({action:'verify',id:'camera',evidence:proof()})
  ];await run();
  const results=requests.flatMap(r=>r.messages.filter(m=>m.role==='tool').map(m=>m.content));const combined=results.join('\n');
- assert.match(combined,/Browser open can prove only load/);assert.match(combined,/EVIDENCE_STALE/);assert.match(combined,/VERIFY_NO_PROGRESS/);
+ assert.match(combined,/Unknown acceptance criterion; register it before checking/);assert.match(combined,/unknown evidence 'ev-999999'/);assert.match(combined,/VERIFICATION_INCOMPLETE/);assert.match(combined,/Browser open can prove only load/);assert.match(combined,/EVIDENCE_STALE/);assert.match(combined,/VERIFY_NO_PROGRESS/);
  assert.equal(memory.deliverables.items[0].status,'verified',JSON.stringify(memory.deliverables));assert.notEqual(proof(),oldProof);assert.equal(reports.length,2);assert(reports.every(r=>r.scenarios[0].status==='Verified'));
- const checkpoint=memory;const mark=events.length;index=0;requests.length=0;queue=[()=>deliver({action:'verify',id:'camera',evidence_ids:[proof()]}),call('web_project',{action:'qa',scenario_refs:[{deliverable_id:'camera',criterion_id:'forward'}]}),()=>deliver({action:'verify',id:'camera',evidence_ids:[proof()]})];await run(checkpoint);
+ const checkpoint=memory;const mark=events.length;index=0;requests.length=0;queue=[()=>deliver({action:'verify',id:'camera',evidence:proof()}),call('web_project',{action:'qa',scenario_refs:[{deliverable_id:'camera',criterion_id:'forward'}]}),()=>deliver({action:'verify',id:'camera',evidence:proof()})];await run(checkpoint);
  assert.match(requests.flatMap(r=>r.messages.filter(m=>m.role==='tool').map(m=>m.content)).join('\n'),/EVIDENCE_STALE/);assert.equal(memory.deliverables.items[0].status,'verified');assert.equal(memory.deliverables.items[0].criteria[0].scenario.steps[0].duration_ms,450);assert(events.slice(mark).some(e=>e.type==='done'));
  const output=resolve(process.env.LOCAL_AI_TEST_RESULTS_DIR??'docs/test-results/scenario-qa');await mkdir(output,{recursive:true});await writeFile(join(output,'gate-runtime.json'),JSON.stringify({result:'PASS',root,provider:'scripted; real Rust/Chromium/filesystem',checks:['open cannot prove interaction','immutable scenario_refs','actual 450ms hold','independent edit retains proof','served app.js edit stales proof','identical verify loop blocked','other tools continue','fresh retest verifies','next run retains criteria but requires fresh execution'],reports,memory},null,2));console.log('PASS scenario gate: scoped proof, relevant freshness, verify loop, retest and next run');
 }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}

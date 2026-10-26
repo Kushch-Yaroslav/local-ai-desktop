@@ -10,7 +10,7 @@ let app;
 try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/native-browser/workspace-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
  const page=await app.firstWindow();await page.locator('.conversation').waitFor();await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(760,620));
- const opened=await app.evaluate(()=>global.nativeFixture.open());assert(!opened.error,JSON.stringify(opened));await page.locator('.mode-split').waitFor();await page.waitForTimeout(250);
+ const opened=await app.evaluate(()=>global.nativeFixture.open());assert(!opened.error,JSON.stringify(opened));await page.locator('.live-manual-open').click();await page.locator('.mode-split').waitFor();await page.waitForTimeout(250);
  await app.evaluate(()=>global.nativeFixture.execute({action:'fill',selector:'#text',value:'preserved'}));await app.evaluate(()=>global.nativeFixture.finish());
  const before=await app.evaluate(()=>global.nativeFixture.info());assert(before.bounds.width<1440);
  let report;

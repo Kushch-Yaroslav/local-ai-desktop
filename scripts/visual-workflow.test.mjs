@@ -44,4 +44,21 @@ const run=db.createAnalysisRun(chat.id,'fast',{logicalTaskId:emptyTask,generatio
 db.saveVisualDocument(chat.id,'p',{regions:[region],issues:[{...issue,logicalTaskId:emptyTask,runId:'no-fix-run',status:'In progress',statusSource:'runtime'}]});
 assert.equal(service.document(chat.id,'p').issues[0].status,'In progress');db.finishAnalysisRun(run.id,'completed',null);
 assert.equal(service.document(chat.id,'p').issues[0].status,'Unresolved','A finished no-fix run must not leave a permanent In progress state');
+// Matching evidence is merged; similar targets or independent defects remain separate.
+const merged={regions:[structuredClone(region)],issues:[{...structuredClone(issue),source:'manual',description:'Keep my description'}]};
+service.add(merged,{...structuredClone(region),id:'auto-match',groupId:'auto-match',diagnostics:['Responsive QA candidate: text-clipping: label']},chat.id,'p');
+assert.equal(merged.issues.length,1);assert.equal(merged.issues[0].description,'Keep my description');assert.deepEqual(merged.issues[0].evidenceSources,['manual','automatic']);assert.equal(merged.issues[0].evidenceRefs.length,2);
+for(const [name,mutate] of [
+ ['different-anchor',r=>{r.anchors[0].selector='#second';}],
+ ['different-defect',r=>{r.anchors[0].findings=[{category:'element-overlap',candidate:true,fact:'overlap'}];}],
+ ['different-viewport',r=>{r.viewport.width=390;}],
+ ['different-route',r=>{r.url+='other';}],
+ ['ambiguous-anchor',r=>{r.anchors[0].confidence=.4;}],
+]){const candidate=structuredClone(region);candidate.id=candidate.groupId=name;candidate.diagnostics=['Responsive QA candidate: '+name];mutate(candidate);const before=merged.issues.length;service.add(merged,candidate,chat.id,'p');assert.equal(merged.issues.length,before+1,name);}
+const {deliverableVerificationNote}=require('../dist/shared/agent-status.js');
+const implemented={...memory.deliverables.items[0],status:'implemented'};
+assert.match(deliverableVerificationNote(implemented,memory.verification).message,/deliverables.verify/);
+assert.match(deliverableVerificationNote({...implemented,criteria:[{...implemented.criteria[0],id:'missing'}]},memory.verification).criteria,/missing/);
+const stale=structuredClone(memory.verification);stale.revisions[file]='changed';assert.match(deliverableVerificationNote(implemented,stale).message,/устарели/);
+const observed={...implemented,criteria:[]};const cssLedger={...memory.verification,records:[{...memory.verification.records[0],outcome:'observed_css',pass:false,coverage:[],deliverable_ids:[issue.id]}]};assert.match(deliverableVerificationNote(observed,cssLedger).message,/наблюдение CSS/);
 console.log('PASS exact route/viewport/text-fit proof, partial/failed/blocked/stale rejection, explicit original conditions, manual Unresolved override, rename preservation, existing Ledger linkage without forged acceptance coverage, source-change invalidation and selector-error handling.');

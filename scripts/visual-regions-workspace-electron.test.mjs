@@ -13,6 +13,7 @@ try{
  const state=()=>app.evaluate(()=>global.visualFixture.entry().native.workspaceState());
  // Actual API identity comes from the native hub, not a second browser target.
  await ui.evaluate(chat=>window.localAi.visualDebug.open(chat,'index.html?currency=UAH#/catalog?sort=price'),chat);
+ if(await ui.locator('.live-manual-open').isVisible())await ui.locator('.live-manual-open').click();
  const session=await app.evaluate(()=>global.visualFixture.entry().state.sessionId),nativeId=await app.evaluate(()=>global.visualFixture.entry().native.contents.id);
  const workspace=async(viewport,scale='fit',pan={x:0,y:0})=>{await ui.evaluate(({session,settings})=>window.localAi.liveBrowser.workspace(session,settings),{session,settings:{viewport,scale,pan}});await sleep(180);};
  await ui.evaluate(chat=>window.localAi.liveBrowser.watch(chat,true),chat);await until(async()=>!!(await state()),'Native surface not laid out');

@@ -34,6 +34,7 @@ try{
  app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/visual-debugging/main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_TEST_PROJECT_ROOT:project,LOCAL_AI_AGENT_ENDPOINT:`http://127.0.0.1:${provider.address().port}/v1/chat/completions`}});
  const ui=await app.firstWindow();await ui.locator('.conversation').waitFor();const chat=await app.evaluate(()=>global.visualFixture.chat);
  await ui.evaluate(({chat,url})=>window.localAi.visualDebug.open(chat,url),{chat,url});
+ if(await ui.locator('.live-manual-open').isVisible())await ui.locator('.live-manual-open').click();
  const sid=await app.evaluate(()=>global.visualFixture.entry().state.sessionId);await ui.evaluate(sid=>window.localAi.liveBrowser.workspace(sid,{viewport:{width:390,height:844},zoom:1,scale:1,pan:{x:0,y:0}}),sid);
  const nativeId=await app.evaluate(()=>global.visualFixture.entry().native.contents.id);
  const metrics=()=>app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({url:location.href,inputPresent:!!document.querySelector('#searchInput'),w:innerWidth,root:document.documentElement.scrollWidth,body:document.body.scrollWidth,client:document.documentElement.clientWidth,scroll:scrollY,focus:document.activeElement?.id,value:document.querySelector('#searchInput')?.value})));

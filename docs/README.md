@@ -28,6 +28,7 @@ These documents cover security boundaries, privileged setup and implementation e
 - [Adaptive Verification, Native HMR and Visual Debugging reliability (RU)](adaptive-verification-visual-debugging.md)
 - [Browser Workspace, multi-disk GGUF availability and safe preview recovery](browser-workspace-dev-recovery.md)
 - [Fresh Browser Evidence, grounding and active runtime state (RU)](fresh-browser-evidence-grounding.md)
+- [v0.3 Workspace, runtime reuse and Verification UX acceptance (RU)](workspace-runtime-verification-ux.md)
 - [Browser input ownership, model availability and CSS completion discipline (RU)](browser-input-model-completion.md)
 - [Stop, QA loops, native page zoom and workspace reliability (RU)](stop-qa-workspace-reliability.md)
 - [Visual Debugging UX redesign, original-viewport rechecks and real Qwen evidence (RU)](visual-debugging-ux-workflow.md)

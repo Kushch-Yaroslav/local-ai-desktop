@@ -34,7 +34,7 @@ try{
   assert.equal(checked.qa.scenarios[0].status,'Failed',JSON.stringify(checked.qa.scenarios));
   assert(checked.qa.scenarios[0].responsive.findings.some(f=>f.kind==='horizontal-overflow'&&f.confidence==='confirmed'));
   assert.equal(checked.qa.scenarios[1].status,'Verified','A carousel is not a document overflow failure');
-  for(const s of checked.qa.scenarios){const image=checked.qa.captures.find(c=>c.id===s.observations.at(-1).captureId);assert.equal(image.viewport.width,s.viewport.width);assert.equal(s.responsive.url,'https://project-preview.invalid/index.html');}
+  assert.equal(checked.qa.captures.length,0,'DOM-only layout proof with Vision Off must not depend on raster capture');for(const s of checked.qa.scenarios){assert.equal(s.observations.at(-1).captureId,undefined);assert.deepEqual(s.responsive.viewport,s.viewport);assert.equal(s.responsive.url,'https://project-preview.invalid/index.html');}
   assert.deepEqual(await mainPage.evaluate(()=>({url:location.href,identity:window.identity,value:document.querySelector('#name').value,scroll:scrollY,width:innerWidth,height:innerHeight})),before,'Responsive QA preserves the active page state');
   assert.equal(ownership,'user');assert.equal(session.browser.contexts().length,contexts,'Temporary context is closed');
   const cached=await execute({action:'qa',scenarios:[scenario('same-name-does-not-reset',{width:360,height:800}),scenario('normal')]});
@@ -63,7 +63,7 @@ try{
   await session.finishRun(false);
   assert.equal(await mainPage.locator('#name').inputValue(),'preserved user input');
   const stored=JSON.parse(await readFile(fixed.qa.evidencePath,'utf8'));assert.equal(stored.scenarios[0].viewport.width,360);assert(stored.scenarios[0].sourceRevisions);
-  console.log('PASS real Chromium: isolated responsive layout/overflow/carousel, per-viewport captures, menu/modal actions, bounded breakpoint search, cache/dependency freshness, Stop/Pause cleanup and preserved active Native Browser contract.');
+  console.log('PASS real Chromium: isolated responsive layout/overflow/carousel, per-viewport DOM evidence, menu/modal actions, bounded breakpoint search, cache/dependency freshness, Stop/Pause cleanup and preserved active Native Browser contract.');
 }finally{await session.close();}
 
 let analyses=0;

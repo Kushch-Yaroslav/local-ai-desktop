@@ -15,6 +15,7 @@ try{
  const command=cmd=>ui.evaluate(({chat,cmd})=>window.localAi.visualDebug.command(chat,cmd),{chat,cmd});
  const doc=()=>ui.evaluate(chat=>window.localAi.visualDebug.document(chat),chat);
  await ui.evaluate(chat=>window.localAi.visualDebug.open(chat,'index.html?currency=UAH#/catalog?sort=price'),chat);
+ if(await ui.locator('.live-manual-open').isVisible())await ui.locator('.live-manual-open').click();
  const sid=await app.evaluate(()=>global.visualFixture.entry().state.sessionId),nativeId=await app.evaluate(()=>global.visualFixture.entry().native.contents.id);
  const workspace=(scale=1,pan={x:0,y:0})=>ui.evaluate(({sid,scale,pan})=>window.localAi.liveBrowser.workspace(sid,{viewport:{width:1920,height:1080},scale,pan}),{sid,scale,pan});
  await workspace();await app.evaluate(()=>global.visualFixture.entry().page.locator('.buy').first().waitFor());await sleep(250);
