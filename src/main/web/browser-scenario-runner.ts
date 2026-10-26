@@ -116,10 +116,13 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
     const functional=aggregate(checks.filter(c=>!visualChecks.has(c))),functionalScenarios=results.filter(r=>r.evidenceKind!=='visual'),hasScenarios=functionalScenarios.length>0,complete=hasScenarios&&functionalScenarios.every(r=>r.status==='Verified');
     return {id:randomUUID(),scope:'interaction',status:functional==='Failed'||results.some(r=>r.evidenceKind==='visual'&&r.status==='Failed')?'Failed':functional==='Blocked'||results.some(r=>r.status==='Blocked')?'Blocked':results.length>0&&results.every(r=>r.status==='Verified')&&functional==='Verified'&&(!options.analyze||visual.status==='Verified'||results.every(r=>r.viewport&&r.evidenceKind!=='visual'))?'Verified':'Partially Verified',functionalStatus:complete?functional:functional==='Verified'?'Partially Verified':functional,url:page.isClosed()?'':page.url(),capturedAt:new Date().toISOString(),checks,captures,errors:options.errors(),visual,scenarios:results,elapsedMs:performance.now()-start,...(reason?{reason}:{}),...(reasonCode?{reasonCode}:{})};
   };
-  const styleOnly=Boolean(options.scenarios?.length&&options.scenarios.every(s=>s.assertion.source==='style'));
+  // Style and layout assertions measure DOM facts. With Vision Off, layout QA
+  // does not need an unrelated raster capture of a hidden Native compositor.
+  // Explicit visual analysis and timed capture assertions retain their images.
+  const domOnly=Boolean(options.scenarios?.length&&options.scenarios.every(s=>s.assertion.source==='style'||s.assertion.source==='layout'&&!options.analyze&&!s.assertion.sample_ms));
   notify({phase:'started'});
   try{
-    boundary();if(!styleOnly){notify({phase:'capturing'});await capture();}
+    boundary();if(!domOnly){notify({phase:'capturing'});await capture();}
     checks.push(check('load','Document has a rendered body',await page.title(),await page.locator('body').isVisible()?'Verified':'Failed'));
     // Passive liveness observations are runtime diagnostics, never invented input tests.
     const t0=await qaSnapshot(page);await page.waitForTimeout(100);const t1=await qaSnapshot(page);await page.waitForTimeout(100);const t2=await qaSnapshot(page);
@@ -232,9 +235,9 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         observations[observations.length-1]={...observations.at(-1)!,atMs:performance.now()-began,value:after};
         if(scenario.viewport&&a.source!=='style'){
           result.responsive??=await inspectResponsive(page);
-          const image=await capture();
-          observations[observations.length-1].captureId=image.id;
-          if(options.analyze&&options.responsive?.vision!=='off'&&(options.responsive?.vision==='on'||result.responsive.hasCanvas||result.responsive.findings.some(f=>f.confidence==='candidate'))){
+          const image=domOnly?undefined:await capture();
+          if(image)observations[observations.length-1].captureId=image.id;
+          if(image&&options.analyze&&options.responsive?.vision!=='off'&&(options.responsive?.vision==='on'||result.responsive.hasCanvas||result.responsive.findings.some(f=>f.confidence==='candidate'))){
             notify({phase:'analyzing',responsive:{viewport:scenario.viewport,checked:new Set(results.filter(r=>r.viewport).map(r=>`${r.viewport!.width}x${r.viewport!.height}`)).size,total:options.responsive?.breakpoint?.attempts??new Set(scenarios.filter(s=>s.viewport).map(s=>`${s.viewport!.width}x${s.viewport!.height}`)).size,issues:result.responsive.findings.length,vision:true}});
             result.visual=await options.analyze(image,undefined,{goal:`${scenario.goal}. Correlate screenshot at ${scenario.viewport.width}x${scenario.viewport.height} with bounded DOM candidates: ${JSON.stringify(result.responsive.findings).slice(0,6000)}. Findings are probabilistic; do not infer other viewports or routes.`,temporal:false});visual=result.visual;
           }
@@ -270,7 +273,7 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
         if(width!==undefined&&results.length===scenarios.length)scenarios.push(layoutScenario(`responsive-probe-${scenarios.length+1}`,scenario.target,{width,height:scenario.viewport.height}));
       }
     }
-    boundary();const last=styleOnly?undefined:await capture();
+    boundary();const last=domOnly?undefined:await capture();
     const state=await qaSnapshot(page),errors=[...options.errors(),...state.rejections];
     checks.push(check('exposed numeric diagnostics','No NaN/Infinity in exposed diagnostics',state.diagnosticInvalid.join(', ')||'None observed',state.diagnosticInvalid.length?'Failed':'Verified'));
     checks.push(check('runtime errors','No observed uncaught errors/console errors/rejections',errors.join('\n')||'None observed',errors.length?'Failed':'Verified'));

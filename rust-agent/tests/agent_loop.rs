@@ -2425,7 +2425,7 @@ fn verify_is_refused_without_a_passing_check_and_a_claim_changes_nothing() {
     run(workspace.config(&provider.endpoint, "make add work"));
     let requests = provider.requests();
     let refusal = last_tool_result(&requests[2]);
-    assert!(refusal.contains("No fresh passing"), "{refusal}");
+    assert!(refusal.contains("verify evidence must name runtime-issued ev-"), "{refusal}");
     let tail = requests[2].to_string();
     assert!(tail.contains("[implemented] d-001"), "{tail}");
     assert!(!tail.contains("[verified]"), "{tail}");
@@ -2687,7 +2687,7 @@ fn regression_a_page_edited_and_only_reread_is_never_reported_as_verified() {
     assert_eq!(withheld_drafts(&journal), 1);
     let requests = provider.requests();
     assert_eq!(requests.len(), 6);
-    assert!(last_tool_result(&requests[4]).contains("No fresh passing"));
+    assert!(last_tool_result(&requests[4]).contains("verify evidence must name runtime-issued ev-"));
     let state = requests[4].to_string();
     assert!(!state.contains("[verified]"), "{state}");
     assert!(state.contains("[implemented] d-001") && state.contains("[implemented] d-002"));

@@ -23,6 +23,8 @@ export interface VisualRegion {
 }
 export type VisualIssueStatus = 'Detected' | 'Confirmed' | 'In progress' | 'Fixed' | 'Verified' | 'Unresolved';
 export interface VisualIssue {
+  source?:'manual'|'automatic';
+  evidenceSources?:Array<'manual'|'automatic'>;
   workflow?:{state:'active'|'completed'|'disputed';source:'user'|'runtime';at:string;runId?:string};
   generatedDescription?: boolean; explicit?: boolean; number?: number; color?: string;
   logicalTaskId?: string;
@@ -33,6 +35,7 @@ export interface VisualIssue {
   check?: {status:import('./browser-qa').VerificationStatus;reason?:string;reportId?:string;ledgerId?:string;evidencePath?:string;revisionFingerprint?:string;at:string;url:string;viewport:{width:number;height:number}};
   runtimeStatus?: VisualIssueStatus;
   lastAction?: string;
+  verificationNote?:{message:string;criteria?:string};
   id: string; description: string; severity: 'suspect' | 'minor' | 'major';
   status: VisualIssueStatus; regionIds: string[]; route: string;
   suspectedSourceFiles: string[]; evidenceRefs: string[]; verification: 'Not Verified' | 'Ledger linked';

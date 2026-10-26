@@ -16,6 +16,21 @@ export function criterionStatus(item:DeliverableItem,criterion:NonNullable<Deliv
   return relevant.length&&!fresh.length?'Stale':'Not Verified';
 }
 
+/** Explain the remaining formal step without promoting an observation to proof. */
+export function deliverableVerificationNote(item:DeliverableItem,ledger?:VerificationState):{message:string;criteria?:string}|undefined {
+  if(!['implemented','done'].includes(item.status))return;
+  if(item.failing)return {message:'Проверка требования не пройдена.'};
+  if(item.criteria?.length){
+    const pending=item.criteria.filter(c=>criterionStatus(item,c,ledger)!=='Verified');
+    if(!pending.length)return {message:'Все критерии пройдены. Агент ещё не подтвердил требование через deliverables.verify.'};
+    const stale=pending.some(c=>criterionStatus(item,c,ledger)==='Stale');
+    const failed=pending.some(c=>criterionStatus(item,c,ledger)==='Failed');
+    return {message:failed?'Обязательные критерии не пройдены.':stale?'Доказательства устарели; требуется актуальная проверка.':'Не все обязательные критерии подтверждены.',criteria:pending.map(c=>c.id).join(', ')};
+  }
+  if(ledger?.records.some(r=>r.outcome==='observed_css'&&r.deliverable_ids?.includes(item.id)&&evidenceFresh(r,ledger)))return {message:'Записано свежее наблюдение CSS; формальная проверка требования не выполнялась.'};
+  return {message:'Нет подходящего свежего доказательства для требования.'};
+}
+
 /** Presentation only: the task-memory ledger is authoritative, including empty lists.
  * Older saved chats can still display their legacy model-todo/milestone plan. */
 export type AgentStatusStep = Omit<PlanStepItem, 'status'> & { status: PlanStepItem['status'] | 'abandoned' };
