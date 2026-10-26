@@ -21,7 +21,7 @@ export function AuthorConfigurations({ profile, inspection, onChange }: {
 
   return <details className="profile-section author-configurations">
     <summary>{ru ? 'Наблюдения автора' : 'Author-tested configurations'}</summary>
-    <p>RTX 3090 24 GB · Ryzen 7 5700X3D · 64 GB DDR4 · Linux · llama.cpp CUDA</p>
+    <p>{ru?'RTX 3090 24 ГБ · Ryzen 7 5700X3D · 64 ГБ DDR4 · Linux · llama.cpp CUDA':'RTX 3090 24 GB · Ryzen 7 5700X3D · 64 GB DDR4 · Linux · llama.cpp CUDA'}</p>
     <p>{ru
       ? 'Это оборудование автора, не минимальные требования. Исторические наблюдения не являются стандартизированным benchmark и не проверены на каждой текущей сборке.'
       : 'Author hardware, not minimum requirements. Historical observations are not standardized benchmarks and have not been retested on every current build.'}</p>
