@@ -37,6 +37,19 @@ pub fn project(transcript: &Transcript, stable_prefix: &str, dynamic_tail: &str)
             Entry::RunUser(message) => Some((index, message.clone())),
             _ => None,
         });
+    // Continue adds another RunUser. Keep the original task constraints and
+    // structured references verbatim when a summary covers that earlier turn.
+    if let Some((index, message)) = transcript.entries().iter().enumerate().find_map(|(index, entry)| match entry {
+        Entry::RunUser(message) => Some((index, message)), _ => None,
+    }) {
+        if index < start && run_user.as_ref().is_some_and(|(latest, _)| *latest != index) {
+            let mut original=message.clone();
+            if let Some(parts)=message["content"].as_array() {
+                original["content"]=Value::String(parts.iter().filter(|p|p["type"]=="text").filter_map(|p|p["text"].as_str()).collect::<Vec<_>>().join("\n"));
+            }
+            messages.push(original);
+        }
+    }
     let mut included_run_user = false;
     let mut previous_state: Option<&str> = None;
     if let Some((index, message)) = &run_user {
@@ -480,6 +493,25 @@ mod tests {
             .position(|message| message["content"] == "current request appears once")
             .unwrap();
         assert_eq!(projected[current_index]["role"], "user");
+    }
+
+    #[test]
+    fn original_constraints_and_region_survive_continue_and_compaction() {
+        let mut transcript=Transcript::default();
+        transcript.push_run_user(json!({"role":"user","content":"Component absent outside routes 1/2. region-original: between A and B."}));
+        transcript.push_message(json!({"role":"assistant","content":"Work started"}));
+        transcript.push_run_user(json!({"role":"user","content":"Continue"}));
+        transcript.compact("Wrong summary says default font on other routes".into(),3);
+        let messages=project(&transcript,"stable","");
+        assert_eq!(messages.iter().filter(|m|m["content"]=="Component absent outside routes 1/2. region-original: between A and B.").count(),1);
+        assert_eq!(messages.iter().filter(|m|m["content"]=="Continue").count(),1);
+        let mut images=Transcript::default();
+        images.push_run_user(json!({"role":"user","content":[{"type":"text","text":"Keep original constraints"},{"type":"image_url","image_url":{"url":"data:image/png;base64,FIXTURE"}}]}));
+        images.push_run_user(json!({"role":"user","content":"Continue without images"}));
+        images.compact("summary".into(),2);
+        let projection=project(&images,"stable","");
+        assert!(projection.iter().any(|m|m["content"]=="Keep original constraints"));
+        assert!(!serde_json::to_string(&projection).unwrap().contains("base64"));
     }
 
     #[test]

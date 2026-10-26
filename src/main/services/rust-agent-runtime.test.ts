@@ -33,6 +33,12 @@ export function runRustAgentRuntimeRegression(): void {
     assert(!split.prior.includes(expected));
   }
   assert.throws(() => splitAgentRunHistory([message('system', 'no prompt')]));
+  const original={...message('user','Section absent outside routes 1/2'),logicalTaskId:'conditional'};
+  const continued={...message('user','Continue'),logicalTaskId:'conditional'};
+  assert(splitAgentRunHistory([original,continued]).user.includes('<original_task_request>'));
+  assert(splitAgentRunHistory([original,continued]).user.includes(original.content));
+  assert(!splitAgentRunHistory([original,{...continued,logicalTaskId:'other'}]).user.includes(original.content));
+
   const plan = taskPlan({ milestones: [{ id: 'goal-1', label: 'Inspect', status: 'in_progress', work_plan: { tasks: [{ id: 'work-1', label: 'Read runtime', status: 'completed' }, { id: 'work-2', label: 'Map IPC', status: 'in_progress' }] } }], active_milestone_id: 'goal-1' });
   assert.equal(plan.activeMilestoneId, 'goal-1');
   assert.equal(plan.milestones?.[0]?.id, 'goal-1');

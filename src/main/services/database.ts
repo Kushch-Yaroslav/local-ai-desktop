@@ -437,7 +437,7 @@ export class Database {
   taskHistory(conversationId: string, logicalTaskId: string, messages: ChatMessage[]): ChatMessage[] {
     const owned = new Set((this.db.prepare('SELECT id FROM messages WHERE conversation_id=? AND logical_task_id=?').all(conversationId, logicalTaskId) as Array<{ id: string }>).map(row => row.id));
     // Use persisted ownership, never task IDs supplied in model/renderer text.
-    return messages.filter(message => owned.has(message.id));
+    return messages.filter(message => owned.has(message.id)).map(message=>({...message,logicalTaskId}));
   }
 
   /** Trusted persisted ownership, never derived from model output or task findings. */
