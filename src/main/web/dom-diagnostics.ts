@@ -18,11 +18,21 @@ export function inspectBrowserDom(input:{selector?:string;properties?:string[];a
     const resolution=hint&&resolve?resolve(hint):{selector:input.selector};
     const all=resolution.selector?document.querySelectorAll(resolution.selector):[];
     const observedAt=new Date().toISOString();
-    return {inspection:{observedAt,documentVersion:{timeOrigin:performance.timeOrigin,hmrAppliedAt:Number((window as unknown as {__ladHmrAt?:number}).__ladHmrAt??0)},provenance:'current-browser-observation',anchorResolution:{...resolution,originalSelector:input.selector},url:location.href,viewport:{width:innerWidth,height:innerHeight},matches:all.length,page:{root:{clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth},body:document.body?{clientWidth:document.body.clientWidth,scrollWidth:document.body.scrollWidth}:null},elements:Array.from(all).slice(0,10).map(e=>{
-      const r=e.getBoundingClientRect(),s=getComputedStyle(e);
+    const selectorHint=(e:Element)=>{
+      if(e.id){const value='#'+CSS.escape(e.id);try{if(document.querySelectorAll(value).length===1)return value;}catch{/* A malformed DOM identifier cannot provide a selector hint. */}}
+      const testId=e.getAttribute('data-testid');if(testId){const value=`[data-testid="${testId.replaceAll('"','\\"')}"]`;try{if(document.querySelectorAll(value).length===1)return value;}catch{/* A malformed test id cannot provide a selector hint. */}}
+      const classes=Array.from(e.classList).slice(0,3).map(name=>'.'+CSS.escape(name)).join('');
+      if(classes){const value=e.tagName.toLowerCase()+classes;try{if(document.querySelectorAll(value).length===1)return value;}catch{/* A malformed CSS Modules class is omitted. */}}
+      return e.tagName.toLowerCase();
+    };
+    const facts=(e:Element)=>{const r=e.getBoundingClientRect();return {tag:e.tagName.toLowerCase(),id:e.id||undefined,classes:Array.from(e.classList).slice(0,6),testId:e.getAttribute('data-testid')||undefined,selectorHint:selectorHint(e),text:text(e,220),rect:{x:r.x,y:r.y,width:r.width,height:r.height},visible:r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden'};};
+    const elements=Array.from(all).slice(0,10).map(e=>{
+      const s=getComputedStyle(e);
       const containedAnchors=(input.anchorSelectors??[]).filter(selector=>{try{const hint=input.anchors?.find(a=>a.selector===selector),resolved=hint&&resolve?resolve(hint):{selector};const anchors=resolved.selector?document.querySelectorAll(resolved.selector):[];return anchors.length===1&&e.contains(anchors[0]);}catch{return false;}});
-      return {containedAnchors,tag:e.tagName,text:text(e,300),rect:{x:r.x,y:r.y,width:r.width,height:r.height},clientWidth:e.clientWidth,clientHeight:e.clientHeight,scrollWidth:e.scrollWidth,scrollHeight:e.scrollHeight,styles:Object.fromEntries((input.properties??[]).map(p=>{const value=s.getPropertyValue(p);return [p,/url\s*\(/i.test(value)?'[URL omitted]':value.slice(0,120)];}))};
-    })}};
+      return {...facts(e),containedAnchors,clientWidth:e.clientWidth,clientHeight:e.clientHeight,scrollWidth:e.scrollWidth,scrollHeight:e.scrollHeight,styles:Object.fromEntries((input.properties??[]).map(p=>{const value=s.getPropertyValue(p);return [p,/url\s*\(/i.test(value)?'[URL omitted]':value.slice(0,120)];}))};
+    });
+    const candidates=all.length?[]:Array.from(new Set(Array.from(document.querySelectorAll('main,main > *,section,article,[data-testid],h1,h2,h3')))).filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden';}).slice(0,24).map(facts);
+    return {inspection:{observedAt,documentVersion:{timeOrigin:performance.timeOrigin,hmrAppliedAt:Number((window as unknown as {__ladHmrAt?:number}).__ladHmrAt??0)},provenance:'current-browser-observation',anchorResolution:{...resolution,originalSelector:input.selector},url:location.href,viewport:{width:innerWidth,height:innerHeight},matches:all.length,page:{root:{clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth},body:document.body?{clientWidth:document.body.clientWidth,scrollWidth:document.body.scrollWidth}:null},elements,candidate_elements:candidates}};
   }
   return {documentVersion:{timeOrigin:performance.timeOrigin,viewport:{width:innerWidth,height:innerHeight}},title:document.title,url:location.href,content:document.body?text(document.body,12000):'',links:Array.from(document.querySelectorAll('a[href]')).slice(0,40).map(a=>({text:text(a,300),href:(a as HTMLAnchorElement).href}))};
 }

@@ -119,7 +119,10 @@ export async function runScenarioQa(options:ScenarioQaOptions):Promise<BrowserQa
   // Style and layout assertions measure DOM facts. With Vision Off, layout QA
   // does not need an unrelated raster capture of a hidden Native compositor.
   // Explicit visual analysis and timed capture assertions retain their images.
-  const domOnly=Boolean(options.scenarios?.length&&options.scenarios.every(s=>s.assertion.source==='style'||s.assertion.source==='layout'&&!options.analyze&&!s.assertion.sample_ms));
+  // Functional DOM/runtime assertions do not need a PNG capture. Keep capture
+  // work for explicit pixel/layout analysis and temporal snapshots; a missing
+  // element or scalar DOM condition should not block on screenshot/font loading.
+  const domOnly=Boolean(options.scenarios?.length&&options.scenarios.every(s=>!['pixels','visual_layout'].includes(s.assertion.source)&&!s.assertion.sample_ms));
   notify({phase:'started'});
   try{
     boundary();if(!domOnly){notify({phase:'capturing'});await capture();}
