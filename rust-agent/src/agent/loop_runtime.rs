@@ -615,7 +615,7 @@ fn lifecycle_label(transcript: &Transcript) -> &'static str {
 fn execution_process_context(config: &Config) -> String {
     if config.work_root().is_none() { return String::new(); }
     let handles=crate::process::tasks::registered_handles(&config.run_id);
-    format!("<execution_process_state>generation={} registered_task_handles={}\nThis is the authoritative registry for this execution, not historical transcript data. Listed handles require task_action=status to confirm readiness. Earlier generations' tasks and foreground commands ended on Stop/completion; historical READY output does not mean they are running now. Never reuse a historical task_id, PID or port for process management. If this registry is empty, start a NEW task when requested. An empty foreground command is not a status check.\n</execution_process_state>",config.run_id,serde_json::to_string(&handles).unwrap())
+    format!("<execution_process_state>generation={} registered_task_handles={}\nThis is the authoritative registry for this execution, not historical transcript data. Use run_terminal task_action=list before starting a dev server; reuse a ready current-generation task and its reported URL. Poll task_action=status with task_id (command may be omitted), never by starting sleep/probe tasks. Earlier generations' tasks ended on Stop/completion; historical READY output does not mean a server is running now. Never reuse a historical task_id, PID or port for process management.\n</execution_process_state>",config.run_id,serde_json::to_string(&handles).unwrap())
 }
 
 fn dynamic_tail(
@@ -670,8 +670,9 @@ fn dynamic_tail(
         tail.push(deliverables);
     }
     if state.browser_qa_enabled {
-        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence. After a build, if browser verification is appropriate, call web_project preview_status on the original preview. Build success does not imply dev server failure. Do not restart a responding server or open dist/index.html through its dev origin. Inspect real package/workspace scripts and lockfiles before recovery. Restart only an existing app-owned managed task through task_action status/stop/start and normal approvals; never adopt or kill external/unknown PIDs or port listeners, silently change ports, or start a competing server. Confirm readiness and original URL before checking; retain viewport/zoom/presentation and return to the original route after justified supplementary navigation. If recovery is unavailable, preserve the Page and finish with the limitation.".into());
+        tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence. After a build, if browser verification is appropriate, check the current approved preview with preview_status; build success does not imply dev server failure. Do not open dist/index.html through a dev origin. Before launching a server, list managed tasks and reuse a ready task for this project. If Vite reports a different port, use only the actual URL from a ready current-run task and pass that task_id as preview_task_id; the same Native Browser switches and carries its route. Normal Browser approval still applies. Old region evidence remains scoped to its old origin, so inspect and run fresh QA on the new one. Never infer project ownership from a listener/PID, adopt or kill external processes, or switch to an unconfirmed service. Inspect real scripts before recovery; stop only an exact task owned by this run. Preserve the Page and report the limitation if safe recovery is unavailable.".into());
     }
+    tail.push("Task fidelity for structural edits: only before creating/moving/conditionally rendering a component, make one compact check of the requested entity, routes where it exists, route-specific properties, spatial position, and forbidden changes. Compare the proposed edit with the exact original user request. Existing code, including a partial earlier attempt, is evidence to inspect—not authority to duplicate or a substitute for the request. If the plan conflicts, correct it before editing; if location remains ambiguous, inspect current DOM/source or ask once rather than guessing. Simple CSS changes need no extra planning cycle.".into());
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
         state.verification_closed,
@@ -775,7 +776,7 @@ fn tool_schemas(scope: ToolScope) -> Vec<Value> {
             json!({"type":"function","function":{"name":"delete_file","description":"Delete a project file when allowed.","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}),
             json!({"type":"function","function":{"name":"list_directory","description":"List a project directory. complete=true means all directory entries are represented; false means internal runtime entries were omitted.","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}),
             json!({"type":"function","function":{"name":"read_file","description":"Read up to 64 KiB of a project file. A truncated result provides next_offset_chars; use that offset or a specific line range for more. An identical read of unchanged bytes and range is cached: reuse its obs- result or observation_read instead of repeating read_file.","parameters":{"type":"object","properties":{"path":{"type":"string"},"start_line":{"type":"integer","minimum":1},"end_line":{"type":"integer","minimum":1},"offset_chars":{"type":"integer","minimum":0}},"required":["path"]}}}),
-            json!({"type":"function","function":{"name":"run_terminal","description":"Run an isolated project command. Host process-management shell commands are forbidden in every autonomy mode. Start a development server in foreground with task_action=start; use the returned task_id with task_action=status/stop (command may be empty). A task is owned by this run and cleaned up when it ends. For an acceptance check, use one check per call (optional cd <project> && prefix); chains of checks or || are not evidence. Select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check. For a negative security check, use a scoped assertion script that exits 0 only when the expected denial is observed; a raw nonzero exit cannot verify a deliverable. Finish all source and report writes BEFORE final checks, then only update plan/deliverables metadata. Do not rewrite already-correct factual reports merely to update evidence IDs or dynamic test ports: changed reports stale prior checks.","parameters":{"type":"object","properties":{"task_action":{"type":"string","enum":["start","status","stop"]},"task_id":{"type":"string","description":"Opaque handle valid only in the current generation. After Stop, completion or restart every previous handle is expired and its task was cleaned up. Start a fresh task with task_action=start; never reuse a historical task_id or adopt a PID/port."},"command":{"type":"string"},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":["command"]}}}),
+            json!({"type":"function","function":{"name":"run_terminal","description":"Run an isolated project command or manage an owned foreground task. Host process-management shell commands are forbidden in every autonomy mode. Before starting a development server use task_action=list; start one foreground server with task_action=start and reuse its returned task_id. Use task_action=status without command to inspect readiness/output, list to view owned tasks, and stop to end one exact active task. Do not start sleep/wait/probe tasks. A ready Vite task reports its actual Local URL and port from its startup output. Tasks belong to this run and stop on Stop/completion; never reuse previous-run handles. For a different port, pass the ready current-run task_id as preview_task_id to web_project; the same Browser can switch only after its project Vite service and exact loopback port are confirmed under Browser approval. For an acceptance check, use one check per call (optional cd <project> && prefix); chains of checks or || are not evidence. Select deliverable_ids BEFORE running it. The command remains associated with those items on every retry, including failures. Unselected checks remain project warnings; full-test requirements are project-wide; build requirements cover build checks. After code changes, prefer a focused check. For a negative security check, use a scoped assertion script that exits 0 only when the expected denial is observed; a raw nonzero exit cannot verify a deliverable. Finish all source and report writes BEFORE final checks, then only update plan/deliverables metadata. Do not rewrite already-correct factual reports merely to update evidence IDs or dynamic test ports: changed reports stale prior checks.","parameters":{"type":"object","properties":{"task_action":{"type":"string","enum":["start","list","status","stop"]},"task_id":{"type":"string","description":"Opaque handle returned by this current-generation task_action=start/list. Use it only for status/stop or as preview_task_id after the registry reports a ready Vite URL. Earlier-generation handles are expired; never adopt a PID or port."},"command":{"type":"string","description":"Required only for task_action=start. Omit for list/status/stop."},"timeout_ms":{"type":"integer","minimum":1},"deliverable_ids":{"type":"array","items":{"type":"string"},"description":"Existing deliverable ids this check verifies. Associations are permanent, including failed checks."}},"required":[]}}}),
             json!({"type":"function","function":{"name":"replace_text","description":"For a small edit, replace exactly one literal snippet in an existing file after a fresh read. old_text and new_text are plain source strings, not patch syntax. Include enough exact text to identify one place. Empty, missing or repeated old_text and changes since the last read are refused; write is atomic. Prefer this for one-line edits; use apply_patch for multiple hunks.","parameters":{"type":"object","properties":{"path":{"type":"string"},"old_text":{"type":"string"},"new_text":{"type":"string"}},"required":["path","old_text","new_text"]}}}),
             json!({"type":"function","function":{"name":"write_file","description":"Write the full content of a project file, replacing it. To change part of a file, prefer apply_patch.","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}),
         ]);
@@ -1689,15 +1690,10 @@ fn sync_verification_failure(state: &mut AgentState) -> bool {
 /// what the runtime last saw, so an edit made by the check itself (for example
 /// `--fix`) is noticed too. Files a check changes that the task never touched
 /// are not detected.
-fn record_terminal_effect(
+fn record_tracked_revisions(
     state: &mut AgentState,
     scope: &crate::tools::filesystem::Scope,
-    command: &str,
-    effect: verification::Effect,
 ) -> bool {
-    if effect == verification::Effect::ReadOnly {
-        return false;
-    }
     let mut changed = false;
     let tracked = state
         .task_memory
@@ -1726,6 +1722,19 @@ fn record_terminal_effect(
             }
         }
     }
+    changed
+}
+
+fn record_terminal_effect(
+    state: &mut AgentState,
+    scope: &crate::tools::filesystem::Scope,
+    command: &str,
+    effect: verification::Effect,
+) -> bool {
+    if effect == verification::Effect::ReadOnly {
+        return false;
+    }
+    let mut changed=record_tracked_revisions(state,scope);
     if effect == verification::Effect::Mutating {
         let ledger = &mut state.task_memory.verification;
         ledger.note_change(None);
@@ -2105,9 +2114,13 @@ fn unrecorded_check_diagnostic(command: &str, value: &Value, ids: &[String], rec
         "message":"The command executed successfully, but no verification evidence was recorded."}))
 }
 
-fn managed_task_effect(action: &str) -> verification::Effect {
-    if action=="start" { verification::Effect::Mutating }
-    else { verification::Effect::Check(verification::Kind::Run) }
+fn record_managed_task_effect(state:&mut AgentState,scope:&crate::tools::filesystem::Scope)->bool{
+    // A server can modify files asynchronously, even when the current action
+    // only lists/statuses/stops it. Compare known source revisions without
+    // treating process lifecycle itself as a project edit or verification.
+    let changed=record_tracked_revisions(state,scope);
+    if changed{state.task_memory.deliverables.demote_stale(&state.task_memory.verification);sync_verification_failure(state);}
+    changed
 }
 
 #[cfg(test)]
@@ -2278,12 +2291,11 @@ mod wrapped_evidence_tests {
         let (_,revision)=crate::tools::filesystem::file_revision(&scope,"server.py").unwrap();
         state.task_memory.verification.revisions.insert("server.py".into(),revision);
         state.task_memory.verification.record(verification::Kind::Run,"python3 check_http.py",true,"HTTP ok",1);
-        assert!(!record_terminal_effect(&mut state,&scope,"",managed_task_effect("stop")));
+        assert!(!record_managed_task_effect(&mut state,&scope));
         assert!(state.task_memory.verification.best_passing(verification::Need::Runtime).is_some());
         std::fs::write(&path,"changed by shutdown handler").unwrap();
-        assert!(record_terminal_effect(&mut state,&scope,"",managed_task_effect("stop")));
+        assert!(record_managed_task_effect(&mut state,&scope));
         assert!(state.task_memory.verification.best_passing(verification::Need::Runtime).is_none());
-        assert_eq!(managed_task_effect("start"),verification::Effect::Mutating);
         std::fs::remove_dir_all(root).unwrap();
     }
 }
@@ -4268,11 +4280,9 @@ fn run_scoped_tool_authorized(
                 if value.get("error").is_some() { return Err(value.to_string()); }
                 let grants = config.grants();
                 let scope = crate::tools::filesystem::Scope { root: Path::new(&root), grants: &grants };
-                let command = tool.arguments.get("command").and_then(Value::as_str).unwrap_or("");
-                // Status/stop are lifecycle operations, not source edits. Still
-                // compare tracked revisions: a shutdown handler may edit code.
-                let effect = managed_task_effect(tool.arguments["task_action"].as_str().unwrap_or("start"));
-                if record_terminal_effect(state, &scope, command, effect) { emit_task_memory(config, state); }
+                // Lifecycle is not itself a source edit or check, but the task
+                // may have changed tracked files asynchronously.
+                if record_managed_task_effect(state, &scope) { emit_task_memory(config, state); }
                 // Starting/observing a background process is not a passing check.
                 return Ok((value, None));
             }
@@ -6137,7 +6147,7 @@ pub fn run(mut config: Config) {
                 continue;
             }
             if tool.name == "run_terminal" && tool.arguments.get("command").and_then(Value::as_str).is_some_and(crate::process::isolation::process_management) {
-                let refusal = crate::process::isolation::refusal("Shell process management is forbidden in every autonomy mode. Use run_terminal task_action=start/status/stop with an owned task_id.").to_string();
+                let refusal = crate::process::isolation::refusal("Shell process management is forbidden in every autonomy mode. Use run_terminal task_action=start/list/status/stop with an owned task_id.").to_string();
                 emit(&config.run_id,Event::ToolError{id:tool.id.clone(),name:tool.name.clone(),message:refusal.clone()});
                 transcript.tool_result(&tool.id,&tool.name,refusal);continue;
             }
@@ -6604,9 +6614,10 @@ mod tests {
         state.browser_qa_enabled=true;
         let tail=dynamic_tail(&state,None,"Fix CSS",&transcript,"");
         assert!(tail.contains("preview_status"));
-        assert!(tail.contains("Do not restart a responding server"));
-        assert!(tail.contains("task_action status/stop/start"));
-        assert!(tail.contains("never adopt or kill external/unknown PIDs"));
+        assert!(tail.contains("reuse a ready task for this project"));
+        assert!(tail.contains("list managed tasks"));
+        assert!(tail.contains("stop only an exact task owned by this run"));
+        assert!(tail.contains("Never infer project ownership from a listener/PID, adopt or kill external processes"));
         assert!(tail.contains("dist/index.html"));
     }
 
@@ -8577,10 +8588,16 @@ mod tests {
 
     #[test]
     fn dynamic_tail_contains_task_memory_without_plan_state() {
-        let state = AgentState::default();
+        let mut state = AgentState::default();
+        state.browser_qa_enabled=true;
         let tail = dynamic_tail(&state, None, "", &Transcript::default(), "");
         assert!(!tail.to_ascii_lowercase().contains("todo"));
         assert!(!tail.contains("model_todo"));
+        assert!(tail.contains("requested entity, routes where it exists, route-specific properties, spatial position, and forbidden changes"));
+        assert!(tail.contains("Existing code, including a partial earlier attempt, is evidence to inspect—not authority to duplicate"));
+        assert!(tail.contains("Simple CSS changes need no extra planning cycle"));
+        assert!(tail.contains("Before launching a server, list managed tasks"));
+        assert!(tail.contains("preview_task_id"));
     }
 
     #[test]

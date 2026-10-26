@@ -35,10 +35,25 @@ impl Permissions {
     pub fn decide(&self, tool: &str, args: &Value, root: Option<&Path>) -> Decision {
         if tool == "run_terminal" {
             let command = args.get("command").and_then(Value::as_str).unwrap_or("");
-            if command.is_empty() && matches!(args.get("task_action").and_then(Value::as_str), Some("status" | "stop")) {
-                // This authorizes only the new opaque-handle operation. The
-                // executor must prove same-run ownership; no host PID adoption.
-                return Decision::Allow;
+            if let Some(action)=args.get("task_action").and_then(Value::as_str) {
+                match action {
+                    "list" if command.is_empty()&&args.get("task_id").is_none() => {
+                        // This authorizes only a registry read scoped by the executor.
+                        return Decision::Allow;
+                    }
+                    "status"|"stop" if command.is_empty()&&args.get("task_id").and_then(Value::as_str).is_some_and(|id|!id.is_empty()) => {
+                        // The executor must prove same-run ownership; no PID adoption.
+                        return Decision::Allow;
+                    }
+                    "start" if command.trim().is_empty() => return Decision::Deny("task_action=start requires a non-empty command".into()),
+                    "list" if command.is_empty() => return Decision::Deny("task_action=list does not accept task_id".into()),
+                    "status"|"stop" if command.is_empty() => return Decision::Deny(format!("task_action={action} requires task_id")),
+                    "list"|"status"|"stop" => return Decision::Deny("task_action=list/status/stop do not accept a command".into()),
+                    "start" if args.get("task_id").is_some() => return Decision::Deny("task_action=start does not accept task_id".into()),
+                    _ => return Decision::Deny("task_action must be start, list, status or stop".into()),
+                }
+            } else if command.trim().is_empty() {
+                return Decision::Deny("run_terminal requires a command or a valid managed task_action".into());
             }
             if crate::process::isolation::process_management(command) {
                 return Decision::Deny("PROTECTED_RUNTIME_PROCESS: arbitrary process management is blocked; use owned managed task handles".into());
@@ -682,6 +697,18 @@ mod tests {
                 assert!(matches!(permissions.decide("run_terminal", &json!({"command":command}), Some(&root)), Decision::Deny(_)), "{mode:?}: {command}");
             }
         }
+    }
+
+    #[test]
+    fn empty_command_is_allowed_only_for_opaque_managed_task_lifecycle_actions() {
+        let root=std::env::temp_dir();
+        let permissions=Permissions{mode:AutonomyMode::Autonomous,trusted_roots:vec![]};
+        for action in ["list","status","stop"] {
+            let arguments=if action=="list"{json!({"task_action":action})}else{json!({"task_action":action,"task_id":"managed-1"})};
+            assert_eq!(permissions.decide("run_terminal",&arguments,Some(&root)),Decision::Allow, "{action}");
+        }
+        assert_ne!(permissions.decide("run_terminal",&json!({"task_action":"start"}),Some(&root)),Decision::Allow);
+        assert_ne!(permissions.decide("run_terminal",&json!({"task_id":"managed-1"}),Some(&root)),Decision::Allow);
     }
 
     #[test]

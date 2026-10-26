@@ -80,6 +80,9 @@ fn owned_tasks_can_clean_up_but_cannot_adopt_pids_ports_or_mixed_targets() {
     }
     assert_eq!(status["status"],"running","{status}");
     assert!(status["output"].as_str().unwrap().contains("READY:"),"server did not bind a real ephemeral listener: {status}");
+    let listed=tasks::execute("run-a",cwd,&json!({"task_action":"list"}));
+    assert_eq!(listed["active_limit"],8);assert_eq!(listed["tasks"].as_array().unwrap().len(),1);
+    assert_eq!(listed["tasks"][0]["task_id"],id);assert_eq!(listed["tasks"][0]["state"],"starting","non-Vite stdout must not claim preview readiness");
     assert!(status["owned_processes"].as_array().unwrap().len()>=2);
     let port=status["output"].as_str().unwrap().lines().find_map(|line|line.strip_prefix("READY:")).unwrap().parse::<u16>().unwrap();
     let owned=status["owned_processes"].as_array().unwrap().iter().map(|p|p["pid"].as_u64().unwrap()).collect::<Vec<_>>();
@@ -94,9 +97,44 @@ fn owned_tasks_can_clean_up_but_cannot_adopt_pids_ports_or_mixed_targets() {
     assert!(owned.iter().all(|pid|std::fs::read_to_string(format!("/proc/{pid}/stat")).map_or(true,|stat|stat.rsplit_once(") ").is_some_and(|(_,rest)|rest.starts_with('Z')))),"owned server descendants survived cleanup");
     let released=std::net::TcpListener::bind(("127.0.0.1",port)).expect("owned test listener port was not released"); drop(released);
     assert!(bystander.alive());
+    assert_eq!(tasks::execute("run-a",cwd,&json!({"task_action":"status","task_id":id}))["state"],"stopped","completed task history remains queryable in this generation");
     // Expired identity/opaque handle never authorizes a new process (PID reuse).
     assert_eq!(tasks::execute("run-a",cwd,&json!({"task_action":"stop","task_id":id}))["code"],"PROTECTED_RUNTIME_PROCESS");
     tasks::cleanup("run-a");
+}
+
+#[test]
+fn completed_tasks_release_active_slots_without_losing_bounded_task_history() {
+    let root=Workspace(PathBuf::from(format!("/tmp/lad-task-slots-{}",std::process::id()))); std::fs::create_dir_all(&root.0).unwrap();
+    let cwd=root.0.to_str().unwrap();let owner="run-slots";
+    let mut finished=Vec::new();
+    for index in 0..12 {
+        let started=tasks::execute(owner,cwd,&json!({"task_action":"start","command":format!("python3 -c \"print('completed-{index}', flush=True)\"")}));
+        let id=started["task_id"].as_str().expect("managed task id").to_owned();
+        let mut state=Value::Null;
+        for _ in 0..100 {
+            state=tasks::execute(owner,cwd,&json!({"task_action":"status","task_id":id}));
+            if state["state"]=="stopped"||state["state"]=="failed" {break;}
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert_eq!(state["state"],"stopped","short task failed: {state}");
+        finished.push(id);
+    }
+    let list=tasks::execute(owner,cwd,&json!({"task_action":"list"}));
+    assert_eq!(list["tasks"].as_array().unwrap().len(),0,"finished tasks must not hold active slots");
+    assert_eq!(list["recently_completed"].as_array().unwrap().len(),12);
+    assert_eq!(list["active_limit"],8,"the protection limit remains unchanged");
+    assert!(finished.iter().all(|id|tasks::execute(owner,cwd,&json!({"task_action":"status","task_id":id}))["state"]=="stopped"));
+    let mut active=Vec::new();
+    for _ in 0..8 {
+        let task=tasks::execute(owner,cwd,&json!({"task_action":"start","command":"python3 -c \"import time; time.sleep(30)\""}));
+        active.push(task["task_id"].as_str().expect("active task handle").to_owned());
+    }
+    let at_limit=tasks::execute(owner,cwd,&json!({"task_action":"start","command":"python3 -c \"import time; time.sleep(30)\""}));
+    assert_eq!(at_limit["code"],"PROTECTED_RUNTIME_PROCESS");assert!(at_limit["error"].as_str().unwrap().contains("At most eight active"));
+    for id in active { assert_eq!(tasks::execute(owner,cwd,&json!({"task_action":"stop","task_id":id}))["state"],"stopped"); }
+    let after_stop=tasks::execute(owner,cwd,&json!({"task_action":"list"}));assert_eq!(after_stop["tasks"].as_array().unwrap().len(),0);
+    tasks::cleanup(owner);
 }
 
 #[test]
