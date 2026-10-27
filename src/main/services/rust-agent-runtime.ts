@@ -221,7 +221,7 @@ export class RustAgentRuntime {
     const effectiveVision = visionMode ?? browserConfig.browserVision ?? 'off';
     const vision = effectiveVision !== 'off' ? new BrowserVisionProvider(this.endpoint, model, effectiveVision) : undefined;
     protectedRuntime.endpoint(this.endpoint);
-    const child = spawn(this.binary, [], { stdio: 'pipe', env: protectedRuntime.environment() });
+    const child = spawn(this.binary, [], { stdio: 'pipe', env: {...protectedRuntime.environment(),LOCAL_AI_EDIT_BACKUP_ROOT:join(paths.userData,'edit-backups'),LOCAL_AI_EDIT_TASK:JSON.stringify([conversationId??'standalone',logicalTaskId??runId])} });
     child.once('spawn', () => protectedRuntime.register(child.pid, 'rust-agent'));
     child.once('exit', () => protectedRuntime.retire(child.pid));
     const lines = createInterface({ input: child.stdout });

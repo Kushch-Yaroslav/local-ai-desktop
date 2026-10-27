@@ -82,7 +82,7 @@ export class FileDownloader {
         const now = await lstat(target).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return undefined; });
         if (before ? !now || before.ino !== now.ino || before.size !== now.size || before.mtimeMs !== now.mtimeMs : now) throw new DownloadError('STALE_DESTINATION', 'Destination changed during download; retry after reading its latest state');
         if (controller.signal.aborted) throw new DownloadError('CANCELLED', 'Download cancelled before completion');
-        const backup = await snapshotFile(target);
+        const backup = await snapshotFile(target,destinationRoot);
         const file = await open(temporary, 'r'); try { await file.sync(); } finally { await file.close(); }
         if (controller.signal.aborted) throw new DownloadError('CANCELLED', 'Download cancelled before completion');
         if (before) await rename(temporary, target); else await link(temporary, target);

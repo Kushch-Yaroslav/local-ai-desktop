@@ -1,6 +1,8 @@
-import { lstat, realpath, readFile, mkdir, copyFile, writeFile, open, rename, unlink, link, chmod, stat } from 'node:fs/promises';
+import { lstat, realpath, readFile, mkdir, open, rename, unlink, link, chmod, stat } from 'node:fs/promises';
 import { dirname, resolve, relative, sep, parse } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID,createHash } from 'node:crypto';
+import {constants} from 'node:fs';
+import {paths} from '../services/paths';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { protectedInfrastructurePaths } from '../services/protected-runtime';
@@ -8,7 +10,7 @@ const execFileAsync = promisify(execFile);
 
 export class PathPolicyError extends Error { readonly code = 'PERMISSION_DENIED'; readonly retrySameArguments = false; }
 const inside = (root: string, path: string) => { const rel = relative(root, path); return rel !== '..' && !rel.startsWith(`..${sep}`) && !parse(rel).root; };
-const protectedPart = (path: string) => path.split(sep).some(part => part === '.git' || part === '.local-ai-backups');
+const protectedPart = (path: string) => path.split(sep).some(part => part === '.git' || part === '.local-ai-backups') || inside(resolve(paths.userData,'edit-backups'),path);
 
 export async function projectPath(root: string, input: string, writing = false): Promise<string> {
   const canonicalRoot = await realpath(root);
@@ -62,14 +64,26 @@ export async function projectPath(root: string, input: string, writing = false):
   return target;
 }
 
-export async function snapshotFile(target: string): Promise<string> {
-  const directory = resolve(dirname(target), '.local-ai-backups');
-  const info = await lstat(directory).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return undefined; });
-  if (info?.isSymbolicLink()) throw new PathPolicyError('Recovery directory must not be a symlink');
-  const backup = resolve(directory, randomUUID()); await mkdir(backup, { recursive: true, mode: 0o700 });
-  const existed = await lstat(target).then(() => true).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return false; });
-  if (existed) await copyFile(target, resolve(backup, 'original'));
-  await writeFile(resolve(backup, 'manifest.json'), JSON.stringify({ target, existed, preimage: 'original' }), { mode: 0o600 });
+async function privateDirectory(directory:string):Promise<void>{
+  const parent=dirname(directory);if(parent!==directory)await privateDirectory(parent);
+  try{const info=await lstat(directory);if(!info.isDirectory()||info.isSymbolicLink())throw new PathPolicyError('Recovery storage must not contain symlinks');}
+  catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;try{await mkdir(directory,{mode:0o700});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST')throw error;}const info=await lstat(directory);if(!info.isDirectory()||info.isSymbolicLink())throw new PathPolicyError('Recovery storage changed');const parentHandle=await open(parent,'r');try{await parentHandle.sync();}finally{await parentHandle.close();}}
+}
+export async function snapshotFile(target:string,projectRoot:string):Promise<string>{
+  const project=await realpath(projectRoot),directory=resolve(paths.userData,'edit-backups');
+  if(inside(project,directory))throw new PathPolicyError('Edit backup storage must be outside the project');
+  const key=createHash('sha256').update(project).digest('hex');
+  const backup=resolve(directory,key,'legacy',randomUUID());await privateDirectory(backup);
+  const info=await lstat(target).catch((error:NodeJS.ErrnoException)=>{if(error.code!=='ENOENT')throw error;return undefined;});
+  let hash:string|undefined;
+  if(info){
+    if(!info.isFile()||info.isSymbolicLink())throw new PathPolicyError('Preimage target must be a regular file');
+    const source=await open(target,constants.O_RDONLY|constants.O_NOFOLLOW);
+    try{const data=await source.readFile(),after=await source.stat();if(after.size!==info.size||after.mtimeMs!==info.mtimeMs)throw new PathPolicyError('Source changed during preimage capture');const output=await open(resolve(backup,'original'),'wx',0o600);try{await output.writeFile(data);await output.sync();}finally{await output.close();}hash=createHash('sha256').update(data).digest('hex');}finally{await source.close();}
+  }
+  const manifest=await open(resolve(backup,'manifest.json'),'wx',0o600);
+  try{await manifest.writeFile(JSON.stringify({application:'local-ai-desktop',version:1,project,task:'legacy',target,existed:Boolean(info),preimage:'original',sha256:hash,mode:info?.mode}));await manifest.sync();}finally{await manifest.close();}
+  for(const path of [backup,dirname(backup)]){const directory=await open(path,'r');try{await directory.sync();}finally{await directory.close();}}
   return backup;
 }
 

@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {mkdtemp,writeFile,mkdir} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {createRequire} from 'node:module';
-const root=await mkdtemp('/tmp/lad-scenario-gate-');process.env.LOCAL_AI_RUNTIME_ROOT=join(root,'runtime');
+const root=await mkdtemp('/tmp/lad-scenario-gate-');process.env.LOCAL_AI_RUNTIME_ROOT=await mkdtemp('/tmp/lad-isolated-scenario-gate-runtime-app-');
 const require=createRequire(import.meta.url);require('../dist/main/services/paths.js').ensureAppDirectories();
 const settings=require('../dist/main/services/runtime-settings.js');settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),browserVision:'off',autonomousBrowserQa:false});
 const source=n=>`window.__qaDiagnostics={camera:0};onkeydown=e=>{if(e.key==='w')window.__qaDiagnostics.camera+=${n}};`;

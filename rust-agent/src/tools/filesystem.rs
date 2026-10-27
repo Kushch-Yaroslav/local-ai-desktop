@@ -140,6 +140,7 @@ pub fn scoped(scope: &Scope, path: &str) -> Result<PathBuf, String> {
 /// directories whose names are not `.git`. Generic tools never edit metadata.
 fn protect_metadata(requested: &Path, target: &Path) -> Result<(), String> {
     let denied = || "PERMISSION_DENIED: repository metadata and recovery files are protected; use an approved Git/terminal operation. Switching file tools cannot authorize this operation.".to_owned();
+    if super::recovery::protected(target){return Err(denied());}
     for path in [requested, target] {
         if path.components().any(|part| part.as_os_str() == ".git" || part.as_os_str() == ".local-ai-backups") {
             return Err(denied());
@@ -257,7 +258,7 @@ pub fn replace_text_in(
     }
     let updated = format!("{}{}{}", &content[..start], new, &content[start + old.len()..]);
     let permissions = fs::metadata(&target).map_err(|error| error.to_string())?.permissions();
-    let backup = super::recovery::snapshot(&target)?;
+    let backup = super::recovery::snapshot(scope.root,&target)?;
     let temporary = target.parent().ok_or("file has no parent")?.join(format!(
         ".local-ai-replace-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)
     ));
@@ -420,7 +421,7 @@ pub fn execute_in(
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?
             }
             if scoped(scope, path)? != target { return Err("path changed before write".into()); }
-            let backup = super::recovery::snapshot(&target)?;
+            let backup = super::recovery::snapshot(scope.root,&target)?;
             super::recovery::atomic_write(&target, content.as_bytes(), name == "create_file")?;
             Ok((
                 json!({"path":path,"bytes":content.len(),"backup":backup}),
@@ -437,7 +438,7 @@ pub fn execute_in(
             if !target.is_file() {
                 return Err("only regular files can be deleted".to_owned());
             }
-            let backup = super::recovery::snapshot(&target)?;
+            let backup = super::recovery::snapshot(scope.root,&target)?;
             if scoped(scope, content)? != target { return Err("path changed before deletion".into()); }
             fs::remove_file(&target).map_err(|e| e.to_string())?;
             Ok((json!({"path":content,"deleted":true,"backup":backup}), None))
@@ -734,11 +735,12 @@ fn apply_patch(
     if staged.is_empty() {
         return Ok((json!({"applied":false,"unchanged":true,"files":[],"backups":[]}),None));
     }
+    let original_permissions=staged.iter().filter_map(|(_,target,_)|fs::metadata(target).ok().map(|meta|(target.clone(),meta.permissions()))).collect::<std::collections::BTreeMap<_,_>>();
     let mut backups = Vec::new();
     for (rel, target, _) in &staged {
         if scoped(scope, rel)? != *target { return Err("patch target changed before write".into()); }
         if let Some(parent) = target.parent() { fs::create_dir_all(parent).map_err(|error| error.to_string())?; }
-        backups.push(super::recovery::snapshot(target)?);
+        backups.push(super::recovery::snapshot(scope.root,target)?);
     }
     let mut failure = None;
     let mut applied = 0;
@@ -761,7 +763,7 @@ fn apply_patch(
                 rollback_errors.push(format!("rollback target changed: {}", target.display())); continue;
             }
             let result = match bytes {
-                Some(bytes) => super::recovery::atomic_write(&target, &bytes, false),
+                Some(bytes) => super::recovery::atomic_write(&target, &bytes, false).and_then(|()|original_permissions.get(&target).map_or(Ok(()),|mode|fs::set_permissions(&target,mode.clone()).map_err(|e|e.to_string()))),
                 None => fs::remove_file(&target).map_err(|error| error.to_string()),
             };
             if let Err(error) = result { rollback_errors.push(error); }

@@ -4,7 +4,7 @@ import {mkdtemp,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 import {createRequire} from 'node:module';
-const root=await mkdtemp('/tmp/lad-invalid-qa-');process.env.LOCAL_AI_RUNTIME_ROOT=join(root,'runtime');
+const root=await mkdtemp('/tmp/lad-invalid-qa-');process.env.LOCAL_AI_RUNTIME_ROOT=await mkdtemp('/tmp/lad-isolated-invalid-qa-continuation-app-');
 const require=createRequire(import.meta.url);require('../dist/main/services/paths.js').ensureAppDirectories();
 const settings=require('../dist/main/services/runtime-settings.js');settings.saveRuntimeConfiguration({...settings.loadRuntimeConfiguration(),browserVision:'off'});
 await writeFile(join(root,'index.html'),'<div id="target" style="font-family:Georgia">Fixture</div>');

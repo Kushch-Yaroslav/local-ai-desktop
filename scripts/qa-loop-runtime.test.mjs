@@ -1,6 +1,6 @@
 // Scripted inference, real Rust/Chromium/QA guard and real file mutation. No mock is called Vision.
 import assert from 'node:assert/strict';import{createServer}from'node:http';import{mkdtemp,writeFile}from'node:fs/promises';import{join}from'node:path';import{createRequire}from'node:module';
-const root=await mkdtemp('/tmp/lad-qa-loop-runtime-');process.env.LOCAL_AI_RUNTIME_ROOT=join(root,'runtime');const require=createRequire(import.meta.url);
+const root=await mkdtemp('/tmp/lad-qa-loop-runtime-');process.env.LOCAL_AI_RUNTIME_ROOT=await mkdtemp('/tmp/lad-isolated-qa-loop-runtime-app-');const require=createRequire(import.meta.url);
 require('../dist/main/services/paths.js').ensureAppDirectories();const{loadRuntimeConfiguration,saveRuntimeConfiguration}=require('../dist/main/services/runtime-settings.js');saveRuntimeConfiguration({...loadRuntimeConfiguration(),browserVision:'off',autonomousBrowserQa:false});
 await writeFile(join(root,'index.html'),'<title>QA revision</title><button>First</button>');
 const requests=[],reports=[],events=[];let runtime;const frame=(delta,reason)=>`data: ${JSON.stringify({choices:[{index:0,delta,finish_reason:reason}]})}\n\n`;

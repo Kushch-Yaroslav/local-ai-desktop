@@ -3,7 +3,7 @@ import { signalOwnedGroup } from './process-group';
 import { agentRuntimePath } from '../services/paths';
 import { protectedRuntime } from '../services/protected-runtime';
 import { execFile, spawn } from 'node:child_process';
-import { open, readdir, readFile, realpath, stat, unlink } from 'node:fs/promises';
+import { open, readdir, readFile, realpath, stat, unlink, chmod } from 'node:fs/promises';
 import { relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import type { RiskCategory } from '../../shared/types';
@@ -162,7 +162,7 @@ export class ReadonlyProjectTools {
     if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
     const candidate = await this.resolveWritePath(path); const exists = await stat(candidate).then(() => true).catch(() => false);
     if (exists) return JSON.stringify({ error: 'Файл уже существует. Для изменения существующего файла используй apply_patch.' });
-    const backup = await snapshotFile(candidate);
+    const backup = await snapshotFile(candidate,this.root);
     await atomicProjectWrite(candidate, content, true);
     return JSON.stringify({ path, created: true, backup, bytes: Buffer.byteLength(content) });
   }
@@ -173,7 +173,7 @@ export class ReadonlyProjectTools {
     const approval = await this.confirm({ title: 'Удалить файл?', detail: path, category: 'file_delete', actionId, root: this.root }, signal);
     if (!approval.approved) return JSON.stringify({ error: 'Operation was not authorized; do not bypass using another tool.', code: 'PERMISSION_DENIED', retrySameArguments: false, approved: false, reason: approval.reason });
     if (signal.aborted) return JSON.stringify({ error: 'Generation cancelled' });
-    const backup = await snapshotFile(file);
+    const backup = await snapshotFile(file,this.root);
     await this.resolveWritePath(path); await unlink(file); return JSON.stringify({ path, deleted: true, backup });
   }
 
@@ -220,13 +220,15 @@ export class ReadonlyProjectTools {
       const decision = await this.confirm({ title: 'Delete files in patch?', detail: deletions.join('\n'), category: 'file_delete', actionId, root: this.root }, signal);
       if (!decision.approved) return JSON.stringify({ error: 'Patch deletion not authorized; no files changed', code: 'PERMISSION_DENIED', approved: false, reason: decision.reason, retrySameArguments: false });
     }
+    const modes=new Map<string,number>();
     const backups: string[] = [];
     for (const [target, change] of staged) {
       if (await this.resolveWritePath(change.path) !== target) throw new PathPolicyError('Patch destination changed');
       const current = await readFile(target, 'utf8').catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; return null; });
       if (current !== change.original) throw new Error(`File changed while staging patch: ${change.path}`);
       if (signal.aborted) return JSON.stringify({ error: 'Patch cancelled; no files changed', code: 'CANCELLED' });
-      backups.push(await snapshotFile(target));
+      const mode=await stat(target).then(s=>s.mode,()=>undefined);if(mode!==undefined)modes.set(target,mode);
+      backups.push(await snapshotFile(target,this.root));
     }
     const applied: string[] = [];
     try {
@@ -242,7 +244,7 @@ export class ReadonlyProjectTools {
         const change = staged.get(target)!;
         try {
           if (await this.resolveWritePath(change.path) !== target) throw new PathPolicyError('Rollback path changed');
-          if (change.original === null) await unlink(target); else await atomicProjectWrite(target, change.original);
+          if (change.original === null) await unlink(target); else {await atomicProjectWrite(target, change.original);if(modes.has(target))await chmod(target,modes.get(target)!);}
         } catch (rollback) { rollbackErrors.push(String(rollback)); }
       }
       return JSON.stringify({ error: String(error), backups, rollbackErrors });
