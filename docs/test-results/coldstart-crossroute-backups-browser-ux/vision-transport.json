@@ -1,0 +1,112 @@
+{
+  "result": "PASS",
+  "transportAudit": [
+    {
+      "width": 1280,
+      "height": 900,
+      "color": [
+        253,
+        3,
+        185,
+        255
+      ],
+      "privateMask": [
+        255,
+        0,
+        255,
+        255
+      ],
+      "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+      "mime": "image/png",
+      "recipient": "separate Vision request"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "color": [
+        253,
+        3,
+        185,
+        255
+      ],
+      "privateMask": [
+        255,
+        0,
+        255,
+        255
+      ],
+      "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+      "mime": "image/png",
+      "recipient": "separate Vision request"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "color": [
+        253,
+        3,
+        185,
+        255
+      ],
+      "privateMask": [
+        255,
+        0,
+        255,
+        255
+      ],
+      "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+      "mime": "image/png",
+      "recipient": "separate Vision request"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "color": [
+        253,
+        3,
+        185,
+        255
+      ],
+      "privateMask": [
+        255,
+        0,
+        255,
+        255
+      ],
+      "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+      "mime": "image/png",
+      "recipient": "separate Vision request"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "color": [
+        253,
+        3,
+        185,
+        255
+      ],
+      "privateMask": [
+        255,
+        0,
+        255,
+        255
+      ],
+      "sha256": "cf8921d487bcf1ccb621dac0c6d0a384d0e84142528281b396053dd4b07bc3a0",
+      "mime": "image/png",
+      "recipient": "separate Vision request"
+    }
+  ],
+  "checks": [
+    "Real PNG bytes equal capture hash",
+    "Actual pink pixels and masked private input decoded from inference payload",
+    "OFF not sent",
+    "ON separate multimodal request",
+    "Auto passive fallback and scoped request",
+    "Unsupported backend",
+    "Integrity rejection",
+    "HTTP error redaction",
+    "Stop rejects cached result"
+  ],
+  "realVisionInference": false
+}

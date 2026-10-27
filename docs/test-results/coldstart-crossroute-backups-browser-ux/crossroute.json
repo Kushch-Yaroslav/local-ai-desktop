@@ -1,0 +1,117 @@
+{
+  "result": "PASS",
+  "provider": "scripted; real Electron Native Page, React/Vite, Rust, SQLite",
+  "realQwenInference": false,
+  "region": {
+    "rect": {
+      "x": 20,
+      "y": 180,
+      "width": 860,
+      "height": 140
+    },
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "surroundings": {
+      "relation": "between-siblings",
+      "above": {
+        "tag": "section",
+        "selector": "#above",
+        "text": "Consiglio del Tricologo",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 200
+        }
+      },
+      "below": {
+        "tag": "section",
+        "selector": "#below",
+        "text": "Recensioni dei clienti",
+        "rect": {
+          "x": 0,
+          "y": 300,
+          "width": 900,
+          "height": 200
+        }
+      },
+      "container": "#composition",
+      "confidence": 0.7,
+      "coordinateSpace": "document-css",
+      "diagnostics": [
+        "Geometry at capture only; confirm current DOM and source order. No React component mapping."
+      ]
+    }
+  },
+  "autoDraft": true,
+  "viteImportFailureRecovered": true,
+  "originalRequirementsRetained": true,
+  "stopContinue": true,
+  "automaticSupplementaryCriteria": true,
+  "negativeScopeChecks": true,
+  "externalEditBackups": true,
+  "compactions": 11,
+  "verification": [
+    "verified",
+    "verified",
+    "verified"
+  ],
+  "routes": [
+    {
+      "id": 1,
+      "order": [
+        "above",
+        "new-section",
+        "below"
+      ],
+      "count": 1,
+      "font": "Georgia",
+      "above": "Consiglio del Tricologo",
+      "below": "Recensioni dei clienti",
+      "gap": 400,
+      "cards": 0
+    },
+    {
+      "id": 2,
+      "order": [
+        "above",
+        "new-section",
+        "below"
+      ],
+      "count": 1,
+      "font": "\"Courier New\"",
+      "above": "Consiglio del Tricologo",
+      "below": "Recensioni dei clienti",
+      "gap": 400,
+      "cards": 0
+    },
+    {
+      "id": 3,
+      "order": [
+        "above",
+        "below"
+      ],
+      "count": 0,
+      "font": null,
+      "above": "Consiglio del Tricologo",
+      "below": "Recensioni dei clienti",
+      "gap": 100,
+      "cards": 0
+    },
+    {
+      "id": 4,
+      "order": [
+        "above",
+        "below"
+      ],
+      "count": 0,
+      "font": null,
+      "above": "Consiglio del Tricologo",
+      "below": "Recensioni dei clienti",
+      "gap": 100,
+      "cards": 0
+    }
+  ]
+}

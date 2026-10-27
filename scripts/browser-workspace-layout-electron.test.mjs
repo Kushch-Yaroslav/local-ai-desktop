@@ -26,8 +26,14 @@ try{
   const d=await cmd({action:'new-area'}),area=d.issues.at(-1);await cmd({action:'selection',enabled:true,groupId:area.id});await app.evaluate(()=>global.visualFixture.drag('#target'));
   await until(async()=>(await doc()).regions.length===i,'Region capture '+i);await cmd({action:'selection',enabled:false});
   regions.push((await doc()).regions.at(-1));assert.equal((await doc()).issues.at(-1).number,i);
-  if([1,2,5,10].includes(i))assert(Math.abs(await height()-initialHeight)<3,'Cards must scroll inside fixed tools row');
+  if([1,2,5,10].includes(i))assert(Math.abs(await height()-initialHeight)<3,'Cards must scroll inside fixed tools row');if([1,5,10].includes(i))await ui.screenshot({path:join(root,`geometry-vertical-${i}.png`)});
  }
+ // Newly saved manual selections are already attached to the draft. Clear
+ // those chips through the real UI before checking a fresh two-area transfer.
+ await ui.getByRole('button',{name:'Split View',exact:true}).click();
+ await until(()=>ui.locator('.visual-composer-references .visual-region-chip').count().then(n=>n===10),'Automatic manual references');
+ while(await ui.locator('.visual-composer-references button[aria-label^="Delete Area"]').count())await ui.locator('.visual-composer-references button[aria-label^="Delete Area"]').first().click();
+ await ui.getByRole('button',{name:'Browser Expanded',exact:true}).click();
  const messagesBeforeTransfer=await app.evaluate(()=>global.visualFixture.db.listMessages(global.visualFixture.chat).length);
  await ui.evaluate(()=>{window.__workspaceDraft=null;window.addEventListener('visual-region-draft',event=>{window.__workspaceDraft=event.detail;},{once:true});});
  await ui.getByRole('checkbox',{name:'Select area 1',exact:true}).check();await ui.getByRole('checkbox',{name:'Select area 2',exact:true}).check();
@@ -37,7 +43,7 @@ try{
  await ui.getByRole('button',{name:'Browser Expanded',exact:true}).click();
  await app.evaluate((_,r)=>{const f=global.visualFixture;f.db.addMessage(f.chat,'user','Original area 1','layout-history');f.db.setRegionReferences('layout-history',f.chat,[r]);},regions[0]);
  await ui.getByLabel('Browser layout',{exact:true}).selectOption('horizontal');await until(()=>ui.locator('.live-browser.workspace-horizontal').count(),'Horizontal layout');
- const surface=await ui.locator('.live-screen').boundingBox(),tools=await ui.locator('.browser-tools').boundingBox();assert(surface.x>tools.x+tools.width);assert(surface.height>(process.argv.includes('--dpr2')?250:500),JSON.stringify({surface,dpr2:process.argv.includes('--dpr2')}));
+ await ui.screenshot({path:join(root,'geometry-horizontal-10.png')});const surface=await ui.locator('.live-screen').boundingBox(),tools=await ui.locator('.browser-tools').boundingBox();assert(surface.x>tools.x+tools.width);assert(surface.height>(process.argv.includes('--dpr2')?250:500),JSON.stringify({surface,dpr2:process.argv.includes('--dpr2')}));
  const divider=ui.getByRole('separator',{name:'Browser tools width',exact:true});await divider.focus();await ui.keyboard.press('ArrowRight');await until(async()=>(await state()).settings.toolsWidth===310,'Keyboard resize');
  const b=await divider.boundingBox();const pointerBefore=(await state()).settings.toolsWidth;await ui.mouse.move(b.x+3,b.y+30);await ui.mouse.down();await ui.mouse.move(b.x+73,b.y+30,{steps:6});await ui.mouse.up();await until(async()=>(await state()).settings.toolsWidth>340,'Pointer resize '+JSON.stringify({dpr2:process.argv.includes('--dpr2'),divider:b,pointerBefore,workspace:(await state()).settings,surface:await nativeBounds()}));
  for(const width of [390,768,1440,1920,3840]){await configure({...((await state()).settings),viewport:{width,height:width===3840?2160:900}});await until(async()=>await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>innerWidth))===width,'CSS viewport '+width+' state '+JSON.stringify(await state()));assert.equal(await app.evaluate(()=>global.visualFixture.entry().native.contents.id),nativeId);}

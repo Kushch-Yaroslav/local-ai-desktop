@@ -1,0 +1,376 @@
+{
+  "source": "Read-only filesystem copy of the live SQLite database and WAL; only the temporary copy was opened with SQLite. Personal paths, identifiers and source contents omitted.",
+  "date": "2026-10-27",
+  "status": "interrupted",
+  "region": {
+    "count": 1,
+    "route": "/it/product/1",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "rect": {
+      "x": 36,
+      "y": 3697.3333435058594,
+      "width": 1400,
+      "height": 224
+    },
+    "anchorSelectors": [
+      "#expert > figure > img",
+      "#expert > figure",
+      "h3._title_1h1cd_29",
+      "#expert"
+    ],
+    "surroundingsRelation": "ambiguous"
+  },
+  "completedPlanSteps": 3,
+  "totalPlanSteps": 4,
+  "registeredAcceptanceCriteria": 0,
+  "browserCalls": [
+    {
+      "position": 38,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/1"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 40,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock .inner"
+      },
+      "result": {
+        "code": "ELEMENT_NOT_FOUND",
+        "matches": 0,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 24,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 41,
+      "arguments": {
+        "action": "read"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 43,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock"
+      },
+      "result": {
+        "code": null,
+        "matches": 1,
+        "fontFamily": "Inter, sans-serif",
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 45,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock > div"
+      },
+      "result": {
+        "code": "ELEMENT_NOT_FOUND",
+        "matches": 0,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 24,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 47,
+      "arguments": {
+        "action": "read"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 49,
+      "arguments": {
+        "action": "inspect",
+        "selector": "._inner_xwq4x_10"
+      },
+      "result": {
+        "code": "ELEMENT_NOT_FOUND",
+        "matches": 0,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 24,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 50,
+      "arguments": {
+        "action": "read"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 51,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock > div"
+      },
+      "result": {
+        "code": "DUPLICATE_FAILED_OPERATION",
+        "matches": null,
+        "fontFamily": null,
+        "route": null,
+        "freshness": null,
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 53,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/1"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 54,
+      "arguments": {
+        "action": "read"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 56,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/2"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/2",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 58,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/3"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/3",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 60,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/1"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 62,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock div"
+      },
+      "result": {
+        "code": null,
+        "matches": 1,
+        "fontFamily": "Georgia, serif",
+        "route": "/it/product/1",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 64,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/2"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/2",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 66,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock div"
+      },
+      "result": {
+        "code": "REGION_ROUTE_MISMATCH",
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/2",
+        "freshness": null,
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 67,
+      "arguments": {
+        "action": "open",
+        "path": "#/it/product/2"
+      },
+      "result": {
+        "code": null,
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/2",
+        "freshness": "updated",
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 68,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock div"
+      },
+      "result": {
+        "code": "DUPLICATE_FAILED_OPERATION",
+        "matches": null,
+        "fontFamily": null,
+        "route": null,
+        "freshness": null,
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    },
+    {
+      "position": 69,
+      "arguments": {
+        "action": "inspect",
+        "selector": "#loremBlock"
+      },
+      "result": {
+        "code": "REGION_ROUTE_MISMATCH",
+        "matches": null,
+        "fontFamily": null,
+        "route": "/it/product/2",
+        "freshness": null,
+        "candidateCount": 0,
+        "loremBlockCandidate": false
+      }
+    }
+  ],
+  "confirmed": {
+    "correctComponent": "LoremBlock between Explainer and Reviews",
+    "product1Font": "Georgia, serif",
+    "selectorsWereGuessed": true,
+    "freshnessForZeroMatchInspections": "updated",
+    "candidateListOmittedTarget": true,
+    "noSupplementaryReasonSupplied": true,
+    "regionRouteMismatchAtProduct2": true,
+    "duplicateFailureFollowed": true,
+    "loopPause": "Browser capability refused 4 equivalent attempts"
+  },
+  "coldStartBaseline": {
+    "readOnlyHostCheck": true,
+    "ntfsVolumeDetected": true,
+    "mounted": false,
+    "mountPointExists": false,
+    "nodeStat": "ENOENT",
+    "nodeAccess": "ENOENT",
+    "nodeRealpath": "ENOENT",
+    "udisksBootJournal": "Cleaning up mount point; device is not mounted",
+    "pickerOpened": false,
+    "modelProfileSaved": false,
+    "mountAttempted": false
+  },
+  "limits": [
+    "Full historical HTTP inference payload was not persisted.",
+    "No historical file-picker auto-mount was observed.",
+    "No new real Qwen inference was run."
+  ]
+}

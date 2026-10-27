@@ -1,0 +1,299 @@
+{
+  "result": "PASS",
+  "checks": [
+    "10 real selections; bounded vertical tools height",
+    "horizontal same Page",
+    "pointer/keyboard width",
+    "390/768/1440/1920/4K CSS viewport",
+    "visible Fit/Scroll/preview scale",
+    "renderer reload persistence",
+    "narrow fallback",
+    "current numbering and immutable deleted history"
+  ],
+  "dpr2": true,
+  "geometry": [
+    {
+      "layout": "horizontal",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scales": [
+        {
+          "scale": 0.5,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 720,
+            "height": 450
+          }
+        },
+        {
+          "scale": 0.75,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1080,
+            "height": 675
+          }
+        },
+        {
+          "scale": 1,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 1.25,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1800,
+            "height": 1125
+          }
+        }
+      ]
+    },
+    {
+      "layout": "vertical",
+      "viewport": "auto",
+      "scales": [
+        {
+          "scale": 0.5,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 604,
+            "height": 120
+          },
+          "cssViewport": {
+            "width": 1207,
+            "height": 240
+          }
+        },
+        {
+          "scale": 0.75,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 906,
+            "height": 180
+          },
+          "cssViewport": {
+            "width": 1207,
+            "height": 240
+          }
+        },
+        {
+          "scale": 1,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1207,
+            "height": 240
+          },
+          "cssViewport": {
+            "width": 1207,
+            "height": 240
+          }
+        },
+        {
+          "scale": 1.25,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1509,
+            "height": 300
+          },
+          "cssViewport": {
+            "width": 1207,
+            "height": 240
+          }
+        }
+      ]
+    },
+    {
+      "layout": "vertical",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scales": [
+        {
+          "scale": 0.5,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 720,
+            "height": 450
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 0.75,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1080,
+            "height": 675
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 1,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 900
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 1.25,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1800,
+            "height": 1125
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    },
+    {
+      "layout": "horizontal",
+      "viewport": "auto",
+      "scales": [
+        {
+          "scale": 0.5,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 409,
+            "height": 232
+          },
+          "cssViewport": {
+            "width": 818,
+            "height": 464
+          }
+        },
+        {
+          "scale": 0.75,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 614,
+            "height": 348
+          },
+          "cssViewport": {
+            "width": 818,
+            "height": 464
+          }
+        },
+        {
+          "scale": 1,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 818,
+            "height": 464
+          },
+          "cssViewport": {
+            "width": 818,
+            "height": 464
+          }
+        },
+        {
+          "scale": 1.25,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1023,
+            "height": 580
+          },
+          "cssViewport": {
+            "width": 818,
+            "height": 464
+          }
+        }
+      ]
+    },
+    {
+      "layout": "horizontal",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scales": [
+        {
+          "scale": 0.5,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 720,
+            "height": 450
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 0.75,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1080,
+            "height": 675
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 1,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1440,
+            "height": 900
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "scale": 1.25,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1800,
+            "height": 1125
+          },
+          "cssViewport": {
+            "width": 1440,
+            "height": 900
+          }
+        }
+      ]
+    }
+  ]
+}

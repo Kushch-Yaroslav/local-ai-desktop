@@ -1,0 +1,274 @@
+{
+  "date": "2026-10-27",
+  "branch": "fix/v0.3-coldstart-crossroute-backups-browser-ux",
+  "base": "95281950883eb580e965c625dac3a7e850738acc",
+  "implementationCommits": [
+    "7ad3d0b",
+    "1b63d1f",
+    "57cfcae",
+    "a0d4493"
+  ],
+  "liveBaseline": {
+    "volume": "NTFS secondary model volume; UUID/path omitted",
+    "blockDevicePresent": true,
+    "mounted": false,
+    "mountPointExists": false,
+    "stat": "ENOENT",
+    "access": "ENOENT",
+    "realpath": "ENOENT",
+    "applicationFilesystemAvailability": {
+      "readyModels": 3,
+      "unavailableDiskModels": 2
+    },
+    "filePickerOpened": false,
+    "volumeMountedByAudit": false,
+    "profilesSaved": false,
+    "userApplicationRestarted": false,
+    "userModelLoaded": false,
+    "historicalPickerAutomountProven": false,
+    "liveRendererIpcInstrumented": false
+  },
+  "quality": {
+    "typecheck": {
+      "result": "PASS",
+      "command": "npm run typecheck (also part of final npm run build)"
+    },
+    "eslint": {
+      "result": "PASS",
+      "command": "npm run lint",
+      "log": "/tmp/lad-v03-fourway-checks-final.log"
+    },
+    "productionBuild": {
+      "result": "PASS",
+      "command": "npm run build",
+      "log": "/tmp/lad-v03-fourway-build-final.log",
+      "warning": "Existing Vite large-chunk warning"
+    },
+    "rust": {
+      "result": "PASS",
+      "command": "cargo test --locked --manifest-path rust-agent/Cargo.toml",
+      "passed": 428,
+      "failed": 0,
+      "ignored": 1,
+      "ignoredTest": "live_scoped_browser_acceptance_with_project_warning_and_inverse",
+      "environment": "Host filesystem namespace with installed root-owned bwrap; sandbox policy active",
+      "log": "/tmp/lad-v03-fourway-rust-final.log"
+    }
+  },
+  "tests": [
+    {
+      "command": "node scripts/gguf-path-reliability-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-gguf.log"
+    },
+    {
+      "command": "node scripts/spatial-grounding-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-crossroute.log"
+    },
+    {
+      "command": "node scripts/browser-workspace-ux-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-ux1-final.log",
+      "checks": [
+        "visible toolbar/address/Go/status/Regions",
+        "Enter preserves query/hash and Native Page",
+        "loading and HTTP navigation error recovery",
+        "1/5/10 real region captures stay bounded",
+        "vertical/horizontal/tools collapse",
+        "agent ownership locks controls with visible status",
+        "hidden/reopened same Page",
+        "600px and 3440px ultrawide UI screenshots",
+        "RU/EN"
+      ]
+    },
+    {
+      "command": "node scripts/browser-workspace-ux-electron.test.mjs --dpr2",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-ux2-final.log",
+      "checks": [
+        "visible toolbar/address/Go/status/Regions",
+        "Enter preserves query/hash and Native Page",
+        "loading and HTTP navigation error recovery",
+        "1/5/10 real region captures stay bounded",
+        "vertical/horizontal/tools collapse",
+        "agent ownership locks controls with visible status",
+        "hidden/reopened same Page",
+        "600px and 3440px ultrawide UI screenshots",
+        "RU/EN"
+      ]
+    },
+    {
+      "command": "node scripts/browser-workspace-layout-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-geometry1.log",
+      "checks": [
+        "10 real selections; bounded vertical tools height",
+        "horizontal same Page",
+        "pointer/keyboard width",
+        "390/768/1440/1920/4K CSS viewport",
+        "visible Fit/Scroll/preview scale",
+        "renderer reload persistence",
+        "narrow fallback",
+        "current numbering and immutable deleted history"
+      ]
+    },
+    {
+      "command": "node scripts/browser-workspace-layout-electron.test.mjs --dpr2",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-geometry2.log",
+      "checks": [
+        "10 real selections; bounded vertical tools height",
+        "horizontal same Page",
+        "pointer/keyboard width",
+        "390/768/1440/1920/4K CSS viewport",
+        "visible Fit/Scroll/preview scale",
+        "renderer reload persistence",
+        "narrow fallback",
+        "current numbering and immutable deleted history"
+      ]
+    },
+    {
+      "command": "node scripts/vision-browser-policy.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-vision-policy.log",
+      "checks": [
+        "Auto raw capture does not infer",
+        "explicit screenshot question sends real PNG",
+        "duplicate frame/question cache",
+        "Off suppresses inference",
+        "capture-only flag",
+        "DOM unaffected",
+        "route-aware cache prevents cross-route evidence reuse"
+      ]
+    },
+    {
+      "command": "node scripts/vision-image-routing-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-vision-routing.log",
+      "checks": [
+        "chat Off suppresses bytes but retains attachment",
+        "Auto sends current image to correct user turn",
+        "no unrelated image replay",
+        "renderer cannot inject images",
+        "backend capability removed suppresses payload",
+        "active model switch suppresses unsupported inherited MTP On",
+        "foreign model multimodal capability is rejected"
+      ]
+    },
+    {
+      "command": "node scripts/visual-debugging-workflow-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-visual-workflow.log"
+    },
+    {
+      "command": "node scripts/adaptive-verification-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-adaptive.log",
+      "checks": [
+        "ON instruction reaches actual inference; related completed patch completes issue without forging Verified",
+        "Dimmed actual DOM overlay; Dispute restores state and composer chip without run; manual acceptance survives reload",
+        "OFF removes additional policy while browser inspect remains available for explicit checks",
+        "Eight persisted screenshots; ninth refused across real Stop/Continue; CSS alternative remains usable",
+        "New logical task receives new budget on same Page; computed-style QA passes without consuming explicit captures",
+        "Actual process restart preserves both task counters; cross-chat task use refused, independent chat has own budget"
+      ]
+    },
+    {
+      "command": "node scripts/fresh-browser-evidence-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-fresh-evidence.log"
+    },
+    {
+      "command": "node scripts/fresh-browser-evidence-electron.test.mjs --resume",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-fresh-resume.log"
+    },
+    {
+      "command": "node scripts/stop-qa-workspace-electron.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-stop-workspace.log"
+    },
+    {
+      "command": "node scripts/project-browser.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-headless-0.log"
+    },
+    {
+      "command": "node scripts/scenario-gate-runtime.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-headless-1.log"
+    },
+    {
+      "command": "node scripts/invalid-qa-continuation.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-headless-2.log"
+    },
+    {
+      "command": "node scripts/qa-loop-runtime.test.mjs",
+      "result": "PASS",
+      "localLog": "/tmp/lad-v03-fourway-headless-3.log"
+    }
+  ],
+  "otherPassedFixtures": [
+    "node dist/main/services/model-storage-watch.test.js",
+    "node dist/main/web/verification-route-scope.test.js",
+    "node scripts/gguf-storage-availability.test.mjs",
+    "node dist/main/services/runtime-settings.test.js (isolated runtime root)",
+    "node dist/shared/localization.test.js",
+    "node dist/shared/localization-coverage.test.js",
+    "node scripts/selector-candidates.test.mjs",
+    "node scripts/edit-backups.test.mjs"
+  ],
+  "nativeGeometry": {
+    "fixedCssViewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "dpr": [
+      1,
+      2
+    ],
+    "boundsAtScales": [
+      {
+        "scale": 0.5,
+        "width": 720,
+        "height": 450
+      },
+      {
+        "scale": 0.75,
+        "width": 1080,
+        "height": 675
+      },
+      {
+        "scale": 1,
+        "width": 1440,
+        "height": 900
+      },
+      {
+        "scale": 1.25,
+        "width": 1800,
+        "height": 1125
+      }
+    ],
+    "units": "device-independent Native bounds; CSS viewport unchanged"
+  },
+  "fixtureCorrections": [
+    "Clear ten auto-attached draft references through UI before separate two-area transfer assertion",
+    "Invalid QA remains in durable compaction evidence when not a raw tool message",
+    "Adaptive continuation context 28672; former 24576 cannot fit full current tool schema",
+    "Fresh-evidence task payload uses bounded Ledger projection; full observation remains in protected storage",
+    "An arbitrary missing selector returns ELEMENT_NOT_FOUND; ambiguous saved anchors remain STALE_DOM_ANCHOR",
+    "Fresh CSS may need one bounded review when Vite supplies JSX but no exact CSS revision; Gate unchanged"
+  ],
+  "limits": [
+    "No user filesystem mount or Ubuntu reboot performed",
+    "Live user renderer IPC and user application restart not exercised; production-app fixtures cover both",
+    "Historical picker auto-mount is not proven",
+    "No real Qwen or real vision-model inference; deterministic providers and multimodal HTTP fixture only",
+    "Legacy backups retained, not migrated/deleted",
+    "Desktop backups durable in app-data; standalone unconfigured CLI fallback is temporary",
+    "App-data located inside selected project safely refuses edits",
+    "Electron renderer and Native screenshots are separate compositor captures"
+  ]
+}
