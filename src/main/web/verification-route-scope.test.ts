@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {verificationRouteScopes} from './verification-route-scope';
+import type {AgentPlan} from '../../shared/types';
+const memory={entries:[],deliverables:{items:[{id:'route-2',text:'User requested product 2',status:'implemented',paths:['/tmp/project/App.jsx'],criteria:[{id:'font-2',description:'Courier New',kind:'runtime',scenario:{target:'/#/product/2',viewport:{width:1440,height:900},preconditions:[],required_state:[],steps:[],assertion:{source:'style',selector:'#new-section',path:'font-family',operator:'equals',expected:'"Courier New"'},timeout_ms:5000}}]}]}} as NonNullable<AgentPlan['taskMemory']>;
+assert.equal(verificationRouteScopes(memory,'/tmp/project').length,1);
+assert.deepEqual(verificationRouteScopes(memory,'/tmp/project')[0].viewport,{width:1440,height:900});
+assert.equal(verificationRouteScopes(memory,'/tmp/another-project').length,0);
+memory.deliverables!.items[0].paths=['/tmp/project/../secret'];assert.equal(verificationRouteScopes(memory,'/tmp/project').length,0);
+memory.deliverables!.items[0].paths=[];assert.equal(verificationRouteScopes(memory,'/tmp/project').length,0);
+memory.deliverables!.items[0].paths=['/tmp/project/App.jsx'];memory.deliverables!.items[0].status='dropped';assert.equal(verificationRouteScopes(memory,'/tmp/project').length,0);
+console.log('PASS persisted supplementary criterion scope, project isolation, explicit viewport and dropped/unscoped rejection');

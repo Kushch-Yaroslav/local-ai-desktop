@@ -5,6 +5,7 @@ import type { BrowserQaStatus } from '../../shared/browser-qa';
 import type { ProjectBrowserObserver } from '../web/live-browser';
 import { ProjectBrowserSession, projectBrowserTool, loopbackTarget, staticOrigin } from '../web/project-browser';
 import { resolveManagedPreviewTask, updateManagedPreviewTasks, type ManagedPreviewTask, type ManagedTaskCall } from '../web/managed-preview';
+import {verificationRouteScopes} from '../web/verification-route-scope';
 import { QaLoopGuard } from '../web/qa-loop-guard';
 import { join } from 'node:path';
 import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } from '../../shared/autonomy';
@@ -264,9 +265,10 @@ export class RustAgentRuntime {
     this.activeQaGuards.set(runId, guard);
     while (this.qaGuards.size > 32) this.qaGuards.delete(this.qaGuards.keys().next().value!);
     let qaAttempts = 0; let lastQaFailed = false;
+    let currentTaskMemory=persistedTaskMemory;
     const managedPreviewTasks = new Map<string, ManagedPreviewTask>();
     const terminalCalls = new Map<string, PendingManagedTaskCall>();
-    const qaOptions = { takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<import('../../shared/visual-debugging').VisualAnchor,'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number};dpr?:number;scroll?:{x:number;y:number};rect?:import('../../shared/visual-debugging').VisualRect;surroundings?:import('../../shared/visual-debugging').VisualRegion['surroundings']}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, resolveManagedPreview:(taskId:string,targetUrl:string,root:string)=>resolveManagedPreviewTask(managedPreviewTasks,taskId,targetUrl,root,runId), runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
+    const qaOptions = { routeScopes:():import('../web/verification-route-scope').VerificationRouteScope[]=>verificationRouteScopes(currentTaskMemory,projects.find(project=>project.id===qaOptions.projectId)?.root??projects[0]?.root??''), takeScreenshot, regionContext:[] as Array<{id:string;groupId:string;url:string;selectors?:string[];anchors?:Array<Pick<import('../../shared/visual-debugging').VisualAnchor,'selector'|'tag'|'identity'>>;viewport?:{width:number;height:number};dpr?:number;scroll?:{x:number;y:number};rect?:import('../../shared/visual-debugging').VisualRect;surroundings?:import('../../shared/visual-debugging').VisualRegion['surroundings']}>, runId, guard, projectId:undefined as string|undefined, securityMode:permissions.mode, resolveManagedPreview:(taskId:string,targetUrl:string,root:string)=>resolveManagedPreviewTask(managedPreviewTasks,taskId,targetUrl,root,runId), runtimeIdentity: { model, vision: effectiveVision, device: browserConfig.imageProcessingDevice, reasoning: undefined as import('../../shared/conversation-settings').EffectiveModeState | undefined }, signal: qaPause.signal, status: (status: BrowserQaStatus) => { if (status.phase === 'started' && qaAttempts++ > 0) qaStatus?.({phase:'retesting'}); else qaStatus?.(status); if (status.report) lastQaFailed = status.report.status === 'Failed'; }, ...(vision ? { analyze: (capture: import('../../shared/browser-qa').BrowserCapture, captureSignal: AbortSignal, before?: import('../../shared/browser-qa').BrowserCapture, scenario?: VisionQuestion) => vision.analyze(capture, AbortSignal.any([captureSignal, qaPause.signal]), before, scenario) } : {}) };
     const acknowledgeControl = (line: string) => {
       try {
         const event = JSON.parse(line) as RuntimeEvent;
@@ -473,7 +475,8 @@ export class RustAgentRuntime {
           const detail = terminal?.command ?? (event.name === 'run_terminal' ? undefined : event.name);
           yield { type: 'tool', activity: { id: event.id ?? crypto.randomUUID(), finishedAt: new Date().toISOString(), label: activityLabel(event.name), ...(detail ? { detail } : {}), kind: activityKind(event.name), state: failed ? 'error' : 'completed', output: event.content ?? event.message, rawOutput: event.content ?? event.message, ...(terminal ? { terminal } : {}), ...(event.diff ? { metadata: { diff: event.diff } } : {}) } };
         } else if (event.type === 'task_memory_update' && event.memory && typeof event.memory === 'object') {
-          yield { type: 'task-memory', memory: event.memory as NonNullable<AgentPlan['taskMemory']> };
+          currentTaskMemory=event.memory as NonNullable<AgentPlan['taskMemory']>;
+          yield { type: 'task-memory', memory: currentTaskMemory };
         } else if (event.type === 'context_optimized') {
           compactions += 1;
           yield { type: 'tool', activity: { id: `context-${runId}-${compactions}`, label: 'Context optimized', detail: `${event.before ?? 0} → ${event.after ?? 0} tokens`, kind: 'context', state: 'completed' } };

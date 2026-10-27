@@ -672,6 +672,7 @@ fn dynamic_tail(
     if state.browser_qa_enabled {
         tail.push("Adaptive verification: after changes, choose proportionate checks for the actual project and changed behavior. Inspect its real configuration, lockfiles, scripts, documentation or CI before choosing permitted commands; do not assume a language-specific build command. Consider existing tests, compilation, static analysis, build, API or browser diagnostics as appropriate. Respect project scope, security, available tools, prior evidence and remaining budget. Prefer computed styles/geometry for deterministic UI properties, and original region URL/viewport for visual defects. Use the original user goal as the completion boundary. Once the changed behavior has sufficient fresh evidence and required criteria are satisfied, finish; do not add a site audit or new acceptance criteria. Additional routes need a concrete shared-change risk or user request. Keep small-task plans short; mark optional steps skipped with a reason when no longer justified. Avoid redundant retries; try a reasonable alternative, then finish with explicit limits if verification is unavailable. Never claim success without supporting evidence. After a build, if browser verification is appropriate, check the current approved preview with preview_status; build success does not imply dev server failure. Do not open dist/index.html through a dev origin. Before launching a server, list managed tasks and reuse a ready task for this project. If Vite reports a different port, use only the actual URL from a ready current-run task and pass that task_id as preview_task_id; the same Native Browser switches and carries its route. Normal Browser approval still applies. Old region evidence remains scoped to its old origin, so inspect and run fresh QA on the new one. Never infer project ownership from a listener/PID, adopt or kill external processes, or switch to an unconfirmed service. Inspect real scripts before recovery; stop only an exact task owned by this run. Preserve the Page and report the limitation if safe recovery is unavailable.".into());
     }
+    tail.push("Browser route scope: when the user requests checking additional routes, navigate to each and pass supplementary_reason describing that request for inspect/read, or register its separate target/viewport criterion and use verification_scope/scenario_refs. Region route mismatch does not mean a requested secondary route is forbidden. Original-region proof still requires the saved URL/viewport. Use the returned correction template, never repeat unchanged rejected arguments.".into());
     tail.push("Task fidelity for structural edits: only before creating/moving/conditionally rendering a component, make one compact check of the requested entity, routes where it exists, route-specific properties, spatial position, and forbidden changes. Compare the proposed edit with the exact original user request. Existing code, including a partial earlier attempt, is evidence to inspect—not authority to duplicate or a substitute for the request. If the plan conflicts, correct it before editing; if location remains ambiguous, inspect current DOM/source or ask once rather than guessing. Simple CSS changes need no extra planning cycle.".into());
     let verification = state.task_memory.verification.prompt(
         &state.task_memory.deliverables,
@@ -4125,11 +4126,12 @@ fn clear_browser_failures_after_recovery(state:&mut AgentState,tool:&ValidatedCa
         && value.pointer("/region_context/references").and_then(Value::as_array).is_some_and(|refs|refs.iter().any(|r|r["matches_current"]==true));
     // Explicitly restoring the original route changes browser preconditions.
     // Keep security denials, other projects, task budgets and loop history.
-    if !recovered && !restored{return;}
+    let supplementary=tool.arguments["action"]=="open" && value.pointer("/region_context/supplementary_scopes").and_then(Value::as_array).is_some_and(|scopes|!scopes.is_empty());
+    if !recovered && !restored && !supplementary{return;}
     let slot=tool.arguments["project"].as_u64().unwrap_or(1);
     state.failed_tool_calls.retain(|fingerprint,_|{
         let Some(args)=fingerprint.strip_prefix("web_project:").and_then(|args|serde_json::from_str::<Value>(args).ok())else{return true;};
-        args["project"].as_u64().unwrap_or(1)!=slot
+        args["project"].as_u64().unwrap_or(1)!=slot || supplementary && !recovered && !restored && !matches!(args["action"].as_str(),Some("read"|"inspect"))
     });
 }
 
@@ -7039,6 +7041,18 @@ mod tests {
         literal_visible.push_str(&literal.push("", true, &source, &tools));
         assert_eq!(literal_visible, source, "code example was mistaken for an executed tool call");
         assert!(!literal.hid_markup);
+    }
+
+    #[test]
+    fn supplementary_navigation_releases_only_route_dependent_read_failures(){
+        let mut state=AgentState::default();
+        let inspect="web_project:{\"action\":\"inspect\",\"selector\":\"#new-section\",\"project\":1}";
+        let screenshot="web_project:{\"action\":\"screenshot\",\"project\":1}";
+        let other="web_project:{\"action\":\"inspect\",\"project\":2}";
+        for key in [inspect,screenshot,other,"denied:scope"]{state.failed_tool_calls.insert(key.into(),2);}
+        let tool=ValidatedCall{id:"navigate".into(),name:"web_project".into(),arguments:json!({"action":"open","project":1})};
+        clear_browser_failures_after_recovery(&mut state,&tool,&json!({"url":"http://localhost:5173/#/product/2","region_context":{"references":[{"matches_current":false}],"supplementary_scopes":[{"deliverable_id":"route2","criterion_id":"font"}]}}));
+        assert!(!state.failed_tool_calls.contains_key(inspect));for key in [screenshot,other,"denied:scope"]{assert!(state.failed_tool_calls.contains_key(key));}
     }
 
     #[test]
