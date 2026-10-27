@@ -171,7 +171,7 @@ export function runtimeDraftAvailability(raw: unknown): RuntimeDraftAvailability
     if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string') throw new Error('Некорректные настройки моделей.');
     let availability: ReturnType<typeof ggufFileAvailability> | undefined;
     try { if (typeof entry.modelPath === 'string' && entry.modelPath.trim()) availability = ggufFileAvailability(expandPath(entry.modelPath,base)); } catch { /* Incomplete draft path. */ }
-    return { id: entry.id, availabilityIssue: availability?.issue, fileStatus: availability?.status,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)), mtpDraftMissing:Boolean(entry.mtpDraft?.path&&!check(entry.mtpDraft.path)), mtpDraftInspection:typeof entry.mtpDraft?.path==='string'?inspectModel(expandPath(entry.mtpDraft.path,base),'auto'):undefined };
+    return { id: entry.id, availabilityIssue: availability?.issue, availabilityReason:availability?.reason, fileStatus: availability?.status,inspection:typeof entry.modelPath==='string'?inspectModel(expandPath(entry.modelPath,base),entry.family):undefined, installed: check(entry.modelPath), projectorMissing: Boolean(entry.mmprojPath && !check(entry.mmprojPath)), mtpDraftMissing:Boolean(entry.mtpDraft?.path&&!check(entry.mtpDraft.path)), mtpDraftInspection:typeof entry.mtpDraft?.path==='string'?inspectModel(expandPath(entry.mtpDraft.path,base),'auto'):undefined };
   }) };
 }
 

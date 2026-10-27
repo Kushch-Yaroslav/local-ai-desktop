@@ -1,5 +1,14 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Добавьте локальную модель с компьютера.": "Add a local model from your computer.",
+  "Добавить модель": "Add model",
+  "Файл модели": "Model file",
+  "Профилей пока нет. Нажмите «Добавить модель», чтобы выбрать модель с компьютера.": "No profiles yet. Click “Add model” to select a model on your computer.",
+  "Диск не подключён": "Disk not mounted",
+  "Некоторые диски не подключены": "Some disks are not mounted",
+  "Открыть файловый менеджер": "Open file manager",
+  "Файловая система диска не подключена. Откройте диск в файловом менеджере, затем обновите доступность. Профиль сохранять не нужно.": "The disk filesystem is not mounted. Open the disk in your file manager, then refresh availability. You do not need to save the profile.",
+  "Расположение модели недоступно. Подключите диск в файловом менеджере и обновите доступность моделей.": "The model location is unavailable. Mount the disk in your file manager and refresh model availability.",
   "Разбери выбранные области и уточни требуемое изменение. Используй выделения как контекст, а не как доказательство дефекта.": "Review the selected areas and clarify the requested change. Use selections as context, not proof of a defect.",
   'Проектор Vision отсутствует или несовместим.': 'Vision projector is missing or incompatible.',
   'Эта модель не поддерживает изображения.': 'This model does not support visual input.',

@@ -235,7 +235,7 @@ export interface HardwareStats {
 }
 
 export type ExecutableValidation = { status: 'not-configured' | 'valid' | 'missing' | 'not-executable' | 'unsupported' | 'failed'; path?: string };
-export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; availabilityIssue?: string; fileStatus?: 'ready' | 'unavailable' | 'invalid'; projectorMissing: boolean; mtpDraftMissing: boolean; inspection?:import('./model-profiles').ModelInspection; mtpDraftInspection?:import('./model-profiles').ModelInspection }> };
+export type RuntimeDraftAvailability = { folderExists: boolean; models: Array<{ id: string; installed: boolean; availabilityReason?:ModelInfo['availabilityReason']; availabilityIssue?: string; fileStatus?: 'ready' | 'unavailable' | 'invalid'; projectorMissing: boolean; mtpDraftMissing: boolean; inspection?:import('./model-profiles').ModelInspection; mtpDraftInspection?:import('./model-profiles').ModelInspection }> };
 export type ExecutableResolution = { status: ExecutableValidation['status'] | 'multiple' | 'not-found' | 'incomplete' | 'cancelled'; path?: string; candidates: string[]; kind?: 'file' | 'directory'; incomplete?: boolean; selectedMissing?: boolean; reasons?: string[] };
 
 export interface RuntimeConfiguration {
@@ -495,7 +495,7 @@ export interface LocalAiApi {
   };
   webImages: { load(url: string): Promise<RemoteImageData>; openSource(url: string): Promise<void> };
   analysis: { list(conversationId: string): Promise<AnalysisRun[]> };
-  models: { list(): Promise<ModelInfo[]> };
+  models: { list(): Promise<ModelInfo[]>; openLocation(modelId:string):Promise<void>; onAvailabilityChanged?(listener:()=>void):()=>void };
   browserQa: { status(conversationId?: string, modelId?: string): Promise<{ capability?: import('./model-features').VisionCapability; mode: import('./browser-qa').BrowserVisionMode; autonomous: boolean; available: boolean; pending?: boolean; reason: string }>; configure(mode: import('./browser-qa').BrowserVisionMode, autonomous: boolean, confirmed: boolean, conversationId?: string, modelId?: string): Promise<void> };
   mtp: { status(modelId: string, conversationId?: string): Promise<MtpStatus>; apply(modelId: string, mode: MtpMode, confirmed: boolean, conversationId?: string): Promise<MtpStatus> };
   runtime: { state(): Promise<NonNullable<AppSettings['llamaRuntime']>>; control(request:{action:'unload'|'restart';conversationId:string;modelId?:string}):Promise<AppSettings> };

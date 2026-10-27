@@ -1,11 +1,18 @@
-import { accessSync, existsSync, closeSync, constants, openSync, readSync, statSync } from 'node:fs';
+import { accessSync, existsSync, closeSync, constants, openSync, readSync, statSync, readFileSync } from 'node:fs';
 
 /** File readiness is independent of backend health and optional metadata capabilities. */
 export type GgufAvailabilityReason='not-found'|'disk-unavailable'|'access-denied'|'io-error';
+export const mediaStorageRoot=(path:string):string|undefined=>path.match(/^(\/(?:run\/)?media\/[^/]+\/[^/]+)(?:\/|$)/)?.[1];
+function unavailableMediaRoot(root:string):boolean{
+  if(!existsSync(root))return true;
+  if(process.platform!=='linux')return false;
+  try{return !readFileSync('/proc/self/mountinfo','utf8').split('\n').some(line=>line.split(' ')[4]?.replace(/\\([0-7]{3})/g,(_match,octal:string)=>String.fromCharCode(parseInt(octal,8)))===root);}
+  catch{return false;}
+}
 export function ggufAvailabilityError(path:string,error:unknown):{status:'unavailable';reason:GgufAvailabilityReason;issue:string}{
   const code=(error as NodeJS.ErrnoException)?.code;
-  const storage=path.match(/^(\/(?:run\/)?media\/[^/]+\/[^/]+)(?:\/|$)/)?.[1];
-  const reason:GgufAvailabilityReason=code==='ENOENT'?(storage&&!existsSync(storage)?'disk-unavailable':'not-found'):code==='EACCES'||code==='EPERM'?'access-denied':'io-error';
+  const storage=mediaStorageRoot(path);
+  const reason:GgufAvailabilityReason=code==='ENOENT'?(storage&&unavailableMediaRoot(storage)?'disk-unavailable':'not-found'):code==='EACCES'||code==='EPERM'?'access-denied':'io-error';
   return {status:'unavailable',reason,issue:error instanceof Error?error.message:String(error)};
 }
 export function ggufFileAvailability(path: string): { status: 'ready' | 'unavailable' | 'invalid'; reason?:GgufAvailabilityReason; issue?: string } {

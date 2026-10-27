@@ -10,8 +10,8 @@ const tiny=Buffer.concat([Buffer.from('GGUF'),u32(3),u64(0),u64(1),str('general.
 const primary=join(root,'primary','model.gguf'),external=join(outside,'モデル identical path.gguf'),mounted=join(root,'volume','model.gguf');
 await writeFile(primary,tiny);await writeFile(external,tiny);await writeFile(join(root,'volume-offline','model.gguf'),tiny);
 const binary=join(root,'server');await writeFile(binary,'#!/bin/sh\necho "--model --ctx-size --port --fit"\n',{mode:0o700});
-const ids=[1,2,3].map(n=>'custom:123e4567-e89b-42d3-a456-42661417400'+n);
-const config={schemaVersion:2,llamaServerPath:binary,modelsPath:join(root,'absent-default-directory'),gpuLayers:0,setupDismissed:true,language:'en',models:[primary,external,mounted].map((modelPath,i)=>({id:ids[i],displayName:['Primary fixture','External fixture','Mount fixture'][i],modelPath,mmprojPath:'',gpuLayers:0,supportsTools:false,speculative:'none',mtpMode:'off',builtin:false}))};
+const ids=[1,2,3,4].map(n=>'custom:123e4567-e89b-42d3-a456-42661417400'+n);
+const config={schemaVersion:2,llamaServerPath:binary,modelsPath:join(root,'absent-default-directory'),gpuLayers:0,setupDismissed:true,language:'en',models:[primary,external,mounted,'/media/local-ai-fixture-unmounted/absent-volume/model.gguf'].map((modelPath,i)=>({id:ids[i],displayName:['Primary fixture','External fixture','Mount fixture','Unmounted fixture'][i],modelPath,mmprojPath:'',gpuLayers:0,supportsTools:false,speculative:'none',mtpMode:'off',builtin:false}))};
 const file=join(root,'app-data/runtime-settings.json');await writeFile(file,JSON.stringify(config));
 let app,ui;const stages=[];
 async function launch(){app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:['--disable-gpu',resolve('dist/main/index.js')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_LAUNCHER_MANAGED:'1',LOCAL_AI_LLAMA_PORT:'19792'}});ui=await app.firstWindow();await ui.locator('.conversation').waitFor();}
@@ -21,12 +21,15 @@ try{
  await launch();const cold=await list();assert(cold.find(m=>m.id===ids[0]).installed);assert(cold.find(m=>m.id===ids[1]).installed);assert(!cold.find(m=>m.id===ids[2]).installed);
  if(await ui.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await ui.locator('.panel-mode-toggle').click();
  const option=id=>ui.locator(`select[aria-label="Model"] option[value="${id}"]`);
+ assert.equal(cold.find(m=>m.id===ids[3]).availabilityReason,'disk-unavailable');await ui.getByText('Some disks are not mounted',{exact:true}).click();await app.evaluate(({shell})=>{global.storageOpen=[];shell.openPath=async path=>{global.storageOpen.push(path);return '';};});await ui.getByRole('button',{name:'Unmounted fixture · Open file manager',exact:true}).click();assert.equal((await app.evaluate(()=>global.storageOpen)).length,1);
  const saved=await readFile(file,'utf8');
  stages.push({stage:'before-picker',mounted:false,available:false,savedPathUnchanged:true});
  // A volume appearing after cold start must recover through Refresh without Save.
  await rename(join(root,'volume-offline'),join(root,'volume'));await refresh();await ui.waitForFunction(id=>!document.querySelector(`select[aria-label="Model"] option[value="${id}"]`)?.disabled,ids[2]);assert.equal(await readFile(file,'utf8'),saved);
  await rename(join(root,'volume'),join(root,'volume-offline'));await refresh();await ui.waitForFunction(id=>document.querySelector(`select[aria-label="Model"] option[value="${id}"]`)?.disabled,ids[2]);
  assert(await option(ids[2]).isDisabled());
+ await rename(join(root,'volume-offline'),join(root,'volume'));await ui.evaluate(()=>window.dispatchEvent(new Event('focus')));await ui.waitForFunction(id=>!document.querySelector(`select[aria-label="Model"] option[value="${id}"]`)?.disabled,ids[2]);assert.equal(await readFile(file,'utf8'),saved);await ui.reload();await ui.locator('.conversation').waitFor();assert((await list()).find(m=>m.id===ids[2]).installed);if(await ui.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await ui.locator('.panel-mode-toggle').click();await rename(join(root,'volume'),join(root,'volume-offline'));await refresh();
+
  await ui.locator('.runtime-setup-action').click();await ui.locator('.runtime-model-select').nth(2).click();
  await ui.waitForFunction(()=>document.querySelector('[data-testid=runtime-readiness]')?.getAttribute('data-state')==='ready',null,{timeout:3000});
  assert.equal(await ui.getByText('Default folder for choosing GGUF',{exact:true}).count(),0);
@@ -48,7 +51,7 @@ try{
  await app.evaluate(()=>global.pathDraftRace.release());await ui.waitForTimeout(150);assert(await ui.locator('.runtime-model-list li').nth(1).evaluate(e=>e.classList.contains('model-ready')),'Old unavailable draft response cannot overwrite fresh availability');
  stages.push({stage:'out-of-order-draft-validation',lateUnavailableIgnored:true});
  await ui.evaluate(()=>window.localAi.settings.setLanguage('ru'));await ui.getByRole('heading',{name:'Мои модели',exact:true}).waitFor();await ui.evaluate(()=>window.localAi.settings.setLanguage('en'));await ui.getByRole('heading',{name:'My models',exact:true}).waitFor();
- await app.close();app=null;await launch();assert((await list()).every(m=>m.installed));
+ await app.close();app=null;await launch();assert((await list()).filter(m=>ids.slice(0,3).includes(m.id)).every(m=>m.installed));assert.equal((await list()).find(m=>m.id===ids[3]).availabilityReason,'disk-unavailable');
  assert.equal((await ui.evaluate(()=>window.localAi.settings.get())).llamaRuntime.status,'offline','Availability does not load a model');
  const result={result:'PASS',root,stages,checks:['Cold start two individual directories outside missing default folder','Unavailable volume becomes available without Save','Available becomes unavailable on Refresh','Same absolute Unicode path picker recovery before Save','Legacy modelsPath retained internally, no mandatory directory','Last selected directory seeds next picker','Cold process restart retains availability; no model loaded'],automount:'Simulated in fixture; no real disk mounted or unmounted'};
  await writeFile(join(root,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({result:'PASS',root}));

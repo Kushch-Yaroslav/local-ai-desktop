@@ -32,7 +32,7 @@ const api: LocalAiApi = {
   },
   webImages: { load: (url) => ipcRenderer.invoke('web-images:load', url), openSource: (url) => ipcRenderer.invoke('web-images:open-source', url) },
   analysis: { list: (conversationId) => ipcRenderer.invoke('analysis:list', conversationId) },
-  models: { list: () => ipcRenderer.invoke('models:list') },
+  models: { list: () => ipcRenderer.invoke('models:list'), openLocation:modelId=>ipcRenderer.invoke('models:openLocation',modelId), onAvailabilityChanged:listener=>{const callback=()=>listener();ipcRenderer.on('models:availabilityChanged',callback);return ()=>ipcRenderer.removeListener('models:availabilityChanged',callback);} },
   browserQa: { status: (conversationId, modelId) => ipcRenderer.invoke('browser-qa:status', conversationId, modelId), configure: (mode, autonomous, confirmed, conversationId, modelId) => ipcRenderer.invoke('browser-qa:configure', mode, autonomous, confirmed, conversationId, modelId) },
   mtp: { status: (model, conversationId) => ipcRenderer.invoke('mtp:status', model, conversationId), apply: (model, mode, confirmed, conversationId) => ipcRenderer.invoke('mtp:apply', model, mode, confirmed, conversationId) },
   runtime: { state: () => ipcRenderer.invoke('runtime:state'), control: request => ipcRenderer.invoke('runtime:control',request) },

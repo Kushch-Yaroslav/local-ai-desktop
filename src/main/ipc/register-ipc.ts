@@ -1,4 +1,6 @@
 import { dirname } from 'node:path';
+import { modelLocationDirectory } from '../services/model-location';
+import { ModelStorageWatch } from '../services/model-storage-watch';
 import { loopbackTarget } from '../web/project-browser';
 import { VisualDebugging } from '../services/visual-debugging';
 import type { VisualCommand } from '../../shared/visual-debugging';
@@ -519,6 +521,7 @@ async function cancelGeneration(conversationId: string, generationId?: string, r
 }
 
 export function registerIpc(): void {
+  const storageWatch=new ModelStorageWatch(()=>BrowserWindow.getAllWindows().forEach(window=>window.webContents.send('models:availabilityChanged')));
   database.migrateVerificationPreference(effectiveRuntimeConfiguration().autonomousBrowserQa===true);
   const diagramValidation = new DiagramValidationBridge();
   ipcMain.handle('chat:diagram-validation-result', (event, id: unknown, error: unknown) => diagramValidation.reply(event.sender.id, id, error));
@@ -700,7 +703,14 @@ export function registerIpc(): void {
   ipcMain.handle('models:list', async () => {
     try { await syncLlamaBackend(); } catch { log('backend.models.runtime-unavailable',{backend:'llama-cpp'}); }
     // Availability is a fresh filesystem check even when runtime health fails.
-    return backend.getModels();
+    const models=await backend.getModels();storageWatch.update(models);return models;
+  });
+  ipcMain.handle('models:openLocation',async (_event,id:unknown)=>{
+    if(typeof id!=='string')throw new Error('Неизвестная модель.');
+    const profile=effectiveRuntimeConfiguration().models.find(model=>model.id===id);
+    if(!profile)throw new Error('Неизвестная модель.');
+    const error=await shell.openPath(await modelLocationDirectory(profile.modelPath));
+    if(error)throw new Error(error);
   });
   // The toolbar polls only live process health. Model paths and GGUF metadata
   // are checked on initialization and when model settings are opened/saved.
