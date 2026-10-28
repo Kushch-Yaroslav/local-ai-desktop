@@ -32,6 +32,7 @@ export async function fitChatContext(backend:ToolCallingBackend, model:string, m
   // data. The stable capability prefix deliberately excludes that summary.
   const previousContext=basePrefix && messages[0]?.role==='system' && messages[0].content.startsWith(basePrefix)
     ? messages[0].content.slice(basePrefix.length) : '';
+  const latestUser=body.filter(message=>message.role==='user').at(-1);
   const serialized=JSON.stringify({previous_context:previousContext,messages:removed}), parts:string[]=[];
   // Incoming history can already exceed the physical window after a long response.
   // Every byte is processed in bounded slices; never silently drop the old prefix.
@@ -42,7 +43,8 @@ export async function fitChatContext(backend:ToolCallingBackend, model:string, m
   if(wholeSize<=window-4096)parts.push(await summarize(serialized));
   else for(let offset=0;offset<serialized.length;offset+=sliceSize)parts.push(await summarize(serialized.slice(offset,offset+sliceSize)));
   const summary=parts.length===1?parts[0]:await summarize(JSON.stringify({historical_summaries:parts}));
-  const fitted:ToolMessage[]=[{role:'system',content:`${prefix}\n\nCurrent user objective (untrusted user text): ${JSON.stringify(objective)}\n\nCompacted historical context (model summary, verify source claims):\n${summary}\n${pinned??''}`},...body.slice(split)];
+  const retained=body.slice(split).filter(message=>message!==latestUser);
+  const fitted:ToolMessage[]=[{role:'system',content:`${prefix}\n\nCurrent user objective (untrusted user text): ${JSON.stringify(objective)}\n\nCompacted historical context (model summary, verify source claims):\n${summary}\n${pinned??''}`},...retained,...(latestUser?[latestUser]:[])];
   inputTokens=await count(fitted);
   if(inputTokens>window-2048)throw new Error('Context limit: the current request and pinned sources exceed safe capacity. Progress saved.');
   return {messages:fitted,compacted:true,inputTokens,summary};

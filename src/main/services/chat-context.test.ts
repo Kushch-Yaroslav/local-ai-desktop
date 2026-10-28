@@ -27,6 +27,18 @@ async function main(){
   ],[],new AbortController().signal,24000,'fast','Continue',undefined,'Safe prefix');
   assert(oversized.compacted);assert(summaryInputs.length>2,'History exceeding the physical window needs multiple bounded summaries');
   assert(summaryInputs.some(input=>input.includes('START-184')));assert(summaryInputs.some(input=>input.includes('END-926')),'The end of oversized history must also be processed');
-  console.log('PASS Chat compaction: bounded history, complete tool protocol, pinned objective/source cursor, full answer unchanged, fast ordinary question');
+  const compactedUserInputs:string[]=[];
+  const compactedUserBackend={...backend,chatWithTools:async(_model:string,input:ToolMessage[])=>{compactedUserInputs.push(input[1].content);return {role:'assistant',content:'{"source_facts":["BLACK_HOLE_FACT_914"]}',finish_reason:'stop'};}} as ToolCallingBackend;
+  const latestQuestion='What is inside the selected Canvas region? Read the source before answering.';
+  const afterLargeResult=await fitChatContext(compactedUserBackend,'fixture',[
+    {role:'system',content:'Read-only capabilities and selected project.'},
+    {role:'user',content:latestQuestion},
+    {role:'assistant',content:'',tool_calls:[{id:'read-source',function:{name:'read_project_file',arguments:'{"path":"index.html"}'}}]},
+    {role:'tool',tool_call_id:'read-source',content:'BLACK_HOLE_FACT_914 '+ 'Canvas source '.repeat(12000)},
+  ],[],new AbortController().signal,8192,'fast',latestQuestion,'selected project=project-A','Read-only capabilities and selected project.');
+  assert(afterLargeResult.compacted);assert.equal(afterLargeResult.messages.at(-1)?.role,'user');assert.equal(afterLargeResult.messages.at(-1)?.content,latestQuestion,'The actual current user turn must survive as a user message after compaction.');
+  assert(!afterLargeResult.messages.some(message=>message.role==='tool'),'An oversized protocol group must be summarized as a whole, without an orphan tool result.');
+  assert(compactedUserInputs.some(input=>input.includes('BLACK_HOLE_FACT_914')),'Compaction must process the oversized read-only result before dropping its protocol group.');
+  console.log('PASS Chat compaction: bounded history, complete tool protocol, pinned objective/source cursor, preserved current user turn, full answer unchanged, fast ordinary question');
 }
 void main();
