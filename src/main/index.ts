@@ -8,6 +8,7 @@ import { ensureAppDirectories, paths } from './services/paths';
 import { log } from './services/logger';
 import { startRuntimeSupervisor, stopRuntimeSupervisor } from './services/runtime-supervisor';
 import { protectedRuntime } from './services/protected-runtime';
+import { criticalMainProcessError, criticalMainProcessExitCode } from './critical-main-process-error';
 
 let mainWindow: BrowserWindow | null = null;
 let shutdownStarted = false;
@@ -93,7 +94,7 @@ app.whenReady().then(async () => {
   ipc.onImageProcessingDeviceChanged(refreshDeviceMenu);
   refreshDeviceMenu(); createWindow(); log('application.started');
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-});
+}).catch(criticalMainProcessError);
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', (event) => {
   // Electron exits synchronously by default. Keep the process alive just long
@@ -107,6 +108,6 @@ app.on('before-quit', (event) => {
     .catch((error: unknown) => log('runtime.shutdown.failed', error instanceof Error ? { message: error.message } : { error: String(error) }))
     .finally(() => {
       log('application.stopped');
-      app.exit(0);
+      app.exit(criticalMainProcessExitCode());
     });
 });

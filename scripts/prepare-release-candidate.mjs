@@ -2,7 +2,7 @@
 // executables, and user runtime state/model files never enter the source archive.
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, copyFile, lstat, chmod, symlink } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, lstat, chmod } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 const root=resolve('.');
 const snapshotOnly=process.argv.includes('--snapshot-only');
@@ -34,10 +34,12 @@ await writeFile(join(source,'BUILD_INFO.json'),JSON.stringify(info,null,2)+'\n')
 await writeFile(join(directory,'index-before.sha256'),sha(git('ls-files','--stage','-z'))+'\n');
 await writeFile(join(directory,'working-tree-status.txt'),git('status','--short'));
 execFileSync('tar',['--sort=name',`--mtime=@${epoch}`,'--owner=0','--group=0','--numeric-owner','-czf',join(directory,'source.tar.gz'),'-C',source,'.']);
-await symlink(join(root,'node_modules'),join(source,'node_modules'),'dir');
 console.log(`RC_DIRECTORY=${directory}`);
 console.log(`SOURCE_MANIFEST_SHA256=${sourceHash}`);
 if(!snapshotOnly){
+ const install=spawn('npm',['ci','--no-audit','--no-fund'],{cwd:source,env:{...process.env,SOURCE_DATE_EPOCH:epoch},stdio:'inherit'});
+ const installCode=await new Promise((done,reject)=>{install.once('error',reject);install.once('exit',done);});
+ if(installCode!==0)throw Error(`Snapshot dependency installation failed (${installCode}); source snapshot retained at ${directory}`);
  const child=spawn('npm',['run','package:linux'],{cwd:source,env:{...process.env,SOURCE_DATE_EPOCH:epoch},stdio:'inherit'});
  const code=await new Promise((done,reject)=>{child.once('error',reject);child.once('exit',done);});
  if(code!==0)throw Error(`Candidate build failed (${code}); source snapshot retained at ${directory}`);
