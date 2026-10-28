@@ -52,7 +52,7 @@ try{
  await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>location.hash='/different?sort=other'));assert((await cmd({action:'reveal',regionId:region.id})).view.needsNavigation);await cmd({action:'navigate',regionId:region.id});
  await cmd({action:'reveal',regionId:region.id});await ui.getByRole('button',{name:'Browser Expanded',exact:true}).click();await sleep(180);await assertPartial(false);
  await ui.getByRole('button',{name:'Split View',exact:true}).click();await sleep(180);await assertPartial(false);
- await ui.getByRole('button',{name:'Chat Only',exact:true}).click();assert.equal(await app.evaluate(()=>global.visualFixture.entry().native.contents.id),nativeId);await ui.locator('.live-manual-open').click();await assertPartial();
+ await ui.getByRole('button',{name:'Hide browser',exact:true}).click();assert.equal(await app.evaluate(()=>global.visualFixture.entry().native.contents.id),nativeId);await ui.locator('.live-manual-open').click();await assertPartial();
  // Partial selection follows responsive movement rather than growing into the whole button.
  await workspace({width:1920,height:1080},1,{x:1000,y:120});const scrollBefore=await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY})));
  await workspace({width:1920,height:1080},1,{x:1100,y:160});assert.deepEqual(await app.evaluate(()=>global.visualFixture.entry().page.evaluate(()=>({x:scrollX,y:scrollY}))),scrollBefore);
