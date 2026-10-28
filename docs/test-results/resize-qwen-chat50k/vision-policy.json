@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "scope": "Real Chromium capture/provider HTTP; explicit fixture Vision response",
+  "checks": [
+    "Auto raw capture does not infer",
+    "explicit screenshot question sends real PNG",
+    "duplicate frame/question cache",
+    "Off suppresses inference",
+    "capture-only flag",
+    "DOM unaffected",
+    "route-aware cache prevents cross-route evidence reuse"
+  ]
+}

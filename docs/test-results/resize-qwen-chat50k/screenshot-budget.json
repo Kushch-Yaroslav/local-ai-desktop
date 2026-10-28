@@ -1,0 +1,13 @@
+{
+  "result": "PASS",
+  "checks": [
+    "ON instruction reaches actual inference; related completed patch completes issue without forging Verified",
+    "Dimmed actual DOM overlay; Dispute restores state and composer chip without run; manual acceptance survives reload",
+    "OFF removes additional policy while browser inspect remains available for explicit checks",
+    "Eight persisted screenshots; ninth refused across real Stop/Continue; CSS alternative remains usable",
+    "New logical task receives new budget on same Page; computed-style QA passes without consuming explicit captures",
+    "Actual process restart preserves both task counters; cross-chat task use refused, independent chat has own budget"
+  ],
+  "requests": 23,
+  "compactions": 2
+}

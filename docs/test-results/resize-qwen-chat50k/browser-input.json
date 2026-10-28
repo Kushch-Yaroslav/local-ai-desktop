@@ -1,0 +1,25 @@
+{
+  "result": "PASS",
+  "provider": "scripted",
+  "requests": 17,
+  "firstTaskRequests": 13,
+  "anonymousTaskRequests": 4,
+  "originalViewport": {
+    "width": 390,
+    "height": 844
+  },
+  "ledgerOutcome": "observed_css",
+  "checks": [
+    "X11 pointer/wheel/keyboard/scrollbar/drag blocking",
+    "Agent fill/scroll",
+    "User input after handover",
+    "CSS HMR",
+    "Ancestor geometry bound to original region",
+    "Optional plan skips",
+    "Generic runtime check accepts scoped CSS observation without a forced review",
+    "HashRouter empty query equivalence",
+    "Supplementary routes not original evidence",
+    "Anonymous CSS completion without extra Gate turns",
+    "Dispute chip and conservative user override"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "result": "PASS",
+  "results": [
+    {
+      "entry": "chat-continuation",
+      "isolated": true
+    },
+    {
+      "entry": "web-chat",
+      "isolated": true
+    },
+    {
+      "entry": "rust-agent-runtime",
+      "isolated": true
+    }
+  ],
+  "userRuntimeUnchanged": true
+}

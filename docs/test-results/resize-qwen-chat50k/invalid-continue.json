@@ -1,0 +1,9 @@
+{
+  "result": "PASS",
+  "provider": "scripted; real Rust and Chromium",
+  "invalidCallsFirstRun": 4,
+  "invalidCallsAfterContinue": 1,
+  "stopReason": "repeated_tool_failure",
+  "status": "implemented",
+  "loopEvents": 5
+}

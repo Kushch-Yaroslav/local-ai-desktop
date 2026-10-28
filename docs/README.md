@@ -17,6 +17,8 @@ Start with the guides for your language. The release notes describe what changed
 
 ## Advanced / Technical references
 
+- [Native resize, Continue/criteria contracts, real Qwen verification and Chat 50K audit](v0.3-resize-qwen-chat50k.md)
+
 These documents cover security boundaries, privileged setup and implementation evidence. They are intended for administrators and developers.
 
 - [AppArmor security review](apparmor-security-review.md)

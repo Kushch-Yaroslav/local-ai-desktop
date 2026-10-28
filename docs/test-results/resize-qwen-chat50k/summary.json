@@ -1,0 +1,32 @@
+{
+  "tests": {
+    "native-dpr1": "PASS",
+    "native-dpr2": "PASS",
+    "chat50k": "PASS",
+    "crossroute": "PASS",
+    "shutdown": "PASS",
+    "screenshot-budget": "PASS",
+    "browser-input": "PASS",
+    "vision-policy": "PASS",
+    "invalid-continue": "PASS",
+    "isolation": "PASS"
+  },
+  "rust": {
+    "passed": 434,
+    "failed": 0,
+    "ignored": 1
+  },
+  "typecheck": "PASS",
+  "eslint": "PASS",
+  "productionBuild": "PASS (existing chunk warning)",
+  "localization": "PASS",
+  "projectBrowser": "PASS (stale/detached CSS maps rejected)",
+  "edgeBaseline": "PASS (old failure paths reproduced, DPR1/2)",
+  "realQwen": "PARTIAL: 13 requests, criteria registered, 0/1 formal Verified; infrastructure/approval stop",
+  "manualReview": [
+    "dpr1-en.png",
+    "dpr1-ru.png",
+    "dpr2-en.png",
+    "dpr2-ru.png"
+  ]
+}

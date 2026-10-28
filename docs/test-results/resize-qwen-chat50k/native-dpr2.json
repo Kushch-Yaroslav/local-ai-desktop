@@ -1,0 +1,45 @@
+{
+  "result": "PASS",
+  "dpr2": true,
+  "resized": {
+    "settings": {
+      "layout": "vertical",
+      "workspaceVisible": true,
+      "previewScale": 0.75,
+      "zoom": 1,
+      "viewport": {
+        "width": 960,
+        "height": 591
+      },
+      "scale": 0.75,
+      "pan": {
+        "x": 0,
+        "y": 0
+      },
+      "customViewport": true
+    },
+    "viewport": {
+      "width": 960,
+      "height": 591
+    },
+    "panel": {
+      "width": 1207,
+      "height": 240
+    },
+    "surface": {
+      "width": 720,
+      "height": 444
+    },
+    "displayScale": 0.75,
+    "browserZoom": 1,
+    "deviceScaleFactor": 2
+  },
+  "checks": [
+    "Real XTest drag changes CSS viewport and Native bounds with preserved zoom/scale/Page",
+    "Repeated physical drag at Page Zoom 125% preserves both zoom and preview scale with measured CSS conversion",
+    "Full-width drag clamps beyond Native right edge across both layouts and 50/75/100/125 scales; real privacy crops retained",
+    "Physical Auto Fit drag changes CSS viewport, retains fit semantics; real attempted agent-owned drag is blocked",
+    "RU/EN Custom label and actual compositor screenshots",
+    "Hide/reopen, ownership and actual Electron restart retain Custom viewport"
+  ]
+}

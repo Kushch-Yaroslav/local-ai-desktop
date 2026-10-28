@@ -1,0 +1,11 @@
+{
+  "result": "PASS",
+  "checks": [
+    "Natural stop makes one request and one persisted assistant",
+    "50K aggregate budget, three real HTTP streams, same SQLite message, no synthetic user turns",
+    "User Stop durably saves partial chat text",
+    "Backend failure retains partial text in SQLite",
+    "Exact backend input-token exhaustion preserves partial text without invented capacity",
+    "Repeated segment produces no duplicate and no infinite continuation"
+  ]
+}

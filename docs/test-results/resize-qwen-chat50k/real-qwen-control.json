@@ -1,0 +1,365 @@
+{
+  "provider": "real Qwen3.6-35B-A3B via production Agent Runtime V2",
+  "inferenceRequests": 13,
+  "generations": 1,
+  "baseline": "harness reconstruction of prior delivery contract; original /tmp checkpoint unavailable",
+  "status": "error",
+  "error": "Rust Agent Runtime V2 error: Provider connection failed at 127.0.0.1:35057/v1/chat/completions before request submission: Connection refused (os error 111). Saved agent work is retained; reload the model and continue.",
+  "timeline": {
+    "codeImplemented": "historically recorded; reconstructed by harness in this control",
+    "liveDomVerified": "not completed by the model in this control",
+    "criteriaRegistered": [
+      {
+        "deliverable": "delivery-section-verification",
+        "criteria": [
+          "prod1-delivery-text",
+          "prod2-delivery-text",
+          "prod3-no-delivery"
+        ]
+      }
+    ],
+    "formalLedgerVerified": 0,
+    "totalDeliverables": 1,
+    "finalResponseEmitted": false
+  },
+  "loopDetectorStop": false,
+  "fileMutations": 0,
+  "stopCause": "scenario label comparison defect, then pending Browser approval timed out; capacity interruption removed harness HTTP proxy before next inference",
+  "approval": "programmatic Allow once rejected by automatic approval review; not executed, no grant bypass",
+  "toolSequence": [
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:29.439Z",
+      "finishedAt": "2026-10-28T02:17:29.515Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:29.474Z",
+      "finishedAt": "2026-10-28T02:17:29.522Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src/Routres"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:32.353Z",
+      "finishedAt": "2026-10-28T02:17:32.428Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src/Data"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:32.387Z",
+      "finishedAt": "2026-10-28T02:17:32.435Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Routres/Routes.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:35.587Z",
+      "finishedAt": "2026-10-28T02:17:35.703Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Data/products.d.ts"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:35.623Z",
+      "finishedAt": "2026-10-28T02:17:35.710Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/App.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:35.665Z",
+      "finishedAt": "2026-10-28T02:17:35.717Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src/Module/Home"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:41.610Z",
+      "finishedAt": "2026-10-28T02:17:41.685Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src/JSON-Content"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:41.644Z",
+      "finishedAt": "2026-10-28T02:17:41.692Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Module/Home/Home.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:45.243Z",
+      "finishedAt": "2026-10-28T02:17:45.363Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Module/Home/Home.module.css"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:45.279Z",
+      "finishedAt": "2026-10-28T02:17:45.371Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/JSON-Content/base-items.json"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:17:45.321Z",
+      "finishedAt": "2026-10-28T02:17:45.378Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Module/Home/Widgets/Content/DeliveryInfo/DeliveryInfo.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:07.859Z",
+      "finishedAt": "2026-10-28T02:18:07.975Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Routres/ProductGate.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:07.893Z",
+      "finishedAt": "2026-10-28T02:18:08.325Z"
+    },
+    {
+      "toolName": "list_directory",
+      "arguments": {
+        "path": "<fixture>/project/src/Context"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:07.934Z",
+      "finishedAt": "2026-10-28T02:18:08.339Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Module/Home/Widgets/Content/DeliveryInfo/DeliveryInfo.module.css"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:16.818Z",
+      "finishedAt": "2026-10-28T02:18:16.898Z"
+    },
+    {
+      "toolName": "read_file",
+      "arguments": {
+        "path": "<fixture>/project/src/Context/ProductContext.tsx"
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:16.852Z",
+      "finishedAt": "2026-10-28T02:18:16.906Z"
+    },
+    {
+      "toolName": "run_terminal",
+      "arguments": {
+        "command": "lsof -ti:5173 2>/dev/null || echo \"no-port-5173\"",
+        "timeout_ms": 5000
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:31.293Z",
+      "finishedAt": "2026-10-28T02:18:31.381Z"
+    },
+    {
+      "toolName": "run_terminal",
+      "arguments": {
+        "command": "cd <fixture>/project && npx vite --port 5173",
+        "task_action": "start",
+        "timeout_ms": 60000
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:35.467Z",
+      "finishedAt": "2026-10-28T02:18:35.496Z"
+    },
+    {
+      "toolName": "run_terminal",
+      "arguments": {
+        "task_action": "status",
+        "task_id": "managed-1",
+        "timeout_ms": 15000
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:38.807Z",
+      "finishedAt": "2026-10-28T02:18:38.828Z"
+    },
+    {
+      "toolName": "deliverables",
+      "arguments": {
+        "action": "add",
+        "id": "delivery-section-verification",
+        "text": "Verify compact delivery section: product 1 shows \"Consegna stimata: 2–3 giorni\", product 2 shows \"Consegna stimata: 4–5 giorni\", product 3 has no delivery section or gap.",
+        "task": "Check delivery section on products 1, 2, 3",
+        "criteria": [
+          {
+            "id": "prod1-delivery-text",
+            "description": "Product 1 (#/it/product/1) must display a delivery section between main description and other-items with exact text 'Consegna stimata: 2–3 giorni'",
+            "kind": "runtime",
+            "scenario": {
+              "id": "check-prod1-delivery",
+              "goal": "Verify delivery section text on product 1",
+              "target": "http://localhost:5174/#/it/product/1",
+              "preconditions": [
+                {
+                  "source": "url",
+                  "operator": "equals",
+                  "expected": "/#/it/product/1"
+                },
+                {
+                  "source": "visible",
+                  "operator": "equals",
+                  "expected": true,
+                  "selector": "section._delivery_eih9j_1"
+                }
+              ],
+              "required_state": [],
+              "steps": [
+                {
+                  "action": "click",
+                  "selector": "section._delivery_eih9j_1"
+                }
+              ],
+              "assertion": {
+                "source": "text",
+                "selector": "section._delivery_eih9j_1",
+                "operator": "equals",
+                "expected": "Consegna stimata: 2–3 giorni"
+              },
+              "timeout_ms": 10000
+            }
+          },
+          {
+            "id": "prod2-delivery-text",
+            "description": "Product 2 (#/it/product/2) must display a delivery section between main description and other-items with exact text 'Consegna stimata: 4–5 giorni'",
+            "kind": "runtime",
+            "scenario": {
+              "id": "check-prod2-delivery",
+              "goal": "Verify delivery section text on product 2",
+              "target": "http://localhost:5174/#/it/product/2",
+              "preconditions": [
+                {
+                  "source": "url",
+                  "operator": "equals",
+                  "expected": "/#/it/product/2"
+                },
+                {
+                  "source": "visible",
+                  "operator": "equals",
+                  "expected": true,
+                  "selector": "section._delivery_eih9j_1"
+                }
+              ],
+              "required_state": [],
+              "steps": [
+                {
+                  "action": "click",
+                  "selector": "section._delivery_eih9j_1"
+                }
+              ],
+              "assertion": {
+                "source": "text",
+                "selector": "section._delivery_eih9j_1",
+                "operator": "equals",
+                "expected": "Consegna stimata: 4–5 giorni"
+              },
+              "timeout_ms": 10000
+            }
+          },
+          {
+            "id": "prod3-no-delivery",
+            "description": "Product 3 (#/it/product/3) must NOT have any delivery section or empty gap between main description and other-items",
+            "kind": "runtime",
+            "scenario": {
+              "id": "check-prod3-no-delivery",
+              "goal": "Verify no delivery section on product 3",
+              "target": "http://localhost:5174/#/it/product/3",
+              "preconditions": [
+                {
+                  "source": "url",
+                  "operator": "equals",
+                  "expected": "/#/it/product/3"
+                }
+              ],
+              "required_state": [],
+              "steps": [],
+              "assertion": {
+                "source": "visible",
+                "selector": "section._delivery_eih9j_1",
+                "operator": "equals",
+                "expected": false
+              },
+              "timeout_ms": 10000
+            }
+          }
+        ],
+        "paths": [
+          "<fixture>/project/src/Module/Home/Home.tsx",
+          "<fixture>/project/src/Module/Home/Widgets/Content/DeliveryInfo/DeliveryInfo.tsx",
+          "<fixture>/project/src/JSON-Content/base-items.json"
+        ]
+      },
+      "state": "completed",
+      "startedAt": "2026-10-28T02:18:58.892Z",
+      "finishedAt": "2026-10-28T02:18:58.946Z"
+    },
+    {
+      "toolName": "web_project",
+      "arguments": {
+        "action": "qa",
+        "preview_task_id": "managed-1",
+        "scenario_refs": [
+          {
+            "deliverable_id": "delivery-section-verification",
+            "criterion_id": "prod1-delivery-text"
+          }
+        ]
+      },
+      "state": "error",
+      "startedAt": "2026-10-28T02:19:03.343Z",
+      "finishedAt": "2026-10-28T02:19:03.377Z",
+      "diagnostic": "{\"error\":\"ACCEPTANCE_SCENARIO_MISMATCH: the assertion, target, preconditions, input and timeout must match the immutable criterion. Use scenario_refs to execute its registered specification; weakening a test cannot verify the original requirement.\",\"code\":\"TOOL_ERROR\",\"retrySameArguments\":true}"
+    },
+    {
+      "toolName": "web_project",
+      "arguments": {
+        "action": "open",
+        "url": "http://localhost:5174/#/it/product/1",
+        "preview_task_id": "managed-1"
+      },
+      "state": "error",
+      "startedAt": "2026-10-28T02:19:07.007Z",
+      "finishedAt": "2026-10-28T02:24:07.052Z",
+      "diagnostic": "{\"error\":\"Unconfirmed local service was not opened; approve this exact origin through the normal Browser preview dialog or use a current-run project Vite task.\",\"code\":\"PERMISSION_DENIED\",\"reason\":\"timeout\",\"layer\":\"browser_approval\",\"origin\":\"http://localhost:5174\",\"projectRoot\":\"<fixture>/project\",\"retrySameArguments\":false}"
+    }
+  ],
+  "runtimeSnapshotSha256": "142ccaa4e0529514ade0b98690a46b873260c13ab3e5d36a63d1f205b6fa29f3"
+}
