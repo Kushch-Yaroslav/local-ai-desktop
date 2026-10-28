@@ -60,7 +60,8 @@ try{
   assert.equal(segments.at(-1).autoContinuation,false);assert(state.lastMessage.content.length>1000);assert(requests.length<=5,'Bounded scene should finish without repeated continuation');
   result.technicalLength={segments,assistant:state.lastMessage,forwardedCap:128,realInference:true};
   phase='real-user-stop';const stoppedGeneration=await send('Write a very long original adventure story, with twenty detailed chapters and extensive dialogue. Begin the story immediately.');
-  await wait('real-before-stop',async()=>app.evaluate(generation=>global.visualFixture.events.some(e=>e.type==='token'&&e.generationId===generation&&e.content.length>0),stoppedGeneration));
+  await wait('real-before-stop',async()=>app.evaluate((_,generation)=>global.visualFixture.events.some(e=>e.type==='token'&&e.generationId===generation&&e.content.length>0),stoppedGeneration));
+  assert.equal(await ui.evaluate(()=>window.__realDone),false,'Stop must interrupt a live stream, not follow a natural stop');
   await ui.evaluate(({chat,generation})=>window.localAi.chat.stop(chat,generation),{chat,generation:stoppedGeneration});await ui.evaluate(()=>window.__realRequest);
   const stopped=await snapshot();assert.equal(stopped.lastMessage.role,'assistant');assert(stopped.lastMessage.content.length>0);assert(stopped.segments.some(s=>s.generationId===stoppedGeneration&&s.decision==='user_stop'));
   result.userStop={characters:stopped.lastMessage.content.length,saved:true,segments:stopped.segments.filter(s=>s.generationId===stoppedGeneration)};
