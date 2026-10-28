@@ -8,6 +8,8 @@ export type ContextWindow = { requested: number; active: number; supported?: num
 export type InferenceDiagnostics = Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt' | 'agentStepCount' | 'finishReason'>;
 /** Ephemeral metadata for safe request diagnostics. Never serialized as model input. */
 export type ToolInferenceRequestContext = {
+  /** Optional lower per-request cap for ordinary chat continuation only. */
+  maxOutputTokens?: number;
   generationId?: string;
   conversationId?: string;
   agentStep?: number;

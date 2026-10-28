@@ -8,6 +8,7 @@ import { WebBrowserService, activityForWebTool, webToolDefinitions, type WebBrow
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
 import { attachmentDataTool } from './attachment-service';
 import { log } from './logger';
+import {CHAT_OUTPUT_TOKEN_LIMIT,CHAT_CONTINUATION_REQUEST_LIMIT,ChatContinuationBoundary,chatContinuationInstruction} from './chat-continuation';
 import { QwenContentBuffer } from './qwen-content-buffer';
 
 const maxModelTurns = 12;
@@ -76,6 +77,7 @@ export class WebChatService {
     const runId = generationId ?? randomUUID(); const started = performance.now();
     const trace = (stage: string, fields: Record<string, unknown> = {}) => { try { log('rich.chat.lifecycle', { runId, conversationId: history[0]?.conversationId, stage, elapsedMs: Math.round(performance.now() - started), ...fields }); } catch { /* diagnostics cannot fail inference */ } };
     trace('submitted');
+    let answerText='',outputTokens=0,evalNanos=0,continuations=0,continuing=false;
     let session: WebBrowserSession | undefined; let sessionPromise: Promise<WebBrowserSession> | undefined;
     const ensureSession = () => sessionPromise ??= this.web.openSession().then((opened) => {
       if (signal.aborted) { void opened.close(); throw new Error('Web request cancelled'); }
@@ -104,11 +106,12 @@ export class WebChatService {
         yield { type: 'model-state', state: 'waiting' };
         yield waiting(turn);
         let response: ToolMessage | undefined; let rawContent = ''; let reasoningSeen = false;
-        let outputStarted = false;
+        let outputStarted = false;let segmentVisible='';
+        const boundary=new ChatContinuationBoundary(continuing?answerText:'');
         const buffer = new QwenContentBuffer(parseQwenToolText, diagrams);
         const stream = this.backend.streamWithTools
-          ? this.backend.streamWithTools(model, messages, availableTools, signal, contextWindow, reasoningMode, { conversationId: history[0]?.conversationId, generationId: runId, agentStep: turn, phase: turn === 0 ? 'initial' : exhausted ? 'final' : 'post_tool' })
-          : (async function* (backend: ToolCallingBackend) { yield { type: 'response' as const, response: await backend.chatWithTools(model, messages, availableTools, signal, contextWindow, reasoningMode) }; })(this.backend);
+          ? this.backend.streamWithTools(model, messages, availableTools, signal, contextWindow, reasoningMode, { conversationId: history[0]?.conversationId, generationId: runId, agentStep: turn,maxOutputTokens:Math.min(32768,CHAT_OUTPUT_TOKEN_LIMIT-outputTokens), phase: turn === 0 ? 'initial' : exhausted ? 'final' : 'post_tool' })
+          : (async function* (backend: ToolCallingBackend) { yield { type: 'response' as const, response: await backend.chatWithTools(model, messages, availableTools, signal, contextWindow, reasoningMode,{maxOutputTokens:Math.min(32768,CHAT_OUTPUT_TOKEN_LIMIT-outputTokens)}) }; })(this.backend);
         for await (const delta of stream) {
           if (signal.aborted) return;
           if (!outputStarted && (delta.type === 'token' || delta.type === 'thinking' || delta.type === 'tool_call_delta')) { outputStarted = true; yield { type: 'model-state', state: 'streaming' }; }
@@ -118,18 +121,19 @@ export class WebChatService {
             yield { type: 'thinking', content: delta.content };
           } else if (delta.type === 'token') {
             if (!rawContent) trace('first_token', { turn }); rawContent += delta.content;
-            const content = buffer.push(delta.content);
-            if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } yield { type: 'token', content }; }
+            const content = boundary.push(buffer.push(delta.content));
+            if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;yield { type: 'token', content }; }
           } else if (delta.type === 'tool_call_delta' && delta.name) trace('tool_detected', { turn, tool: delta.name });
         }
         if (signal.aborted) return;
         if (!response) throw new Error('The model stream ended without a completed response.');
         if (!rawContent) {
           if (response.thinking && !reasoningSeen) { trace('first_reasoning', { turn }); yield { type: 'thinking', content: response.thinking }; }
-          const content = buffer.push(response.content ?? '');
-          if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } yield { type: 'token', content }; }
+          const content = boundary.push(buffer.push(response.content ?? ''));
+          if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;yield { type: 'token', content }; }
         }
-        const tail = buffer.finish(); if (tail) yield { type: 'token', content: tail };
+        const tail=boundary.push(buffer.finish())+boundary.finish();if(tail){segmentVisible+=tail;answerText+=tail;yield {type:'token',content:tail};}
+        outputTokens+=Math.max(1,response.inference?.evalCount??Math.ceil(((response.content??'').length+(response.thinking??'').length)/2));evalNanos+=response.inference?.evalDuration??0;
         yield { type: 'tool', activity: { id: `${runId}:model:${turn}`, label: 'Ожидаю ответ модели', kind: 'progress', state: 'completed' } };
         trace('model_completed', { turn, inputTokens: response.inference?.inputTokens, outputTokens: response.inference?.evalCount });
         const inline = parseQwenToolText(response.content ?? '');
@@ -141,11 +145,17 @@ export class WebChatService {
         for (const call of inline.calls) if (!calls.some((existing) => existing.name === call.name && canonicalArguments(existing.arguments) === canonicalArguments(call.arguments))) calls.push(call);
         for (const call of calls) trace('tool_detected', { turn, tool: call.name, callId: call.id });
         for (const call of calls) { if (callIds.has(call.id)) call.id = randomUUID(); callIds.add(call.id); }
-        if (!calls.length || exhausted) {
-          if (response.inference) yield { type: 'diagnostics', diagnostics: { ...response.inference, agentStepCount: toolActions, finishReason: response.finish_reason ?? 'stop' } };
-          trace('final_completed', { turn, toolActions, exhausted });
-          yield { type: 'done', finishReason: exhausted ? 'length' : response.finish_reason ?? 'stop' }; return;
+        if(!calls.length&&!exhausted&&response.finish_reason==='length'&&outputTokens<CHAT_OUTPUT_TOKEN_LIMIT&&segmentVisible.trim()&&continuations<CHAT_CONTINUATION_REQUEST_LIMIT){
+          messages.push({role:'assistant',content:segmentVisible},{role:'user',content:chatContinuationInstruction});
+          continuing=true;continuations++;turn--;trace('automatic_continuation',{outputTokens,continuations,remaining:CHAT_OUTPUT_TOKEN_LIMIT-outputTokens});continue;
         }
+        if (!calls.length || exhausted) {
+          if (response.inference) yield { type: 'diagnostics', diagnostics: { ...response.inference,...(continuations?{evalCount:outputTokens,...(evalNanos?{evalDuration:evalNanos,tokensPerSecond:outputTokens/(evalNanos/1e9)}:{})}:{}), agentStepCount: toolActions, finishReason: response.finish_reason ?? 'stop' } };
+          trace('final_completed', { turn, toolActions, exhausted });
+          yield { type: 'done', finishReason: exhausted||outputTokens>=CHAT_OUTPUT_TOKEN_LIMIT ? 'length' : response.finish_reason ?? 'stop' }; return;
+        }
+        continuing=false;
+        if(outputTokens>=CHAT_OUTPUT_TOKEN_LIMIT){yield {type:'done',finishReason:'length'};return;}
         messages.push({ role: 'assistant', content: inline.visibleContent, tool_calls: calls.map((call) => ({ id: call.id, type: 'function', function: { name: call.name, arguments: JSON.stringify(call.arguments) } })) });
         for (const call of calls) {
           if (signal.aborted) return;

@@ -1286,6 +1286,11 @@ export function registerIpc(): void {
       if (current()) event.sender.send('chat:stream', { type: 'error', conversationId: request.conversationId, generationId: generation.id, message: 'Не удалось выполнить запрос', details: error instanceof Error ? error.message : String(error) });
     } finally {
       try {
+        // Chat has no AnalysisRun checkpoint. Retain streamed text on Stop or
+        // transport/context failure before releasing the generation slot.
+        if(!run&&generation.mode==='chat'&&(!completed||failed||abort.signal.aborted)&&(output||thinking||generation.richArtifacts.length)){
+          database.addMessage(request.conversationId,'assistant',output,undefined,[],{...(thinking?{thinking}:{}),...(thinkingTimeline.length?{thinkingTimeline}:{}),...(generation.richArtifacts.length?{richArtifacts:generation.richArtifacts}:{})});
+        }
         // Task ownership is persisted before model/attachment preparation. Stop
         // during an awaited startup step must finalize that attempt as well.
         if (run && !runFinalized) {

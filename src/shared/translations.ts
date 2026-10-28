@@ -1,5 +1,8 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Ответ сохранён. Достигнут предел автоматического продолжения (до 50 000 токенов), доступного контекста или полезного прогресса.": "The answer was saved. Automatic continuation reached its output budget (up to 50,000 tokens), available context, or useful progress limit.",
+  "Продолжи предыдущий ответ точно с места остановки, без повторения уже написанного.": "Continue the previous answer exactly where it stopped, without repeating existing text.",
+  "Продолжить ответ": "Continue answer",
   "Произвольный размер": "Custom size",
   "Изменить размер браузера": "Resize browser",
   "Перейти": "Go",

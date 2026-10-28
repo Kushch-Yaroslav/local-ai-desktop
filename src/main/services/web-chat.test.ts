@@ -1,3 +1,4 @@
+import './test-runtime-isolation';
 import assert from 'node:assert/strict';
 import { setLanguage } from '../../shared/locale';
 import type { ChatMessage, StreamEvent } from '../../shared/types';
