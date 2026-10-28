@@ -6,6 +6,7 @@ import { useAppStore } from '../store/app-store';
 import { formatContextTokens } from '../../shared/context-format';
 import { effectiveModes, effectiveReasoning } from '../../shared/conversation-settings';
 import { chatModeLabel, formatCount, formatDuration, reasoningControlText, reasoningEffortLabel, reasoningModeLabel, thinkingLabel, tokensWord } from '../../shared/localization';
+import type { AgentTelemetry } from '../../shared/types';
 
 export { formatContextTokens } from '../../shared/context-format';
 
@@ -14,7 +15,15 @@ const modeLabel = chatModeLabel;
 const number = formatCount;
 // Preserve measured subtotals while another request has not reported usage.
 // The unknown part stays explicit rather than turning into an estimated zero.
-const metric = (value: number | undefined, complete?: boolean, reported?: boolean) => complete === false ? reported ? `${number(value)} + —` : '—' : number(value);
+const metric = (value: number | undefined, complete?: boolean, reported?: boolean) => complete === false ? reported ? number(value) : '—' : number(value);
+
+function runTotal(telemetry: AgentTelemetry): string {
+  if (telemetry.source !== 'chat') return number(telemetry.inputTokens + telemetry.outputTokens);
+  const inputAvailable = telemetry.inputTokensKnown !== false || telemetry.inputTokensReported === true;
+  const outputAvailable = telemetry.outputTokensKnown !== false || telemetry.outputTokensReported === true;
+  if (!inputAvailable && !outputAvailable) return '—';
+  return number((inputAvailable ? telemetry.inputTokens : 0) + (outputAvailable ? telemetry.outputTokens : 0));
+}
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   useLocale();
@@ -64,7 +73,7 @@ export function ContextUsage({ initiallyOpen = false }: { initiallyOpen?: boolea
     <div className="ctx-grid">
       <Stat label={t("Входные токены")} value={metric(agentTelemetry?.inputTokens,agentTelemetry?.inputTokensKnown,agentTelemetry?.inputTokensReported)} />
       <Stat label={t("Выходные токены")} value={metric(agentTelemetry?.outputTokens,agentTelemetry?.outputTokensKnown,agentTelemetry?.outputTokensReported)} />
-      <Stat label={t("Всего за запуск")} value={agentTelemetry ? metric(agentTelemetry.inputTokens + agentTelemetry.outputTokens,agentTelemetry.inputTokensKnown !== false && agentTelemetry.outputTokensKnown !== false,agentTelemetry.inputTokensReported || agentTelemetry.outputTokensReported) : '—'} />
+      <Stat label={t("Всего за запуск")} value={agentTelemetry ? runTotal(agentTelemetry) : '—'} />
     </div>
     {typeof cachedTokens === 'number' && <div className="ctx-row"><span>{t("Кэш промпта")}</span><b>{cacheRate === null ? `${number(cachedTokens)} ${tokensWord(cachedTokens)}` : `${cacheRate.toFixed(0)}% · ${number(cachedTokens)} ${tokensWord(cachedTokens)}`}</b></div>}
     {typeof agentTelemetry?.cacheWriteTokens === 'number' && <div className="ctx-row"><span>{t("Запись в кэш")}</span><b>{number(agentTelemetry.cacheWriteTokens)} {tokensWord(agentTelemetry.cacheWriteTokens)}</b></div>}
@@ -75,6 +84,6 @@ export function ContextUsage({ initiallyOpen = false }: { initiallyOpen?: boolea
       <Stat label={t(chatTelemetry ? 'Вызовы инструментов' : 'Действия')} value={String(agentTelemetry?.actions ?? '—')} />
       <Stat label={t("Сжатия")} value={String(agentTelemetry?.compactions ?? 0)} />
     </div>
-    <small>{status}{chatTelemetry ? ` ${t('Частичная сумма: измеренное + —.')}` : ''}</small>
+    <small>{status}{chatTelemetry ? ` ${t('Показаны только полученные значения; сумма может быть неполной.')}` : ''}</small>
   </section>}</div>;
 }

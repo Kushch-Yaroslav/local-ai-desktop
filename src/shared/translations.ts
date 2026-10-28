@@ -1,6 +1,6 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
-  "Частичная сумма: измеренное + —.": "Partial total: measured + —.",
+  "Показаны только полученные значения; сумма может быть неполной.": "Only reported values are shown; the total may be incomplete.",
   "Запросы модели": "Model requests",
   "Вызовы инструментов": "Tool calls",
   "Контекст последнего inference-запроса. Токены за запуск включают обработку документов и сжатия. Неизвестные метрики: —.": "Context of the latest inference request. Run totals include document processing and compaction. Unavailable metrics: —.",
