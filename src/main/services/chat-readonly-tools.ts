@@ -49,9 +49,13 @@ export class ChatReadonlyTools implements ChatReadonlyScope {
 
   context(): string {
     const files = this.db.listAttachmentsForConversation(this.conversationId);
-    return `${sourceInstruction}\nPersistent conversation attachments (use list_attachments for more): ${JSON.stringify(files.slice(0,100).map(a=>({attachment_id:a.id,filename:a.filename,type:a.kind,bytes:a.size,status:a.status,text_characters:a.metadata?.originalExtractedCharacters,content_hash:a.contentHash}))) }\nRead-only tools may only read these attachments. No terminal, filesystem edits, git, project writes or browser interactions are available. For whole-document requests call read_document; it owns sequential progress and compaction. Never report full reading unless completed=true. After compaction resume current_offset, not your own memory audit. Sources remain accessible across messages.`;
+    return `${sourceInstruction}\nPersistent conversation attachments (use list_attachments for more): ${JSON.stringify(files.slice(0,100).map(a=>({attachment_id:a.id,filename:a.filename,type:a.kind,bytes:a.size,status:a.status,reading_progress:a.metadata?.textHash?this.manifestProgress(a.id,String(a.metadata.textHash),Number(a.metadata.originalExtractedCharacters??0)):undefined,text_characters:a.metadata?.originalExtractedCharacters,content_hash:a.contentHash}))) }\nRead-only tools may only read these attachments. No terminal, filesystem edits, git, project writes or browser interactions are available. For whole-document requests call read_document; it owns sequential progress and compaction. Never report full reading unless completed=true. After compaction resume current_offset, not your own memory audit. Sources remain accessible across messages.`;
   }
 
+  private manifestProgress(id:string,hash:string,total:number) {
+    const progress=readingProgress(this.notes(id,hash),total);
+    return {...progress,last_processed_chunk:progress.last_processed_chunk?{observation_id:progress.last_processed_chunk.observationId,start:progress.last_processed_chunk.start,end:progress.last_processed_chunk.end,summary_preview:progress.last_processed_chunk.summary.slice(0,500)}:null};
+  }
   private async source(id: string, signal: AbortSignal) { return this.attachments.fullText(this.conversationId, id, signal); }
   private notes(id: string, hash: string) { return this.db.documentNotes(this.conversationId,id,hash); }
   private save(id: string, hash: string, start: number, end: number, summary: string, processed: boolean): DocumentChunkNote {

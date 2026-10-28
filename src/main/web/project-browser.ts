@@ -546,7 +546,17 @@ export class ProjectBrowserSession {
   private async diagnosticRead(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
     if (!['read','inspect'].includes(String(args.action)) || Object.keys(args).some(key=>!['action','selector'].includes(key))) throw new Error('Chat Browser capability is read-only.');
     signal.throwIfAborted();
-    return this.exclusive(()=>this.executePage(args,AbortSignal.any([signal,this.abort.signal]),undefined,randomUUID()));
+    return this.exclusive(async () => {
+      if (!this.reusable || !this.previewApproved || !this.page || new URL(this.page.url()).origin !== this.origin) throw new Error('Approved Browser source unavailable.');
+      signal.throwIfAborted();
+      const context = await this.read();
+      if (args.action === 'read') return context;
+      if (typeof args.selector !== 'string' || !args.selector.trim() || args.selector.length > 500) throw new Error('A bounded selector is required.');
+      const inspection = await this.page.evaluate<ReturnType<typeof inspectBrowserDom>>(`(${inspectBrowserDom.toString()})(${JSON.stringify({selector:args.selector,properties:diagnosticStyles})},${resolveBrowserAnchor.toString()})`);
+      signal.throwIfAborted();
+      if (new URL(this.page.url()).origin !== this.origin) throw new Error('Page left approved preview origin.');
+      return { ...context, ...inspection, provenance:{kind:'current-browser-observation',observedAt:new Date().toISOString(),browserSession:this.stateIdentity} };
+    });
   }
 
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {

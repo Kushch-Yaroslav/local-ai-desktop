@@ -8,6 +8,7 @@ import { WebBrowserService, activityForWebTool, webToolDefinitions, type WebBrow
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
 import { attachmentDataTool } from './attachment-service';
 import { log } from './logger';
+import { fitChatContext } from './chat-context';
 import { chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
 import {CHAT_OUTPUT_TOKEN_LIMIT,CHAT_CONTINUATION_REQUEST_LIMIT,ChatContinuationBoundary,chatContinuationInstruction} from './chat-continuation';
 import { QwenContentBuffer } from './qwen-content-buffer';
@@ -86,11 +87,12 @@ export class WebChatService {
     });
     const closeOnAbort = () => { void session?.close(); };
     signal.addEventListener('abort', closeOnAbort, { once: true });
-    const messages: ToolMessage[] = chatMessagesWithSystemPrefix(history, [
+    let messages: ToolMessage[] = chatMessagesWithSystemPrefix(history, [
       capabilitySystemContext({ webAvailable: webEnabled }),
       chatCompletionGuidance(reasoningModeOf(reasoningMode) === 'deep' ? 'deep' : 'fast'),
       modelLanguageDirective(), chatToolInstruction, ...(readonlyScope ? [readonlyScope.context()] : []),
     ], history[0]?.conversationId ?? 'rich-chat', runId).map(({ role, content, images }) => ({ role, content, ...(images?.length ? { images } : {}) }));
+    const baseSystemPrefix = messages[0]?.content ?? '';
     const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
     const usedAttachmentSources = new Map<string, ArtifactSource>();
     const failures = new Map<string, number>(); const accepted = new Map<string, RichArtifact>(); const diagrams = new Set<string>();
@@ -104,6 +106,12 @@ export class WebChatService {
         const exhausted = turn === modelTurnLimit || toolActions >= toolActionLimit;
         if (exhausted) messages[0].content += '\nThe host tool execution budget is exhausted. Answer from the recorded results; accurately disclose any missing visualization or information. Do not print tool protocol or invent successful artifacts.';
         const availableTools = exhausted ? undefined : tools;
+        const fitted = await fitChatContext(this.backend, model, messages, availableTools, signal, contextWindow, reasoningMode, history.filter(m=>m.role==='user').at(-1)?.content??'', readonlyScope?.context(),baseSystemPrefix);
+        if (fitted.compacted) {
+          messages = fitted.messages;
+          trace('context_compacted',{inputTokens:fitted.inputTokens,contextWindow});
+          yield {type:'tool',activity:{id:`${runId}:context:${turn}:${continuations}`,label:'Сжатие контекста',kind:'context',state:'completed',detail:'Источники и прогресс чтения сохранены'}};
+        }
         trace('model_started', { turn, toolCount: availableTools?.length ?? 0, toolActions });
         yield { type: 'model-state', state: 'waiting' };
         yield waiting(turn);
@@ -149,6 +157,7 @@ export class WebChatService {
         for (const call of calls) { if (callIds.has(call.id)) call.id = randomUUID(); callIds.add(call.id); }
         if(!calls.length&&!exhausted&&response.finish_reason==='length'&&outputTokens<CHAT_OUTPUT_TOKEN_LIMIT&&segmentVisible.trim()&&continuations<CHAT_CONTINUATION_REQUEST_LIMIT){
           messages.push({role:'assistant',content:segmentVisible},{role:'user',content:chatContinuationInstruction});
+          yield {type:'tool',activity:{id:`${runId}:continuation:${continuations}`,label:'Продолжение ответа',kind:'progress',state:'running'}};
           continuing=true;continuations++;turn--;trace('automatic_continuation',{outputTokens,continuations,remaining:CHAT_OUTPUT_TOKEN_LIMIT-outputTokens});continue;
         }
         if (!calls.length || exhausted) {

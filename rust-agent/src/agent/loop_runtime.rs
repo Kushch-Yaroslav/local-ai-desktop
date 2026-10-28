@@ -655,6 +655,8 @@ fn dynamic_tail(
     if state.pause_offered {
         tail.push("<steering_options>The user just sent a message while you were working. If, and only if, it clearly asks you to pause or stop at this point, call pause_run. If it asks to continue, check, change or add anything, do not call it: follow the message and keep working.</steering_options>".to_owned());
     }
+    let cursors = source_reading_cursors(transcript);
+    if !cursors.is_empty() { tail.push(cursors); }
     let memory = if transcript.is_finalizing() {
         state.task_memory.prompt_for_closeout(objective)
     } else {
@@ -1158,6 +1160,28 @@ fn task_memory_conflict(
 }
 
 /// Why this evidence does not support a confirmed claim, or `None` if it does.
+fn source_reading_cursors(transcript: &Transcript) -> String {
+    let mut sources = std::collections::BTreeMap::new();
+    // Latest successful read per source. Historical recovery and memory views do
+    // not advance this cursor; checksum validation remains in the journal loader.
+    for observation in transcript.observations() {
+        if observation.tool == "read_file" && !observation.error {
+            if let Some(source) = observation.source.as_deref() {
+                sources.insert(source, observation);
+            }
+        }
+    }
+    let lines = sources.values().rev().take(4).map(|observation| {
+        format!("{} source={} revision={} requested={} returned={}", observation.id,
+            observation.source.as_deref().unwrap_or("unknown"),
+            observation.source_revision.as_deref().unwrap_or("unknown"),
+            observation.requested_range.as_deref().unwrap_or("unknown"),
+            observation.returned_range.as_deref().unwrap_or("unknown"))
+    }).collect::<Vec<_>>();
+    if lines.is_empty() { return String::new(); }
+    format!("<source_reading_cursors>\nLatest delivered file ranges (not proof that every earlier range was processed). Continue sequential reading at the returned next_offset_chars for the same unchanged source. An observation_read or task_memory view does not advance file progress. tm-* IDs are memory entries, never observation IDs; cite their existing obs-* evidence. Re-read an older range only for a concrete missing fact, contradiction or changed source; do not repeatedly audit all memory instead of continuing. Never claim EOF from a partial range.\n{}\n</source_reading_cursors>", lines.join("\n"))
+}
+
 fn evidence_problem(evidence: &str, transcript: &Transcript) -> Option<String> {
     let reference_character = |character: char| {
         character.is_alphanumeric() || matches!(character, '-' | '_' | '.' | '/' | '\\')
@@ -7944,6 +7968,30 @@ mod tests {
         assert_eq!(exact["content"], "x".repeat(32));
         assert!(visible.get("_result_policy").is_none());
         assert_eq!(transcript.observations().len(), 1);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn source_cursor_survives_compaction_and_memory_views_without_advancing() {
+        let base = std::env::temp_dir().join(format!("source-cursor-{}-{:?}", std::process::id(), std::thread::current().id()));
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join("book.txt"), "source").unwrap();
+        let mut transcript = Transcript::durable(&base.join("store"), "run", &[], base.to_str()).unwrap();
+        transcript.push_run_user(json!({"role":"user","content":"read all"}));
+        for (offset, next) in [(0,24000), (24000,48000)] {
+            let call = format!("read-{offset}");
+            transcript.assistant_tool_turn(String::new(), &[ValidatedCall { id:call.clone(), name:"read_file".into(), arguments:json!({"path":"book.txt","offset_chars":offset}) }]);
+            transcript.tool_result(&call,"read_file",json!({"path":"book.txt","start_line":1,"end_line":2,"offset_chars":offset,"next_offset_chars":next,"truncated":true,"content":"delivered"}).to_string());
+        }
+        let before = source_reading_cursors(&transcript);
+        assert!(before.contains("next_offset_chars=48000"));
+        transcript.assistant_tool_turn(String::new(), &[ValidatedCall { id:"view".into(), name:"task_memory".into(), arguments:json!({"action":"view"}) }]);
+        transcript.tool_result("view","task_memory","{\"entries\":[]}".into());
+        for _ in 0..4 { transcript.assistant_message("later work".into()); }
+        let plan = transcript.compaction_plan(2).unwrap();
+        transcript.compact("summary".into(), plan.covers);
+        assert_eq!(source_reading_cursors(&transcript), before);
+        assert!(before.contains("not proof") && before.contains("tm-*"));
         std::fs::remove_dir_all(base).unwrap();
     }
 
