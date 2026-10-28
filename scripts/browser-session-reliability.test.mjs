@@ -19,13 +19,19 @@ const session=new ProjectBrowserSession(root,join(root,'captures'),undefined,obs
 const call=async args=>{const result=await session.execute(args,controller.signal,confirm);assert(!result.error,JSON.stringify(result));return result;};
 try{
  await call({action:'open',path:'index.html#scene'});const identity=await page.evaluate(()=>window.identity);await call({action:'qa'});await session.finishRun(false);assert.equal(states.at(-1).ownership,'user');broker.endRun(run);controller.abort();
+ const readChat=hub.chatDiagnosticReader(sender,'chat');assert(readChat,'Approved static Browser must be readable in Chat');
+ const diagnosticSignal=new AbortController().signal,priorUrl=page.url(),priorPrompts=prompts,diagnosticIdentity=await page.evaluate(()=>window.identity);
+ assert(JSON.stringify(await readChat({action:'read'},diagnosticSignal)).includes('Session A'));
+ await readChat({action:'inspect',selector:'input'},diagnosticSignal);
+ for(const args of [{action:'click',selector:'input'},{action:'open',url:'https://example.com'},{action:'read',script:'document.body.remove()'}])await assert.rejects(readChat(args,diagnosticSignal),/read-only/);
+ assert.equal(page.url(),priorUrl);assert.equal(await page.evaluate(()=>window.identity),diagnosticIdentity);assert.equal(states.at(-1).ownership,'user');assert.equal(prompts,priorPrompts);assert.equal(hub.chatDiagnosticReader(sender,'another-chat'),undefined);
  run='b';controller=new AbortController();confirm=conf();session.beginRun(observer(),{projectId:'p1',securityMode:'strict',signal:new AbortController().signal});await call({action:'open',path:'index.html#scene'});await call({action:'screenshot'});assert.equal(prompts,1,'Conversation grant spans runs and tools');assert.equal(states.at(-1).ownership,'agent');
  await session.pauseRun();assert.equal(states.at(-1).ownership,'paused');await session.finishRun(false);broker.endRun(run);
  run='resume';confirm=conf();session.beginRun(observer(),{projectId:'p1',securityMode:'strict'});await call({action:'read'});assert.equal(prompts,1);await session.finishRun(false);
  await writeFile(join(root,'index.html'),'<title>Session edited</title><input>');await new Promise(r=>setTimeout(r,1000));assert.equal(await page.title(),'Session edited','Live watcher remains usable after run handover');
  const bad=await session.execute({action:'open',url:'http://127.0.0.1:9/other'},controller.signal,confirm);assert(bad.error);assert(!page.isClosed());await session.finishRun(false);assert(!page.isClosed(),'A rejected operation must not destroy the previously approved user preview at run finish');await call({action:'read'});
- broker.revoke('chat');decision='once';await Promise.all([call({action:'read'}),call({action:'read'})]);assert.equal(prompts,3,'Once permits just the requested operation');
- await session.close(false,'user_closed');const closed=await session.execute({action:'read'},controller.signal,confirm);assert.equal(closed.code,'BROWSER_SESSION_UNAVAILABLE');assert.equal(closed.browser_session.reason,'user_closed');
+ broker.revoke('chat');decision='once';const beforeOnce=prompts;await Promise.all([call({action:'read'}),call({action:'read'})]);assert.equal(prompts,beforeOnce+2,'Once permits just the requested operation');
+ await session.close(false,'user_closed');await assert.rejects(readChat({action:'read'},diagnosticSignal),/unavailable/);const closed=await session.execute({action:'read'},controller.signal,confirm);assert.equal(closed.code,'BROWSER_SESSION_UNAVAILABLE');assert.equal(closed.browser_session.reason,'user_closed');
  console.log('PASS actual Chromium: run A/B, QA+screenshot, ended/aborted old signal, persistent chat grant, once per operation, ownership Pause/Resume, live reload, scoped origin refusal preserves Page, explicit close.');
  void identity;
 }finally{await session.close();}

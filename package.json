@@ -6,6 +6,7 @@
   "description": "Локальный AI-клиент для Linux",
   "main": "dist/main/index.js",
   "scripts": {
+    "test:chat-readonly": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/chat-readonly-regressions.mjs && node scripts/chat-readonly-agent.test.mjs && node scripts/chat50k-electron.test.mjs && node scripts/browser-session-reliability.test.mjs && node scripts/runtime-test-isolation.test.mjs",
     "test:p3": "npm run build && npm run lint && cargo test --locked --manifest-path rust-agent/Cargo.toml && node scripts/p3-regressions.test.mjs",
     "test:p3:qwen": "npm run build && node scripts/p3-backend-probe.test.mjs && node scripts/p3-qwen-matrix.test.mjs && node scripts/p2-runtime-reload-qwen.test.mjs && node scripts/native-browser-qwen.test.mjs",
     "dev": "npm run build:rust-agent && concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
