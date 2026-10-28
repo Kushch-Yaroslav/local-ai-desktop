@@ -8,12 +8,13 @@ import { WebBrowserService, activityForWebTool, webToolDefinitions, type WebBrow
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
 import { attachmentDataTool } from './attachment-service';
 import { log } from './logger';
+import { chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
 import {CHAT_OUTPUT_TOKEN_LIMIT,CHAT_CONTINUATION_REQUEST_LIMIT,ChatContinuationBoundary,chatContinuationInstruction} from './chat-continuation';
 import { QwenContentBuffer } from './qwen-content-buffer';
 
 const maxModelTurns = 12;
 const maxToolActions = 16;
-const supportedToolNames = new Set(['web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'create_visual_artifact', 'read_attachment_data']);
+const supportedToolNames = new Set(['web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'create_visual_artifact', 'read_attachment_data', ...chatReadonlyNames]);
 
 type RoutedCall = { id: string; name: string; arguments: Record<string, unknown>; parseError?: string };
 type ParsedToolText = { calls: RoutedCall[]; visibleContent: string };
@@ -72,7 +73,7 @@ For analysis use one coherent dataset across metrics, charts and tables. Numeric
 export class WebChatService {
   constructor(private readonly backend: ToolCallingBackend & LlmBackend, private readonly web: WebBrowserService, private readonly validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>) {}
 
-  async *stream(model: string, history: ChatMessage[], signal: AbortSignal, contextWindow: number, reasoningMode: ReasoningInput, webEnabled = true, readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>, validateDiagram = this.validateDiagram, generationId?: string): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], signal: AbortSignal, contextWindow: number, reasoningMode: ReasoningInput, webEnabled = true, readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>, validateDiagram = this.validateDiagram, generationId?: string, readonlyScope?: ChatReadonlyScope): AsyncIterable<StreamEvent> {
     if (signal.aborted) return;
     const runId = generationId ?? randomUUID(); const started = performance.now();
     const trace = (stage: string, fields: Record<string, unknown> = {}) => { try { log('rich.chat.lifecycle', { runId, conversationId: history[0]?.conversationId, stage, elapsedMs: Math.round(performance.now() - started), ...fields }); } catch { /* diagnostics cannot fail inference */ } };
@@ -88,18 +89,19 @@ export class WebChatService {
     const messages: ToolMessage[] = chatMessagesWithSystemPrefix(history, [
       capabilitySystemContext({ webAvailable: webEnabled }),
       chatCompletionGuidance(reasoningModeOf(reasoningMode) === 'deep' ? 'deep' : 'fast'),
-      modelLanguageDirective(), chatToolInstruction,
+      modelLanguageDirective(), chatToolInstruction, ...(readonlyScope ? [readonlyScope.context()] : []),
     ], history[0]?.conversationId ?? 'rich-chat', runId).map(({ role, content, images }) => ({ role, content, ...(images?.length ? { images } : {}) }));
     const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
     const usedAttachmentSources = new Map<string, ArtifactSource>();
     const failures = new Map<string, number>(); const accepted = new Map<string, RichArtifact>(); const diagrams = new Set<string>();
     const callIds = new Set<string>();
-    const tools = [...(webEnabled ? webToolDefinitions : []), visualArtifactTool, ...(attachmentTool ? [attachmentTool] : [])];
+    const tools = [...(webEnabled ? webToolDefinitions : []), visualArtifactTool, ...(attachmentTool ? [attachmentTool] : []), ...(readonlyScope?.definitions ?? [])];
+    const modelTurnLimit = readonlyScope ? 80 : maxModelTurns, toolActionLimit = readonlyScope ? 96 : maxToolActions;
     let toolActions = 0; let visibleStarted = false;
     const waiting = (turn: number): StreamEvent => ({ type: 'tool', activity: { id: `${runId}:model:${turn}`, label: 'Ожидаю ответ модели', kind: 'progress', state: 'running' } });
     try {
-      for (let turn = 0; !signal.aborted && turn <= maxModelTurns; turn += 1) {
-        const exhausted = turn === maxModelTurns || toolActions >= maxToolActions;
+      for (let turn = 0; !signal.aborted && turn <= modelTurnLimit; turn += 1) {
+        const exhausted = turn === modelTurnLimit || toolActions >= toolActionLimit;
         if (exhausted) messages[0].content += '\nThe host tool execution budget is exhausted. Answer from the recorded results; accurately disclose any missing visualization or information. Do not print tool protocol or invent successful artifacts.';
         const availableTools = exhausted ? undefined : tools;
         trace('model_started', { turn, toolCount: availableTools?.length ?? 0, toolActions });
@@ -160,16 +162,24 @@ export class WebChatService {
         for (const call of calls) {
           if (signal.aborted) return;
           const signature = `${call.name}:${canonicalArguments(call.arguments)}`;
-          const activity = { id: call.id, ...(call.name === 'create_visual_artifact' ? { metadata: { artifactType: String((call.arguments.artifact as { type?: string })?.type ?? '') } } : {}), label: call.name === 'create_visual_artifact' ? ((call.arguments.artifact as { type?: string })?.type === 'chart' ? 'Создаю график' : (call.arguments.artifact as { type?: string })?.type === 'diagram' ? 'Отрисовка диаграммы…' : 'Создаю визуализацию') : call.name === 'read_attachment_data' ? 'Подготавливаю данные' : activityForWebTool(call).label, kind: call.name === 'create_visual_artifact' || call.name === 'read_attachment_data' ? 'other' as const : 'web' as const };
+          const activity = { id: call.id, ...(call.name === 'create_visual_artifact' ? { metadata: { artifactType: String((call.arguments.artifact as { type?: string })?.type ?? '') } } : {}), label: chatReadonlyNames.has(call.name) ? (call.name === 'read_document' || call.name === 'read_file' ? 'Чтение файла' : call.name === 'save_chat_note' ? 'Сохранение заметок' : 'Источники разговора') : call.name === 'create_visual_artifact' ? ((call.arguments.artifact as { type?: string })?.type === 'chart' ? 'Создаю график' : (call.arguments.artifact as { type?: string })?.type === 'diagram' ? 'Отрисовка диаграммы…' : 'Создаю визуализацию') : call.name === 'read_attachment_data' ? 'Подготавливаю данные' : activityForWebTool(call).label, kind: chatReadonlyNames.has(call.name) ? 'file_read' as const : call.name === 'create_visual_artifact' || call.name === 'read_attachment_data' ? 'other' as const : 'web' as const };
           let result: unknown; let failed = false; const toolStarted = performance.now();
           trace('tool_started', { turn, tool: call.name, callId: call.id });
           yield { type: 'tool', activity: { ...activity, state: 'running' } };
           try {
-            if (toolActions >= maxToolActions) throw new Error('The host tool execution budget is exhausted.');
+            if (toolActions >= toolActionLimit) throw new Error('The host tool execution budget is exhausted.');
             toolActions += 1;
             if ((failures.get(signature) ?? 0) >= ((call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 1 : 2)) throw new ArtifactToolError({ error: (call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 'This gallery request already failed. Correct the reported fields or image ID; repeating unchanged arguments is not useful.' : 'These identical arguments already failed twice. Change the invalid fields using the previous error; other valid tool calls remain available.', code: 'ARTIFACT_DUPLICATE', retrySameArguments: false });
             if (call.parseError) throw new Error(call.parseError);
-            if (call.name === 'create_visual_artifact') {
+            if (chatReadonlyNames.has(call.name)) {
+              if (!readonlyScope || !readonlyScope.definitions.some(definition => (definition as {function?:{name?:string}}).function?.name === call.name)) throw new Error('Read-only capability unavailable.');
+              const execution = readonlyScope.execute(call.name, call.arguments, signal);
+              while (true) {
+                const item = await execution.next();
+                if (item.done) { result = item.value; break; }
+                yield item.value;
+              }
+            } else if (call.name === 'create_visual_artifact') {
               const labels = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.filename));
               const validated = validateRichArtifact(call.arguments.artifact, session?.getImageResults(), undefined, session?.getKnownSources() ?? new Set(), labels);
               if (!validated.artifact) throw new ArtifactToolError(artifactFailure(validated));

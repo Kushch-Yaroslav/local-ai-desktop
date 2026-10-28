@@ -49,11 +49,11 @@ export class AttachmentPipeline {
   }
 
   /** Insert a temporary block directly before its owning user turn; never into global capability context. */
-  buildContext(history: ChatMessage[], includeImageDescriptions = true): ChatMessage[] {
+  buildContext(history: ChatMessage[], includeImageDescriptions = true, inlineDocumentPreviews = true): ChatMessage[] {
     const contextualized: ChatMessage[] = [];
     for (const message of history) {
       const attachments = this.database.listAttachments(message.id).filter((attachment) => includeImageDescriptions || attachment.kind !== 'image');
-      if (attachments.length) contextualized.push({ id: `attachments-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: attachmentTurnContext(attachments) });
+      if (attachments.length) contextualized.push({ id: `attachments-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: attachmentTurnContext(inlineDocumentPreviews ? attachments : attachments.filter(a=>a.kind==='image')) });
       if (message.projectReferences?.length) contextualized.push({ id: `project-references-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: projectReferenceTurnContext(message.projectReferences) });
       if (message.regionReferences?.length) contextualized.push({id:`regions-${message.id}`,conversationId:message.conversationId,role:'system',createdAt:message.createdAt,content:visualTurnContext(message.regionReferences)});
       contextualized.push(message);
@@ -78,7 +78,7 @@ export class AttachmentPipeline {
       const encoded: string[] = [];
       for (const image of images) {
         if (signal.aborted) throw new DOMException('Attachment preparation cancelled', 'AbortError');
-        try { encoded.push(`data:${imageMimeType(image.filename)};base64,${(await readFile(image.storageRef)).toString('base64')}`); }
+        try { encoded.push(`data:${imageMimeType(image.filename)};base64,${(await this.attachments.readBytes(image)).toString('base64')}`); }
         catch (error) { throw new Error(`Не удалось подготовить ${attachmentDisplayName(image)} для нативного vision: ${error instanceof Error ? error.message : String(error)}`); }
       }
       for(const region of regions.slice(0,12)){

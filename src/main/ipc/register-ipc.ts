@@ -47,6 +47,7 @@ import { getModelProfile } from '../models/model-registry';
 import { agentReasoningOptions, llamaContextPresets, llamaRuntimeProfile, reasoningCapability } from '../models/llama-runtime-policy';
 import { reasoningPatchError, resolveReasoningSelection, type ReasoningInput } from '../../shared/reasoning-controls';
 import { WebBrowserService } from '../web/web-tools';
+import { ChatReadonlyTools } from '../services/chat-readonly-tools';
 import { WebChatService } from '../services/web-chat';
 import { RemoteImageService } from '../services/remote-image-service';
 import { richArtifactFingerprint } from '../../shared/rich-artifacts';
@@ -1127,8 +1128,11 @@ export function registerIpc(): void {
       event.sender.send('chat:stream', { type: 'context', conversationId: request.conversationId, generationId: generation.id, ...context });
       // Image descriptions are excluded for native-vision requests: the original
       // image payload is attached only to its owning user turn below.
-      let history = attachmentPipeline.buildContext(requestMessages, !hasImages);
+      let history = attachmentPipeline.buildContext(requestMessages, !hasImages, mode === 'agent');
       if (nativeVision) history = await attachmentPipeline.prepareNativeImages(history, abort.signal);
+      // The host, not renderer history or model paths, selects the persistent scope.
+      const readonlyScope = mode === 'chat' ? new ChatReadonlyTools(database, attachments, request.conversationId, backend, request.model, context.active, conversation.webMode === 'auto' ? liveBrowsers.chatDiagnosticReader(event.sender,request.conversationId) : undefined) : undefined;
+      if (readonlyScope) history = [{ id: 'conversation-attachments', conversationId: request.conversationId, role: 'system', content: '', createdAt: new Date().toISOString(), attachments: database.listAttachmentsForConversation(request.conversationId) }, ...history];
       const persistedTaskMemory = mode === 'agent' ? taskPlan(database.getAgentPlan(request.conversationId, logicalTaskId) ?? {}).taskMemory : undefined;
       if (persistedTaskMemory && current()) event.sender.send('chat:stream', { type: 'task-memory', memory: structuredClone(persistedTaskMemory), conversationId: request.conversationId, generationId: generation.id });
       const agentSupportsReasoning = mode === 'agent' && llamaCpp.supportsReasoning(request.model);
@@ -1142,7 +1146,7 @@ export function registerIpc(): void {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));
           return attachments.readStructuredRows(args.attachment_id, typeof args.sheet_name === 'string' ? args.sheet_name : undefined, typeof args.start_row === 'number' ? args.start_row : 0, typeof args.max_rows === 'number' ? args.max_rows : 50);
-        }, validateDiagram, generation.id);
+        }, validateDiagram, generation.id, readonlyScope);
       for await (let chunk of stream) {
         if (!current()) break;
         if (chunk.type === 'steering') {

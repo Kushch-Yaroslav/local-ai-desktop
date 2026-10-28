@@ -235,7 +235,7 @@ export class ProjectBrowserSession {
   }
   async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon(); }
   private bindObserver() {
-    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), diagnosticRead:(args,signal)=>this.diagnosticRead(args,signal), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
     this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon();
   }
   private displayedRegions:VisualRegion[]=[];
@@ -542,6 +542,13 @@ export class ProjectBrowserSession {
   }
   constructor(private readonly root: string, private readonly captureDirectory: string, private readonly launch: () => Promise<Browser> = launchWebBrowser, private observer?: ProjectBrowserObserver, private qaOptions: ProjectQaOptions = {}, private readonly isolatedQa=false) {}
   private note(list: string[], text: string) { if (list.length < 40) list.push(text.replace(/([?&](?:token|access_token|secret|password|session|api_key)=)[^\s&#"'<>]+/gi,'$1[redacted]').slice(0, 500)); }
+  /** Chat uses only diagnostic reads, with all existing session/origin checks. */
+  private async diagnosticRead(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
+    if (!['read','inspect'].includes(String(args.action)) || Object.keys(args).some(key=>!['action','selector'].includes(key))) throw new Error('Chat Browser capability is read-only.');
+    signal.throwIfAborted();
+    return this.exclusive(()=>this.executePage(args,AbortSignal.any([signal,this.abort.signal]),undefined,randomUUID()));
+  }
+
   async execute(args: Record<string, unknown>, signal: AbortSignal, confirm?: ConfirmAction, actionId: string = randomUUID()): Promise<unknown> {
     await this.clearSelection();
     const isolated=responsiveRequest(args)&&!this.isolatedQa&&Boolean(this.page);

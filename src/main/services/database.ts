@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import type { AgentPlan, AnalysisRun, Attachment, AttachmentKind, AttachmentStatus, ChatMessage, ChatMode, Conversation, GenerationDiagnostics, GenerationStats, LlamaKvCacheType, ProjectReference, ProjectReferenceKind, ReasoningMode, ThinkingTimelineEvent, ToolActivity, WebMode } from '../../shared/types';
 import { paths } from './paths';
+import type { DocumentChunkNote } from './document-memory';
 import { isReasoningEffort } from '../../shared/reasoning-controls';
 import { isPersistableDiscoveryOption, parseStoredDiscoveryOption } from './context-discovery-persistence';
 import type { ContextDiscoveryOption } from '../../shared/context-estimator';
@@ -147,6 +148,13 @@ export class Database {
         project_path TEXT NOT NULL, project_label TEXT NOT NULL, relative_path TEXT NOT NULL, kind TEXT NOT NULL
       ) STRICT;
       CREATE INDEX IF NOT EXISTS project_references_message_idx ON project_references(message_id, position);
+      CREATE TABLE IF NOT EXISTS chat_document_notes (
+        conversation_id TEXT NOT NULL, attachment_id TEXT NOT NULL, content_hash TEXT NOT NULL,
+        start INTEGER NOT NULL, end INTEGER NOT NULL, observation_id TEXT NOT NULL,
+        summary TEXT NOT NULL, processed INTEGER NOT NULL, created_at TEXT NOT NULL,
+        PRIMARY KEY (conversation_id, attachment_id, content_hash, start, end)
+      ) STRICT;
+      CREATE INDEX IF NOT EXISTS chat_notes_observation_idx ON chat_document_notes(conversation_id, observation_id);
       CREATE TABLE IF NOT EXISTS attachments (
         id TEXT PRIMARY KEY, message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
         position INTEGER NOT NULL, kind TEXT NOT NULL, mime_type TEXT NOT NULL, filename TEXT NOT NULL,
@@ -374,6 +382,7 @@ export class Database {
     this.db.prepare('DELETE FROM analysis_runs WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM generation_diagnostics WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM agent_plans WHERE conversation_id=?').run(id);
+    this.db.prepare('DELETE FROM chat_document_notes WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
     this.db.prepare('DELETE FROM project_references WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
     this.db.prepare('DELETE FROM messages WHERE conversation_id=?').run(id);
@@ -540,6 +549,19 @@ export class Database {
 
   listProjectReferences(messageId: string): ProjectReference[] {
     return (this.db.prepare('SELECT * FROM project_references WHERE message_id=? ORDER BY position ASC').all(messageId) as unknown as ProjectReferenceRow[]).map(mapReference);
+  }
+
+  documentNotes(conversationId: string, attachmentId?: string, hash?: string): DocumentChunkNote[] {
+    const rows = this.db.prepare('SELECT * FROM chat_document_notes WHERE conversation_id=? ORDER BY start ASC, end ASC').all(conversationId) as Array<Record<string, unknown>>;
+    return rows.filter(row => (!attachmentId || row.attachment_id === attachmentId) && (!hash || row.content_hash === hash)).map(row => ({ attachmentId: String(row.attachment_id), contentHash: String(row.content_hash), start: Number(row.start), end: Number(row.end), observationId: String(row.observation_id), summary: String(row.summary), processed: Boolean(row.processed), createdAt: String(row.created_at) }));
+  }
+
+  saveDocumentNote(conversationId: string, note: DocumentChunkNote): void {
+    if (!this.listAttachmentsForConversation(conversationId).some(a=>a.id===note.attachmentId)) throw new Error('Attachment outside conversation.');
+    this.db.prepare(`INSERT INTO chat_document_notes (conversation_id,attachment_id,content_hash,start,end,observation_id,summary,processed,created_at)
+      VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(conversation_id,attachment_id,content_hash,start,end) DO UPDATE SET
+      summary=CASE WHEN excluded.processed=1 OR chat_document_notes.processed=0 THEN excluded.summary ELSE chat_document_notes.summary END, processed=MAX(chat_document_notes.processed,excluded.processed)`)
+      .run(conversationId,note.attachmentId,note.contentHash,note.start,note.end,note.observationId,note.summary,Number(note.processed),note.createdAt);
   }
 
   createAttachment(input: Omit<Attachment, 'createdAt' | 'updatedAt' | 'status'> & { status?: AttachmentStatus }): Attachment {
