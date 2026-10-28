@@ -12,6 +12,9 @@ export { formatContextTokens } from '../../shared/context-format';
 const reasoningLabel = reasoningModeLabel;
 const modeLabel = chatModeLabel;
 const number = formatCount;
+// Preserve measured subtotals while another request has not reported usage.
+// The unknown part stays explicit rather than turning into an estimated zero.
+const metric = (value: number | undefined, complete?: boolean, reported?: boolean) => complete === false ? reported ? `${number(value)} + —` : '—' : number(value);
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   useLocale();
@@ -34,11 +37,12 @@ export function ContextUsage({ initiallyOpen = false }: { initiallyOpen?: boolea
     return () => window.clearInterval(timer);
   }, [open, running]);
   if (!chat) return null;
-  const maximum = activeContextWindow ?? chat.contextWindow;
-  const current = chat.contextModelId === chat.modelId ? chat.contextTokens : null;
+  const chatTelemetry = agentTelemetry?.source === 'chat';
+  const maximum = (chatTelemetry ? agentTelemetry.contextLimit : undefined) ?? activeContextWindow ?? chat.contextWindow;
+  const current = chatTelemetry ? agentTelemetry.contextUsed ?? null : chat.contextModelId === chat.modelId ? chat.contextTokens : null;
   const used = Math.min(current ?? 0, maximum); const percent = current === null ? 0 : Math.min(100, used / maximum * 100);
   const tone = percent >= 90 ? 'danger' : percent >= 80 ? 'warning' : percent >= 60 ? 'cool' : 'calm';
-  const status = current === null ? t("Будет измерен после следующего ответа модели.") : percent >= 100 ? t("Старые сообщения уже начинают вытесняться.") : t("После достижения лимита самые ранние сообщения начнут вытесняться.");
+  const status = chatTelemetry ? t('Контекст последнего inference-запроса. Токены за запуск включают обработку документов и сжатия. Неизвестные метрики: —.') : current === null ? t("Будет измерен после следующего ответа модели.") : percent >= 100 ? t("Старые сообщения уже начинают вытесняться.") : t("После достижения лимита самые ранние сообщения начнут вытесняться.");
   const elapsed = agentTelemetry ? Math.max(0, Math.round(((agentTelemetry.finishedAt ? new Date(agentTelemetry.finishedAt).getTime() : now) - new Date(agentTelemetry.startedAt).getTime()) / 1000)) : null;
   const cachedTokens = agentTelemetry?.cachedTokens;
   const cacheRate = typeof cachedTokens === 'number' && (agentTelemetry?.inputTokens ?? 0) > 0 ? Math.min(100, cachedTokens / agentTelemetry!.inputTokens * 100) : null;
@@ -48,8 +52,8 @@ export function ContextUsage({ initiallyOpen = false }: { initiallyOpen?: boolea
   const llama = settings?.llamaRuntime;
   const runtimeState = !chat.modelId ? null : llama?.status === 'switching' || llama?.status === 'starting' ? t("llama.cpp запускается…") : llama && llama.status !== 'ready' ? t("llama.cpp не запущен") : llama?.modelId && llama.modelId !== chat.modelId ? t("Загружена другая модель") : null;
   return <div className={`context-usage ${tone}`}><button type="button" title={t("Контекст и telemetry")} onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={tr`Контекст: ${percent.toFixed(1)}%`}><svg viewBox="0 0 36 36" aria-hidden="true"><circle className="context-track" cx="18" cy="18" r="15.5" /><circle className="context-progress" cx="18" cy="18" r="15.5" pathLength="100" strokeDasharray={`${percent} ${100 - percent}`} /></svg><span>{current === null ? '—' : `${Math.round(percent)}%`}</span></button>{open && <section className={`context-usage-popover ${tone}`} aria-label={t("Контекст")}>
-    <header className="ctx-head"><div><span className="ctx-kicker">{t("Контекст")}</span><strong className="ctx-percent">{current === null ? '—' : `${percent.toFixed(0)}%`}</strong></div><span className="ctx-amount">{formatContextTokens(used)} / {formatContextTokens(maximum)}</span></header>
-    <div className="ctx-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><i style={{ width: `${percent}%` }} /></div>
+    <header className="ctx-head"><div><span className="ctx-kicker">{t("Контекст")}</span><strong className="ctx-percent">{current === null ? '—' : `${percent.toFixed(0)}%`}</strong></div><span className="ctx-amount">{current === null ? '—' : formatContextTokens(current)} / {formatContextTokens(maximum)}</span></header>
+    <div className="ctx-meter" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={current === null ? undefined : Math.round(percent)} aria-valuetext={current === null ? "—" : undefined}><i style={{ width: `${percent}%` }} /></div>
     <div className="ctx-modes">
       <div className="ctx-mode"><span>{reasoningControlText.thinking}</span>{reasoning.thinking !== null ? <b className={`ctx-chip thinking-${reasoning.thinking ? 'on' : 'off'}`}>{reasoning.thinking ? thinkingLabel.on : thinkingLabel.off}</b> : <b className="ctx-chip muted" title={reasoningControlText.thinkingUnavailable}>{reasoningControlText.unavailable}</b>}{reasoning.pendingThinking !== null && <em className="ctx-pending" title={reasoningControlText.pending}>→ {reasoning.pendingThinking ? thinkingLabel.on : thinkingLabel.off}</em>}</div>
       <div className="ctx-mode"><span>{reasoningControlText.effort}</span>{reasoning.effort !== null ? <b className={`ctx-chip effort-${reasoning.effort}${reasoning.effortApplies ? '' : ' muted'}`} title={reasoning.effortApplies ? undefined : reasoningControlText.effortInactive}>{reasoningEffortLabel[reasoning.effort]}</b> : <b className="ctx-chip muted" title={reasoningControlText.effortUnavailable}>{reasoningControlText.unavailable}</b>}{reasoning.pendingEffort !== null && <em className="ctx-pending" title={reasoningControlText.pending}>→ {reasoningEffortLabel[reasoning.pendingEffort]}</em>}</div>
@@ -58,19 +62,19 @@ export function ContextUsage({ initiallyOpen = false }: { initiallyOpen?: boolea
     </div>
     {runtimeState && <p className="ctx-runtime" role="status">{runtimeState}</p>}
     <div className="ctx-grid">
-      <Stat label={t("Входные токены")} value={number(agentTelemetry?.inputTokens)} />
-      <Stat label={t("Выходные токены")} value={number(agentTelemetry?.outputTokens)} />
-      <Stat label={t("Всего за запуск")} value={agentTelemetry ? number(agentTelemetry.inputTokens + agentTelemetry.outputTokens) : '—'} />
+      <Stat label={t("Входные токены")} value={metric(agentTelemetry?.inputTokens,agentTelemetry?.inputTokensKnown,agentTelemetry?.inputTokensReported)} />
+      <Stat label={t("Выходные токены")} value={metric(agentTelemetry?.outputTokens,agentTelemetry?.outputTokensKnown,agentTelemetry?.outputTokensReported)} />
+      <Stat label={t("Всего за запуск")} value={agentTelemetry ? metric(agentTelemetry.inputTokens + agentTelemetry.outputTokens,agentTelemetry.inputTokensKnown !== false && agentTelemetry.outputTokensKnown !== false,agentTelemetry.inputTokensReported || agentTelemetry.outputTokensReported) : '—'} />
     </div>
     {typeof cachedTokens === 'number' && <div className="ctx-row"><span>{t("Кэш промпта")}</span><b>{cacheRate === null ? `${number(cachedTokens)} ${tokensWord(cachedTokens)}` : `${cacheRate.toFixed(0)}% · ${number(cachedTokens)} ${tokensWord(cachedTokens)}`}</b></div>}
     {typeof agentTelemetry?.cacheWriteTokens === 'number' && <div className="ctx-row"><span>{t("Запись в кэш")}</span><b>{number(agentTelemetry.cacheWriteTokens)} {tokensWord(agentTelemetry.cacheWriteTokens)}</b></div>}
     <div className="ctx-grid ctx-grid-wide">
       {typeof agentTelemetry?.tokensPerSecond === 'number' && <Stat label={t("Скорость")} value={tr`${agentTelemetry.tokensPerSecond.toFixed(1).replace(".", ",")} ток/с`} hint={t("Скорость генерации")} />}
       <Stat label={t("Прошло")} value={elapsed === null ? '—' : formatDuration(elapsed)} />
-      <Stat label={t("Ход")} value={String(agentTelemetry?.turn ?? '—')} />
-      <Stat label={t("Действия")} value={String(agentTelemetry?.actions ?? '—')} />
+      <Stat label={t(chatTelemetry ? 'Запросы модели' : 'Ход')} value={String(agentTelemetry?.turn ?? '—')} />
+      <Stat label={t(chatTelemetry ? 'Вызовы инструментов' : 'Действия')} value={String(agentTelemetry?.actions ?? '—')} />
       <Stat label={t("Сжатия")} value={String(agentTelemetry?.compactions ?? 0)} />
     </div>
-    <small>{status}</small>
+    <small>{status}{chatTelemetry ? ` ${t('Частичная сумма: измеренное + —.')}` : ''}</small>
   </section>}</div>;
 }

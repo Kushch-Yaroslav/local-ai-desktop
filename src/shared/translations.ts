@@ -1,5 +1,9 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Частичная сумма: измеренное + —.": "Partial total: measured + —.",
+  "Запросы модели": "Model requests",
+  "Вызовы инструментов": "Tool calls",
+  "Контекст последнего inference-запроса. Токены за запуск включают обработку документов и сжатия. Неизвестные метрики: —.": "Context of the latest inference request. Run totals include document processing and compaction. Unavailable metrics: —.",
   "Обработка источника не завершена": "Source processing incomplete",
   "Если модель находится на неподключённом диске, откройте этот диск в файловом менеджере, чтобы смонтировать его. Приложение обнаружит модель автоматически.": "If the model is on an unmounted drive, open that drive in your file manager to mount it. The app will detect the model automatically.",
   "Проверьте подключение диска с моделью и доступность файла. Приложение автоматически обновляет доступность модели.": "Check that the model drive is connected and the file is available. The app updates model availability automatically.",

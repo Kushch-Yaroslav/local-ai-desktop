@@ -14,6 +14,7 @@ import { posix } from 'node:path';
 import type { AgentTaskSummary } from '../../shared/types';
 
 type ConversationRow = { verification_enabled?: number | null;
+  chat_telemetry?: string | null;
   id: string; title: string; model_id: string | null; mode: ChatMode; working_directory: string | null;
   primary_project_id: string | null; secondary_working_directory: string | null; secondary_project_id: string | null;
   context_window: number;
@@ -34,9 +35,16 @@ type AnalysisActionRow = { id: string; run_id: string; label: string; detail: st
 type AgentPlanRow = { plan: string };
 
 const mapConversation = (row: ConversationRow): Conversation => ({
+  chatTelemetry: parseChatTelemetry(row.chat_telemetry),
   id: row.id, title: row.title, modelId: row.model_id, mode: row.mode, verificationEnabled: row.verification_enabled == null ? null : row.verification_enabled !== 0,
   visionMode: ['auto','on','off'].includes(row.vision_mode ?? '') ? row.vision_mode as 'auto'|'on'|'off' : null, mtpMode: ['auto','on','off'].includes(row.mtp_mode ?? '') ? row.mtp_mode as 'auto'|'on'|'off' : null, workingDirectory: row.working_directory, primaryProjectId: row.primary_project_id ?? null, secondaryWorkingDirectory: row.secondary_working_directory ?? null, secondaryProjectId: row.secondary_project_id ?? null, contextWindow: row.context_window ?? 32_768, llamaKvCacheType: row.llama_kv_cache_type === 'q8_0' ? 'q8_0' : 'f16', llamaKvOffload: row.llama_kv_offload !== 0, reasoningMode: row.reasoning_mode === 'deep' ? 'deep' : 'fast', thinkingEnabled: row.thinking_enabled === null || row.thinking_enabled === undefined ? null : row.thinking_enabled !== 0, reasoningEffort: isReasoningEffort(row.reasoning_effort) ? row.reasoning_effort : null, contextTokens: row.context_tokens ?? null, contextModelId: row.context_model_id ?? null, webMode: row.web_mode ?? 'auto', createdAt: row.created_at, updatedAt: row.updated_at,
 });
+function parseChatTelemetry(value: string | null | undefined): Conversation['chatTelemetry'] {
+  try {
+    const parsed = JSON.parse(value ?? 'null') as Conversation['chatTelemetry'];
+    return parsed?.source === 'chat' && typeof parsed.startedAt === 'string' && Number.isFinite(parsed.inputTokens) && Number.isFinite(parsed.outputTokens) ? parsed : undefined;
+  } catch { return undefined; }
+}
 const mapAttachment = (row: AttachmentRow): Attachment => ({
   conversationId: row.conversation_id, contentHash: row.content_hash ?? undefined, extractedTextRef: row.extracted_text_ref ?? undefined, id: row.id, messageId: row.message_id, index: row.position, kind: row.kind, mimeType: row.mime_type, filename: row.filename, size: row.size, storageRef: row.storage_ref, status: row.status,
   extractedText: row.extracted_text ?? undefined, structuredData: row.structured_data ?? undefined, visionAnalysis: row.vision_analysis ?? undefined, error: row.error ?? undefined,
@@ -205,6 +213,7 @@ export class Database {
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN thinking_enabled INTEGER'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN reasoning_effort TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN context_tokens INTEGER'); } catch { /* Existing databases already have this column. */ }
+    try { this.db.exec('ALTER TABLE conversations ADD COLUMN chat_telemetry TEXT'); } catch { /* Existing snapshot column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN context_model_id TEXT'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec("ALTER TABLE conversations ADD COLUMN web_mode TEXT NOT NULL DEFAULT 'auto'"); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN primary_project_id TEXT'); } catch { /* Existing databases already have this column. */ }
@@ -574,6 +583,10 @@ export class Database {
   saveChatSegment(record: ChatSegmentRecord): void {
     this.db.prepare('INSERT OR REPLACE INTO chat_generation_segments (conversation_id,generation_id,segment,data) VALUES (?,?,?,?)').run(record.conversationId,record.generationId,record.segment,JSON.stringify(record));
   }
+  saveChatTelemetry(conversationId: string, telemetry: NonNullable<Conversation['chatTelemetry']>): void {
+    this.db.prepare('UPDATE conversations SET chat_telemetry=?,context_tokens=?,context_model_id=? WHERE id=?').run(JSON.stringify(telemetry),telemetry.contextUsed??null,telemetry.modelId??null,conversationId);
+  }
+
   chatSegments(conversationId: string): ChatSegmentRecord[] {
     return (this.db.prepare('SELECT data FROM chat_generation_segments WHERE conversation_id=? ORDER BY rowid ASC').all(conversationId) as Array<{data:string}>).map(row=>JSON.parse(row.data) as ChatSegmentRecord);
   }
@@ -673,7 +686,7 @@ export class Database {
     // Task Memory and the context meter describe the dropped attempt. Their
     // evidence lives only in that attempt, so they are discarded with it.
     this.db.prepare('DELETE FROM agent_plans WHERE conversation_id=?').run(target.conversation_id);
-    this.db.prepare('UPDATE conversations SET context_tokens=NULL, context_model_id=NULL, updated_at=? WHERE id=?').run(new Date().toISOString(), target.conversation_id);
+    this.db.prepare('UPDATE conversations SET context_tokens=NULL, context_model_id=NULL, chat_telemetry=NULL, updated_at=? WHERE id=?').run(new Date().toISOString(), target.conversation_id);
     if (commit) this.db.exec('COMMIT');
     return this.listMessages(target.conversation_id);
   }

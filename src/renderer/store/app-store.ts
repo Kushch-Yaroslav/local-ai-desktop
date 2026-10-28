@@ -9,6 +9,8 @@ import { pinLegacyReasoning, revertRefusedPatch, type ModeTransition } from '../
 import { appendPausedMarker, appendReasoningFragments, applySteeringEvent } from '../../shared/thinking-timeline';
 import { richArtifactFingerprint } from '../../shared/rich-artifacts';
 
+const initialTelemetry = (chat: Conversation | undefined): AgentTelemetry => ({turn:0,inputTokens:0,outputTokens:0,actions:0,startedAt:new Date().toISOString(),...(chat?.mode==='agent'?{}:{source:'chat' as const,modelId:chat?.modelId??undefined,inputTokensKnown:false,outputTokensKnown:false,compactions:0})});
+
 type State = {
   conversations: Conversation[];
   activeId: string | null;
@@ -161,7 +163,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     // stopped attempt from the renderer cache alongside the new stream.
     const analysisRuns = await window.localAi.analysis.list(activeId);
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
-    withView(activeId, () => set({ analysisRuns, agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...saved, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, steeringStatus: null, agentTelemetry: { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } }));
+    withView(activeId, () => set({ analysisRuns, agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...saved, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, steeringStatus: null, agentTelemetry: initialTelemetry(chat) }));
     try { await window.localAi.chat.send({ conversationId: activeId, model, mode: chat.mode, messages: saved, generationId, persistUserMessage: false }); }
     catch (error) { withView(activeId, () => set((state) => state.generationId === generationId ? { isGenerating: false, generationId: null, generationState: 'error', error: error instanceof Error ? error.message : errorMessage, messages: finishAgentStream(state.messages, generationId, { error: error instanceof Error ? error.message : errorMessage }) } : {})); }
     finally { releaseGeneration(generationId); }
@@ -199,7 +201,9 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
     const conversation = get().conversations.find((item) => item.id === id);
     const cached = views.get(id);
-    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, pausePhase: analysisRuns.at(-1)?.status === 'interrupted' && analysisRuns.at(-1)?.timeline?.at(-1)?.kind === 'paused' ? 'Paused' : null, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: null, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
+    const savedTelemetry = conversation?.mode === 'chat' && conversation?.chatTelemetry?.modelId === conversation?.modelId ? conversation?.chatTelemetry : undefined;
+    const restoredTelemetry = savedTelemetry ? {...savedTelemetry,finishedAt:savedTelemetry.finishedAt??savedTelemetry.updatedAt??savedTelemetry.startedAt} : null;
+    set({ continuationTaskId: null, continuationLabel: null, legacyAgentPlan, activeId: id, pausePhase: analysisRuns.at(-1)?.status === 'interrupted' && analysisRuns.at(-1)?.timeline?.at(-1)?.kind === 'paused' ? 'Paused' : null, messages, analysisRuns, agentPlan: agentPlan ?? [...messages].reverse().find((message) => message.taskPlan)?.taskPlan ?? null, isGenerating: false, generationId: null, generationState: 'idle', error: null, toolActivities: [], toolActivityCount: 0, activeContextWindow: activeConversationModel(conversation, get().settings?.llamaRuntime) ? get().settings?.llamaRuntime?.contextWindow ?? null : null, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: restoredTelemetry, steeringStatus: null, ...(cached && (cached.isGenerating || cached.generationState === 'error' || cached.generationState === 'cancelled') ? cached : {}) });
   },
   createConversation: async () => {
     const conversation = await window.localAi.conversations.create();
@@ -292,7 +296,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     const attached: Attachment[] = files.map((file, index) => { const isImage = isImageFile(file); return { id: crypto.randomUUID(), messageId: userId, index, kind: isImage ? 'image' : file.name.endsWith('.pdf') ? 'pdf' : /\.(xlsx|xls)$/i.test(file.name) ? 'spreadsheet' : file.name.endsWith('.docx') ? 'document' : 'text', mimeType: file.type || 'application/octet-stream', filename: file.name, size: file.size, storageRef: '', status: 'pending', metadata: isImage ? { imageNumber: ++imageIndex } : undefined, createdAt: now(), updatedAt: now() }; });
     const user: ChatMessage = { id: userId, conversationId: activeId, role: 'user', content: content.trim() || t("Вложения"), createdAt: now(), attachments: attached, projectReferences, regionReferences };
     const generationId = crypto.randomUUID(); const streaming: ChatMessage = { id: assistantId(generationId), conversationId: activeId, role: 'assistant', content: '', createdAt: now() };
-    set({ agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: chat?.mode === 'agent' ? { turn: 0, inputTokens: 0, outputTokens: 0, actions: 0, startedAt: now() } : null });
+    set({ agentPlan: null, continuationTaskId: null, continuationLabel: null, messages: [...messages, user, streaming], isGenerating: true, generationId, generationConversationId: activeId, generationOwnerId: generationId, generationState: 'thinking', error: null, toolActivities: [], toolActivityCount: 0, analysisProgress: [], lastFinishReason: null, performance: null, loopNotice: null, loopPaused: false, pendingApproval: null, approvalSubmitting: false, agentTelemetry: initialTelemetry(chat) });
     try {
       set({ steeringStatus: null, pausePhase: get().pausePhase === 'Paused' ? 'Resuming' : null });
       if (!chat?.modelId) await get().updateConversation(activeId, { modelId: model });
@@ -407,16 +411,20 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
     }
     if (event.type === 'agent-telemetry' && event.telemetry) {
       const telemetry = event.telemetry;
-      set((state) => state.agentTelemetry ? {
-        agentTelemetry: {
-          ...state.agentTelemetry,
-          ...telemetry,
-          inputTokens: state.agentTelemetry.inputTokens + (telemetry.inputTokens ?? 0),
-          outputTokens: state.agentTelemetry.outputTokens + (telemetry.outputTokens ?? 0),
-          ...(telemetry.cachedTokens === undefined ? {} : { cachedTokens: (state.agentTelemetry.cachedTokens ?? 0) + telemetry.cachedTokens }),
-          ...(telemetry.cacheWriteTokens === undefined ? {} : { cacheWriteTokens: (state.agentTelemetry.cacheWriteTokens ?? 0) + telemetry.cacheWriteTokens }),
-        },
-      } : {});
+      if (telemetry.source === 'chat') {
+        set(state=>({agentTelemetry:telemetry as AgentTelemetry,conversations:state.conversations.map(chat=>chat.id===event.conversationId?{...chat,chatTelemetry:telemetry as AgentTelemetry,contextTokens:telemetry.contextUsed??null,contextModelId:telemetry.modelId??chat.modelId}:chat)}));
+      } else {
+        set((state) => state.agentTelemetry ? {
+          agentTelemetry: {
+            ...state.agentTelemetry,
+            ...telemetry,
+            inputTokens: state.agentTelemetry.inputTokens + (telemetry.inputTokens ?? 0),
+            outputTokens: state.agentTelemetry.outputTokens + (telemetry.outputTokens ?? 0),
+            ...(telemetry.cachedTokens === undefined ? {} : { cachedTokens: (state.agentTelemetry.cachedTokens ?? 0) + telemetry.cachedTokens }),
+            ...(telemetry.cacheWriteTokens === undefined ? {} : { cacheWriteTokens: (state.agentTelemetry.cacheWriteTokens ?? 0) + telemetry.cacheWriteTokens }),
+          },
+        } : {});
+      }
     }
     if (event.type === 'model-state') set({ pausePhase: null, generationState: event.state === 'waiting' ? 'thinking' : 'reasoning' });
     if (event.type === 'thinking') {
@@ -432,7 +440,7 @@ export const useAppStore = create<State>((rawSet, rawGet) => {
       const attachmentId = event.activity!.id.startsWith('attachment-') ? event.activity!.id.slice('attachment-'.length) : null;
       return {
         generationState: mergedActivity.kind === 'progress' ? state.generationState : mergedActivity.state === 'completed' || mergedActivity.state === 'error' ? 'thinking' : event.type === 'attachment' && event.activity!.status === 'processing' ? 'using-tool' : event.activity!.kind === 'terminal' ? 'running-terminal' : 'using-tool',
-        toolActivities: [...state.toolActivities.filter((activity) => activity.id !== event.activity!.id), mergedActivity].slice(-100), toolActivityCount: exists || event.activity!.kind === 'progress' ? state.toolActivityCount : state.toolActivityCount + 1, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, actions: exists || event.activity!.kind === 'progress' ? state.agentTelemetry.actions : state.agentTelemetry.actions + 1 } : null,
+        toolActivities: [...state.toolActivities.filter((activity) => activity.id !== event.activity!.id), mergedActivity].slice(-100), toolActivityCount: exists || event.activity!.kind === 'progress' ? state.toolActivityCount : state.toolActivityCount + 1, agentTelemetry: state.agentTelemetry ? { ...state.agentTelemetry, actions: state.agentTelemetry.source === 'chat' || exists || event.activity!.kind === 'progress' ? state.agentTelemetry.actions : state.agentTelemetry.actions + 1 } : null,
         messages: state.messages.map((message) => {
           if (attachmentId) return { ...message, attachments: message.attachments?.map((attachment) => attachment.id === attachmentId ? event.activity!.attachment ?? { ...attachment, status: event.activity!.status ?? attachment.status, error: event.activity!.status === 'error' ? event.activity!.detail : attachment.error, updatedAt: now() } : attachment) };
           if (event.activity!.timelinePosition === undefined || message.id !== assistantId(event.generationId)) return message;

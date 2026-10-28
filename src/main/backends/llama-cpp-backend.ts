@@ -1,6 +1,6 @@
 import type { ChatMessage, FinishReason, ModelInfo, StreamEvent } from '../../shared/types';
 import { createHash } from 'node:crypto';
-import { wholeNanoseconds, type ContextWindow, type InferenceDiagnostics, type LlmBackend, type RuntimeContextEvidence, type ToolCallingBackend, type ToolInferenceRequestContext, type ToolInferenceStreamEvent, type ToolMessage } from './types';
+import { reportInferenceUsage, wholeNanoseconds, type ContextWindow, type InferenceDiagnostics, type LlmBackend, type RuntimeContextEvidence, type ToolCallingBackend, type ToolInferenceRequestContext, type ToolInferenceStreamEvent, type ToolMessage } from './types';
 import { getModelProfile, maxOutputTokens, modelInfo, outputBudget, outputSafetyReserveTokens } from '../models/model-registry';
 import { llamaContextPresets, llamaReasoningForInput, llamaRuntimeProfile, llamaRuntimeProfilesList, reasoningCapability } from '../models/llama-runtime-policy';
 import { reasoningModeOf, sameReasoningInput, type ReasoningInput } from '../../shared/reasoning-controls';
@@ -23,7 +23,7 @@ type ContextAccounting = {
   toolResultChars: number; fileReadToolResultChars: number; terminalToolResultChars: number; progressToolResultChars: number; otherToolResultChars: number;
   messageOverheadTokens: number; fixedOverheadTokens: number; toolSchemaCharsExcluded: number; estimatedPromptTokens: number; exactPromptTokens?: number;
 };
-type Budget = { inputTokens: number; maxTokens: number; requestedMaxTokens: number; source: 'exact' | 'estimate'; outputClamped: boolean; remainingContext?: number; accounting: ContextAccounting };
+type Budget = { measuredInputTokens?: number; inputTokens: number; maxTokens: number; requestedMaxTokens: number; source: 'exact' | 'estimate'; outputClamped: boolean; remainingContext?: number; accounting: ContextAccounting };
 
 function errorSummary(error: unknown): { error: string; errorCode?: string } {
   const messages: string[] = []; let code: string | undefined; let current: unknown = error;
@@ -112,7 +112,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
   private kvCacheType: LlamaKvCacheType = 'f16';
   private kvOffload = true;
   /** Avoid a second input_tokens request after context management just counted it. */
-  private readonly preparedInputTokens = new WeakMap<object, { tools: unknown[] | undefined; reasoningMode: ReasoningInput; tokens: number }>();
+  private readonly preparedInputTokens = new WeakMap<object, { tools: unknown[] | undefined; reasoningMode: ReasoningInput; tokens: number; measured: boolean }>();
   constructor(private readonly baseUrl = 'http://127.0.0.1:8081', contextLimit = 32_768, visionEnabled = true, runtimeModelId: string | null = qwenModel) {
     this.contextLimit = contextLimit;
     this.visionEnabled = visionEnabled;
@@ -264,13 +264,14 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
     const requestedMaxTokens = outputCap===undefined?maxOutputTokens:Math.max(1,Math.min(maxOutputTokens,Math.floor(outputCap)));
     const accounting = this.estimate(messages, tools);
     const prepared = this.preparedInputTokens.get(messages);
-    const exactPromptTokens = prepared && prepared.tools === tools && sameReasoningInput(prepared.reasoningMode, reasoningMode) ? prepared.tokens : await this.exactInputTokens(model, messages, tools, reasoningMode, signal);
+    const reusePrepared = prepared && prepared.tools === tools && sameReasoningInput(prepared.reasoningMode, reasoningMode);
+    const exactPromptTokens = reusePrepared ? prepared.tokens : await this.exactInputTokens(model, messages, tools, reasoningMode, signal);
     this.preparedInputTokens.delete(messages);
     if (exactPromptTokens !== undefined) {
       accounting.exactPromptTokens = exactPromptTokens;
       const remainingContext = contextWindow - exactPromptTokens;
       const maxTokens = Math.min(requestedMaxTokens,outputBudget(contextWindow, exactPromptTokens));
-      const budget: Budget = { inputTokens: exactPromptTokens, maxTokens, requestedMaxTokens, source: 'exact', outputClamped: maxTokens < requestedMaxTokens, remainingContext, accounting };
+      const budget: Budget = { measuredInputTokens: !reusePrepared || prepared.measured ? exactPromptTokens : undefined, inputTokens: exactPromptTokens, maxTokens, requestedMaxTokens, source: 'exact', outputClamped: maxTokens < requestedMaxTokens, remainingContext, accounting };
       const payload = { backend: 'llama-cpp', contextLimit: contextWindow, requestedMaxOutput: requestedMaxTokens, effectiveMaxOutput: maxTokens, safetyMarginTokens: outputSafetyReserveTokens, remainingContext, cachedRawReadsIncludedInPrompt: false, ...accounting };
       if (maxTokens < 1) { log('llama-cpp.preflight.context-exhausted-confirmed', payload); throw new LlamaCppContextExhaustedError(budget, contextWindow); }
       log(budget.outputClamped ? 'llama-cpp.preflight.context-output-clamped' : 'llama-cpp.preflight.context-exact', payload);
@@ -283,8 +284,9 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
   }
 
   async countInputTokens(model: string, messages: ToolMessage[], tools: unknown[] | undefined, _contextWindow: number, reasoningMode: ReasoningInput, signal: AbortSignal): Promise<number> {
-    const tokens = (await this.exactInputTokens(model, messages, tools, reasoningMode, signal)) ?? this.estimate(messages, tools).estimatedPromptTokens;
-    this.preparedInputTokens.set(messages, { tools, reasoningMode, tokens });
+    const measured = await this.exactInputTokens(model, messages, tools, reasoningMode, signal);
+    const tokens = measured ?? this.estimate(messages, tools).estimatedPromptTokens;
+    this.preparedInputTokens.set(messages, { tools, reasoningMode, tokens, measured: measured !== undefined });
     return tokens;
   }
   /** Plain generated text only: no chat-template overhead, and no inference. */
@@ -331,6 +333,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       const sequenceError = validateLlamaMessageSequence(messages);
       if (sequenceError) { log('llama-cpp.request.invalid', { backend: 'llama-cpp', model, endpoint, sequenceError, messages: messages.map((message, index) => ({ index, role: message.role, toolName: message.tool_name, toolCallId: message.tool_call_id, toolCallCount: message.tool_calls?.length ?? 0, toolCallIds: message.tool_calls?.map((call) => call.id) })) }); throw new Error(`Некорректная последовательность Agent сообщений: ${sequenceError}`); }
       const budget = await this.budget(model, messages, contextWindow, reasoningMode, tools, signal, requestContext?.maxOutputTokens);
+      reportInferenceUsage(requestContext, { inputTokens: budget.measuredInputTokens });
       const dispatchedAt = Date.now();
       if (agentDiagnostics) log('llama-cpp.agent.inference.dispatched', { ...agentDiagnostics, dispatchedAt: new Date(dispatchedAt).toISOString(), preparationElapsedMs: dispatchedAt - startedAt, requestedMaxTokens: budget.requestedMaxTokens, maxTokens: budget.maxTokens, estimatedPromptTokens: budget.accounting.estimatedPromptTokens, exactPromptTokens: budget.accounting.exactPromptTokens });
       let response: Response;
@@ -384,6 +387,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       await this.ensureModelAvailable(model);
       const sequenceError = validateLlamaMessageSequence(messages); if (sequenceError) throw new Error(`Некорректная последовательность Agent сообщений: ${sequenceError}`);
       const budget = await this.budget(model, messages, contextWindow, reasoningMode, tools, signal, requestContext?.maxOutputTokens);
+      reportInferenceUsage(requestContext, { inputTokens: budget.measuredInputTokens });
       if (diagnostics) log('llama-cpp.agent.stream.started', { ...diagnostics, startedAt: new Date(startedAt).toISOString(), requestedMaxTokens: budget.requestedMaxTokens, maxTokens: budget.maxTokens, exactPromptTokens: budget.accounting.exactPromptTokens });
       const response = await fetch(this.url(endpoint), { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...this.payload(model, messages, tools, reasoningMode, budget.maxTokens, true), stream_options: { include_usage: true } }) });
       first.event = Date.now();
@@ -408,6 +412,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
               return;
             }
             const data = JSON.parse(item) as ChatResponse; const choice = data.choices?.[0];
+            if (data.usage) reportInferenceUsage(requestContext, { inputTokens: data.usage.prompt_tokens, outputTokens: data.usage.completion_tokens });
             if (data.usage || data.timings) finalData = { ...finalData, ...data, usage: data.usage ?? finalData?.usage, timings: data.timings ?? finalData?.timings };
             const delta = choice?.delta;
             if (delta?.reasoning_content) { first.reasoning ??= Date.now(); thinking += delta.reasoning_content; yield { type: 'thinking', content: delta.reasoning_content }; }

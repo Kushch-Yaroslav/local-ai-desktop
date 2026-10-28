@@ -48,6 +48,7 @@ import { agentReasoningOptions, llamaContextPresets, llamaRuntimeProfile, reason
 import { reasoningPatchError, resolveReasoningSelection, type ReasoningInput } from '../../shared/reasoning-controls';
 import { WebBrowserService } from '../web/web-tools';
 import { ChatReadonlyTools } from '../services/chat-readonly-tools';
+import { ChatTelemetry } from '../services/chat-telemetry';
 import { WebChatService } from '../services/web-chat';
 import { RemoteImageService } from '../services/remote-image-service';
 import { richArtifactFingerprint } from '../../shared/rich-artifacts';
@@ -84,7 +85,6 @@ const rustAgent = new RustAgentRuntime(process.env.LOCAL_AI_AGENT_ENDPOINT ?? `$
   if (typeof args.attachment_id !== 'string') throw new Error(t('Выберите вложенную таблицу или CSV по ID.'));
   return attachments.readStructuredRows(args.attachment_id, typeof args.sheet_name === 'string' ? args.sheet_name : undefined, typeof args.start_row === 'number' ? args.start_row : 0, typeof args.max_rows === 'number' ? args.max_rows : 50);
 });
-const webChat = new WebChatService(backend, web);
 const attachmentPipeline = new AttachmentPipeline(database, attachments);
 type ActiveGeneration = {
   logicalTaskId?: string;
@@ -1004,6 +1004,7 @@ export function registerIpc(): void {
     const current = () => activeGenerations.get(request.conversationId) === generation && !abort.signal.aborted;
     let run: AnalysisRun | null = null;
     let runFinalized = false;
+    let chatTelemetry: ChatTelemetry | undefined;
     let logicalTaskId: string | undefined;
     let output = ''; let thinking = ''; let messageDiagnostics: import('../../shared/types').GenerationDiagnostics | undefined; let completed = false; let failed = false; let cancelled = false; let paused = false; let finishReason: 'stop' | 'length' = 'stop';
     const { thinkingTimeline, activityTimelinePositions } = generation;
@@ -1044,6 +1045,13 @@ export function registerIpc(): void {
     }
     const mode = executionMode(conversation.mode, request.mode);
     generation.mode = mode;
+    if (mode === 'chat') {
+      chatTelemetry = new ChatTelemetry(request.model, telemetry => {
+        database.saveChatTelemetry(request.conversationId, telemetry);
+        if (activeGenerations.get(request.conversationId) === generation) event.sender.send('chat:stream', {type:'agent-telemetry',telemetry,conversationId:request.conversationId,generationId:generation.id});
+      });
+      chatTelemetry.start();
+    }
     const triggeringUser = user ?? [...request.messages].reverse().find(message => message.role === 'user');
     if (mode === 'agent') {
       logicalTaskId = database.resolveLogicalTask(request.conversationId, request.continueLogicalTaskId, request.persistUserMessage ? undefined : triggeringUser?.id);
@@ -1131,7 +1139,8 @@ export function registerIpc(): void {
       let history = attachmentPipeline.buildContext(requestMessages, !hasImages, mode === 'agent');
       if (nativeVision) history = await attachmentPipeline.prepareNativeImages(history, abort.signal);
       // The host, not renderer history or model paths, selects the persistent scope.
-      const readonlyScope = new ChatReadonlyTools(database, attachments, request.conversationId, backend, request.model, context.active, mode === 'chat' && conversation.webMode === 'auto' ? liveBrowsers.chatDiagnosticReader(event.sender,request.conversationId) : undefined);
+      const chatBackend = chatTelemetry?.observe(backend) ?? backend;
+      const readonlyScope = new ChatReadonlyTools(database, attachments, request.conversationId, chatBackend, request.model, context.active, mode === 'chat' && conversation.webMode === 'auto' ? liveBrowsers.chatDiagnosticReader(event.sender,request.conversationId) : undefined);
       if (readonlyScope) await readonlyScope.prepare(abort.signal);
       if (readonlyScope) history = [{ id: 'conversation-attachments', conversationId: request.conversationId, role: 'system', content: mode === 'agent' ? readonlyScope.context('agent') : '', createdAt: new Date().toISOString(), attachments: database.listAttachmentsForConversation(request.conversationId) }, ...history];
       const persistedTaskMemory = mode === 'agent' ? taskPlan(database.getAgentPlan(request.conversationId, logicalTaskId) ?? {}).taskMemory : undefined;
@@ -1143,13 +1152,14 @@ export function registerIpc(): void {
       const validateDiagram = (source: string, signal: AbortSignal) => diagramValidation.validate(event.sender, source, signal);
       const stream = mode === 'agent'
         ? rustAgent.stream(request.model, history, agentProjects, abort.signal, context.active, conversation.reasoningMode, conversation.webMode, generation.id, persistedTaskMemory, request.conversationId, agentSupportsReasoning, agentReasoningOptions(request.model, reasoningSelection), workspaceRoots, validateDiagram, approvalBroker.forRun(event.sender, request.conversationId, generation.id, {mode:autonomySessions.get(request.conversationId).mode,roots:agentProjects.map(project=>project.root).sort()}), activity => { if (current()) event.sender.send('chat:stream', { type: 'tool', activity, conversationId: request.conversationId, generationId: generation.id }); }, autonomySessions.get(request.conversationId), logicalTaskId, liveBrowsers.observer(event.sender, request.conversationId, generation.id), status => { if (current()) event.sender.send('chat:stream', { type: 'browser-qa', qaStatus: status, conversationId: request.conversationId, generationId: generation.id }); }, visionMode, conversation.verificationEnabled ?? effectiveRuntimeConfiguration().autonomousBrowserQa===true, logicalTaskId ? ()=>database.takeTaskScreenshot(request.conversationId,logicalTaskId!) : undefined, readonlyScope)
-        : webChat.stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
+        : new WebChatService(chatBackend, web).stream(request.model, history, abort.signal, context.active, reasoningInput, conversation.webMode === 'auto', (args) => {
           const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));
           if (typeof args.attachment_id !== 'string' || !allowed.has(args.attachment_id)) throw new Error(t('Выберите структурированное вложение из этого диалога.'));
           return attachments.readStructuredRows(args.attachment_id, typeof args.sheet_name === 'string' ? args.sheet_name : undefined, typeof args.start_row === 'number' ? args.start_row : 0, typeof args.max_rows === 'number' ? args.max_rows : 50);
         }, validateDiagram, generation.id, readonlyScope, record=>database.saveChatSegment(record));
       for await (let chunk of stream) {
         if (!current()) break;
+        if (chunk.type === 'tool') chatTelemetry?.activity(chunk.activity);
         if (chunk.type === 'steering') {
           const content = chunk.userMessage.content;
           const followup = generation.followups?.find((entry) => !entry.applied && entry.message.content === content);
@@ -1252,6 +1262,7 @@ export function registerIpc(): void {
           if (existingPosition === undefined || activity.state !== 'running') event.sender.send('chat:stream', { type: 'analysis-run', conversationId: request.conversationId, generationId: generation.id, run: updated });
         } else event.sender.send('chat:stream', { ...chunk, conversationId: request.conversationId, generationId: generation.id });
       }
+      chatTelemetry?.finish();
       // Stop: the run is finalized before `chat:stop` resolves; `finally` reports the cancellation.
       if (!current()) { sendRun(finishRun('cancelled')); return; }
       if (cancelled) { sendRun(finishRun('cancelled')); event.sender.send('chat:stream', { type: 'cancelled', conversationId: request.conversationId, generationId: generation.id }); return; }
@@ -1291,6 +1302,7 @@ export function registerIpc(): void {
       if (current()) event.sender.send('chat:stream', { type: 'error', conversationId: request.conversationId, generationId: generation.id, message: 'Не удалось выполнить запрос', details: error instanceof Error ? error.message : String(error) });
     } finally {
       try {
+        chatTelemetry?.finish();
         // Chat has no AnalysisRun checkpoint. Retain streamed text on Stop or
         // transport/context failure before releasing the generation slot.
         if(!run&&generation.mode==='chat'&&(!completed||failed||abort.signal.aborted)&&(output||thinking||generation.richArtifacts.length)){

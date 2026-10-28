@@ -8,6 +8,8 @@ export type ContextWindow = { requested: number; active: number; supported?: num
 export type InferenceDiagnostics = Omit<GenerationDiagnostics, 'generationId' | 'conversationId' | 'createdAt' | 'agentStepCount' | 'finishReason'>;
 /** Ephemeral metadata for safe request diagnostics. Never serialized as model input. */
 export type ToolInferenceRequestContext = {
+  /** Observational only. Values are absolute usage for this inference request. */
+  onUsage?: (usage: { inputTokens?: number; outputTokens?: number }) => void;
   /** Optional lower per-request cap for ordinary chat continuation only. */
   maxOutputTokens?: number;
   responseFormat?: 'json_object';
@@ -16,6 +18,9 @@ export type ToolInferenceRequestContext = {
   agentStep?: number;
   phase?: 'initial' | 'post_tool' | 'recovery' | 'final';
 };
+export function reportInferenceUsage(context: ToolInferenceRequestContext | undefined, usage: { inputTokens?: number; outputTokens?: number }): void {
+  try { context?.onUsage?.(usage); } catch { /* Monitoring cannot interrupt inference. */ }
+}
 /** Incremental events for an Agent decision. Tool calls remain untrusted until
  * the terminal `response` event, when the runtime applies protocol validation. */
 export type ToolInferenceStreamEvent =

@@ -99,6 +99,14 @@ export interface WorkBudget {
   used: number; limit: number; maximum: number; extensions: number; decision: string; reason: string; basis?: string;
 }
 export interface AgentTelemetry {
+  /** Chat sends absolute snapshots; Agent retains its existing usage deltas. */
+  source?: 'chat';
+  updatedAt?: string;
+  modelId?: string;
+  inputTokensKnown?: boolean;
+  outputTokensKnown?: boolean;
+  inputTokensReported?: boolean;
+  outputTokensReported?: boolean;
   loopObservations?: number;
   loopGuidance?: number;
   loopWarnings?: number;
@@ -153,6 +161,7 @@ export interface ModelInfo {
 }
 
 export interface Conversation {
+  chatTelemetry?: AgentTelemetry;
   verificationEnabled?: boolean | null;
   visionMode?: import('./browser-qa').BrowserVisionMode | null;
   mtpMode?: MtpMode | null;
