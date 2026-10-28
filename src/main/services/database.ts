@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import type { AgentPlan, AnalysisRun, Attachment, AttachmentKind, AttachmentStatus, ChatMessage, ChatMode, Conversation, GenerationDiagnostics, GenerationStats, LlamaKvCacheType, ProjectReference, ProjectReferenceKind, ReasoningMode, ThinkingTimelineEvent, ToolActivity, WebMode } from '../../shared/types';
 import { paths } from './paths';
+import type { ChatSegmentRecord } from './chat-segments';
 import type { DocumentChunkNote } from './document-memory';
 import { isReasoningEffort } from '../../shared/reasoning-controls';
 import { isPersistableDiscoveryOption, parseStoredDiscoveryOption } from './context-discovery-persistence';
@@ -124,6 +125,7 @@ const runHistory = (row: AnalysisRunRow): Pick<AnalysisRun, 'timeline' | 'partia
 
 export class Database {
   private readonly db: DatabaseSync;
+  private legacyDiagnosticsPreset = false;
 
   constructor(databasePath = paths.database) {
     this.db = new DatabaseSync(databasePath);
@@ -148,6 +150,13 @@ export class Database {
         project_path TEXT NOT NULL, project_label TEXT NOT NULL, relative_path TEXT NOT NULL, kind TEXT NOT NULL
       ) STRICT;
       CREATE INDEX IF NOT EXISTS project_references_message_idx ON project_references(message_id, position);
+      CREATE TABLE IF NOT EXISTS chat_context_checkpoints (
+        conversation_id TEXT PRIMARY KEY, covered_count INTEGER NOT NULL, prefix_hash TEXT NOT NULL, context TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE IF NOT EXISTS chat_generation_segments (
+        conversation_id TEXT NOT NULL, generation_id TEXT NOT NULL, segment INTEGER NOT NULL, data TEXT NOT NULL,
+        PRIMARY KEY(generation_id,segment)
+      ) STRICT;
       CREATE TABLE IF NOT EXISTS chat_document_notes (
         conversation_id TEXT NOT NULL, attachment_id TEXT NOT NULL, content_hash TEXT NOT NULL,
         start INTEGER NOT NULL, end INTEGER NOT NULL, observation_id TEXT NOT NULL,
@@ -382,6 +391,8 @@ export class Database {
     this.db.prepare('DELETE FROM analysis_runs WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM generation_diagnostics WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM agent_plans WHERE conversation_id=?').run(id);
+    this.db.prepare('DELETE FROM chat_context_checkpoints WHERE conversation_id=?').run(id);
+    this.db.prepare('DELETE FROM chat_generation_segments WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM chat_document_notes WHERE conversation_id=?').run(id);
     this.db.prepare('DELETE FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
     this.db.prepare('DELETE FROM project_references WHERE message_id IN (SELECT id FROM messages WHERE conversation_id=?)').run(id);
@@ -551,6 +562,22 @@ export class Database {
     return (this.db.prepare('SELECT * FROM project_references WHERE message_id=? ORDER BY position ASC').all(messageId) as unknown as ProjectReferenceRow[]).map(mapReference);
   }
 
+  chatContextCheckpoint(conversationId:string):{coveredCount:number;prefixHash:string;context:string}|undefined {
+    const row=this.db.prepare('SELECT * FROM chat_context_checkpoints WHERE conversation_id=?').get(conversationId) as {covered_count:number;prefix_hash:string;context:string}|undefined;
+    return row?{coveredCount:row.covered_count,prefixHash:row.prefix_hash,context:row.context}:undefined;
+  }
+  saveChatContextCheckpoint(conversationId:string,coveredCount:number,prefixHash:string,context:string):void {
+    if(context.length>64000)return;
+    this.db.prepare('INSERT OR REPLACE INTO chat_context_checkpoints (conversation_id,covered_count,prefix_hash,context) VALUES (?,?,?,?)').run(conversationId,coveredCount,prefixHash,context);
+  }
+
+  saveChatSegment(record: ChatSegmentRecord): void {
+    this.db.prepare('INSERT OR REPLACE INTO chat_generation_segments (conversation_id,generation_id,segment,data) VALUES (?,?,?,?)').run(record.conversationId,record.generationId,record.segment,JSON.stringify(record));
+  }
+  chatSegments(conversationId: string): ChatSegmentRecord[] {
+    return (this.db.prepare('SELECT data FROM chat_generation_segments WHERE conversation_id=? ORDER BY rowid ASC').all(conversationId) as Array<{data:string}>).map(row=>JSON.parse(row.data) as ChatSegmentRecord);
+  }
+
   documentNotes(conversationId: string, attachmentId?: string, hash?: string): DocumentChunkNote[] {
     const rows = this.db.prepare('SELECT * FROM chat_document_notes WHERE conversation_id=? ORDER BY start ASC, end ASC').all(conversationId) as Array<Record<string, unknown>>;
     return rows.filter(row => (!attachmentId || row.attachment_id === attachmentId) && (!hash || row.content_hash === hash)).map(row => ({ attachmentId: String(row.attachment_id), contentHash: String(row.content_hash), start: Number(row.start), end: Number(row.end), observationId: String(row.observation_id), summary: String(row.summary), processed: Boolean(row.processed), createdAt: String(row.created_at) }));
@@ -641,6 +668,8 @@ export class Database {
     // Dropping a chat branch also changes the history hash of later tasks.
     // Retain their plans/snapshots, but not dangling proofs/knowledge refs.
     for (const taskId of affectedTasks) this.resetTaskEvidence(target.conversation_id, taskId);
+    this.db.prepare('DELETE FROM chat_document_notes WHERE attachment_id NOT IN (SELECT id FROM attachments)').run();
+    this.db.prepare('DELETE FROM chat_context_checkpoints WHERE conversation_id=?').run(target.conversation_id);
     // Task Memory and the context meter describe the dropped attempt. Their
     // evidence lives only in that attempt, so they are discarded with it.
     this.db.prepare('DELETE FROM agent_plans WHERE conversation_id=?').run(target.conversation_id);
@@ -655,10 +684,11 @@ export class Database {
   }
 
   saveGenerationDiagnostics(diagnostics: GenerationDiagnostics): void {
+    this.legacyDiagnosticsPreset = (this.db.prepare('PRAGMA table_info(generation_diagnostics)').all() as Array<{name:string}>).some(column=>column.name==='reasoning_preset');
     this.db.prepare(`INSERT OR REPLACE INTO generation_diagnostics
-      (generation_id, conversation_id, reasoning_mode, requested_max_output_tokens, effective_max_output_tokens, context_limit, input_tokens, agent_step_count, finish_reason, prompt_eval_count, prompt_eval_duration, eval_count, eval_duration, tokens_per_second, prompt_tokens_per_second, time_to_first_token_ms, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(diagnostics.generationId, diagnostics.conversationId, diagnostics.reasoningMode, diagnostics.requestedMaxOutputTokens, diagnostics.effectiveMaxOutputTokens, diagnostics.contextLimit, diagnostics.inputTokens, diagnostics.agentStepCount, diagnostics.finishReason, diagnostics.promptEvalCount ?? null, diagnostics.promptEvalDuration ?? null, diagnostics.evalCount ?? null, diagnostics.evalDuration ?? null, diagnostics.tokensPerSecond ?? null, diagnostics.promptTokensPerSecond ?? null, diagnostics.timeToFirstTokenMs ?? null, diagnostics.createdAt);
+      (generation_id, conversation_id, reasoning_mode, ${this.legacyDiagnosticsPreset ? 'reasoning_preset,' : ''} requested_max_output_tokens, effective_max_output_tokens, context_limit, input_tokens, agent_step_count, finish_reason, prompt_eval_count, prompt_eval_duration, eval_count, eval_duration, tokens_per_second, prompt_tokens_per_second, time_to_first_token_ms, created_at)
+      VALUES (?, ?, ?, ${this.legacyDiagnosticsPreset ? '?,': ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(diagnostics.generationId, diagnostics.conversationId, diagnostics.reasoningMode, ...(this.legacyDiagnosticsPreset ? [diagnostics.reasoningMode === 'deep' ? 'enhanced' : 'normal'] : []), diagnostics.requestedMaxOutputTokens, diagnostics.effectiveMaxOutputTokens, diagnostics.contextLimit, diagnostics.inputTokens, diagnostics.agentStepCount, diagnostics.finishReason, diagnostics.promptEvalCount ?? null, diagnostics.promptEvalDuration ?? null, diagnostics.evalCount ?? null, diagnostics.evalDuration ?? null, diagnostics.tokensPerSecond ?? null, diagnostics.promptTokensPerSecond ?? null, diagnostics.timeToFirstTokenMs ?? null, diagnostics.createdAt);
   }
 
   createAnalysisRun(conversationId: string, reasoningMode: ReasoningMode, ownership?: { logicalTaskId: string; generationId: string; triggeringMessageId: string }): AnalysisRun {

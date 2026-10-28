@@ -23,6 +23,7 @@ import { log } from './logger';
 import { protectedRuntime } from './protected-runtime';
 import type { AgentPlan, AgentPlanStepStatus, ChatMessage, ModelTodo, ReasoningMode, StreamEvent, SteeringIntent, TerminalExecution, ToolActivity, WebMode, WorkBudget } from '../../shared/types';
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
+import { chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
 import { attachmentDataTool } from './attachment-service';
 import { WebBrowserService, webToolDefinitions, activityForWebTool, type WebBrowserSession } from '../web/web-tools';
 import { maxOutputTokens } from '../models/model-registry';
@@ -210,7 +211,7 @@ export class RustAgentRuntime {
     return send(content, intent).then(() => { if (intent !== 'pause') this.activeQaGuards.get(runId)?.rearm(); });
   }
 
-  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode, verificationEnabled = true, takeScreenshot?:()=>boolean): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], projects: AgentProject[], signal: AbortSignal, contextLimit: number, reasoningMode: ReasoningMode, webMode: WebMode, runId: string, persistedTaskMemory?: AgentPlan['taskMemory'], conversationId?: string, supportsReasoning = true, reasoningOptions?: Record<string, Record<string, unknown>>, workspaceRoots: readonly string[] = [], validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>, confirm?: ConfirmAction, progress?: (activity: ToolActivity) => void, permissions: AgentPermissions = { mode: 'strict', trusted_roots: [] }, logicalTaskId?: string, browserObserver?: ProjectBrowserObserver, qaStatus?: (status: BrowserQaStatus) => void, visionMode?: import('../../shared/browser-qa').BrowserVisionMode, verificationEnabled = true, takeScreenshot?:()=>boolean, attachmentScope?:ChatReadonlyScope): AsyncIterable<StreamEvent> {
     if (signal.aborted) { yield { type: 'cancelled' }; return; }
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     // Preparation can fail (invalid history/settings). Validate before owning
@@ -315,7 +316,7 @@ export class RustAgentRuntime {
       approval_ui: Boolean(confirm), permissions,
       ui_language: getLanguage(),
       system: `${modelLanguageDirective()}\nYou are Local AI Desktop Agent. Work autonomously inside the scope described below. Use tools only with complete valid JSON arguments.\n${projects.map((project) => `Project ${project.slot}: ${project.label}; identity=${project.id}; root=${project.root}`).join('\n')}`,
-      user: current.user, history_user: current.historyUser, recover_completed_history: Boolean(conversationId && logicalTaskId && persistedTaskMemory), user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? [...webToolDefinitions, ...(projects.length ? [projectBrowserTool] : [])] : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: attachmentTool ? [attachmentTool] : [], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
+      user: current.user, history_user: current.historyUser, recover_completed_history: Boolean(conversationId && logicalTaskId && persistedTaskMemory), user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? [...webToolDefinitions, ...(projects.length ? [projectBrowserTool] : [])] : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: [...(attachmentTool ? [attachmentTool] : []), ...(attachmentScope?.definitions.map(definition=>JSON.parse(JSON.stringify(definition).replaceAll('read_file','read_conversation_file')))??[])], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
       context_limit: contextLimit, reasoning_mode: reasoningMode, supports_reasoning: supportsReasoning, reasoning_options: reasoningOptions, web_mode: webMode, policy: 'auto',
       history: current.prior.filter((message) => !message.agentError && !message.agentCancelled).map((message) => ({ role: message.role, content: message.content, ...(imageReferences(message).length ? { image_refs: imageReferences(message) } : {}), ...(message.images?.length ? { images: message.images } : {}) })),
       ...(conversationId ? { evidence_dir: agentEvidenceDir(paths.userData, conversationId, logicalTaskId) } : {}),
@@ -412,6 +413,12 @@ export class RustAgentRuntime {
                 result = artifactAcknowledgment(previous ?? artifact, Boolean(previous));
               }
               else result = artifactFailure(validated);
+            } else if (event.name === 'read_conversation_file' || chatReadonlyNames.has(event.name ?? '')) {
+              if(!attachmentScope)throw new Error('Conversation attachment capability unavailable.');
+              const name=event.name==='read_conversation_file'?'read_file':event.name!;
+              if(!attachmentScope.definitions.some(definition=>(definition as {function?:{name?:string}}).function?.name===name))throw new Error('Attachment capability unavailable.');
+              const execution=attachmentScope.execute(name,event.arguments??{},signal);
+              while(true){const item=await execution.next();if(item.done){result=item.value;break;}yield item.value;}
             } else if (event.name === 'read_attachment_data') {
               if (!attachmentTool || !this.readAttachmentData) throw new Error('Attachment data is unavailable in this conversation.');
               const allowed = new Set(history.flatMap((message) => message.attachments ?? []).map((attachment) => attachment.id));

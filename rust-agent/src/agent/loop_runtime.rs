@@ -1161,13 +1161,21 @@ fn task_memory_conflict(
 
 /// Why this evidence does not support a confirmed claim, or `None` if it does.
 fn source_reading_cursors(transcript: &Transcript) -> String {
-    let mut sources = std::collections::BTreeMap::new();
+    let mut sources = std::collections::BTreeMap::<&str, &crate::agent::evidence::Observation>::new();
+    let offset = |observation: &crate::agent::evidence::Observation| {
+        observation.returned_range.as_deref().and_then(|range| range.split("next_offset_chars=").nth(1))
+            .or_else(|| observation.requested_range.as_deref().and_then(|range| range.split("offset_chars=").nth(1)))
+            .and_then(|value| value.split_whitespace().next())
+            .and_then(|value| value.parse::<u64>().ok()).unwrap_or(0)
+    };
     // Latest successful read per source. Historical recovery and memory views do
     // not advance this cursor; checksum validation remains in the journal loader.
     for observation in transcript.observations() {
         if observation.tool == "read_file" && !observation.error {
             if let Some(source) = observation.source.as_deref() {
-                sources.insert(source, observation);
+                if sources.get(source).is_none_or(|prior| prior.source_revision != observation.source_revision || offset(prior) <= offset(observation)) {
+                    sources.insert(source, observation);
+                }
             }
         }
     }
@@ -1179,7 +1187,7 @@ fn source_reading_cursors(transcript: &Transcript) -> String {
             observation.returned_range.as_deref().unwrap_or("unknown"))
     }).collect::<Vec<_>>();
     if lines.is_empty() { return String::new(); }
-    format!("<source_reading_cursors>\nLatest delivered file ranges (not proof that every earlier range was processed). Continue sequential reading at the returned next_offset_chars for the same unchanged source. An observation_read or task_memory view does not advance file progress. tm-* IDs are memory entries, never observation IDs; cite their existing obs-* evidence. Re-read an older range only for a concrete missing fact, contradiction or changed source; do not repeatedly audit all memory instead of continuing. Never claim EOF from a partial range.\n{}\n</source_reading_cursors>", lines.join("\n"))
+    format!("<source_reading_cursors>\nFurthest delivered file ranges per unchanged source (not proof that every earlier range was processed). Continue sequential reading at the returned next_offset_chars for the same unchanged source. An observation_read or task_memory view does not advance file progress. tm-* IDs are memory entries, never observation IDs; cite their existing obs-* evidence. Re-read an older range only for a concrete missing fact, contradiction or changed source; do not repeatedly audit all memory instead of continuing. Never claim EOF from a partial range.\n{}\n</source_reading_cursors>", lines.join("\n"))
 }
 
 fn evidence_problem(evidence: &str, transcript: &Transcript) -> Option<String> {
@@ -4232,7 +4240,7 @@ fn run_scoped_tool_authorized(
         }
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
-    if tool.name == "read_attachment_data" {
+    if matches!(tool.name.as_str(), "read_attachment_data" | "read_conversation_file" | "list_attachments" | "attachment_metadata" | "search_attachments" | "read_document" | "document_memory" | "save_chat_note" | "list_observations" | "read_observation") {
         if !config.attachment_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Attachment data tool is unavailable".into()); }
         let result = config.host_tools.as_ref().ok_or("Attachment host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
@@ -7985,6 +7993,9 @@ mod tests {
         }
         let before = source_reading_cursors(&transcript);
         assert!(before.contains("next_offset_chars=48000"));
+        transcript.assistant_tool_turn(String::new(), &[ValidatedCall { id:"detail".into(), name:"read_file".into(), arguments:json!({"path":"book.txt","offset_chars":0}) }]);
+        transcript.tool_result("detail","read_file",json!({"path":"book.txt","start_line":1,"end_line":2,"offset_chars":0,"next_offset_chars":12000,"truncated":true,"content":"specific detail"}).to_string());
+        assert_eq!(source_reading_cursors(&transcript),before);
         transcript.assistant_tool_turn(String::new(), &[ValidatedCall { id:"view".into(), name:"task_memory".into(), arguments:json!({"action":"view"}) }]);
         transcript.tool_result("view","task_memory","{\"entries\":[]}".into());
         for _ in 0..4 { transcript.assistant_message("later work".into()); }

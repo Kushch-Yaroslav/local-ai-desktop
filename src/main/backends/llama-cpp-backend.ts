@@ -287,6 +287,16 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
     this.preparedInputTokens.set(messages, { tools, reasoningMode, tokens });
     return tokens;
   }
+  /** Plain generated text only: no chat-template overhead, and no inference. */
+  async countTextTokens(text: string, signal: AbortSignal): Promise<number | undefined> {
+    if (!text) return 0;
+    try {
+      const response = await fetch(this.url('/tokenize'), { method:'POST',signal,headers:{'content-type':'application/json'},body:JSON.stringify({content:text,add_special:false}) });
+      if (!response.ok) return undefined;
+      const result = await response.json() as {tokens?:unknown[]};
+      return Array.isArray(result.tokens) ? result.tokens.length : undefined;
+    } catch { signal.throwIfAborted(); return undefined; }
+  }
   private requestDiagnostics(model: string, messages: Array<ChatMessage | ToolMessage>, tools: unknown[] | undefined, contextWindow: number, budget: Budget, status: number, endpoint: string, serverError?: string): RequestDiagnostics {
     const userMessage = serverError?.match(/Error:\s*(?:Jinja Exception:\s*)?([^\n]+)/)?.[1]?.slice(0, 240) || serverError?.slice(0, 240);
     const contextClassification = /context|n_ctx|prompt.*token|slot.*full|exceed/i.test(serverError ?? '') ? 'backend_context_rejected' : 'http_error';
@@ -324,7 +334,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
       const dispatchedAt = Date.now();
       if (agentDiagnostics) log('llama-cpp.agent.inference.dispatched', { ...agentDiagnostics, dispatchedAt: new Date(dispatchedAt).toISOString(), preparationElapsedMs: dispatchedAt - startedAt, requestedMaxTokens: budget.requestedMaxTokens, maxTokens: budget.maxTokens, estimatedPromptTokens: budget.accounting.estimatedPromptTokens, exactPromptTokens: budget.accounting.exactPromptTokens });
       let response: Response;
-      try { response = await fetch(this.url(endpoint), { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(this.payload(model, messages, tools, reasoningMode, budget.maxTokens, false)) }); }
+      try { response = await fetch(this.url(endpoint), { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({...this.payload(model, messages, tools, reasoningMode, budget.maxTokens, false),...(requestContext?.responseFormat?{response_format:{type:requestContext.responseFormat}}:{})}) }); }
       catch (error) { connectionError = error; throw error; }
       const completedAt = Date.now();
       if (agentDiagnostics) log('llama-cpp.agent.inference.response', { ...agentDiagnostics, completedAt: new Date(completedAt).toISOString(), elapsedMs: completedAt - startedAt, fetchElapsedMs: completedAt - dispatchedAt, status: response.status, signalAborted: signal.aborted });
@@ -350,7 +360,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
         });
       }
       this.recordCalibration(budget, contextWindow, data);
-      return { role: 'assistant', content: choice.message.content ?? '', thinking: choice.message.reasoning_content ?? undefined, tool_calls: (choice.message.tool_calls ?? []).flatMap((call) => call.function?.name ? [{ ...(call.id ? { id: call.id } : {}), ...(call.type === 'function' ? { type: 'function' as const } : {}), function: { name: call.function.name, arguments: call.function.arguments ?? '{}' } }] : []), finish_reason: finishReason(choice.finish_reason), prompt_eval_count: data.usage?.prompt_tokens, inference: this.diagnostics(reasoningMode, contextWindow, budget, data) };
+      return { role: 'assistant', content: choice.message.content ?? '', thinking: choice.message.reasoning_content ?? undefined, tool_calls: (choice.message.tool_calls ?? []).flatMap((call) => call.function?.name ? [{ ...(call.id ? { id: call.id } : {}), ...(call.type === 'function' ? { type: 'function' as const } : {}), function: { name: call.function.name, arguments: call.function.arguments ?? '{}' } }] : []), finish_reason: finishReason(choice.finish_reason), backend_finish_reason: choice.finish_reason ?? undefined, prompt_eval_count: data.usage?.prompt_tokens, inference: this.diagnostics(reasoningMode, contextWindow, budget, data) };
     } catch (error) {
       const failedAt = Date.now(); const summary = errorSummary(error);
       if (agentDiagnostics) {
@@ -369,7 +379,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
     const diagnostics = requestContext ? { generationId: requestContext.generationId, conversationId: requestContext.conversationId, agentStep: requestContext.agentStep, phase: requestContext.phase, messageCount: messages.length, toolResultCount: messages.filter((message) => message.role === 'tool').length, assistantToolCallCount: messages.reduce((count, message) => count + (message.tool_calls?.length ?? 0), 0), contextWindow } : undefined;
     const first: Record<string, number | undefined> = { event: undefined, reasoning: undefined, content: undefined, tool: undefined };
     const assembled = new Map<number, { id?: string; type?: string; name?: string; arguments: string }>();
-    let text = ''; let thinking = ''; let finalData: ChatResponse | undefined; let finalReason: FinishReason | undefined;
+    let text = ''; let thinking = ''; let finalData: ChatResponse | undefined; let finalReason: FinishReason | undefined; let backendFinishReason: string | undefined;
     try {
       await this.ensureModelAvailable(model);
       const sequenceError = validateLlamaMessageSequence(messages); if (sequenceError) throw new Error(`Некорректная последовательность Agent сообщений: ${sequenceError}`);
@@ -394,7 +404,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
               this.recordCalibration(budget, contextWindow, finalData ?? null);
               const inference = this.diagnostics(reasoningMode, contextWindow, budget, finalData);
               if (diagnostics) log('llama-cpp.agent.stream.finished', { ...diagnostics, generationDurationMs: Date.now() - startedAt, finishReason: finalReason, firstEventMs: first.event === undefined ? undefined : first.event - startedAt, firstReasoningMs: first.reasoning === undefined ? undefined : first.reasoning - startedAt, firstContentMs: first.content === undefined ? undefined : first.content - startedAt, firstToolCallMs: first.tool === undefined ? undefined : first.tool - startedAt, reasoningChars: thinking.length, contentChars: text.length, toolCallsDetected: calls.length, completionTokens: inference.evalCount });
-              yield { type: 'response', response: { role: 'assistant', content: text, ...(thinking ? { thinking } : {}), tool_calls: calls, finish_reason: finalReason, prompt_eval_count: finalData?.usage?.prompt_tokens, inference } };
+              yield { type: 'response', response: { role: 'assistant', content: text, ...(thinking ? { thinking } : {}), tool_calls: calls, finish_reason: finalReason, backend_finish_reason: backendFinishReason, prompt_eval_count: finalData?.usage?.prompt_tokens, inference } };
               return;
             }
             const data = JSON.parse(item) as ChatResponse; const choice = data.choices?.[0];
@@ -409,7 +419,7 @@ export class LlamaCppBackend implements LlmBackend, ToolCallingBackend {
               assembled.set(index, current);
               yield { type: 'tool_call_delta', index, ...(rawCall.id ? { id: rawCall.id } : {}), ...(rawCall.function?.name ? { name: rawCall.function.name } : {}), ...(argumentsDelta ? { argumentsDelta } : {}) };
             }
-            if (choice?.finish_reason) finalReason = finishReason(choice.finish_reason);
+            if (choice?.finish_reason) { finalReason = finishReason(choice.finish_reason); backendFinishReason = choice.finish_reason; }
           }
           if (done) break;
         }

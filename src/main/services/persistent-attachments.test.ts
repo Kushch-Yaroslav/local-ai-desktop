@@ -24,6 +24,14 @@ async function test() {
   for (const id of ['../escape', '/tmp/escape', 'a/b']) await assert.rejects(service.import({ id, messageId: message.id, index: 1, filename: 'book.txt', mimeType: 'text/plain', data: Buffer.from('x') }), /identity/);
   const ref = db.getAttachment(file.id)!.extractedTextRef!;
   const original = await readFile(ref);
+  const otherMessage=db.addMessage(other.id,'user','Another source');
+  const otherFile=await service.import({messageId:otherMessage.id,index:0,filename:'other.txt',mimeType:'text/plain',data:Buffer.from('private other source')});
+  const otherReady=await service.preprocess(otherFile,new AbortController().signal);
+  const originalMetadata=db.getAttachment(file.id)!.metadata;
+  db.updateAttachment(file.id,{extractedTextRef:otherReady.extractedTextRef,metadata:otherReady.metadata});
+  await assert.rejects(service.fullText(chat.id,file.id,new AbortController().signal),/owned managed storage/);
+  db.updateAttachment(file.id,{extractedTextRef:ref,metadata:originalMetadata});
+
   await writeFile(ref, 'forged');
   await assert.rejects(service.fullText(chat.id, file.id, new AbortController().signal), /hash/);
   await writeFile(ref, original);

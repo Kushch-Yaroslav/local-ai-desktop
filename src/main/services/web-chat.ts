@@ -8,6 +8,7 @@ import { WebBrowserService, activityForWebTool, webToolDefinitions, type WebBrow
 import { ArtifactToolError, artifactFailure, artifactAcknowledgment, validateRichArtifact, visualArtifactTool, withAttachmentProvenance, richArtifactFingerprint, type RichArtifact, type ArtifactSource } from '../../shared/rich-artifacts';
 import { attachmentDataTool } from './attachment-service';
 import { log } from './logger';
+import type { ChatSegmentRecord } from './chat-segments';
 import { fitChatContext } from './chat-context';
 import { chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
 import {CHAT_OUTPUT_TOKEN_LIMIT,CHAT_CONTINUATION_REQUEST_LIMIT,ChatContinuationBoundary,chatContinuationInstruction} from './chat-continuation';
@@ -74,11 +75,13 @@ For analysis use one coherent dataset across metrics, charts and tables. Numeric
 export class WebChatService {
   constructor(private readonly backend: ToolCallingBackend & LlmBackend, private readonly web: WebBrowserService, private readonly validateDiagram?: (source: string, signal: AbortSignal) => Promise<void>) {}
 
-  async *stream(model: string, history: ChatMessage[], signal: AbortSignal, contextWindow: number, reasoningMode: ReasoningInput, webEnabled = true, readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>, validateDiagram = this.validateDiagram, generationId?: string, readonlyScope?: ChatReadonlyScope): AsyncIterable<StreamEvent> {
+  async *stream(model: string, history: ChatMessage[], signal: AbortSignal, contextWindow: number, reasoningMode: ReasoningInput, webEnabled = true, readAttachmentData?: (argumentsObject: Record<string, unknown>) => Promise<unknown>, validateDiagram = this.validateDiagram, generationId?: string, readonlyScope?: ChatReadonlyScope, onSegment?: (record: ChatSegmentRecord) => void): AsyncIterable<StreamEvent> {
     if (signal.aborted) return;
     const runId = generationId ?? randomUUID(); const started = performance.now();
     const trace = (stage: string, fields: Record<string, unknown> = {}) => { try { log('rich.chat.lifecycle', { runId, conversationId: history[0]?.conversationId, stage, elapsedMs: Math.round(performance.now() - started), ...fields }); } catch { /* diagnostics cannot fail inference */ } };
     trace('submitted');
+    let segmentIndex=0;
+    const recordSegment=(record:ChatSegmentRecord)=>{trace('inference_segment',record as unknown as Record<string,unknown>);try{onSegment?.(record);}catch{/* telemetry never fails inference */}};
     let answerText='',outputTokens=0,evalNanos=0,continuations=0,continuing=false;
     let session: WebBrowserSession | undefined; let sessionPromise: Promise<WebBrowserSession> | undefined;
     const ensureSession = () => sessionPromise ??= this.web.openSession().then((opened) => {
@@ -87,7 +90,7 @@ export class WebChatService {
     });
     const closeOnAbort = () => { void session?.close(); };
     signal.addEventListener('abort', closeOnAbort, { once: true });
-    let messages: ToolMessage[] = chatMessagesWithSystemPrefix(history, [
+    let messages: ToolMessage[] = chatMessagesWithSystemPrefix(readonlyScope?.restoreHistory?.(history) ?? history, [
       capabilitySystemContext({ webAvailable: webEnabled }),
       chatCompletionGuidance(reasoningModeOf(reasoningMode) === 'deep' ? 'deep' : 'fast'),
       modelLanguageDirective(), chatToolInstruction, ...(readonlyScope ? [readonlyScope.context()] : []),
@@ -97,6 +100,7 @@ export class WebChatService {
     const usedAttachmentSources = new Map<string, ArtifactSource>();
     const failures = new Map<string, number>(); const accepted = new Map<string, RichArtifact>(); const diagrams = new Set<string>();
     const callIds = new Set<string>();
+    const readonlyRepeats = new Map<string,number>();
     const tools = [...(webEnabled ? webToolDefinitions : []), visualArtifactTool, ...(attachmentTool ? [attachmentTool] : []), ...(readonlyScope?.definitions ?? [])];
     const modelTurnLimit = readonlyScope ? 80 : maxModelTurns, toolActionLimit = readonlyScope ? 96 : maxToolActions;
     let toolActions = 0; let visibleStarted = false;
@@ -109,6 +113,7 @@ export class WebChatService {
         const fitted = await fitChatContext(this.backend, model, messages, availableTools, signal, contextWindow, reasoningMode, history.filter(m=>m.role==='user').at(-1)?.content??'', readonlyScope?.context(),baseSystemPrefix);
         if (fitted.compacted) {
           messages = fitted.messages;
+          readonlyScope?.saveContextCheckpoint?.(history,`${fitted.summary}\nRetained historical conversation/tool data: ${JSON.stringify(messages.slice(1))}`);
           trace('context_compacted',{inputTokens:fitted.inputTokens,contextWindow});
           yield {type:'tool',activity:{id:`${runId}:context:${turn}:${continuations}`,label:'Сжатие контекста',kind:'context',state:'completed',detail:'Источники и прогресс чтения сохранены'}};
         }
@@ -155,7 +160,15 @@ export class WebChatService {
         for (const call of inline.calls) if (!calls.some((existing) => existing.name === call.name && canonicalArguments(existing.arguments) === canonicalArguments(call.arguments))) calls.push(call);
         for (const call of calls) trace('tool_detected', { turn, tool: call.name, callId: call.id });
         for (const call of calls) { if (callIds.has(call.id)) call.id = randomUUID(); callIds.add(call.id); }
-        if(!calls.length&&!exhausted&&response.finish_reason==='length'&&outputTokens<CHAT_OUTPUT_TOKEN_LIMIT&&segmentVisible.trim()&&continuations<CHAT_CONTINUATION_REQUEST_LIMIT){
+        const shouldContinue = !calls.length&&!exhausted&&response.finish_reason==='length'&&outputTokens<CHAT_OUTPUT_TOKEN_LIMIT&&Boolean(segmentVisible.trim())&&continuations<CHAT_CONTINUATION_REQUEST_LIMIT;
+        recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,
+          promptTokens:response.inference?.inputTokens,generatedTokens:response.inference?.evalCount,
+          visibleTextTokens:onSegment?await this.backend.countTextTokens?.(segmentVisible,signal):undefined,reasoningTextTokens:onSegment?await this.backend.countTextTokens?.(response.thinking??'',signal):undefined,
+          requestedMaxTokens:response.inference?.requestedMaxOutputTokens??Math.min(32768,CHAT_OUTPUT_TOKEN_LIMIT-outputTokens+(response.inference?.evalCount??0)),effectiveMaxTokens:response.inference?.effectiveMaxOutputTokens,
+          contextHeadroom:response.inference?.inputTokens!==undefined?contextWindow-response.inference.inputTokens:undefined,finishReason:response.finish_reason,backendFinishReason:response.backend_finish_reason,
+          aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:shouldContinue,
+          decision:exhausted?'tool_budget':calls.length?'tool_calls':outputTokens>=CHAT_OUTPUT_TOKEN_LIMIT?'aggregate_budget':shouldContinue?'continue_length':response.finish_reason!=='length'?'natural_eos':!segmentVisible.trim()?'no_progress':'continuation_budget'});
+        if(shouldContinue){
           messages.push({role:'assistant',content:segmentVisible},{role:'user',content:chatContinuationInstruction});
           yield {type:'tool',activity:{id:`${runId}:continuation:${continuations}`,label:'Продолжение ответа',kind:'progress',state:'running'}};
           continuing=true;continuations++;turn--;trace('automatic_continuation',{outputTokens,continuations,remaining:CHAT_OUTPUT_TOKEN_LIMIT-outputTokens});continue;
@@ -182,6 +195,8 @@ export class WebChatService {
             if (call.parseError) throw new Error(call.parseError);
             if (chatReadonlyNames.has(call.name)) {
               if (!readonlyScope || !readonlyScope.definitions.some(definition => (definition as {function?:{name?:string}}).function?.name === call.name)) throw new Error('Read-only capability unavailable.');
+              const repeats=(readonlyRepeats.get(signature)??0)+1;readonlyRepeats.set(signature,repeats);
+              if(repeats>=4){if(repeats>=5)toolActions=toolActionLimit;throw new Error('Repeated identical read without new progress. Use the saved result, advance the offset, or answer. Memory IDs are not observation IDs.');}
               const execution = readonlyScope.execute(call.name, call.arguments, signal);
               while (true) {
                 const item = await execution.next();
@@ -223,8 +238,9 @@ export class WebChatService {
         }
       }
     } catch (error) {
+      recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,requestedMaxTokens:0,aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:false,decision:signal.aborted?'user_stop':'error',error:error instanceof Error?error.message:String(error)});
       if (!signal.aborted) { trace('failed', { error: error instanceof Error ? error.message : String(error) }); yield { type: 'error', message: 'Не удалось выполнить запрос', details: error instanceof Error ? error.message : String(error) }; }
-    } finally { signal.removeEventListener('abort', closeOnAbort); if (session) await session.close(); trace(signal.aborted ? 'cancelled' : 'closed'); }
+    } finally { if(signal.aborted)recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,requestedMaxTokens:0,aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:false,decision:'user_stop'}); signal.removeEventListener('abort', closeOnAbort); if (session) await session.close(); trace(signal.aborted ? 'cancelled' : 'closed'); }
   }
 }
 

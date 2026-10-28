@@ -1,0 +1,13 @@
+import './test-runtime-isolation';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import assert from 'node:assert/strict';
+import { Database } from './database';
+const path=join(mkdtempSync('/tmp/lad-legacy-chat-diagnostics-'),'history.db');
+const old=new DatabaseSync(path);
+old.exec(`CREATE TABLE generation_diagnostics (generation_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,reasoning_preset TEXT NOT NULL,requested_max_output_tokens INTEGER NOT NULL,effective_max_output_tokens INTEGER NOT NULL,context_limit INTEGER NOT NULL,input_tokens INTEGER NOT NULL,agent_step_count INTEGER NOT NULL,finish_reason TEXT NOT NULL,created_at TEXT NOT NULL) STRICT;`);old.close();
+const db=new Database(path),chat=db.createConversation('fixture');
+db.saveGenerationDiagnostics({generationId:'real-diagnostics',conversationId:chat.id,reasoningMode:'fast',requestedMaxOutputTokens:32768,effectiveMaxOutputTokens:32768,contextLimit:65536,inputTokens:9168,agentStepCount:0,finishReason:'stop',evalCount:16212,createdAt:new Date().toISOString()});db.close();
+const check=new DatabaseSync(path);const row=check.prepare('SELECT * FROM generation_diagnostics').get()!;assert.equal(row.reasoning_preset,'normal');assert.equal(row.reasoning_mode,'fast');assert.equal(row.eval_count,16212);check.close();
+console.log('PASS legacy NOT NULL reasoning_preset no longer discards Chat generation diagnostics');

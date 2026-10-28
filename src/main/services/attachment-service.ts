@@ -79,6 +79,7 @@ export class AttachmentService {
 
   async removeManagedFiles(attachments: Attachment[]): Promise<void> {
     await Promise.all(attachments.map(async (attachment) => {
+      try { this.assertRecord(attachment); } catch { return; }
       const absolute = resolve(attachment.storageRef); const root = `${resolve(paths.attachments)}/`;
       if (absolute.startsWith(root)) {
         for (const ref of [absolute, attachment.extractedTextRef].filter((ref): ref is string => Boolean(ref))) {
@@ -184,7 +185,13 @@ export class AttachmentService {
     return { status: 'ready', extractedTextRef, extractedText: text.text, metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), pageCount: document.numPages, truncated: text.truncated, originalExtractedCharacters: raw.length } };
   }
 
+  private assertRecord(attachment: Attachment): void {
+    if (![attachment.id,attachment.messageId].every(value=>/^[a-zA-Z0-9_-]{1,128}$/.test(value)) || safeFilename(attachment.filename)!==attachment.filename || resolve(attachment.storageRef)!==join(resolve(paths.attachments),attachment.messageId,`${attachment.id}-${attachment.filename}`)) throw new Error('Attachment reference is outside its owned managed storage.');
+    if(attachment.extractedTextRef && (!attachment.extractedTextRef.startsWith(`${attachment.storageRef}.extracted.`) || !/\.extracted\.[a-f0-9-]{36}\.txt$/.test(attachment.extractedTextRef))) throw new Error('Extracted text reference is outside its owned managed storage.');
+  }
+
   async readBytes(attachment: Attachment): Promise<Buffer> {
+    this.assertRecord(attachment);
     const bytes = await readManagedAttachment(attachment.storageRef);
     const hash = createHash('sha256').update(bytes).digest('hex');
     if (attachment.contentHash && attachment.contentHash !== hash) throw new Error('Attachment content hash changed; source and dependent notes are invalid. Reattach the changed source.');
@@ -197,18 +204,33 @@ export class AttachmentService {
     await validateAttachmentPath(attachment.storageRef);
     const target = `${attachment.storageRef}.extracted.${randomUUID()}.txt`;
     await writeFile(target, text, { flag: 'wx', mode: 0o600 });
-    this.database.updateAttachment(attachment.id, { metadata: { ...attachment.metadata, textHash: createHash('sha256').update(text).digest('hex') } });
+    this.database.updateAttachment(attachment.id, { extractedTextRef:target, metadata: { ...attachment.metadata, textHash: createHash('sha256').update(text).digest('hex') } });
     return target;
   }
 
-  /** Lazy migration of old preview-only attachments; never mistake the preview for EOF. */
   async fullText(conversationId: string, id: string, signal: AbortSignal): Promise<{ attachment: Attachment; text: string; hash: string }> {
+    try { return await this.validatedFullText(conversationId,id,signal); }
+    catch (error) {
+      signal.throwIfAborted();
+      const attachment=this.database.getAttachment(id);
+      if (!attachment || this.database.getMessage(attachment.messageId)?.conversationId !== conversationId) throw new Error('Attachment is not available in this conversation.');
+      const reason=error instanceof Error?error.message:String(error);
+      const invalid=/hash changed|Symlink|outside.*managed/.test(reason);
+      this.database.updateAttachment(id,{metadata:{...attachment.metadata,availability:invalid?'invalid':'unavailable'}});
+      if(invalid)throw error;
+      throw new Error('Source unavailable. Restore the managed attachment or attach the source again. Unsupported text formats and scanned PDFs require a supported extractor.');
+    }
+  }
+
+  /** Lazy migration of old preview-only attachments; never mistake the preview for EOF. */
+  private async validatedFullText(conversationId: string, id: string, signal: AbortSignal): Promise<{ attachment: Attachment; text: string; hash: string }> {
     let attachment = this.database.getAttachment(id);
     if (!attachment || this.database.getMessage(attachment.messageId)?.conversationId !== conversationId) throw new Error('Attachment is not available in this conversation.');
     this.throwIfAborted(signal);
     await this.readBytes(attachment);
     if (!['text', 'document', 'pdf'].includes(attachment.kind)) throw new Error('Full text is unsupported for this attachment format.');
-    if (!attachment.extractedTextRef) attachment = await this.preprocess({ ...attachment, status: 'pending' }, signal);
+    if (attachment.status==='ocr_required') throw new Error('OCR is required for this source.');
+    if (!attachment.extractedTextRef || attachment.status!=='ready') attachment = await this.preprocess({ ...attachment, status: 'pending' }, signal);
     if (attachment.status !== 'ready' || !attachment.extractedTextRef) throw new Error('Source unavailable: text extraction failed or OCR is required.');
     const text = (await readManagedAttachment(attachment.extractedTextRef, MAX_FILE_BYTES * 4)).toString('utf8');
     this.throwIfAborted(signal);

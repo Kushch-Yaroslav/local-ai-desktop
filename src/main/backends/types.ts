@@ -10,6 +10,7 @@ export type InferenceDiagnostics = Omit<GenerationDiagnostics, 'generationId' | 
 export type ToolInferenceRequestContext = {
   /** Optional lower per-request cap for ordinary chat continuation only. */
   maxOutputTokens?: number;
+  responseFormat?: 'json_object';
   generationId?: string;
   conversationId?: string;
   agentStep?: number;
@@ -33,12 +34,13 @@ export type ToolMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool'; content: string; tool_calls?: ToolCall[]; tool_name?: string; tool_call_id?: string;
   /** Ephemeral base64 image inputs; never a persisted chat field. */
   images?: string[];
-  prompt_eval_count?: number; finish_reason?: FinishReason; inference?: InferenceDiagnostics; thinking?: string;
+  backend_finish_reason?: string; prompt_eval_count?: number; finish_reason?: FinishReason; inference?: InferenceDiagnostics; thinking?: string;
 };
 
 /** Contract implemented by the launcher-managed llama.cpp server. */
 export interface ToolCallingBackend {
   chatWithTools(model: string, messages: ToolMessage[], tools: unknown[] | undefined, signal: AbortSignal, contextWindow: number, reasoningMode: ReasoningInput, requestContext?: ToolInferenceRequestContext): Promise<ToolMessage>;
+  countTextTokens?(text: string, signal: AbortSignal): Promise<number | undefined>;
   /** Same tokenizer/chat-template accounting used by the runtime request. */
   countInputTokens?(model: string, messages: ToolMessage[], tools: unknown[] | undefined, contextWindow: number, reasoningMode: ReasoningInput, signal: AbortSignal): Promise<number>;
   /** Native streaming Agent transport when a provider can expose tool deltas. */

@@ -1,11 +1,15 @@
+import './test-runtime-isolation';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { ensureAppDirectories, paths } from './paths';
+import { loadRuntimeConfiguration, saveRuntimeConfiguration } from './runtime-settings';
+import { builtinModelCatalog } from '../models/model-catalog';
 import { LAUNCHER_ABSENT, SERVER_ABSENT, LlamaRuntimeController, parseLlamaRuntimeState } from './llama-runtime-controller';
 
 const qwen = 'qwen3.8:27b-q4_K_M';
-const glm = 'glm-4.7-flash:q4_k';
+const secondaryModel = 'qwen3.6:35b-a3b-ud-q4_k_m';
 
 async function fixture(timeoutMs = 5_000) {
   const dir = await mkdtemp(join(tmpdir(), 'llama-runtime-'));
@@ -28,6 +32,10 @@ async function fixture(timeoutMs = 5_000) {
 const state = (fields: Record<string, unknown>) => JSON.stringify({ status: 'ready', requestId: '', modelId: '', contextWindow: 0, kvCacheType: 'f16', kvOffload: true, serverPid: 1, launcherPid: 4242, error: '', rolledBack: false, ...fields });
 
 export async function runLlamaRuntimeControllerRegression(): Promise<void> {
+  ensureAppDirectories();
+  const config=loadRuntimeConfiguration();
+  const missing=builtinModelCatalog.filter(model=>[qwen,secondaryModel].includes(model.id)&&!config.models.some(entry=>entry.id===model.id));
+  if(missing.length)saveRuntimeConfiguration({...config,models:[...config.models,...missing.map(model=>({id:model.id,displayName:model.displayName,modelPath:join(paths.models,model.modelPath),mmprojPath:'',gpuLayers:null,supportsTools:true,speculative:'mtp' as const,builtin:true}))]});
   {
     const { files, make } = await fixture();
     const controller = make(async request => {
@@ -89,12 +97,12 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
   {
     // The requested runtime failed, the launcher restored the previous one: the switch is a failure and the active model is the previous one.
     const { files, make } = await fixture();
-    const controller = make(async (request) => { await writeFile(files.stateFile, state({ status: 'ready', requestId: request.REQUEST_ID, modelId: glm, contextWindow: 65_536, error: 'CUDA out of memory', rolledBack: true })); });
+    const controller = make(async (request) => { await writeFile(files.stateFile, state({ status: 'ready', requestId: request.REQUEST_ID, modelId: secondaryModel, contextWindow: 65_536, error: 'CUDA out of memory', rolledBack: true })); });
     const result = await controller.switchTo(qwen, 65_536);
     assert.equal(result.ok, false);
     if (!result.ok) {
       assert.match(result.error, /out of memory/);
-      assert.equal(result.state.modelId, glm, 'the rolled-back state must name the model that really runs');
+      assert.equal(result.state.modelId, secondaryModel, 'the rolled-back state must name the model that really runs');
       assert.equal(result.state.rolledBack, true);
     }
   }
@@ -152,9 +160,9 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     const { files, make } = await fixture();
     const seen: string[] = [];
     const controller = make(async (request) => { seen.push(request.MODEL_ID); await writeFile(files.stateFile, state({ status: 'ready', requestId: request.REQUEST_ID, modelId: request.MODEL_ID, contextWindow: Number(request.CONTEXT) })); });
-    const [first, second] = await Promise.all([controller.switchTo(qwen, 65_536), controller.switchTo(glm, 32_768)]);
+    const [first, second] = await Promise.all([controller.switchTo(qwen, 65_536), controller.switchTo(secondaryModel, 32_768)]);
     assert.equal(first.ok && second.ok, true);
-    assert.deepEqual(seen, [qwen, glm]);
+    assert.deepEqual(seen, [qwen, secondaryModel]);
   }
 }
 
