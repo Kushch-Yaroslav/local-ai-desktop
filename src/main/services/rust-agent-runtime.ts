@@ -557,7 +557,7 @@ export class RustAgentRuntime {
 }
 
 function activityLabel(name?: string): string {
-  if(name==='read_conversation_file'||name==='read_document')return 'Чтение файла';
+  if(name==='read_file'||name==='read_conversation_file'||name==='read_document')return 'Чтение файла';
   if(name==='save_chat_note')return 'Сохранение заметок';
   if(chatReadonlyNames.has(name??''))return 'Источники разговора';
   if (name?.startsWith('web_')) return activityForWebTool({ name, arguments: {} }).label;

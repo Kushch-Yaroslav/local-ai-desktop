@@ -165,7 +165,7 @@ export class ChatReadonlyTools implements ChatReadonlyScope {
       while(offset<text.length&&this.processedChunks<128) {
         signal.throwIfAborted();
         const end=Math.min(text.length,offset+Math.min(this.chunkLimit,Math.max(2000,Math.floor(this.contextWindow*0.8)))) , ref=observationId(attachmentId,hash,offset,end);
-        const activity={id:`reading-${attachmentId}`,kind:'file_read' as const,label:t('Чтение файла'),detail:tr`Прочитано ${Math.floor(offset/text.length*100)}% документа`+(chapterIndex.filter(section=>section.offset_chars<=offset).at(-1)?.title?' · '+chapterIndex.filter(section=>section.offset_chars<=offset).at(-1)!.title:''),state:'running' as const};
+        const activity={id:`reading-${attachmentId}`,kind:'file_read' as const,metadata:{documentReading:true},label:t('Чтение файла'),detail:tr`Прочитано ${Math.floor(offset/text.length*100)}% документа`+(chapterIndex.filter(section=>section.offset_chars<=offset).at(-1)?.title?' · '+chapterIndex.filter(section=>section.offset_chars<=offset).at(-1)!.title:''),state:'running' as const};
         yield {type:'tool',activity};
         const previous=this.notes(attachmentId,hash).filter(n=>n.processed&&n.end<=offset).at(-1)?.summary.slice(0,3000)??'';
         const response=await this.backend.chatWithTools(this.model,[

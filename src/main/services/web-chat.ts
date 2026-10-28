@@ -234,7 +234,7 @@ export class WebChatService {
           if (failed) failures.set(signature, (failures.get(signature) ?? 0) + 1); else failures.delete(signature);
           messages.push({ role: 'tool', tool_name: call.name, tool_call_id: call.id, content: JSON.stringify(result) });
           trace('tool_completed', { turn, tool: call.name, callId: call.id, failed, ...(failed && result && typeof result === 'object' ? { code: (result as { code?: string }).code } : {}), durationMs: Math.round(performance.now() - toolStarted) });
-          yield { type: 'tool', activity: { ...activity, state: failed ? 'error' : 'completed' } };
+          yield { type: 'tool', activity: { ...activity, state: failed ? 'error' : 'completed', ...(failed&&chatReadonlyNames.has(call.name)?{metadata:{chatSource:true},detail:String((result as {error?:unknown})?.error??'Source processing failed.')}:{}) } };
         }
       }
     } catch (error) {

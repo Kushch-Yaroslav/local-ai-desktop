@@ -1,5 +1,6 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Обработка источника не завершена": "Source processing incomplete",
   "Если модель находится на неподключённом диске, откройте этот диск в файловом менеджере, чтобы смонтировать его. Приложение обнаружит модель автоматически.": "If the model is on an unmounted drive, open that drive in your file manager to mount it. The app will detect the model automatically.",
   "Проверьте подключение диска с моделью и доступность файла. Приложение автоматически обновляет доступность модели.": "Check that the model drive is connected and the file is available. The app updates model availability automatically.",
   "Чтение файла": "Reading file",

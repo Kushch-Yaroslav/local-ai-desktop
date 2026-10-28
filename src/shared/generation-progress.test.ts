@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { useAppStore } from '../renderer/store/app-store';
 import { progressIndicatorLabel } from './generation-progress';
 import type { StreamEvent } from './types';
+import { setLanguage } from './locale';
+setLanguage('ru');
 
 Object.defineProperty(globalThis, 'window', { configurable: true, value: { requestAnimationFrame: () => 1, cancelAnimationFrame() {} } });
 const store = useAppStore;
@@ -18,6 +20,11 @@ send({ type: 'tool', activity: { id: 'search', label: 'Поиск в интер�
 assert.equal(indicator(), 'Поиск в интернете'); assert.equal(indicator(true), null, 'Agent timeline already presents the tool');
 send({ type: 'tool', activity: { id: 'search', label: 'Поиск в интернете', kind: 'web', state: 'completed' } }); assert.equal(indicator(), 'Ожидаю ответ модели…');
 send({ type: 'model-state', state: 'waiting' }); assert.equal(indicator(true), 'Ожидаю ответ модели…');
+send({type:'tool',activity:{id:'reading',kind:'file_read',label:'Чтение файла',detail:'Прочитано 38% документа · Глава 10',metadata:{documentReading:true},state:'running'}});
+assert.equal(indicator(),'Чтение файла · Прочитано 38% документа · Глава 10');assert.equal(indicator(true),null);
+setLanguage('en');assert.equal(indicator(),'Reading file · Read 38% of document · Глава 10');setLanguage('ru');
+send({type:'tool',activity:{id:'reading',kind:'file_read',label:'Чтение файла',detail:'Confirmed offset preserved',metadata:{chatSource:true},state:'error'}});
+assert.equal(indicator(),'Обработка источника не завершена · Confirmed offset preserved');assert.equal(indicator(true),'Ожидаю ответ модели…');
 send({ type: 'model-state', state: 'streaming' }); assert.equal(indicator(), null, 'native fragmented tool calls are model output');
 send({ type: 'thinking', content: 'Following up' }); assert.equal(indicator(), null);
 send({ type: 'cancelled' }); assert.equal(indicator(), null);
