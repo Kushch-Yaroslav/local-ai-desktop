@@ -101,7 +101,22 @@ async function attempt(name, load) {
 }
 app.whenReady().then(async () => {
   if (process.type !== 'browser') throw new Error('Smoke harness did not run in the Electron main process.');
+  if (process.env.LOCAL_AI_PACKAGE_FATAL_STARTUP_SMOKE === '1') {
+    const { dialog } = require('electron');
+    const { criticalMainProcessError, criticalMainProcessExitCode } = appRequire('./dist/main/critical-main-process-error.js');
+    let errorBoxShown = false;
+    const showErrorBox = () => { errorBoxShown = true; };
+    dialog.showErrorBox = showErrorBox;
+    if (dialog.showErrorBox !== showErrorBox) throw new Error('Could not isolate the startup error dialog in the smoke test.');
+    app.on('before-quit', event => {
+      event.preventDefault();
+      process.stdout.write(JSON.stringify({ processType: process.type, errorBoxShown, exitCode: criticalMainProcessExitCode() }) + '\\n', () => app.exit(criticalMainProcessExitCode()));
+    });
+    criticalMainProcessError(new Error('Synthetic packaged startup failure.'));
+    return;
+  }
   await attempt('mammoth', () => appRequire('mammoth'));
+  await attempt('underscore', () => appRequire('underscore'));
   await attempt('@keep-lts/xlsx', () => appRequire('@keep-lts/xlsx'));
   await attempt('pdfjs-dist', () => import(pathToFileURL(appRequire.resolve('pdfjs-dist/legacy/build/pdf.mjs')).href));
   await attempt('playwright-core', () => appRequire('playwright-core'));
@@ -115,13 +130,22 @@ app.whenReady().then(async () => {
   const smokeEnv={...process.env,HOME:profileHome,XAUTHORITY:process.env.XAUTHORITY??join(process.env.HOME,'.Xauthority'),NODE_PATH:'',LOCAL_AI_RUNTIME_ROOT:join(root,'test-runtime'),XDG_CONFIG_HOME:join(root,'xdg/config'),XDG_DATA_HOME:join(root,'xdg/data'),XDG_CACHE_HOME:join(root,'xdg/cache'),XDG_STATE_HOME:join(root,'xdg/state')};
   await rename(app,packagedPayloadApp);
   await rename(smokeApp,app);
-  let runtimeSmoke;
-  try { runtimeSmoke=run(join(root,'opt/local-ai-desktop/local-ai-desktop'),['--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],{env:smokeEnv,timeout:30000}); }
+  let runtimeSmoke,fatalStartupSmoke;
+  try {
+    const executable=join(root,'opt/local-ai-desktop/local-ai-desktop');
+    runtimeSmoke=run(executable,['--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],{env:smokeEnv,timeout:30000});
+    try { fatalStartupSmoke=run(executable,['--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],{env:{...smokeEnv,LOCAL_AI_PACKAGE_FATAL_STARTUP_SMOKE:'1'},timeout:30000}); }
+    catch(error) { fatalStartupSmoke=error; }
+  }
   finally { await rm(app,{recursive:true,force:true});await rename(packagedPayloadApp,app); }
   const runtimeResult=JSON.parse(runtimeSmoke.trim().split('\n').at(-1));
   assert.equal(runtimeResult.processType,'browser','runtime modules load in Electron main, not a Node-only probe');
   assert.deepEqual(runtimeResult.failures,[],'all packaged main-process dependency graphs load');
-  for(const name of ['mammoth','@keep-lts/xlsx','pdfjs-dist','playwright-core','attachment-service','rust-agent-runtime'])assert(runtimeResult.loaded.includes(name),'packaged runtime load: '+name);
+  for(const name of ['mammoth','underscore','@keep-lts/xlsx','pdfjs-dist','playwright-core','attachment-service','rust-agent-runtime'])assert(runtimeResult.loaded.includes(name),'packaged runtime load: '+name);
+  assert.equal(fatalStartupSmoke?.status,1,'a critical main-process startup failure exits Electron with status 1');
+  assert.equal(fatalStartupSmoke?.signal,null,'fatal startup exits normally instead of hanging until timeout');
+  const fatalStartupResult=JSON.parse(String(fatalStartupSmoke.stdout).trim().split('\n').at(-1));
+  assert.equal(fatalStartupResult.processType,'browser');assert.equal(fatalStartupResult.errorBoxShown,true);assert.equal(fatalStartupResult.exitCode,1);
   assert.match(await readFile(join(root,'control/triggers'),'utf8'),/interest(?:-noawait)? \/usr\/bin\/bwrap/);
   for(const name of ['LICENSE','THIRD_PARTY_NOTICES.md','licenses/Jan-LICENSE.txt','CHANGELOG.md','docs/README.md','docs/releases/v0.3.0.md','docs/releases/v0.3.0.ru.md','docs/releases/v0.2.1.md','docs/releases/v0.2.1.ru.md','docs/releases/v0.2.0.md','docs/releases/v0.2.0.ru.md','docs/archive/releases/v0.2.0-checklist.md','docs/bwrap-installation-acceptance.md','docs/archive/noop-loader-validation-2026-10-13.md'])await readFile(join(app,name));
   const screenshots=await readdir(join(app,'docs/img/releases/v0.2.0'));assert.deepEqual(screenshots.filter(name=>name.endsWith('.png')).sort(),['ask.png','big-thinking2.png','context-info.png','context.png','continue.png','select-autonomy.png']);
@@ -136,5 +160,5 @@ app.whenReady().then(async () => {
   const walk=async directory=>{for(const entry of await readdir(directory,{withFileTypes:true})){const path=join(directory,entry.name);if(entry.isDirectory())await walk(path);else if(entry.name.endsWith('.md'))await check(path);}};
   await walk(join(app,'docs'));for(const name of ['README.md','README.ru.md','CHANGELOG.md'])await check(join(app,name));
   const desktop=await readFile(join(root,'usr/share/applications/local-ai-desktop.desktop'),'utf8');assert.match(desktop,/Exec=\/opt\/local-ai-desktop\/local-ai-desktop %U/);
-  console.log(JSON.stringify({result:'PASS',version:json.version,architecture:'amd64',bundledRust:`${version} static`,electronMainRuntime:runtimeResult,conffiles:2,screenshots:screenshots.filter(name=>name.endsWith('.png')).length,localDocumentationLinks:localLinks,sha256:createHash('sha256').update(await readFile(artifact)).digest('hex')},null,2));
+  console.log(JSON.stringify({result:'PASS',version:json.version,architecture:'amd64',bundledRust:`${version} static`,electronMainRuntime:runtimeResult,startupFailure:{exitCode:fatalStartupResult.exitCode,errorDialogShown:fatalStartupResult.errorBoxShown},conffiles:2,screenshots:screenshots.filter(name=>name.endsWith('.png')).length,localDocumentationLinks:localLinks,sha256:createHash('sha256').update(await readFile(artifact)).digest('hex')},null,2));
 } finally {await rm(root,{recursive:true,force:true});}
