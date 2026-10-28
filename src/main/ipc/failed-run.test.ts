@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import Module from 'node:module';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -31,6 +31,11 @@ async function run(): Promise<void> {
   const originalLoad = loader._load;
   loader._load = (name, ...args) => name === 'electron' ? { ipcMain: { handle: (channel: string, handler: (...args: unknown[]) => unknown) => handlers.set(channel, handler) } } : originalLoad(name, ...args);
   const { ensureAppDirectories } = await import('../services/paths'); ensureAppDirectories();
+    const model = 'qwen3.8:27b-q4_K_M';
+    writeFileSync(join(root, 'app-data/runtime-settings.json'), JSON.stringify({
+      schemaVersion: 2, modelsPath: join(root, 'models'), llamaServerPath: null, gpuLayers: 0,
+      models: [{ id: model, displayName: 'Qwen fixture', modelPath: join(root, 'models/fixture.gguf'), mmprojPath: '', gpuLayers: null, supportsTools: true, speculative: 'none', mtpMode: 'off' }],
+    }));
   const { Database } = await import('../services/database'); const db = new Database();
   const { LlamaRuntimeController } = await import('../services/llama-runtime-controller');
   const { LlamaCppBackend } = await import('../backends/llama-cpp-backend');
@@ -47,7 +52,6 @@ async function run(): Promise<void> {
   const invoke = async <T>(channel:string, ...args:unknown[]) => await handlers.get(channel)!({sender:{send:(_channel:string,event:StreamEvent & {conversationId:string})=>events.push(event)}},...args) as T;
   try {
     const {registerIpc} = await import('./register-ipc'); registerIpc();
-    const model = 'qwen3.8:27b-q4_K_M';
     const first = await invoke<Conversation>('conversations:create');
     mkdirSync(join(root,'project1')); mkdirSync(join(root,'project2'));
     await invoke('conversations:update',first.id,{modelId:model,mode:'agent',webMode:'off',workingDirectory:join(root,'project1'),secondaryWorkingDirectory:join(root,'project2')});
