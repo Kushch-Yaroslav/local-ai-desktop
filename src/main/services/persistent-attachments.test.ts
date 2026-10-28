@@ -1,0 +1,42 @@
+import './test-runtime-isolation';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rename, symlink, unlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { Database } from './database';
+import { AttachmentService } from './attachment-service';
+import { ensureAppDirectories, paths } from './paths';
+
+async function test() {
+  ensureAppDirectories();
+  let db = new Database(); let service = new AttachmentService(db);
+  const chat = db.createConversation('fixture'), other = db.createConversation('fixture');
+  const message = db.addMessage(chat.id, 'user', 'Read');
+  const text = 'начало\n' + 'строка 📖\n'.repeat(60_000) + 'last chapter: violet lighthouse';
+  const file = await service.import({ messageId: message.id, index: 0, filename: '../../book.txt', mimeType: 'text/plain', data: Buffer.from(text) });
+  await service.preprocess(file, new AbortController().signal);
+  assert.equal((await service.fullText(chat.id, file.id, new AbortController().signal)).text, text);
+  db.close(); db = new Database(); service = new AttachmentService(db);
+  assert.equal(db.listAttachmentsForConversation(chat.id)[0].id, file.id);
+  assert.equal((await service.fullText(chat.id, file.id, new AbortController().signal)).text.length, text.length);
+  assert(db.getAttachment(file.id)!.extractedText!.length < 17_000);
+  assert.equal(db.getAttachment(file.id)!.conversationId, chat.id);
+  await assert.rejects(service.fullText(other.id, file.id, new AbortController().signal), /conversation/);
+  for (const id of ['../escape', '/tmp/escape', 'a/b']) await assert.rejects(service.import({ id, messageId: message.id, index: 1, filename: 'book.txt', mimeType: 'text/plain', data: Buffer.from('x') }), /identity/);
+  const ref = db.getAttachment(file.id)!.extractedTextRef!;
+  const original = await readFile(ref);
+  await writeFile(ref, 'forged');
+  await assert.rejects(service.fullText(chat.id, file.id, new AbortController().signal), /hash/);
+  await writeFile(ref, original);
+  const outside = await mkdtemp('/tmp/lad-attachment-outside-'); await writeFile(join(outside, 'secret'), 'secret');
+  await rename(file.storageRef, file.storageRef + '.original'); await symlink(join(outside, 'secret'), file.storageRef);
+  await assert.rejects(service.fullText(chat.id, file.id, new AbortController().signal), /Symlink/);
+  await unlink(file.storageRef); await rename(file.storageRef + '.original', file.storageRef);
+  const folder = join(paths.attachments, message.id);
+  await rename(folder, folder + '.original'); await symlink(outside, folder);
+  await assert.rejects(service.fullText(chat.id, file.id, new AbortController().signal));
+  await unlink(folder); await rename(folder + '.original', folder);
+  await writeFile(file.storageRef, 'changed original');
+  await assert.rejects(service.fullText(chat.id, file.id, new AbortController().signal), /hash/);
+  db.close(); console.log('PASS persistent attachments: 500K+, restart, ownership, traversal, symlinks, source/cache hashes');
+}
+void test();

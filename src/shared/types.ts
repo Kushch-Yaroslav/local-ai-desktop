@@ -19,6 +19,9 @@ export type AttachmentKind = 'image' | 'text' | 'document' | 'spreadsheet' | 'pd
 export type AttachmentStatus = 'pending' | 'processing' | 'ready' | 'error' | 'cancelled' | 'ocr_required';
 
 export interface Attachment {
+  conversationId?: string;
+  contentHash?: string;
+  extractedTextRef?: string;
   id: string;
   messageId: string;
   index: number;

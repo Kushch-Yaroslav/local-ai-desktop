@@ -26,7 +26,7 @@ type ConversationRow = { verification_enabled?: number | null;
 };
 type MessageRow = { region_references?: string | null; logical_task_id?: string | null; id: string; conversation_id: string; role: ChatMessage['role']; content: string; thinking: string | null; thinking_timeline: string | null; task_plan: string | null; generation_stats: string | null; rich_artifacts: string | null; created_at: string };
 type ProjectReferenceRow = { id: string; message_id: string; position: number; project_id: string; project_slot: 1 | 2; project_path: string; project_label: string; relative_path: string; kind: ProjectReferenceKind };
-type AttachmentRow = { id: string; message_id: string; position: number; kind: AttachmentKind; mime_type: string; filename: string; size: number; storage_ref: string; status: AttachmentStatus; extracted_text: string | null; structured_data: string | null; vision_analysis: string | null; error: string | null; metadata: string | null; created_at: string; updated_at: string };
+type AttachmentRow = { conversation_id?: string; content_hash?: string | null; extracted_text_ref?: string | null; id: string; message_id: string; position: number; kind: AttachmentKind; mime_type: string; filename: string; size: number; storage_ref: string; status: AttachmentStatus; extracted_text: string | null; structured_data: string | null; vision_analysis: string | null; error: string | null; metadata: string | null; created_at: string; updated_at: string };
 type AnalysisRunRow = { logical_task_id?: string | null; generation_id?: string | null; triggering_message_id?: string | null; archived?: number; task_snapshot?: string | null; id: string; conversation_id: string; assistant_message_id: string | null; reasoning_mode: ReasoningMode; status: AnalysisRun['status']; action_count: number; created_at: string; completed_at: string | null; timeline?: string | null; partial_output?: string | null; error?: string | null; rich_artifacts?: string | null };
 type AnalysisActionRow = { id: string; run_id: string; label: string; detail: string | null; data: string | null; position: number };
 type AgentPlanRow = { plan: string };
@@ -36,7 +36,7 @@ const mapConversation = (row: ConversationRow): Conversation => ({
   visionMode: ['auto','on','off'].includes(row.vision_mode ?? '') ? row.vision_mode as 'auto'|'on'|'off' : null, mtpMode: ['auto','on','off'].includes(row.mtp_mode ?? '') ? row.mtp_mode as 'auto'|'on'|'off' : null, workingDirectory: row.working_directory, primaryProjectId: row.primary_project_id ?? null, secondaryWorkingDirectory: row.secondary_working_directory ?? null, secondaryProjectId: row.secondary_project_id ?? null, contextWindow: row.context_window ?? 32_768, llamaKvCacheType: row.llama_kv_cache_type === 'q8_0' ? 'q8_0' : 'f16', llamaKvOffload: row.llama_kv_offload !== 0, reasoningMode: row.reasoning_mode === 'deep' ? 'deep' : 'fast', thinkingEnabled: row.thinking_enabled === null || row.thinking_enabled === undefined ? null : row.thinking_enabled !== 0, reasoningEffort: isReasoningEffort(row.reasoning_effort) ? row.reasoning_effort : null, contextTokens: row.context_tokens ?? null, contextModelId: row.context_model_id ?? null, webMode: row.web_mode ?? 'auto', createdAt: row.created_at, updatedAt: row.updated_at,
 });
 const mapAttachment = (row: AttachmentRow): Attachment => ({
-  id: row.id, messageId: row.message_id, index: row.position, kind: row.kind, mimeType: row.mime_type, filename: row.filename, size: row.size, storageRef: row.storage_ref, status: row.status,
+  conversationId: row.conversation_id, contentHash: row.content_hash ?? undefined, extractedTextRef: row.extracted_text_ref ?? undefined, id: row.id, messageId: row.message_id, index: row.position, kind: row.kind, mimeType: row.mime_type, filename: row.filename, size: row.size, storageRef: row.storage_ref, status: row.status,
   extractedText: row.extracted_text ?? undefined, structuredData: row.structured_data ?? undefined, visionAnalysis: row.vision_analysis ?? undefined, error: row.error ?? undefined,
   metadata: parseAttachmentMetadata(row.metadata), createdAt: row.created_at, updatedAt: row.updated_at,
 });
@@ -174,6 +174,10 @@ export class Database {
       ) STRICT;
       CREATE INDEX IF NOT EXISTS generation_diagnostics_conversation_idx ON generation_diagnostics(conversation_id, created_at DESC);
     `);
+    for (const column of ['conversation_id TEXT', 'content_hash TEXT', 'extracted_text_ref TEXT']) {
+      try { this.db.exec(`ALTER TABLE attachments ADD COLUMN ${column}`); } catch { /* migration already applied */ }
+    }
+    this.db.exec('UPDATE attachments SET conversation_id=(SELECT conversation_id FROM messages WHERE messages.id=attachments.message_id) WHERE conversation_id IS NULL');
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN context_window INTEGER NOT NULL DEFAULT 32768'); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec("ALTER TABLE conversations ADD COLUMN llama_kv_cache_type TEXT NOT NULL DEFAULT 'f16'"); } catch { /* Existing databases already have this column. */ }
     try { this.db.exec('ALTER TABLE conversations ADD COLUMN llama_kv_offload INTEGER NOT NULL DEFAULT 1'); } catch { /* Existing databases already have this column. */ }
@@ -541,9 +545,9 @@ export class Database {
   createAttachment(input: Omit<Attachment, 'createdAt' | 'updatedAt' | 'status'> & { status?: AttachmentStatus }): Attachment {
     const now = new Date().toISOString();
     const status = input.status ?? 'pending';
-    this.db.prepare(`INSERT INTO attachments (id, message_id, position, kind, mime_type, filename, size, storage_ref, status, extracted_text, structured_data, vision_analysis, error, metadata, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(input.id, input.messageId, input.index, input.kind, input.mimeType, input.filename, input.size, input.storageRef, status, input.extractedText ?? null, input.structuredData ?? null, input.visionAnalysis ?? null, input.error ?? null, input.metadata ? JSON.stringify(input.metadata) : null, now, now);
+    this.db.prepare(`INSERT INTO attachments (id, message_id, position, kind, mime_type, filename, size, storage_ref, status, extracted_text, structured_data, vision_analysis, error, metadata, created_at, updated_at, conversation_id, content_hash, extracted_text_ref)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(input.id, input.messageId, input.index, input.kind, input.mimeType, input.filename, input.size, input.storageRef, status, input.extractedText ?? null, input.structuredData ?? null, input.visionAnalysis ?? null, input.error ?? null, input.metadata ? JSON.stringify(input.metadata) : null, now, now, this.getMessage(input.messageId)?.conversationId ?? null, input.contentHash ?? null, input.extractedTextRef ?? null);
     return this.getAttachment(input.id)!;
   }
 
@@ -560,11 +564,11 @@ export class Database {
     return (this.db.prepare('SELECT attachments.* FROM attachments JOIN messages ON messages.id=attachments.message_id WHERE messages.conversation_id=? ORDER BY messages.rowid ASC, attachments.position ASC').all(conversationId) as unknown as AttachmentRow[]).map(mapAttachment);
   }
 
-  updateAttachment(id: string, patch: Partial<Pick<Attachment, 'status' | 'extractedText' | 'structuredData' | 'visionAnalysis' | 'error' | 'metadata'>>): Attachment | null {
+  updateAttachment(id: string, patch: Partial<Pick<Attachment, 'status' | 'extractedText' | 'structuredData' | 'visionAnalysis' | 'error' | 'metadata' | 'contentHash' | 'extractedTextRef'>>): Attachment | null {
     const current = this.getAttachment(id); if (!current) return null;
     const next = { ...current, ...patch };
-    this.db.prepare('UPDATE attachments SET status=?, extracted_text=?, structured_data=?, vision_analysis=?, error=?, metadata=?, updated_at=? WHERE id=?')
-      .run(next.status, next.extractedText ?? null, next.structuredData ?? null, next.visionAnalysis ?? null, next.error ?? null, next.metadata ? JSON.stringify(next.metadata) : null, new Date().toISOString(), id);
+    this.db.prepare('UPDATE attachments SET status=?, extracted_text=?, structured_data=?, vision_analysis=?, error=?, metadata=?, updated_at=?, content_hash=?, extracted_text_ref=? WHERE id=?')
+      .run(next.status, next.extractedText ?? null, next.structuredData ?? null, next.visionAnalysis ?? null, next.error ?? null, next.metadata ? JSON.stringify(next.metadata) : null, new Date().toISOString(), next.contentHash ?? null, next.extractedTextRef ?? null, id);
     return this.getAttachment(id);
   }
 

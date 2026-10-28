@@ -1,16 +1,17 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { basename, extname, join, relative, resolve } from 'node:path';
 import mammoth from 'mammoth';
 import * as XLSX from '@keep-lts/xlsx';
 import type { Attachment, AttachmentInput, AttachmentKind } from '../../shared/types';
 import { Database } from './database';
 import { paths } from './paths';
+import { readManagedAttachment, validateAttachmentPath } from './managed-attachment-file';
 
 export const MAX_IMAGES_PER_MESSAGE = 10;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_FILE_BYTES = 25 * 1024 * 1024;
-/** Any one source is capped before persistence and before it can enter LLM context. */
+/** Bounded inline preview only. Full text lives in managed storage. */
 export const MAX_EXTRACTED_CHARACTERS = 16_000;
 export const MAX_STRUCTURED_ROWS = 100;
 export const MAX_STRUCTURED_COLUMNS = 32;
@@ -64,18 +65,26 @@ export class AttachmentService {
     if (kind === 'image' && !hasExpectedImageSignature(filename, bytes)) throw new Error(`Файл ${filename} не соответствует заявленному формату изображения`);
     if (!this.database.getMessage(input.messageId)) throw new Error('Сообщение для вложения не найдено');
     if (kind === 'image' && this.database.listAttachments(input.messageId).filter((item) => item.kind === 'image').length >= MAX_IMAGES_PER_MESSAGE) throw new Error(`К одному сообщению можно добавить не больше ${MAX_IMAGES_PER_MESSAGE} изображений`);
-    const id = input.id ?? randomUUID(); const directory = join(paths.attachments, input.messageId); const storageRef = join(directory, `${id}-${filename}`);
-    await mkdir(directory, { recursive: true }); await writeFile(storageRef, bytes, { flag: 'wx' });
+    const id = input.id ?? randomUUID();
+    if (![id, input.messageId].every(value => /^[a-zA-Z0-9_-]{1,128}$/.test(value))) throw new Error('Invalid attachment identity.');
+    const directory = join(paths.attachments, input.messageId); const storageRef = join(directory, `${id}-${filename}`);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    await validateAttachmentPath(directory);
+    await writeFile(storageRef, bytes, { flag: 'wx', mode: 0o600 });
     try {
       const imageNumber = kind === 'image' ? this.database.listAttachments(input.messageId).filter((item) => item.kind === 'image').length + 1 : undefined;
-      return this.database.createAttachment({ id, messageId: input.messageId, index: input.index, kind, mimeType: kind === 'image' ? imageMimeType(filename) : input.mimeType || 'application/octet-stream', filename, size: bytes.length, storageRef, metadata: { originalSize: bytes.length, ...(imageNumber ? { imageNumber } : {}) } });
+      return this.database.createAttachment({ id, messageId: input.messageId, index: input.index, kind, mimeType: kind === 'image' ? imageMimeType(filename) : input.mimeType || 'application/octet-stream', filename, size: bytes.length, storageRef, contentHash: createHash('sha256').update(bytes).digest('hex'), metadata: { lifecycle: 'conversation-owned', availability: 'available', originalSize: bytes.length, ...(imageNumber ? { imageNumber } : {}) } });
     } catch (error) { await rm(storageRef, { force: true }); throw error; }
   }
 
   async removeManagedFiles(attachments: Attachment[]): Promise<void> {
     await Promise.all(attachments.map(async (attachment) => {
       const absolute = resolve(attachment.storageRef); const root = `${resolve(paths.attachments)}/`;
-      if (absolute.startsWith(root)) await rm(absolute, { force: true }).catch(() => undefined);
+      if (absolute.startsWith(root)) {
+        for (const ref of [absolute, attachment.extractedTextRef].filter((ref): ref is string => Boolean(ref))) {
+          try { await validateAttachmentPath(ref); await rm(ref, { force: true }); } catch { /* absent or unsafe paths are never traversed */ }
+        }
+      }
     }));
   }
 
@@ -101,7 +110,7 @@ export class AttachmentService {
     const limit = Number.isSafeInteger(requestedRows) ? Math.min(MAX_STRUCTURED_ROWS, Math.max(1, requestedRows)) : 50;
     const attachment = this.database.getAttachment(id);
     if (!attachment || (attachment.kind !== 'spreadsheet' && !(attachment.kind === 'text' && ['.csv', '.tsv'].includes(extname(attachment.filename).toLowerCase())))) throw new Error('This attachment is not a supported structured table.');
-    const bytes = await readFile(attachment.storageRef);
+    const bytes = await this.readBytes(attachment);
     if (bytes.length > MAX_FILE_BYTES) throw new Error('Attachment exceeds the structured extraction limit.');
     if (attachment.kind === 'text') return readDelimitedPage(bytes.toString('utf8'), attachment.filename, startRow, limit);
     const workbook = XLSX.read(bytes, { type: 'buffer', cellFormula: true, cellDates: true, bookVBA: false });
@@ -121,17 +130,18 @@ export class AttachmentService {
   }
 
   private async extractText(attachment: Attachment, signal: AbortSignal): Promise<Partial<Attachment>> {
-    const raw = await readFile(attachment.storageRef, 'utf8'); this.throwIfAborted(signal);
+    const raw = (await this.readBytes(attachment)).toString('utf8'); this.throwIfAborted(signal);
     let text = raw; let warning = '';
     if (extname(attachment.filename).toLowerCase() === '.json') {
       try { text = JSON.stringify(JSON.parse(raw), null, 2); } catch { warning = '[JSON parse warning: invalid JSON; original text is shown below]\n'; }
     }
     const result = clipAttachmentText(`${warning}${text}`);
-    return { status: 'ready', extractedText: result.text, metadata: { ...(attachment.metadata ?? {}), truncated: result.truncated, originalExtractedCharacters: text.length } };
+    const extractedTextRef = await this.storeText(attachment, `${warning}${text}`);
+    return { status: 'ready', extractedTextRef, extractedText: result.text, metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), truncated: result.truncated, originalExtractedCharacters: text.length } };
   }
 
   private async extractDocx(attachment: Attachment, signal: AbortSignal): Promise<Partial<Attachment>> {
-    const buffer = await readFile(attachment.storageRef); this.throwIfAborted(signal);
+    const buffer = await this.readBytes(attachment); this.throwIfAborted(signal);
     const [raw, html] = await Promise.all([mammoth.extractRawText({ buffer }), mammoth.convertToHtml({ buffer })]); this.throwIfAborted(signal);
     // Preserve simple table rows and heading boundaries without executing document content.
     const structured = html.value
@@ -144,11 +154,12 @@ export class AttachmentService {
       .replace(/<[^>]+>/g, '')
       .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
     const source = structured || raw.value.trim(); const text = clipAttachmentText(source);
-    return { status: 'ready', extractedText: text.text, metadata: { ...(attachment.metadata ?? {}), truncated: text.truncated, messages: [...raw.messages, ...html.messages].map((message) => message.message) } };
+    const extractedTextRef = await this.storeText(attachment, source);
+    return { status: 'ready', extractedTextRef, extractedText: text.text, metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), originalExtractedCharacters: source.length, truncated: text.truncated, messages: [...raw.messages, ...html.messages].map((message) => message.message) } };
   }
 
   private async extractSpreadsheet(attachment: Attachment, signal: AbortSignal): Promise<Partial<Attachment>> {
-    const buffer = await readFile(attachment.storageRef); this.throwIfAborted(signal);
+    const buffer = await this.readBytes(attachment); this.throwIfAborted(signal);
     const workbook = XLSX.read(buffer, { type: 'buffer', cellFormula: true, cellDates: true, bookVBA: false });
     const sections = workbook.SheetNames.map((name) => {
       const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[name], { header: 1, defval: '', raw: false });
@@ -156,20 +167,55 @@ export class AttachmentService {
       return `Sheet: ${name}\n${values}`;
     });
     const raw = sections.join('\n\n'); const text = clipAttachmentText(raw);
-    return { status: 'ready', extractedText: text.text, structuredData: JSON.stringify({ sheets: workbook.SheetNames }), metadata: { ...(attachment.metadata ?? {}), truncated: text.truncated, sheetNames: workbook.SheetNames, originalExtractedCharacters: raw.length } };
+    return { status: 'ready', extractedText: text.text, structuredData: JSON.stringify({ sheets: workbook.SheetNames }), metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), truncated: text.truncated, sheetNames: workbook.SheetNames, originalExtractedCharacters: raw.length } };
   }
 
   private async extractPdf(attachment: Attachment, signal: AbortSignal): Promise<Partial<Attachment>> {
-    const bytes = new Uint8Array(await readFile(attachment.storageRef)); this.throwIfAborted(signal);
+    const bytes = new Uint8Array(await this.readBytes(attachment)); this.throwIfAborted(signal);
     // pdfjs-dist is ESM-only. Function avoids CommonJS transpilation of import().
     const load = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<{ getDocument: (source: { data: Uint8Array }) => { promise: Promise<{ numPages: number; getPage: (n: number) => Promise<{ getTextContent: () => Promise<{ items: Array<{ str?: string }> }> }> }> } }>;
     const pdfjs = await load('pdfjs-dist/legacy/build/pdf.mjs'); const document = await pdfjs.getDocument({ data: bytes }).promise;
     const pages: string[] = [];
     for (let index = 1; index <= document.numPages; index += 1) { this.throwIfAborted(signal); const page = await document.getPage(index); const content = await page.getTextContent(); pages.push(`Page ${index}\n${content.items.map((item) => item.str ?? '').join(' ').trim()}`); }
     const raw = pages.join('\n\n');
-    if (raw.replace(/\s+/g, '').length < 20) return { status: 'ocr_required', extractedText: 'This PDF appears to be scanned or contains no extractable text. OCR is not available yet.', metadata: { ...(attachment.metadata ?? {}), pageCount: document.numPages } };
+    if (raw.replace(/\s+/g, '').length < 20) return { status: 'ocr_required', extractedText: 'This PDF appears to be scanned or contains no extractable text. OCR is not available yet.', metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), pageCount: document.numPages } };
     const text = clipAttachmentText(raw);
-    return { status: 'ready', extractedText: text.text, metadata: { ...(attachment.metadata ?? {}), pageCount: document.numPages, truncated: text.truncated, originalExtractedCharacters: raw.length } };
+    const extractedTextRef = await this.storeText(attachment, raw);
+    return { status: 'ready', extractedTextRef, extractedText: text.text, metadata: { ...(this.database.getAttachment(attachment.id)?.metadata ?? {}), pageCount: document.numPages, truncated: text.truncated, originalExtractedCharacters: raw.length } };
+  }
+
+  async readBytes(attachment: Attachment): Promise<Buffer> {
+    const bytes = await readManagedAttachment(attachment.storageRef);
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    if (attachment.contentHash && attachment.contentHash !== hash) throw new Error('Attachment content hash changed; source and dependent notes are invalid. Reattach the changed source.');
+    if (!attachment.contentHash) this.database.updateAttachment(attachment.id, { contentHash: hash });
+    return bytes;
+  }
+
+  private async storeText(attachment: Attachment, text: string): Promise<string> {
+    if (Buffer.byteLength(text) > MAX_FILE_BYTES * 4) throw new Error('Extracted text exceeds the safe document size.');
+    await validateAttachmentPath(attachment.storageRef);
+    const target = `${attachment.storageRef}.extracted.${randomUUID()}.txt`;
+    await writeFile(target, text, { flag: 'wx', mode: 0o600 });
+    this.database.updateAttachment(attachment.id, { metadata: { ...attachment.metadata, textHash: createHash('sha256').update(text).digest('hex') } });
+    return target;
+  }
+
+  /** Lazy migration of old preview-only attachments; never mistake the preview for EOF. */
+  async fullText(conversationId: string, id: string, signal: AbortSignal): Promise<{ attachment: Attachment; text: string; hash: string }> {
+    let attachment = this.database.getAttachment(id);
+    if (!attachment || this.database.getMessage(attachment.messageId)?.conversationId !== conversationId) throw new Error('Attachment is not available in this conversation.');
+    this.throwIfAborted(signal);
+    await this.readBytes(attachment);
+    if (!['text', 'document', 'pdf'].includes(attachment.kind)) throw new Error('Full text is unsupported for this attachment format.');
+    if (!attachment.extractedTextRef) attachment = await this.preprocess({ ...attachment, status: 'pending' }, signal);
+    if (attachment.status !== 'ready' || !attachment.extractedTextRef) throw new Error('Source unavailable: text extraction failed or OCR is required.');
+    const text = (await readManagedAttachment(attachment.extractedTextRef, MAX_FILE_BYTES * 4)).toString('utf8');
+    this.throwIfAborted(signal);
+    const hash = createHash('sha256').update(text).digest('hex');
+    if (attachment.metadata?.textHash && attachment.metadata.textHash !== hash) throw new Error('Extracted text hash changed; cached observations are invalid.');
+    attachment = this.database.updateAttachment(id, { metadata: { ...attachment.metadata, textHash: hash, availability: 'available', originalExtractedCharacters: text.length } })!;
+    return { attachment, text, hash };
   }
 
   private throwIfAborted(signal: AbortSignal): void { if (signal.aborted) throw new DOMException('Aborted', 'AbortError'); }
