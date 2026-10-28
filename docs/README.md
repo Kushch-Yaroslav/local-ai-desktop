@@ -22,6 +22,8 @@ Start with the guides for your language. The release notes describe what changed
 
 These documents cover security boundaries, privileged setup and implementation evidence. They are intended for administrators and developers.
 
+- [GPU performance troubleshooting and 18 October 2026 measurements](gpu-performance-troubleshooting.md)
+
 - [AppArmor security review](apparmor-security-review.md)
 - [Bubblewrap installation and acceptance](bwrap-installation-acceptance.md)
 - [Agent runtime and workspace protection](runtime-self-protection.md)
