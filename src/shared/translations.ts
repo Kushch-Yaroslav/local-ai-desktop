@@ -1,5 +1,15 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Если модель находится на неподключённом диске, откройте этот диск в файловом менеджере, чтобы смонтировать его. Приложение обнаружит модель автоматически.": "If the model is on an unmounted drive, open that drive in your file manager to mount it. The app will detect the model automatically.",
+  "Проверьте подключение диска с моделью и доступность файла. Приложение автоматически обновляет доступность модели.": "Check that the model drive is connected and the file is available. The app updates model availability automatically.",
+  "Чтение файла": "Reading file",
+  "Прочитано {0}% документа": "Read {0}% of document",
+  "Сохранение заметок": "Saving notes",
+  "Источники разговора": "Conversation sources",
+  "Сжатие контекста": "Compacting context",
+  "Источники и прогресс чтения сохранены": "Sources and reading progress saved",
+  "Продолжение ответа": "Continuing answer",
+  "Источник недоступен": "Source unavailable",
   "Ответ сохранён. Достигнут предел автоматического продолжения (до 50 000 токенов), доступного контекста или полезного прогресса.": "The answer was saved. Automatic continuation reached its output budget (up to 50,000 tokens), available context, or useful progress limit.",
   "Продолжи предыдущий ответ точно с места остановки, без повторения уже написанного.": "Continue the previous answer exactly where it stopped, without repeating existing text.",
   "Продолжить ответ": "Continue answer",
@@ -980,7 +990,6 @@ export const english: Record<string, string> = {
   "Слишком много ожидающих уточнений.": "Too many pending steering messages.",
   "Agent завершён до принятия уточнения.": "The Agent finished before accepting the steering message.",
   "Просмотр структуры проекта": "Viewing project structure",
-  "Чтение файла": "Reading file",
   "Изменение файла": "Editing file",
   "Создание файла": "Creating file",
   "Изменение проекта": "Editing project",

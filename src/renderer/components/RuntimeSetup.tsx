@@ -1,3 +1,4 @@
+import { modelStorageHint } from '../../shared/model-storage-hint';
 import {ModelLaunchDiff} from './ModelLaunchDiff';
 import { ModelProfileEditor } from './ModelProfileEditor';
 import { ReloadDialog } from './ReloadDialog';
@@ -195,7 +196,7 @@ export function RuntimeSetup({ setup, onClose }: { setup: SetupState; onClose: (
         <button className="runtime-model-select" aria-label={tr`Редактировать ${profile.displayName}`} aria-expanded={editingId === profile.id} aria-controls="runtime-profile-editor" onClick={() => setEditingId(current => current === profile.id ? null : profile.id)}>
           <strong>{profile.displayName}</strong><span>{status}</span>{model && !model.installed && <small title={profile.modelPath}>{profile.modelPath}<br />{localizeMessage(model.availabilityIssue ?? model.inspection?.reason ?? '')}</small>}
         </button>
-        {model?.availabilityReason==='disk-unavailable'&&<div className="model-storage-recovery"><p>{t('Файловая система диска не подключена. Откройте диск в файловом менеджере, затем обновите доступность. Профиль сохранять не нужно.')}</p><button onClick={()=>void window.localAi.models.openLocation(profile.id).catch(e=>setMessage(String(e)))}><FolderOpen size={15}/>{t('Открыть файловый менеджер')}</button></div>}
+        {model?.availabilityReason==='disk-unavailable'&&<div className="model-storage-recovery"><p>{t(modelStorageHint(navigator.platform))}</p><button onClick={()=>void window.localAi.models.openLocation(profile.id).catch(e=>setMessage(String(e)))}><FolderOpen size={15}/>{t('Открыть файловый менеджер')}</button></div>}
         <button aria-label={tr`Удалить профиль ${profile.displayName}`} title={t("Удалить профиль")} onClick={() => remove(profile)}><Trash2 size={16} /></button>
       </li>;
     })}</ul>
