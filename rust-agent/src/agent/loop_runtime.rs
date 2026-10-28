@@ -4240,7 +4240,7 @@ fn run_scoped_tool_authorized(
         }
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };
     }
-    if matches!(tool.name.as_str(), "read_attachment_data" | "read_conversation_file" | "list_attachments" | "attachment_metadata" | "search_attachments" | "read_document" | "document_memory" | "save_chat_note" | "list_observations" | "read_observation") {
+    if crate::tools::web::is_attachment_tool(&tool.name) {
         if !config.attachment_tools.iter().any(|schema| tool_name(schema) == tool.name) { return Err("Attachment data tool is unavailable".into()); }
         let result = config.host_tools.as_ref().ok_or("Attachment host is unavailable")?.execute(&config.run_id, &tool.name, &tool.arguments, &config.cancelled)?;
         return if result.get("error").is_some() { Err(result.to_string()) } else { Ok((result, None)) };

@@ -567,7 +567,7 @@ export class Database {
     return row?{coveredCount:row.covered_count,prefixHash:row.prefix_hash,context:row.context}:undefined;
   }
   saveChatContextCheckpoint(conversationId:string,coveredCount:number,prefixHash:string,context:string):void {
-    if(context.length>64000)return;
+    if(context.length>512000)return;
     this.db.prepare('INSERT OR REPLACE INTO chat_context_checkpoints (conversation_id,covered_count,prefix_hash,context) VALUES (?,?,?,?)').run(conversationId,coveredCount,prefixHash,context);
   }
 

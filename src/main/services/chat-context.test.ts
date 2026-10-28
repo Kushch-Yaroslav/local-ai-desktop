@@ -11,6 +11,22 @@ async function main(){
   for(let i=0;i<result.messages.length;i++)if(result.messages[i].role==='tool')assert(result.messages[i-1].tool_calls?.some(c=>c.id===result.messages[i].tool_call_id));
   assert.equal(history.length,6);assert.equal(history[2].content.length,'old history '.repeat(3000).length,'Full persisted answer must remain untouched');
   const normal=await fitChatContext(backend,'fixture',[{role:'user',content:'Hello'}],[],new AbortController().signal,65536,'fast','Hello');assert(!normal.compacted);assert.equal(summaries,1);
+  const summaryInputs:string[]=[];
+  const repeatedBackend={...backend,chatWithTools:async(_model:string,input:ToolMessage[])=>{summaryInputs.push(input[1].content);return {role:'assistant',content:'Retained first-pass-fact-782 and current decisions.',finish_reason:'stop'};}} as ToolCallingBackend;
+  const second=await fitChatContext(repeatedBackend,'fixture',[
+    {role:'system',content:'Safe prefix\nPreviously compacted: first-pass-fact-782'},
+    {role:'assistant',content:'later history '.repeat(4000)},
+    {role:'user',content:'Continue the original task'},
+  ],[],new AbortController().signal,24000,'fast','Continue',undefined,'Safe prefix');
+  assert(second.compacted);assert(summaryInputs.some(input=>input.includes('first-pass-fact-782')),'A second compaction must process the first summary');
+  summaryInputs.length=0;
+  const oversized=await fitChatContext(repeatedBackend,'fixture',[
+    {role:'system',content:'Safe prefix'},
+    {role:'assistant',content:'START-184 '+ 'old text '.repeat(32000)+' END-926'},
+    {role:'user',content:'Continue'},
+  ],[],new AbortController().signal,24000,'fast','Continue',undefined,'Safe prefix');
+  assert(oversized.compacted);assert(summaryInputs.length>2,'History exceeding the physical window needs multiple bounded summaries');
+  assert(summaryInputs.some(input=>input.includes('START-184')));assert(summaryInputs.some(input=>input.includes('END-926')),'The end of oversized history must also be processed');
   console.log('PASS Chat compaction: bounded history, complete tool protocol, pinned objective/source cursor, full answer unchanged, fast ordinary question');
 }
 void main();

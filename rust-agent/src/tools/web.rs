@@ -6,7 +6,10 @@ use std::time::{Duration, Instant};
 pub fn is_web_tool(name: &str) -> bool {
     matches!(name, "web_project" | "web_search" | "web_image_search" | "web_open" | "web_read" | "web_follow_link" | "web_back")
 }
-pub fn is_host_tool(name: &str) -> bool { is_web_tool(name) || matches!(name, "download_file" | "create_visual_artifact" | "read_attachment_data") }
+pub fn is_attachment_tool(name: &str) -> bool {
+    matches!(name, "read_attachment_data" | "read_conversation_file" | "list_attachments" | "attachment_metadata" | "search_attachments" | "read_document" | "document_memory" | "save_chat_note" | "list_observations" | "read_observation")
+}
+pub fn is_host_tool(name: &str) -> bool { is_web_tool(name) || is_attachment_tool(name) || matches!(name, "download_file" | "create_visual_artifact") }
 
 /// Permission transport failure never authorizes execution or becomes a retryable
 /// command/network error. A deadline does not prove the renderer disappeared.
@@ -57,7 +60,7 @@ impl HostTools {
             if cancelled.load(Ordering::Relaxed) { *pending = None; return Err("Web request cancelled".into()); }
             if let Some((_, Some(value))) = pending.take() { return Ok(value); }
             *pending = Some((id.clone(), None));
-            let timeout = if name == "request_permission" || name == "web_project" { 330 } else if name == "download_file" { 3700 } else { 30 };
+            let timeout = if name == "request_permission" || name == "web_project" { 330 } else if name == "download_file" || name == "read_document" { 3700 } else { 30 };
             if started.elapsed() > Duration::from_secs(timeout) { *pending = None; return Err(if name == "request_permission" { "Approval response transport timed out without an authorization decision" } else { "Host tool response timed out" }.into()); }
             pending = self.changed.wait_timeout(pending, Duration::from_millis(100)).unwrap().0;
         }
@@ -68,6 +71,18 @@ impl HostTools {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    #[test]
+    fn attachment_transport_accepts_readonly_capabilities_without_project_tools() {
+        let host = HostTools::with_dispatch(|name, _| Some(serde_json::json!({"tool": name})));
+        let cancelled = AtomicBool::new(false);
+        for name in ["read_conversation_file", "list_attachments", "attachment_metadata", "search_attachments", "read_document", "document_memory", "save_chat_note", "list_observations", "read_observation"] {
+            assert!(is_attachment_tool(name));
+            assert_eq!(host.execute("attachments", name, &Value::Null, &cancelled).unwrap()["tool"], name);
+        }
+        for name in ["read_file", "write_file", "run_terminal", "apply_patch", "read_browser"] {
+            assert!(host.execute("attachments", name, &Value::Null, &cancelled).is_err());
+        }
+    }
     #[test]
     fn permission_transport_deadline_is_distinct_from_an_unavailable_ui() {
         assert_eq!(permission_failure("Approval response transport timed out without an authorization decision", false)["reason"], "timeout");

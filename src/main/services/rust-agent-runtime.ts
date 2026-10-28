@@ -557,12 +557,16 @@ export class RustAgentRuntime {
 }
 
 function activityLabel(name?: string): string {
+  if(name==='read_conversation_file'||name==='read_document')return 'Чтение файла';
+  if(name==='save_chat_note')return 'Сохранение заметок';
+  if(chatReadonlyNames.has(name??''))return 'Источники разговора';
   if (name?.startsWith('web_')) return activityForWebTool({ name, arguments: {} }).label;
   if (name === 'download_file') return 'Download file';
   if (name === 'create_visual_artifact') return 'Подготовка визуального ответа';
   return ({ list_directory: 'Просмотр структуры проекта', read_file: 'Чтение файла', write_file: 'Изменение файла', replace_text: 'Изменение файла', create_file: 'Создание файла', apply_patch: 'Изменение проекта', delete_file: 'Удаление файла', run_terminal: 'Запуск terminal', task_memory: 'Task Memory', deliverables: 'Требуемый результат', plan: 'План выполнения' } as Record<string, string>)[name ?? ''] ?? 'Действие агента';
 }
 function activityKind(name?: string): NonNullable<import('../../shared/types').ToolActivity['kind']> {
+  if(name==='read_conversation_file'||chatReadonlyNames.has(name??''))return 'file_read';
   return name?.startsWith('web_') ? 'web' : name === 'run_terminal' ? 'terminal' : name === 'deliverables' || name === 'plan' ? 'planning' : name === 'task_memory' ? 'file_read' : name === 'read_file' ? 'file_read' : name === 'list_directory' ? 'directory' : 'mutation';
 }
 function timestamp(value: number | undefined): string | undefined { return typeof value === 'number' && Number.isFinite(value) ? new Date(value).toISOString() : undefined; }

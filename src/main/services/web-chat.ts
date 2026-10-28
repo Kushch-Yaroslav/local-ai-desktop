@@ -238,7 +238,7 @@ export class WebChatService {
         }
       }
     } catch (error) {
-      recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,requestedMaxTokens:0,aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:false,decision:signal.aborted?'user_stop':'error',error:error instanceof Error?error.message:String(error)});
+      if(!signal.aborted)recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,requestedMaxTokens:0,aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:false,decision:'error',error:error instanceof Error?error.message:String(error)});
       if (!signal.aborted) { trace('failed', { error: error instanceof Error ? error.message : String(error) }); yield { type: 'error', message: 'Не удалось выполнить запрос', details: error instanceof Error ? error.message : String(error) }; }
     } finally { if(signal.aborted)recordSegment({modelId:model,generationId:runId,conversationId:history[0]?.conversationId??'',segment:segmentIndex++,contextWindow,requestedMaxTokens:0,aggregateGeneratedTokens:outputTokens,aggregateBudget:CHAT_OUTPUT_TOKEN_LIMIT,autoContinuation:false,decision:'user_stop'}); signal.removeEventListener('abort', closeOnAbort); if (session) await session.close(); trace(signal.aborted ? 'cancelled' : 'closed'); }
   }

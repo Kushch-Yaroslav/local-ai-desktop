@@ -547,7 +547,7 @@ export class ProjectBrowserSession {
     if (!['read','inspect'].includes(String(args.action)) || Object.keys(args).some(key=>!['action','selector'].includes(key))) throw new Error('Chat Browser capability is read-only.');
     signal.throwIfAborted();
     return this.exclusive(async () => {
-      if (!this.reusable || !this.previewApproved || !this.page || new URL(this.page.url()).origin !== this.origin) throw new Error('Approved Browser source unavailable.');
+      if (!this.reusable || (!this.previewApproved && this.origin !== staticOrigin) || !this.page || new URL(this.page.url()).origin !== this.origin) throw new Error('Approved Browser source unavailable.');
       signal.throwIfAborted();
       const context = await this.read();
       if (args.action === 'read') return context;
