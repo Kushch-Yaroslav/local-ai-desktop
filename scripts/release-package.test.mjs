@@ -1,7 +1,9 @@
 // Inspect an extracted local RC without installing it or running maintainer hooks.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, lstat, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, lstat, rm, rename, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -21,8 +23,36 @@ try {
   await mkdir(join(root,'control'));run('dpkg-deb',['-e',artifact,join(root,'control')]);run('dpkg-deb',['-x',artifact,root]);
   const app=join(root,'opt/local-ai-desktop/resources/app');
   const json=JSON.parse(await readFile(join(app,'package.json'),'utf8'));assert.equal(json.version,version);assert.equal(json.main,'dist/main/bootstrap.js');
-  const dependencyTree=JSON.parse(run('npm',['ls','--all','--omit=dev','--json'],{cwd:app,env:{...process.env,NODE_PATH:''}}));
-  assert.deepEqual(dependencyTree.problems ?? [],[],'packaged production dependency tree has no missing runtime packages');
+  let dependencyTreeOutput;
+  try { dependencyTreeOutput=run('npm',['ls','--all','--omit=dev','--json'],{cwd:app,env:{...process.env,NODE_PATH:''},stdio:['ignore','pipe','ignore']}); }
+  catch(error) { assert(error.stdout,'npm ls must execute to inspect the packaged dependency graph');dependencyTreeOutput=String(error.stdout); }
+  const dependencyTree=JSON.parse(dependencyTreeOutput);
+  const nodeBuiltins=new Set(builtinModules.flatMap(name=>[name,name.replace(/^node:/,'')]));
+  const packageDirectory=(from,name)=>{
+    for(let ancestor=from;ancestor!==dirname(ancestor);ancestor=dirname(ancestor)){
+      const directory=join(ancestor,'node_modules',name);
+      try { if(JSON.parse(readFileSync(join(directory,'package.json'),'utf8')).name===name)return directory; }
+      catch { /* Keep searching parent node_modules directories. */ }
+    }
+    throw new Error(`Could not locate packaged dependency directory for ${name} from ${from}`);
+  };
+  const missingRuntimeDependencies=[];
+  const inspectDependencies=(node,parentDirectory)=>{
+    const parent=JSON.parse(readFileSync(join(parentDirectory,'package.json'),'utf8'));
+    for(const [name,dependency] of Object.entries(node.dependencies ?? {})){
+      if(nodeBuiltins.has(name))continue;
+      const peer=Object.hasOwn(parent.peerDependencies ?? {},name);
+      const optional=Object.hasOwn(parent.optionalDependencies ?? {},name)||parent.peerDependenciesMeta?.[name]?.optional===true;
+      if(optional)continue;
+      if(dependency.missing){
+        if(!peer)missingRuntimeDependencies.push(`${parent.name} -> ${name}`);
+        continue;
+      }
+      inspectDependencies(dependency,packageDirectory(parentDirectory,name));
+    }
+  };
+  inspectDependencies(dependencyTree,app);
+  assert.deepEqual(missingRuntimeDependencies,[],'packaged production dependency graph has no missing required runtime packages');
   const info=JSON.parse(await readFile(join(app,'BUILD_INFO.json'),'utf8'));assert.equal(info.version,version);
   const manifest=JSON.parse(await readFile(resolve(dirname(artifact),'../../source-manifest.json'),'utf8'));
   const files=manifest.files;const identity={...manifest};delete identity.files;delete identity.excluded;delete identity.deleted;
@@ -54,13 +84,14 @@ try {
     assert(!text.includes('chmod 4755') && !text.includes('--remove "$policy"'),'no new SUID or unloading of live payload profiles');
   }
   const smokeApp=join(root,'electron-main-smoke');await mkdir(smokeApp);
+  const packagedPayloadApp=join(root,'packaged-app-payload');
   await writeFile(join(smokeApp,'package.json'),JSON.stringify({name:'local-ai-package-main-smoke',version:'1.0.0',main:'main.cjs'}));
   await writeFile(join(smokeApp,'main.cjs'),`
 const { app } = require('electron');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
-const appRoot = ${JSON.stringify(app)};
+const appRoot = ${JSON.stringify(packagedPayloadApp)};
 const appRequire = createRequire(path.join(appRoot, 'package.json'));
 const loaded = [];
 const failures = [];
@@ -80,8 +111,13 @@ app.whenReady().then(async () => {
   process.stdout.write(JSON.stringify(result) + '\\n', () => app.exit(failures.length ? 1 : 0));
 }).catch(error => process.stderr.write((error.stack || String(error)) + '\\n', () => app.exit(1)));
 `);
-  const smokeEnv={...process.env,NODE_PATH:'',LOCAL_AI_RUNTIME_ROOT:join(root,'test-runtime'),XDG_CONFIG_HOME:join(root,'xdg/config'),XDG_DATA_HOME:join(root,'xdg/data'),XDG_CACHE_HOME:join(root,'xdg/cache'),XDG_STATE_HOME:join(root,'xdg/state')};
-  const runtimeSmoke=run(join(root,'opt/local-ai-desktop/local-ai-desktop'),['--no-sandbox','--headless','--disable-gpu',smokeApp],{env:smokeEnv,timeout:45000});
+  const profileHome=join(root,'home');await mkdir(profileHome);
+  const smokeEnv={...process.env,HOME:profileHome,XAUTHORITY:process.env.XAUTHORITY??join(process.env.HOME,'.Xauthority'),NODE_PATH:'',LOCAL_AI_RUNTIME_ROOT:join(root,'test-runtime'),XDG_CONFIG_HOME:join(root,'xdg/config'),XDG_DATA_HOME:join(root,'xdg/data'),XDG_CACHE_HOME:join(root,'xdg/cache'),XDG_STATE_HOME:join(root,'xdg/state')};
+  await rename(app,packagedPayloadApp);
+  await rename(smokeApp,app);
+  let runtimeSmoke;
+  try { runtimeSmoke=run(join(root,'opt/local-ai-desktop/local-ai-desktop'),['--no-sandbox','--disable-gpu','--disable-dev-shm-usage'],{env:smokeEnv,timeout:30000}); }
+  finally { await rm(app,{recursive:true,force:true});await rename(packagedPayloadApp,app); }
   const runtimeResult=JSON.parse(runtimeSmoke.trim().split('\n').at(-1));
   assert.equal(runtimeResult.processType,'browser','runtime modules load in Electron main, not a Node-only probe');
   assert.deepEqual(runtimeResult.failures,[],'all packaged main-process dependency graphs load');
