@@ -146,6 +146,12 @@ impl LoopDetector {
             let level=if count>=4{3}else{1};
             return Some(LoopNotice{signature,level,evidence:format!("Browser capability refused {} equivalent attempts",count),guidance:"This operation is unavailable under current conditions. Use inspect for bounded DOM/computed styles, a supported assertion and the approved original URL/viewport, or finish with verification incomplete. For REGION_ROUTE_MISMATCH use the saved URL for original-region proof, or a separately registered user-requested route criterion through verification_scope/scenario_refs at its URL and viewport; for a selector error inspect candidate_elements and real DOM before changing it. Equivalent rejected actions across error categories are not progress. Do not alternate failed strategies or expand to unrelated routes. Continuation retains the blocker; screenshot budget is task-scoped.".into(),repair_exhausted:true});
         }
+        if name=="deliverables" && result["code"]=="MISSING_DELIVERABLE_ID" {
+            let signature=hash("missing-deliverable-id");
+            let count=self.invalid_qa.entry(signature.clone()).or_default();*count+=1;let count=*count;
+            if count<3{return None;}
+            return Some(LoopNotice{signature,level:if count>=4{3}else{1},evidence:format!("Top-level deliverable id missing on {count} equivalent metadata attempts"),guidance:"Set top-level id to an existing deliverable ID from the diagnostic. Changing criteria[n].id, selector or assertion cannot repair a missing parent argument. Use deliverables view only if the parent ID is unknown; otherwise correct it once or finish honestly. Continuation retains this guard.".into(),repair_exhausted:true});
+        }
         if name=="deliverables" && result["code"]=="INVALID_STYLE_CRITERION" {
             // IDs, descriptions and alternating invalid fields are not progress.
             let signature=hash("invalid-style-criterion");
@@ -383,6 +389,17 @@ mod tests {
         }
         let mut resumed:LoopDetector=serde_json::from_value(serde_json::to_value(detector).unwrap()).unwrap();resumed.continued();
         assert_eq!(resumed.observe("deliverables",&json!({"action":"criteria"}),&json!({"error":"Invalid","code":"INVALID_STYLE_CRITERION"}),false).unwrap().level,3);
+    }
+
+    #[test]
+    fn missing_parent_id_is_bounded_across_nested_argument_changes() {
+        let mut detector=LoopDetector::default();
+        for index in 0..4 {
+            let notice=detector.observe("deliverables",&json!({"action":"criteria","criteria":[{"id":format!("changed-{index}") }]}),&json!({"error":"top-level id required","code":"MISSING_DELIVERABLE_ID"}),false);
+            if index<2 {assert!(notice.is_none());} else {assert_eq!(notice.unwrap().level,if index==2{1}else{3});}
+        }
+        let mut restored:LoopDetector=serde_json::from_value(serde_json::to_value(detector).unwrap()).unwrap();restored.continued();
+        assert_eq!(restored.observe("deliverables",&json!({"action":"criteria"}),&json!({"code":"MISSING_DELIVERABLE_ID"}),false).unwrap().level,3);
     }
 
     #[test]

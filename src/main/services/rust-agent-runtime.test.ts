@@ -1,3 +1,4 @@
+import './test-runtime-isolation';
 import { ensureAppDirectories } from './paths';
 import { setLanguage } from '../../shared/locale';
 import assert from 'node:assert/strict';
@@ -38,6 +39,9 @@ export function runRustAgentRuntimeRegression(): void {
   assert(splitAgentRunHistory([original,continued]).user.includes('<original_task_request>'));
   assert(splitAgentRunHistory([original,continued]).user.includes(original.content));
   assert(!splitAgentRunHistory([original,{...continued,logicalTaskId:'other'}]).user.includes(original.content));
+  const resumed=splitAgentRunHistory([original,continued],{entries:[],verification:{changed:{'/tmp/project/Existing.tsx':2},records:[]},deliverables:{items:[{id:'existing',text:'Existing implementation',status:'implemented'}]}} as NonNullable<import('../../shared/types').AgentPlan['taskMemory']>);
+  assert.equal(resumed.historyUser,continued.content);
+  assert(resumed.user.includes('<resume_progress>'));assert(resumed.user.includes('/tmp/project/Existing.tsx'));assert(resumed.user.includes('do not recreate or duplicate'));assert(resumed.user.includes('implemented'));
 
   const plan = taskPlan({ milestones: [{ id: 'goal-1', label: 'Inspect', status: 'in_progress', work_plan: { tasks: [{ id: 'work-1', label: 'Read runtime', status: 'completed' }, { id: 'work-2', label: 'Map IPC', status: 'in_progress' }] } }], active_milestone_id: 'goal-1' });
   assert.equal(plan.activeMilestoneId, 'goal-1');

@@ -12,6 +12,11 @@ pub enum Request {
         #[serde(default)]
         ui_language: Option<String>,
         user: String,
+        /// Exact persisted UI text, separate from host grounding/progress envelope.
+        #[serde(default)]
+        history_user: Option<String>,
+        #[serde(default)]
+        recover_completed_history: bool,
         #[serde(default)]
         user_images: Vec<String>,
         #[serde(default)]

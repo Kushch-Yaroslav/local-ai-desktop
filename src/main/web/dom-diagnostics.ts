@@ -30,7 +30,7 @@ export function inspectBrowserDom(input:{selector?:string;properties?:string[];a
         for(let depth=0;current&&current!==ancestor&&depth<6;depth++){
           const tag=current.tagName.toLowerCase(),siblings=Array.from(current.parentElement?.children??[]).filter(sibling=>sibling.tagName===current!.tagName);path.unshift(tag+`:nth-of-type(${siblings.indexOf(current)+1})`);current=current.parentElement;
         }
-        if(current===ancestor){const value='#'+CSS.escape(ancestor.id)+' > '+path.join(' > ');if(document.querySelectorAll(value).length===1)return value;}
+        if(current===ancestor&&path.length){const value='#'+CSS.escape(ancestor.id)+' > '+path.join(' > ');if(document.querySelectorAll(value).length===1)return value;}
       }
       return e.tagName.toLowerCase();
     };
@@ -43,5 +43,15 @@ export function inspectBrowserDom(input:{selector?:string;properties?:string[];a
     const candidates=all.length?[]:(ancestor?[ancestor,...Array.from(ancestor.querySelectorAll('*')).slice(0,80)]:Array.from(document.querySelectorAll('main,main > *,section,article,[data-testid],h1,h2,h3'))).filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden';}).slice(0,24).map(facts);
     return {inspection:{observedAt,documentVersion:{timeOrigin:performance.timeOrigin,hmrAppliedAt:Number((window as unknown as {__ladHmrAt?:number}).__ladHmrAt??0)},provenance:'current-browser-observation',anchorResolution:{...resolution,originalSelector:input.selector},url:location.href,viewport:{width:innerWidth,height:innerHeight},matches:all.length,page:{root:{clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth},body:document.body?{clientWidth:document.body.clientWidth,scrollWidth:document.body.scrollWidth}:null},elements,candidate_context:ancestor?{selector:'#'+CSS.escape(ancestor.id),basis:'existing selector ancestor'}:undefined,candidate_elements:candidates}};
   }
-  return {documentVersion:{timeOrigin:performance.timeOrigin,viewport:{width:innerWidth,height:innerHeight}},title:document.title,url:location.href,content:document.body?text(document.body,12000):'',links:Array.from(document.querySelectorAll('a[href]')).slice(0,40).map(a=>({text:text(a,300),href:(a as HTMLAnchorElement).href}))};
+  const structure=Array.from(document.querySelectorAll('main,section,article,aside,[role=region]')).filter(e=>!e.closest('[data-private],[data-sensitive],input,textarea,select,[contenteditable]')).slice(0,24).map(e=>{
+    let selector:string|undefined;
+    const id=e.id?'#'+CSS.escape(e.id):undefined;
+    if(id&&document.querySelectorAll(id).length===1)selector=id;
+    if(!selector){const classes=Array.from(e.classList).slice(0,3).map(c=>'.'+CSS.escape(c)).join(''),candidate=e.tagName.toLowerCase()+classes;if(document.querySelectorAll(candidate).length===1)selector=candidate;}
+    if(!selector){let current:Element|null=e;const parts:string[]=[];for(let depth=0;current&&depth<6;depth++){
+      const siblings=Array.from(current.parentElement?.children??[]).filter(node=>node.tagName===current!.tagName);parts.unshift(current.tagName.toLowerCase()+`:nth-of-type(${siblings.indexOf(current)+1})`);const candidate=parts.join(' > ');if(document.querySelectorAll(candidate).length===1){selector=candidate;break;}current=current.parentElement;
+    }}
+    const r=e.getBoundingClientRect();return {tag:e.tagName.toLowerCase(),selector,text:text(e,90),children:e.childElementCount,height:Math.round(r.height),visible:r.width>0&&r.height>0};
+  });
+  return {structure,diagnostic_guidance:'The outline includes empty semantic containers. If expected content is absent, inspect conditional rendering and its actual provider/data transformation before guessing more selectors or adding another component. read returns page text/outline; use inspect with a returned unique selector for targeted facts.',documentVersion:{timeOrigin:performance.timeOrigin,viewport:{width:innerWidth,height:innerHeight}},title:document.title,url:location.href,content:document.body?text(document.body,12000):'',links:Array.from(document.querySelectorAll('a[href]')).slice(0,40).map(a=>({text:text(a,300),href:(a as HTMLAnchorElement).href}))};
 }

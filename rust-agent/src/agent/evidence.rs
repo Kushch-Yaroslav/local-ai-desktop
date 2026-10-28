@@ -165,6 +165,7 @@ pub struct EvidenceStore {
     next_event: usize,
     next_observation: usize,
     pub observations: Vec<Observation>,
+    previous_active: Option<Vec<u8>>,
 }
 
 pub fn history_hash(history: &[Value]) -> String {
@@ -192,15 +193,28 @@ impl EvidenceStore {
         history: &[Value],
         root: Option<&str>,
     ) -> Result<(Self, Vec<Entry>), String> {
+        Self::open_with_recovery(base,run_id,history,root,false)
+    }
+
+    pub fn open_with_recovery(base: &Path, run_id: &str, history: &[Value], root: Option<&str>, recover_completed: bool) -> Result<(Self,Vec<Entry>),String> {
         fs::create_dir_all(base).map_err(|e| e.to_string())?;
         let active_path = base.join("active.json");
-        let active = fs::read(&active_path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Active>(&bytes).ok());
+        let previous_active = fs::read(&active_path).ok();
+        let active = previous_active.as_ref().and_then(|bytes| serde_json::from_slice::<Active>(bytes).ok());
         let hash = history_hash(history);
-        let resume = active.as_ref().is_some_and(|a| {
+        let mut active = active;
+        let mut resume = active.as_ref().is_some_and(|a| {
             a.expected_history_hash == hash || can_resume_interrupted(base, a, history)
         });
+        if !resume && recover_completed {
+            let candidates:Vec<_> = fs::read_dir(base).map_err(|e|e.to_string())?.filter_map(Result::ok).filter(|e|e.file_type().is_ok_and(|kind|kind.is_dir())).filter(|e| legacy_completed_matches(&e.path(),history)).collect();
+            // Recovery is allowed only for one exact UI-history match within
+            // this host-owned logical-task directory, never by observation ID.
+            if candidates.len()==1 {
+                active=Some(Active{run_dir:candidates[0].file_name().to_string_lossy().into_owned(),expected_history_hash:hash.clone()});
+                resume=true;
+            }
+        }
         let run_dir = if resume {
             active.unwrap().run_dir
         } else {
@@ -330,9 +344,22 @@ impl EvidenceStore {
                 next_event,
                 next_observation,
                 observations,
+                previous_active,
             },
             entries,
         ))
+    }
+
+    /// Failed startup must not replace the last valid journal anchor.
+    pub fn rollback_open(&self, base: &Path) -> Result<(), String> {
+        let path=base.join("active.json");
+        if let Some(previous)=&self.previous_active {
+            let tmp=base.join("active.json.tmp");
+            fs::write(&tmp,previous).map_err(|e|e.to_string())?;
+            fs::rename(tmp,path).map_err(|e|e.to_string())
+        } else {
+            fs::remove_file(path).map_err(|e|e.to_string())
+        }
     }
 
     pub fn append(
@@ -530,6 +557,45 @@ impl EvidenceStore {
     }
 }
 
+/// Compatibility for journals whose final history anchor included host-only
+/// prompt enrichment. No user text is normalized: match the full original
+/// prefix and presented model answer against persisted UI history. The
+/// separate host status paragraph is not model evidence or user requirements.
+fn legacy_completed_matches(dir: &Path, history: &[Value]) -> bool {
+    let Ok(bytes)=fs::read(dir.join("events.jsonl")) else { return false };
+    let mut prefix=Vec::new(); let mut user=None; let mut answer=None; let mut complete=false; let mut references=std::collections::BTreeMap::new();
+    for line in bytes.split(|b|*b==b'\n').filter(|line|!line.is_empty()) {
+        let Ok(item)=serde_json::from_slice::<JournalLine>(line) else {return false};
+        if let Some(observation)=item.observation {
+            let source=observation.source.unwrap_or_else(||format!("{} result",observation.tool));
+            references.insert(observation.id.clone(),source.clone());
+            if let Some(number)=observation.id.strip_prefix("obs-").and_then(|id|id.parse::<u64>().ok()){references.insert(format!("obs-{number}"),source);}
+        }
+        match item.entry {
+            Entry::Message(message) if user.is_none()=>prefix.push(message),
+            Entry::RunUser(message)=>{if user.is_some(){return false}user=Some(message);},
+            Entry::Message(message) if message.get("role").and_then(Value::as_str)==Some("assistant") && message.get("tool_calls").is_none()=>answer=Some(message),
+            Entry::RunComplete=>complete=true,
+            _=>{}
+        }
+    }
+    if !complete || history.len()<prefix.len()+2 || history_hash(&prefix)!=history_hash(&history[..prefix.len()]) {return false}
+    let Some(user)=user else {return false}; let Some(answer)=answer else {return false};
+    let presented=crate::agent::presentation::project_answer(answer.get("content").and_then(Value::as_str).unwrap_or(""),&references);
+    if presented.trim().is_empty() {return false}
+    let actual=history[prefix.len()+1].get("content").and_then(Value::as_str).unwrap_or("");
+    let answer_matches=actual.strip_prefix(&presented).is_some_and(|tail|tail.is_empty() || ((tail.starts_with("\n\n**Agent V2 status:** ") || tail.starts_with("\n\n**Статус Agent V2:** ")) && !tail[2..].contains('\n')));
+    let current=&history[prefix.len()];
+    let Some(raw)=current.get("content").and_then(Value::as_str) else {return false};
+    if raw.trim().is_empty() {return false}
+    let Some(enriched)=user.get("content").and_then(Value::as_str) else {return false};
+    let suffix=enriched.strip_prefix(raw);
+    let host_suffix=suffix.is_some_and(|s|s.is_empty() || s.starts_with("\n\n<original_task_request>\nOriginal user wording for this logical task;") || s.starts_with("\n\n<resume_progress>\nRuntime checkpoint for this same task,") || s.starts_with("\n\n<turn_evidence>\nScoped reference data for this message;"));
+    let mut projected=user.clone();projected["content"]=json!(raw);projected.as_object_mut().unwrap().remove("_history_content");projected.as_object_mut().unwrap().remove("images");
+    host_suffix && history_hash(&[projected])==history_hash(&[current.clone()]) && answer_matches
+        && history[prefix.len()+2..].iter().all(|m|m.get("role").and_then(Value::as_str)==Some("user"))
+}
+
 /// A stopped worker can leave a partial assistant answer in Electron history
 /// without calling `finish`. The next worker may extend the same conversation
 /// lineage if the original history and user turn still match exactly. An edit
@@ -554,7 +620,13 @@ fn can_resume_interrupted(base: &Path, active: &Active, history: &[Value]) -> bo
         }
     }
     if completed { return false; }
-    let Some(user) = latest_user else { return false };
+    let Some(mut user) = latest_user else { return false };
+    // Host metadata is journal-only; compare exact persisted UI input, without
+    // normalizing or stripping arbitrary user-authored tags.
+    if let Some(raw) = user.get("_history_content").cloned() {
+        user["content"] = raw;
+        user.as_object_mut().unwrap().remove("_history_content");
+    }
     history.iter().enumerate().any(|(index, current)|
         history_hash(&history[..index]) == active.expected_history_hash
             && history_hash(&[current.clone()]) == history_hash(&[user.clone()]))
@@ -653,6 +725,54 @@ mod tests {
         let (changed, entries) = EvidenceStore::open(&base,"changed",&history,None).unwrap();
         assert_ne!(changed.dir,lineage); assert!(entries.is_empty(),"edited history cannot adopt existing evidence");
         drop(changed); fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn host_envelope_does_not_change_ui_history_identity() {
+        let base = std::env::temp_dir().join(format!("evidence-host-envelope-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let raw = "Continue <turn_evidence>user-authored text</turn_evidence>";
+        let enriched = format!("{raw}\n<resume_progress>host checkpoint</resume_progress>");
+        let (mut first, _) = EvidenceStore::open(&base, "first", &[], None).unwrap();
+        first.append(&Entry::RunUser(json!({"role":"user","content":enriched,"_history_content":raw})), None).unwrap();
+        drop(first);
+        let partial = vec![json!({"role":"user","content":raw}),json!({"role":"assistant","content":"partial"})];
+        let (mut resumed, entries) = EvidenceStore::open(&base,"stopped",&partial,None).unwrap();
+        assert_eq!(entries.len(),1,"Stop restores the exact original UI input despite the host envelope");
+        resumed.append(&Entry::RunComplete,None).unwrap();
+        resumed.finish(&base,&[],raw,&[],&[],"done").unwrap();drop(resumed);
+        let history = vec![json!({"role":"user","content":raw}),json!({"role":"assistant","content":"done"})];
+        let (again, entries) = EvidenceStore::open(&base,"completed",&history,None).unwrap();
+        assert_eq!(entries.len(),2,"completed Continue retains the journal");drop(again);
+        let mut edited=history;edited[0]["content"]=json!("edited task");
+        let (other, entries)=EvidenceStore::open(&base,"edited",&edited,None).unwrap();
+        assert!(entries.is_empty(),"user-authored tags and edited history must not be normalized away");drop(other);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn legacy_recovery_requires_exact_prefix_answer_and_unique_task_journal() {
+        let base=std::env::temp_dir().join(format!("evidence-legacy-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let prefix=json!({"role":"user","content":"original route constraints"});
+        let (mut first,_)=EvidenceStore::open(&base,"old",&[prefix.clone()],None).unwrap();
+        first.append(&Entry::Message(prefix.clone()),None).unwrap();
+        first.append(&Entry::RunUser(json!({"role":"user","content":"continue\n\n<resume_progress>\nRuntime checkpoint for this same task, not a new implementation request."})),None).unwrap();
+        first.append(&Entry::Message(json!({"role":"assistant","content":"done"})),None).unwrap();
+        first.append(&Entry::RunComplete,None).unwrap();
+        drop(first);
+        let history=vec![prefix,json!({"role":"user","content":"continue"}),json!({"role":"assistant","content":"done"})];
+        let (failed,_)=EvidenceStore::open(&base,"failed",&history,None).unwrap();
+        failed.rollback_open(&base).unwrap();drop(failed);
+        let (recovered,entries)=EvidenceStore::open_with_recovery(&base,"retry",&history,None,true).unwrap();
+        assert_eq!(recovered.dir.file_name().unwrap(),"old");assert_eq!(entries.len(),4);drop(recovered);
+        let mut edited=history.clone();edited[0]["content"]=json!("different constraints");
+        let (other,entries)=EvidenceStore::open_with_recovery(&base,"edited",&edited,None,true).unwrap();assert!(entries.is_empty());other.rollback_open(&base).unwrap();drop(other);
+        let mut wrong_answer=history.clone();wrong_answer[2]["content"]=json!("different answer");
+        let (other,entries)=EvidenceStore::open_with_recovery(&base,"answer",&wrong_answer,None,true).unwrap();assert!(entries.is_empty());other.rollback_open(&base).unwrap();drop(other);
+        fs::create_dir_all(base.join("duplicate")).unwrap();fs::copy(base.join("old/events.jsonl"),base.join("duplicate/events.jsonl")).unwrap();
+        // Force a legacy hash mismatch again; ambiguity cannot select a journal.
+        fs::write(base.join("active.json"),br#"{"run_dir":"failed","expected_history_hash":"legacy"}"#).unwrap();
+        let (other,entries)=EvidenceStore::open_with_recovery(&base,"ambiguous",&history,None,true).unwrap();assert!(entries.is_empty());drop(other);
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]

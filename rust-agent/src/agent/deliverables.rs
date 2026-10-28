@@ -23,7 +23,7 @@ use super::verification::{Need, Verification};
 use serde::{Deserialize, Serialize};
 
 const MAX_ITEMS: usize = 24;
-const MAX_TEXT_CHARS: usize = 240;
+pub(crate) const MAX_TEXT_CHARS: usize = 240;
 pub(crate) const MAX_TASK_CHARS: usize = 80;
 const MAX_NOTE_CHARS: usize = 400;
 const VISIBLE_DONE: usize = 6;

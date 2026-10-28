@@ -50,6 +50,7 @@ impl Permissions {
                     "status"|"stop" if command.is_empty() => return Decision::Deny(format!("task_action={action} requires task_id")),
                     "list"|"status"|"stop" => return Decision::Deny("task_action=list/status/stop do not accept a command".into()),
                     "start" if args.get("task_id").is_some() => return Decision::Deny("task_action=start does not accept task_id".into()),
+                    "start" => {}, // Valid start still passes command/root security below.
                     _ => return Decision::Deny("task_action must be start, list, status or stop".into()),
                 }
             } else if command.trim().is_empty() {
@@ -707,6 +708,7 @@ mod tests {
             let arguments=if action=="list"{json!({"task_action":action})}else{json!({"task_action":action,"task_id":"managed-1"})};
             assert_eq!(permissions.decide("run_terminal",&arguments,Some(&root)),Decision::Allow, "{action}");
         }
+        assert_eq!(permissions.decide("run_terminal",&json!({"task_action":"start","command":"node --version"}),Some(&root)),Decision::Allow);
         assert_ne!(permissions.decide("run_terminal",&json!({"task_action":"start"}),Some(&root)),Decision::Allow);
         assert_ne!(permissions.decide("run_terminal",&json!({"task_id":"managed-1"}),Some(&root)),Decision::Allow);
     }

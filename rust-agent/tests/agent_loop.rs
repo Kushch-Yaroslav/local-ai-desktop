@@ -668,6 +668,8 @@ impl Workspace {
             system: "system".into(),
             ui_language: None,
             user: user.into(),
+            history_user: None,
+            recover_completed_history: false,
             user_images: Vec::new(), user_image_refs: Vec::new(), web_tools: Vec::new(), artifact_tools: Vec::new(), attachment_tools: Vec::new(), host_tools: Some(Arc::new(local_ai_agent_runtime::tools::web::HostTools::with_dispatch(|name, args| {
                 if name != "request_permission" { return None; }
                 // Scripted fixture user authorizes project execution/deletion;

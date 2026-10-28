@@ -163,7 +163,10 @@ impl Transcript {
         history: &[Value],
         root: Option<&str>,
     ) -> Result<Self, String> {
-        let (store, entries) = EvidenceStore::open(base, run_id, history, root)?;
+        Self::durable_with_recovery(base,run_id,history,root,false)
+    }
+    pub fn durable_with_recovery(base:&Path,run_id:&str,history:&[Value],root:Option<&str>,recover_completed:bool)->Result<Self,String> {
+        let (store, entries) = EvidenceStore::open_with_recovery(base, run_id, history, root,recover_completed)?;
         let mut transcript = Self {
             entries,
             store: Some(store),
@@ -309,6 +312,9 @@ impl Transcript {
             return Err(self.observation_id_error(id));
         }
         store.read(id, offset, limit)
+    }
+    pub fn rollback_durable_open(&self) -> Result<(), String> {
+        if let (Some(store),Some(base))=(&self.store,&self.evidence_base) { store.rollback_open(base) } else { Ok(()) }
     }
     pub fn finish_durable(
         &self,
@@ -693,7 +699,9 @@ impl Transcript {
                 }
                 Entry::RunUser(message) => {
                     previous_state = None;
-                    messages.push(message.clone());
+                    let mut projected = message.clone();
+                    projected.as_object_mut().unwrap().remove("_history_content");
+                    messages.push(projected);
                     sources.push(index);
                 }
                 Entry::Steering(content) => {
