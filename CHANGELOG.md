@@ -2,6 +2,29 @@
 
 User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides. This file summarizes changes; it does not replace the guides.
 
+## v0.3.0 — 2026-10-28 — Experimental Alpha (local release)
+
+### Added
+
+- Read-only Chat tools for supported attachments, persistent conversation-scoped sources, progressive large-document reading, saved progress and recovery after Stop, compaction and restart.
+- Agent Runtime V2 improvements, persistent task state, stronger recovery and verification workflows.
+- Browser Workspace with native and live previews, resizable/custom viewports, visual regions and browser QA evidence.
+- Model profile and GGUF availability improvements, cold-start recovery, context controls, MTP and vision capability diagnostics.
+- Segmented Chat output orchestration with a cumulative output budget up to 50K tokens, plus a live context monitor for Chat and Agent.
+
+### Changed
+
+- Linux model discovery refreshes after a removable GGUF drive is mounted. See [GPU performance troubleshooting](docs/gpu-performance-troubleshooting.md) for hardware and context guidance.
+
+### Known limitations
+
+- This locally prepared Experimental Alpha is not published. The 50K figure is an orchestration budget: a model can stop naturally earlier, and long answers still need review for coverage and repetition.
+- Model support and performance depend on the GGUF, `llama.cpp`, available memory, GPU and projector placement. Models and `llama.cpp` are installed separately.
+- Agent can change project files. Its terminal isolation is enforced but is not a privacy boundary for every readable host file or network access.
+- This package is validated on the current Ubuntu machine; a clean-install and broad distribution matrix have not been independently verified.
+
+[Release notes (EN)](docs/releases/v0.3.0.md) · [Примечания (RU)](docs/releases/v0.3.0.ru.md)
+
 ## v0.2.1 — 2026-10-16 — Experimental Alpha (pre-release)
 
 ### Fixed
@@ -42,6 +65,29 @@ Initial published version for Linux x86_64: local GGUF chat through an external 
 [Tag](https://github.com/Kushch-Yaroslav/local-ai-desktop/tree/v0.1.0) · [Published releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases)
 
 ## История на русском
+
+### v0.3.0 — 2026-10-28 — Experimental Alpha (локальная сборка)
+
+#### Добавлено
+
+- Инструменты Chat только для чтения вложений, постоянное хранение источников в рамках беседы, последовательное чтение больших документов и восстановление прогресса после Stop, compaction и перезапуска.
+- Улучшения Agent Runtime V2, сохранение состояния задач, восстановление и проверка результатов.
+- Browser Workspace с native/live preview, изменяемым и пользовательским размером viewport, визуальными областями и Browser QA.
+- Улучшения профилей моделей и обнаружения GGUF, восстановление cold start, настройки контекста, диагностика MTP и Vision.
+- Продолжение длинных ответов сегментами с общим бюджетом до 50K токенов и мониторинг контекста в Chat и Agent.
+
+#### Изменено
+
+- После подключения диска Linux повторно обнаруживает модели GGUF. Практические рекомендации по GPU и контексту — в [диагностике производительности](docs/gpu-performance-troubleshooting.md).
+
+#### Известные ограничения
+
+- Эта локально подготовленная Experimental Alpha не опубликована. 50K — бюджет оркестрации: модель может естественно завершить ответ раньше; полноту и повторы в длинном тексте нужно проверять.
+- Поддержка и скорость зависят от GGUF, `llama.cpp`, доступной памяти, GPU и размещения projector. Модели и `llama.cpp` устанавливаются отдельно.
+- Agent может менять файлы проекта. Изоляция терминала обязательна, но не скрывает все доступные файлы хоста и общую сеть.
+- Пакет проверен на текущей Ubuntu; чистая установка и широкая матрица дистрибутивов независимо не проверялись.
+
+[Примечания (RU)](docs/releases/v0.3.0.ru.md) · [Release notes (EN)](docs/releases/v0.3.0.md)
 
 ### v0.2.0 — 2026-10-15 — Experimental Alpha (предварительный выпуск)
 

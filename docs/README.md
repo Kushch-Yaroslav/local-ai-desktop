@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the guides for your language. The release notes describe what changed in v0.2.1 and earlier releases; the user guides explain current controls and workflows.
+Start with the guides for your language. The release notes describe the locally prepared v0.3.0 Experimental Alpha and earlier releases; the user guides explain current controls and workflows.
 
 ## User documentation
 
@@ -11,6 +11,7 @@ Start with the guides for your language. The release notes describe what changed
 - [HyperNova 60B tuning notes (RU)](ru/HYPERNOVA_60B_TUNING.md) · [Comet 60B compatibility report (RU)](ru/COMET_60B_TUNING.md)
 - [Browser QA, responsive and visual layout checks (EN)](en/BROWSER_QA.md) · [Браузерная QA, адаптивность и визуальные проверки (RU)](ru/BROWSER_QA.md)
 - [English roadmap](en/ROADMAP.md) · [Russian: планы развития](ru/ROADMAP.md)
+- [v0.3.0 local release notes (EN)](releases/v0.3.0.md) · [локальные примечания v0.3.0 (RU)](releases/v0.3.0.ru.md)
 - [v0.2.1 release notes (EN)](releases/v0.2.1.md) · [примечания v0.2.1 (RU)](releases/v0.2.1.ru.md)
 - [v0.2.0 release notes (EN)](releases/v0.2.0.md) · [примечания v0.2.0 (RU)](releases/v0.2.0.ru.md)
 - [Changelog](../CHANGELOG.md)
@@ -52,4 +53,4 @@ These documents cover security boundaries, privileged setup and implementation e
 
 ## Release status
 
-v0.2.1 is an Experimental Alpha pre-release. See [GitHub Releases](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) for its package and assets. The earlier [v0.2.0 release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) remains available.
+v0.3.0 is a locally prepared Experimental Alpha and has not been published. Install its package from `release/local-ai-desktop_0.3.0_amd64.deb` when working from the repository root. The earlier [v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) and [v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) releases remain available on GitHub.

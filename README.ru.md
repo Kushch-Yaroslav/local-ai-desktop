@@ -6,7 +6,7 @@ Local AI Desktop — экспериментальное настольное п�
 
 Приложение объединяет локальный AI-чат и работу с кодом, сохраняя беседы и задачи. Вы выбираете модель и проект и управляете разрешениями и изменениями.
 
-[Скачать v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство](docs/ru/USER_GUIDE.md) · [Список документации](docs/README.md)
+[Локальная Experimental Alpha v0.3.0](docs/releases/v0.3.0.ru.md) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство](docs/ru/USER_GUIDE.md) · [Список документации](docs/README.md)
 
 ## Что можно делать
 
@@ -33,12 +33,12 @@ Rich Responses может объединять карточки и график�
 
 Поддерживаемая платформа — Linux x86_64; основная проверенная среда — Ubuntu 24.04. Нужны совместимая сборка `llama-server` и локальные файлы моделей GGUF. Они не входят в приложение. Терминалу Agent также нужны Bubblewrap версии 0.9.0 или новее и AppArmor с профилями enforcing версии 4.0.0 или новее. Другие дистрибутивы, ARM, GPU и драйверы широко не проверялись.
 
-## Скачать и установить
+## Установить локальный пакет v0.3.0
 
-Скачайте amd64 `.deb` со страницы [Experimental Alpha v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) и установите из каталога загрузки:
+Пакет Experimental Alpha v0.3.0 подготовлен локально и не опубликован. Из корня репозитория установите amd64 `.deb`:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
+sudo apt install ./release/local-ai-desktop_0.3.0_amd64.deb
 ```
 
 Администратор должен разрешить каждой desktop-учётной записи использовать терминал Agent. Обязательные шаги настройки и проверки описаны в разделе [Начало работы](docs/ru/GETTING_STARTED.md). Не запускайте приложение от `root`.

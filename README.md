@@ -6,7 +6,7 @@ Local AI Desktop is an experimental Linux app for chatting with local language m
 
 It brings local AI chat and coding work into one desktop app, with saved conversations and tasks. You choose the model and project, and you stay in control of permissions and changes.
 
-[Download v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation index](docs/README.md)
+[Local v0.3.0 Experimental Alpha](docs/releases/v0.3.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation index](docs/README.md)
 
 ## What you can do
 
@@ -33,12 +33,12 @@ Rich Responses can combine cards and charts, with SVG export.
 
 The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. You need a compatible `llama-server` build and local GGUF model files. They are not included in the app. Agent terminal commands also require Bubblewrap 0.9.0 or later and enforcing AppArmor 4.0.0 or later. Other distributions, ARM systems, GPUs and drivers have not been broadly validated.
 
-## Download and install
+## Install the local v0.3.0 package
 
-Download the amd64 `.deb` from the [v0.2.1 Experimental Alpha release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1), then install it from the directory where you saved it:
+The v0.3.0 Experimental Alpha package is prepared locally and has not been published. From the repository root, install the amd64 `.deb` with:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.2.1_amd64.deb
+sudo apt install ./release/local-ai-desktop_0.3.0_amd64.deb
 ```
 
 An administrator must authorize each desktop account for Agent terminal use. See [Getting started](docs/en/GETTING_STARTED.md) for the required setup and verification. Never launch the desktop app with `sudo`.
