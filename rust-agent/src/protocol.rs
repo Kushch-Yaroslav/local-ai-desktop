@@ -9,8 +9,6 @@ pub enum Request {
         endpoint: String,
         model: String,
         system: String,
-        #[serde(default)]
-        ui_language: Option<String>,
         user: String,
         /// Exact persisted UI text, separate from host grounding/progress envelope.
         #[serde(default)]

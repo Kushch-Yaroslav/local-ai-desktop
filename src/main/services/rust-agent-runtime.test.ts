@@ -242,8 +242,10 @@ require('node:readline').createInterface({input:process.stdin}).on('line', line 
       assert.deepEqual(request.run.user_images, images); assert.deepEqual(request.run.user_image_refs, ['current-image-0', 'current-image-1', 'current-image-2']); assert.deepEqual(request.run.history[0].images, [images[0]]);
       assert.deepEqual(request.run.reasoning_options, { main: { chat_template_kwargs: { enable_thinking: mode === 'off' } } });
       assert.equal(request.run.supports_reasoning, true);
-      assert.equal(request.run.ui_language, mode === 'auto' ? 'en' : 'ru');
-      assert.match(request.run.system, mode === 'auto' ? /Interface language: English/ : /Язык интерфейса: русский/);
+      assert.equal('ui_language' in request.run, false, 'UI locale must not be sent as model language guidance');
+      assert.match(request.run.system, /Choose the response language from the user’s messages and conversation context/);
+      assert.match(request.run.system, /Follow explicit user requests for a language/);
+      assert.doesNotMatch(request.run.system, /Interface language:|Язык интерфейса:|model-provided reasoning/);
       assert.equal(request.run.web_tools.length, mode === 'auto' ? 6 : 0);
       assert.equal(request.run.artifact_tools.some((tool: { function?: { name?: string } }) => tool.function?.name === 'create_visual_artifact'), true);
       assert.equal(opened, mode === 'auto' ? 1 : 0); assert.equal(closed, opened);

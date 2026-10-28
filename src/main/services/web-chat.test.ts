@@ -46,7 +46,7 @@ async function collect(service: WebChatService, webEnabled = false, signal = new
 const prose = (events: StreamEvent[]) => events.flatMap((event) => event.type === 'token' ? [event.content] : []).join('');
 
 export async function runWebChatRegression(): Promise<void> {
-  const languageRule = 'Если пользователь явно общается на одном языке';
+  const languageRule = 'Choose the response language from the user’s messages and conversation context';
   const oldHistory = [...history, { ...history[0], id: 'late-system', role: 'system' as const, content: 'Continue the prior answer.' }];
   const prefix = chatMessagesWithSystemPrefix(oldHistory, [chatSystemContext({ webAvailable: false }, 'fast')], 'fixture', 'prefix');
   assert.deepEqual(prefix.map((message) => message.role), ['system', 'user']);
@@ -65,7 +65,8 @@ export async function runWebChatRegression(): Promise<void> {
   setLanguage('en'); const events = await collect(new WebChatService(fixture.backend, web), true); setLanguage('ru');
   assert.equal(fixture.count(), 2, 'ordinary web Chat should use search then final, not an extra router/final pass');
   assert.equal(closed, true);
-  assert.match(fixture.requests[0][0].content, /Interface language: English/);
+  assert.match(fixture.requests[0][0].content, /Choose the response language from the user’s messages and conversation context/);
+  assert.doesNotMatch(fixture.requests[0][0].content, /Interface language: English|Язык интерфейса: русский|model-provided reasoning/);
   assert.deepEqual(fixture.requests[1].map((message) => message.role), ['system', 'user', 'assistant', 'tool']);
   assert.equal(fixture.requests[1].at(-1)?.tool_call_id, 'web_search');
   assert.equal(prose(events), 'Here is the sourced answer.');

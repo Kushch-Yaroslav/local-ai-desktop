@@ -1,4 +1,4 @@
-import { modelLanguageDirective } from '../../shared/model-language';
+import { modelLanguageGuidance } from '../../shared/model-language';
 import { randomUUID } from 'node:crypto';
 import type { ChatMessage, StreamEvent } from '../../shared/types';
 import { reasoningModeOf, type ReasoningInput } from '../../shared/reasoning-controls';
@@ -93,7 +93,7 @@ export class WebChatService {
     let messages: ToolMessage[] = chatMessagesWithSystemPrefix(readonlyScope?.restoreHistory?.(history) ?? history, [
       capabilitySystemContext({ webAvailable: webEnabled }),
       chatCompletionGuidance(reasoningModeOf(reasoningMode) === 'deep' ? 'deep' : 'fast'),
-      modelLanguageDirective(), chatToolInstruction, ...(readonlyScope ? [readonlyScope.context()] : []),
+      modelLanguageGuidance, chatToolInstruction, ...(readonlyScope ? [readonlyScope.context()] : []),
     ], history[0]?.conversationId ?? 'rich-chat', runId).map(({ role, content, images }) => ({ role, content, ...(images?.length ? { images } : {}) }));
     const baseSystemPrefix = messages[0]?.content ?? '';
     const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));

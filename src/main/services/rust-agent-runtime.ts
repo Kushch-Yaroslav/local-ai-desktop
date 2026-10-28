@@ -12,8 +12,7 @@ import type { AgentPermissions, LoopAction, LoopNotice, LoopLifecycleStage } fro
 import { randomUUID } from 'node:crypto';
 import { FileDownloader, downloadFileTool } from '../tools/download-file';
 import type { ConfirmAction } from '../tools/project-tools';
-import { getLanguage } from '../../shared/locale';
-import { modelLanguageDirective } from '../../shared/model-language';
+import { modelLanguageGuidance } from '../../shared/model-language';
 import { createInterface } from 'node:readline';
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -55,7 +54,7 @@ type RuntimeEvent = {
   exists?: boolean; manifest_version?: number; total_files?: number; approximate_bytes?: number;
 };
 type RuntimeRequest = {
-  browser_qa?: boolean; type: 'run'; run_id: string; endpoint: string; model: string; system: string; ui_language?: 'ru' | 'en'; user: string; user_images?: string[]; user_image_refs?: string[]; web_tools?: unknown[];
+  browser_qa?: boolean; type: 'run'; run_id: string; endpoint: string; model: string; system: string; user: string; user_images?: string[]; user_image_refs?: string[]; web_tools?: unknown[];
   project_root?: string; secondary_project_root?: string; context_limit: number; reasoning_mode: ReasoningMode;
   supports_reasoning: boolean; reasoning_options?: Record<string, Record<string, unknown>>;
   web_mode: WebMode; policy: 'auto' | 'safe'; history: unknown[]; artifact_tools: unknown[]; attachment_tools: unknown[]; task_memory?: AgentPlan['taskMemory']; provider_max_output?: number;
@@ -314,8 +313,7 @@ export class RustAgentRuntime {
       browser_qa: verificationEnabled,
       type: 'run', run_id: runId, endpoint: this.endpoint, model,
       approval_ui: Boolean(confirm), permissions,
-      ui_language: getLanguage(),
-      system: `${modelLanguageDirective()}\nYou are Local AI Desktop Agent. Work autonomously inside the scope described below. Use tools only with complete valid JSON arguments.\n${projects.map((project) => `Project ${project.slot}: ${project.label}; identity=${project.id}; root=${project.root}`).join('\n')}`,
+      system: `${modelLanguageGuidance}\nYou are Local AI Desktop Agent. Work autonomously inside the scope described below. Use tools only with complete valid JSON arguments.\n${projects.map((project) => `Project ${project.slot}: ${project.label}; identity=${project.id}; root=${project.root}`).join('\n')}`,
       user: current.user, history_user: current.historyUser, recover_completed_history: Boolean(conversationId && logicalTaskId && persistedTaskMemory), user_images: current.images, user_image_refs: current.imageRefs, web_tools: webMode === 'auto' ? [...webToolDefinitions, ...(projects.length ? [projectBrowserTool] : [])] : [], artifact_tools: [visualArtifactTool, downloadFileTool], attachment_tools: [...(attachmentTool ? [attachmentTool] : []), ...(attachmentScope?.definitions.map(definition=>JSON.parse(JSON.stringify(definition).replaceAll('read_file','read_conversation_file')))??[])], project_root: projects[0]?.root, secondary_project_root: projects[1]?.root, ...(workspaceRoots.length ? { workspace_roots: [...workspaceRoots] } : {}),
       context_limit: contextLimit, reasoning_mode: reasoningMode, supports_reasoning: supportsReasoning, reasoning_options: reasoningOptions, web_mode: webMode, policy: 'auto',
       history: current.prior.filter((message) => !message.agentError && !message.agentCancelled).map((message) => ({ role: message.role, content: message.content, ...(imageReferences(message).length ? { image_refs: imageReferences(message) } : {}), ...(message.images?.length ? { images: message.images } : {}) })),

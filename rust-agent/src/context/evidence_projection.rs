@@ -674,7 +674,7 @@ mod tests {
     }
 
     #[test]
-    fn russian_visible_language_survives_compaction_restart_and_finalization() {
+    fn user_language_context_survives_compaction_without_a_language_directive() {
         let (base, root, mut t) = fixture();
         t.push_run_user(
             json!({"role":"user","content":"Проанализируй этот проект и подготовь русский отчёт"}),
@@ -693,9 +693,9 @@ mod tests {
         assert_eq!(resumed.language_preference(), "Russian");
         assert!(resumed.is_finalizing());
         let projected = project(&resumed, "system", &resumed.pending_tail(""));
-        assert!(projected.iter().any(|m| m["content"]
+        assert!(projected.iter().all(|m| m["content"]
             .as_str()
-            .is_some_and(|s| s.contains("Preferred language for visible prose: Russian"))));
+            .is_none_or(|s| !s.contains("Preferred language for visible prose"))));
         assert!(projected.iter().any(|m| m["content"]
             .as_str()
             .is_some_and(|s| s.contains("MODE: FINALIZING"))));

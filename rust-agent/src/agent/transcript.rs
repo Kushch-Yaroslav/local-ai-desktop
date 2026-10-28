@@ -12,7 +12,6 @@ pub struct Transcript {
     evidence_base: Option<PathBuf>,
     project_root: Option<PathBuf>,
     storage_error: Option<String>,
-    ui_language: Option<String>,
 }
 
 impl Default for Transcript {
@@ -23,7 +22,6 @@ impl Default for Transcript {
             evidence_base: None,
             project_root: None,
             storage_error: None,
-            ui_language: None,
         }
     }
 }
@@ -37,7 +35,6 @@ impl Clone for Transcript {
             evidence_base: None,
             project_root: self.project_root.clone(),
             storage_error: None,
-            ui_language: self.ui_language.clone(),
         }
     }
 }
@@ -173,7 +170,6 @@ impl Transcript {
             evidence_base: Some(base.to_path_buf()),
             project_root: root.and_then(|path| Path::new(path).canonicalize().ok()),
             storage_error: None,
-            ui_language: None,
         };
         if transcript.entries.is_empty() {
             for message in history {
@@ -357,16 +353,7 @@ impl Transcript {
         self.record(Entry::LanguagePreference(language));
     }
 
-    pub fn set_ui_language(&mut self, language: Option<&str>) {
-        self.ui_language = match language {
-            Some("ru") => Some("Russian".into()),
-            Some("en") => Some("English".into()),
-            _ => None,
-        };
-    }
-
     pub fn language_preference(&self) -> String {
-        if let Some(language) = &self.ui_language { return language.clone(); }
         let last_user = self
             .entries
             .iter()
@@ -500,12 +487,10 @@ impl Transcript {
         } else {
             ""
         };
-        let language = format!("Preferred language for visible prose: {}. Preserve code, paths, commands, identifiers, protocol syntax, and literal source quotations.", self.language_preference());
         [
             volatile.trim(),
             reminders.trim(),
             finalizing,
-            language.as_str(),
         ]
         .into_iter()
         .filter(|value| !value.is_empty())

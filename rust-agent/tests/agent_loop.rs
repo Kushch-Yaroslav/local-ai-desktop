@@ -666,7 +666,6 @@ impl Workspace {
             endpoint: endpoint.into(),
             model: "scripted".into(),
             system: "system".into(),
-            ui_language: None,
             user: user.into(),
             history_user: None,
             recover_completed_history: false,
@@ -3446,21 +3445,22 @@ fn native_image_history_resumes_without_resending_blobs_to_a_text_only_request()
 }
 
 #[test]
-fn fresh_and_regenerated_requests_deliver_russian_preference_and_current_thinking() {
+fn response_language_follows_the_conversation_without_ui_locale_override() {
     let fixture = Workspace::new(&[("placeholder.txt", "fixture")]);
     for enabled in [false, true] {
         let provider = Provider::start(move |request, _| {
             let prompt = request["messages"][0]["content"].as_str().unwrap();
-            assert!(prompt.contains("Язык интерфейса: русский"));
-            assert!(prompt.contains("Russian (default; explicit user language requests take priority)"));
+            assert!(prompt.contains("Choose the response language from the user's messages and conversation context"));
+            assert!(prompt.contains("Follow explicit user requests for a language"));
+            assert!(!prompt.contains("Язык интерфейса: русский"));
+            assert!(!prompt.contains("Russian (default"));
             assert!(!prompt.contains("English (default"));
             assert_eq!(request["chat_template_kwargs"]["enable_thinking"], enabled);
             Reply::Text("Ответ модели".into())
         });
-        let mut config = fixture.config(&provider.endpoint, "Объясни принцип работы");
+        let mut config = fixture.config(&provider.endpoint, "Объясни принцип работы и ответь на английском.");
         config.root = None;
-        config.ui_language = Some("ru".into());
-        config.system = "Язык интерфейса: русский. Предпочитай русский для ответов и рассуждений; явная просьба пользователя имеет приоритет.".into();
+        config.system = "You are an agent.".into();
         config.reasoning_options = Some(json!({"main":{"chat_template_kwargs":{"enable_thinking":enabled}}}));
         run(config);
         assert!(!provider.requests().is_empty());

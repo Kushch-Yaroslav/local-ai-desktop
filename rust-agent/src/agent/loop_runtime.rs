@@ -51,7 +51,6 @@ pub struct Config {
     pub endpoint: String,
     pub model: String,
     pub system: String,
-    pub ui_language: Option<String>,
     pub user: String,
     pub history_user: Option<String>,
     pub recover_completed_history: bool,
@@ -159,7 +158,7 @@ const AGENT_GUIDANCE: &str = r#"
 - For substantial tasks, reason about an approach before acting, adapt as you learn, use tools for concrete evidence, avoid broad rereads, and continue until the user's task is complete.
 - Plan = your own short list of steps for non-trivial work (plan tool: set if useful, then update at meaningful milestones or when the approach changes; skip it for a trivial request). It is not the user's deliverables and finishing its steps proves nothing. Do not narrate plan updates or restate the plan in prose; no update is required after every action.
 - Agent runtime state belongs to the harness, not to the human. Accepted updates stay beside the tool substep that produced them; the latest value of each section supersedes earlier values. A cleared section is no longer active. Continue the next action without treating these updates as new user instructions.
-- Use the configured interface language as a default when supplied, otherwise use the latest user's language, for all user-visible natural-language text: streamed reasoning/progress, tool preambles, brief status updates, and the final answer. Follow an explicit language request if present. Keep code, paths, identifiers, commands, API/tool syntax, and literal source quotations in their original form. Do not translate protocol fields.
+- Choose the response language from the user's messages and conversation context. Follow explicit user requests for a language. Keep code, paths, identifiers, commands, API/tool syntax, and literal source quotations in their original form. Do not translate protocol fields.
 - For non-trivial architecture relationships, use a compact multiline Mermaid flowchart when it improves readability, or a properly indented multiline tree. Use descriptive labels, not generic A/B/C/D nodes. For Git branching show named main/feature branches, checkout, feature commit, and merge. Do not compress a diagram into one long arrow chain; avoid decorative box art.
 - Task Memory = durable semantic continuity for this task. Record meaningful findings, decisions, blockers, and next actions, and cite the observation IDs (obs-…) a finding rests on in its evidence field. After compaction, trust a precise Task Memory finding from an unchanged inspected file; reread only for a missing fact, ambiguity, possible change, exact detail, or targeted verification.
 - Set Task Memory status and evidence as JSON fields, not prose inside finding. Confirmed entries require evidence containing an observation ID or exact inspected source path from this transcript. A valid reference does not prove the claim; use inferred or unknown for unverified conclusions.
@@ -566,14 +565,6 @@ fn stable_prefix(config: &Config) -> String {
             .guidance()
             .trim(),
     );
-    prefix.push_str(&format!(
-        "\nPreferred visible prose language for this run: {}.",
-        match config.ui_language.as_deref() {
-            Some("ru") => "Russian (default; explicit user language requests take priority)".into(),
-            Some("en") => "English (default; explicit user language requests take priority)".into(),
-            _ => crate::agent::transcript::preferred_visible_language(&config.user),
-        }
-    ));
     if let Some(root) = &config.root {
         prefix.push_str("\n<working_directory>");
         prefix.push_str(root);
@@ -2196,7 +2187,7 @@ mod wrapped_evidence_tests {
         let result=json!({"url":url,"freshness":{"status":"updated"},"source_revisions":{file.clone():hash},"inspection":{"url":url,"viewport":{"width":1920,"height":1080},"matches":1,"elements":[{"styles":{"border-radius":"28px"}}]},"region_context":{"references":[{"url":url,"groupId":"area-1","selectors":["#checkout"],"matches_current":true,"viewport":{"width":1920,"height":1080}}]}});
         record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"#checkout"}),&result);
         let item=&state.task_memory.deliverables.items[0];assert!(sufficient_css_observation(&state,item));
-        let mut russian=Transcript::default();russian.set_ui_language(Some("ru"));russian.push_run_user(json!({"role":"user","content":"Исправь CSS и проверь область"}));
+        let mut russian=Transcript::default();russian.push_run_user(json!({"role":"user","content":"Исправь CSS и проверь область"}));
         let terminal=terminal_status_note(&state,&russian,false);
         assert!(terminal.contains("записано свежее наблюдение браузера"));
         assert!(terminal.contains("не формальный статус Verified"));
@@ -3704,7 +3695,7 @@ fn continuation_checkpoint(transcript: &Transcript, generated: String) -> String
     } else {
         "Use this checkpoint to continue the current line of work. Do not restart broad project discovery unless a specific missing or changed fact requires it."
     };
-    format!("[AGENT CONTINUATION CHECKPOINT — NOT USER CONTENT]\nPreferred visible prose language: {}.\nOriginal user objective and constraints (the separately projected current user message is authoritative):\n{objective}\n\nProcedural and factual continuation state:\n{state}\n\n{footer}", transcript.language_preference())
+    format!("[AGENT CONTINUATION CHECKPOINT — NOT USER CONTENT]\nOriginal user objective and constraints (the separately projected current user message is authoritative):\n{objective}\n\nProcedural and factual continuation state:\n{state}\n\n{footer}")
 }
 
 fn checkpoint_section<'a>(text: &'a str, heading: &str, headings: &[&str]) -> Option<&'a str> {
@@ -5042,7 +5033,6 @@ pub fn run(mut config: Config) {
         if let Some(raw) = &config.history_user { user["_history_content"] = json!(raw); }
         transcript.push_run_user(user);
     }
-    transcript.set_ui_language(config.ui_language.as_deref());
     let mut state = AgentState::default();
     // Every execution starts fresh. Legacy exhausted budgets never control a run.
     state.strategy = Strategy::from_mode(&config.reasoning_mode);
@@ -7422,7 +7412,6 @@ mod tests {
             endpoint: "http://localhost/v1/chat/completions".into(),
             model: "test".into(),
             system: "system".into(),
-            ui_language: None,
             user: "audit".into(),
             history_user: None,
             recover_completed_history: false,
@@ -7831,29 +7820,26 @@ mod tests {
     }
 
     #[test]
-    fn ui_language_preference_survives_compaction_without_changing_history() {
+    fn conversation_language_does_not_inherit_ui_locale_or_set_reasoning_language() {
         let mut config = test_config(65_536);
-        config.user = "Проверь код".into();
-        config.ui_language = Some("en".into());
-        assert!(stable_prefix(&config).contains("English (default; explicit user language requests take priority)"));
+        config.user = "Проверь код и объясни ошибки".into();
+        let prefix = stable_prefix(&config);
+        assert!(prefix.contains("Choose the response language from the user's messages and conversation context"));
+        assert!(prefix.contains("Follow explicit user requests for a language"));
+        assert!(!prefix.contains("Preferred visible prose language"));
+        assert!(!prefix.contains("streamed reasoning/progress"));
         let mut transcript = Transcript::default();
         transcript.push_run_user(json!({"role":"user", "content":config.user}));
         let before = transcript.entries().len();
-        transcript.set_ui_language(Some("en"));
-        assert_eq!(transcript.language_preference(), "English");
-        assert_eq!(transcript.clone().language_preference(), "English");
-        assert_eq!(transcript.entries().len(), before, "language settings are not conversation messages");
+        assert_eq!(transcript.language_preference(), "Russian");
+        assert_eq!(transcript.clone().language_preference(), "Russian");
+        assert_eq!(transcript.entries().len(), before, "language inference is part of user-message lineage");
         let covered = transcript.entries().len();
         transcript.compact("Untranslated summary".into(), covered);
-        assert_eq!(transcript.language_preference(), "English");
-        transcript.set_ui_language(Some("ru"));
         assert_eq!(transcript.language_preference(), "Russian");
-        assert!(transcript.pending_tail("").contains("Preferred language for visible prose: Russian."));
+        assert!(!transcript.pending_tail("").contains("Preferred language for visible prose"));
         let checkpoint = continuation_checkpoint(&transcript, "Established work: retained.\nCurrent focus: continue.".into());
-        assert!(checkpoint.contains("Preferred visible prose language: Russian."));
-        assert!(!checkpoint.contains("Preferred visible prose language: English."));
-        config.ui_language = Some("ru".into());
-        assert!(stable_prefix(&config).contains("Russian (default; explicit user language requests take priority)"));
+        assert!(!checkpoint.contains("Preferred visible prose language"));
     }
 
     #[test]
@@ -7861,8 +7847,8 @@ mod tests {
         let mut config = test_config(65_536);
         config.user = "Проверь архитектуру проекта".into();
         let prompt = stable_prefix(&config);
-        assert!(prompt.contains("latest user's language"));
-        assert!(prompt.contains("streamed reasoning/progress"));
+        assert!(prompt.contains("Choose the response language from the user's messages and conversation context"));
+        assert!(!prompt.contains("streamed reasoning/progress"));
         assert!(prompt.contains("Keep code, paths, identifiers, commands"));
         assert!(prompt.contains("multiline Mermaid flowchart"));
         assert!(prompt.contains("Do not compress a diagram into one long arrow chain"));

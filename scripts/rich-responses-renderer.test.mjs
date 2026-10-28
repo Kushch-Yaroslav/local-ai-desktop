@@ -42,7 +42,7 @@ try {
       validate: source => { window.richFixture.validation = undefined; validator({ id: 'validate', source }); },
       artifact: artifact => stream({ type: 'rich-artifact', artifact, conversationId: request.conversationId, generationId: request.generationId }),
       progress: label => stream({ type: 'tool', activity: { id: 'progress', label, kind: 'other', state: 'running' }, conversationId: request.conversationId, generationId: request.generationId }),
-      finish: () => { stream({ type: 'done', assistant: { id: 'new-response', conversationId: request.conversationId, role: 'assistant', content: 'Chart complete.', richArtifacts: [examples.find(a => a.type === 'chart')], createdAt: '' }, conversationId: request.conversationId, generationId: request.generationId }); resolveSend(); },
+      finish: (content = 'Chart complete.') => { stream({ type: 'done', assistant: { id: `assistant-${request.generationId}`, conversationId: request.conversationId, role: 'assistant', content, richArtifacts: [examples.find(a => a.type === 'chart')], createdAt: '' }, conversationId: request.conversationId, generationId: request.generationId }); resolveSend(); },
       event: event => stream({ ...event, conversationId: request.conversationId, generationId: request.generationId }),
       language: value => languageListener(value),
       source: undefined,
@@ -50,7 +50,7 @@ try {
     window.localAi = {
       conversations: { list: async () => [chat], update: async (_id, patch) => Object.assign(chat, patch) },
       messages: { list: async () => saved }, analysis: { list: async () => [{ id: 'gallery-failure', conversationId: chat.id, assistantMessageId: 'failed-gallery', status: 'completed', reasoningMode: 'fast', createdAt: '', actionCount: 1, actions: [{ id: 'failed', label: 'Gallery creation', kind: 'other', state: 'error', metadata: { artifactType: 'image_gallery' } }] }] }, agentPlans: { get: async () => null },
-      settings: { onLanguageChanged: listener => { languageListener = listener; return () => {}; }, get: async () => ({ uiLanguage: 'ru', modelsPath: '', llamaServerPath: null, llamaRuntime: { status: 'ready', modelId: 'fixture', contextWindow: 32768 } }) },
+      settings: { onLanguageChanged: listener => { languageListener = listener; return () => {}; }, get: async () => ({ uiLanguage: 'ru', modelsPath: '', llamaServerPath: null, llamaRuntime: { status: 'ready', modelId: 'fixture', contextWindow: 32768, kvCacheType: 'f16', kvOffload: true, mtpMode: 'off' } }) },
       hardware: { get: async () => null }, models: { list: async () => [{ id: 'fixture', name: 'Fixture', shortName: 'Fixture', installed: true, supportedContextPresets: [32768], maxContext: 32768, reasoning: { thinkingToggle: true, efforts: [] } }] },
       contextEstimate: async () => ({ unknownReasons: [], configuredMaxTokens: 32768 }), contextDiscoveryStatus: async () => ({ busy: false }),
       mtp: { status: async modelId => ({ modelId: modelId ?? 'fixture', requested: 'auto', activeMode: 'off', effective: 'unsupported', capability: { state: 'unsupported', supported: false, status: 'unsupported', reason: 'Fixture is text only.' } }) },
@@ -94,11 +94,16 @@ try {
   await page.setViewportSize({ width: 800, height: 900 });
   const dimensions = await page.locator('.rich-gallery-preview').first().boundingBox(); assert(dimensions.height <= 300);
   const grid = await page.locator('.rich-gallery-grid').evaluate(e => getComputedStyle(e).gridTemplateColumns.split(' ').length); assert.equal(grid, 2);
-  await page.locator('.composer textarea').fill('Show an interactive chart.'); await page.locator('.composer textarea').press('Enter');
+  await page.locator('.composer textarea').fill('Show an interactive chart.');
+  assert.equal(await page.locator('.send-button').isDisabled(), false, 'fixture runtime must allow Chat submission');
+  await page.locator('.composer textarea').press('Enter');
+  await page.waitForSelector('.send-button.stop');
+  assert.equal(await page.locator('.generation-indicator').count(), 1, 'loading shows one indicator for the active response');
   await page.evaluate(() => window.richFixture.progress('Создаю визуализацию'));
   await page.waitForFunction(() => document.querySelector('.generation-indicator')?.textContent.includes('Создаю визуализацию'));
   await page.evaluate(() => window.richFixture.event({ type: 'tool', activity: { id: 'progress', label: 'Создаю визуализацию', kind: 'other', state: 'completed' } }));
   await page.waitForFunction(() => document.querySelector('.generation-indicator')?.textContent.includes('Ожидаю ответ модели'));
+  assert.equal(await page.locator('.generation-indicator').count(), 1, 'model waiting remains a single indicator');
   await page.evaluate(() => window.richFixture.event({ type: 'thinking', content: 'Streaming actual reasoning.' }));
   await page.waitForFunction(() => !document.querySelector('.generation-indicator'));
   await page.evaluate(() => window.richFixture.event({ type: 'model-state', state: 'waiting' }));
@@ -120,6 +125,7 @@ try {
   await page.waitForFunction(count => document.querySelectorAll('.rich-chart').length > count, previous);
   await page.waitForFunction(() => performance.getEntriesByName('rich.artifact.dom_committed').length > 0);
   await page.evaluate(() => window.richFixture.finish());
+  assert.equal(await page.locator('.generation-indicator').count(), 0, 'completion removes the live indicator');
   // Recharts text uses real theme colors, outside captions and wrapping legends.
   const chart = page.locator('.rich-chart').filter({ has: page.locator('h3', { hasText: 'Quarterly totals' }) });
   await chart.scrollIntoViewIfNeeded();
@@ -175,6 +181,46 @@ try {
     return boxes.some((a, index) => boxes.slice(index + 1).some(b => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
   }); assert.equal(narrowCollisions, false, 'narrow/light graph reintroduced commit collisions');
   await crowded.screenshot({ path: '/tmp/rich-git-collision-after.png' });
+
+  const startResponse = async prompt => {
+    await page.locator('.composer textarea').fill(prompt);
+    await page.locator('.composer textarea').press('Enter');
+    await page.waitForSelector('.send-button.stop');
+    assert.equal(await page.locator('.generation-indicator').count(), 1, 'one active stream owns the loading indicator');
+  };
+  await startResponse('Keep this partial answer when stopped.');
+  await page.evaluate(() => window.richFixture.event({ type: 'token', content: 'Partial answer retained after Stop.' }));
+  await page.waitForFunction(() => [...document.querySelectorAll('.message-content')].some(element => element.textContent?.includes('Partial answer retained after Stop.')));
+  await page.locator('.send-button.stop').click();
+  await page.waitForFunction(() => !document.querySelector('.send-button.stop'));
+  assert.equal(await page.locator('.generation-indicator').count(), 0, 'Stop clears only the active indicator');
+  const stoppedText = page.getByText('Partial answer retained after Stop.', { exact: true });
+  await stoppedText.waitFor();
+  assert.equal(await stoppedText.count(), 1, 'Stop retains the partial assistant content once');
+
+  await startResponse('Begin a new response after Stop.');
+  assert.equal(await page.locator('.generation-indicator').count(), 1, 'an old stopped placeholder cannot duplicate a new indicator');
+  assert.equal(await stoppedText.count(), 1, 'the previous partial answer remains visible');
+  await page.evaluate(() => window.richFixture.event({ type: 'thinking', content: 'Reasoning for the new response.' }));
+  await page.waitForFunction(() => !document.querySelector('.generation-indicator'));
+  await page.evaluate(() => window.richFixture.event({ type: 'model-state', state: 'waiting' }));
+  assert.equal(await page.locator('.generation-indicator').count(), 1, 'thinking to waiting returns one indicator');
+  await page.evaluate(() => window.richFixture.event({ type: 'token', content: 'Partial response before error.' }));
+  await page.waitForFunction(() => !document.querySelector('.generation-indicator'));
+  await page.evaluate(() => window.richFixture.event({ type: 'error', message: 'fixture response error' }));
+  await page.waitForFunction(() => !document.querySelector('.send-button.stop'));
+  assert.equal(await page.locator('.generation-indicator').count(), 0, 'error clears the active indicator');
+  await page.getByText('Partial response before error.', { exact: true }).waitFor();
+  assert.equal(await stoppedText.count(), 1, 'error does not remove earlier stopped content');
+
+  await startResponse('Complete after an error.');
+  await page.evaluate(() => window.richFixture.event({ type: 'token', content: 'Recovered completed answer.' }));
+  await page.evaluate(() => window.richFixture.finish('Recovered completed answer.'));
+  await page.waitForFunction(() => !document.querySelector('.send-button.stop'));
+  assert.equal(await page.locator('.generation-indicator').count(), 0, 'completion after recovery clears the indicator');
+  assert.equal(await page.getByText('Recovered completed answer.', { exact: true }).count(), 1, 'completed output is saved once');
+  assert.equal(await stoppedText.count(), 1, 'completion does not duplicate or erase stopped partial content');
+
   await page.screenshot({ path: '/tmp/rich-polish-renderer.png', fullPage: false });
   await page.reload();
   await page.waitForSelector('.rich-chart .recharts-wrapper');
