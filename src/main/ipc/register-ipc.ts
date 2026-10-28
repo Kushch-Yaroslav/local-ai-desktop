@@ -521,6 +521,7 @@ async function cancelGeneration(conversationId: string, generationId?: string, r
 }
 
 export function registerIpc(): void {
+  liveBrowsers.onResizeSaved((chatId,settings)=>{const chat=database.getConversation(chatId);if(!chat?.primaryProjectId)return;const document=database.visualDocument(chatId,chat.primaryProjectId);document.workspace=settings;database.saveVisualDocument(chatId,chat.primaryProjectId,document);});
   const storageWatch=new ModelStorageWatch(()=>BrowserWindow.getAllWindows().forEach(window=>window.webContents.send('models:availabilityChanged')));
   database.migrateVerificationPreference(effectiveRuntimeConfiguration().autonomousBrowserQa===true);
   const diagramValidation = new DiagramValidationBridge();

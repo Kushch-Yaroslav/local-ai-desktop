@@ -308,6 +308,9 @@ export class ProjectBrowserSession {
   private async visualCapture(rect: VisualRect, groupId: string): Promise<VisualRegion> {
     const page=this.page!;
     if(!rect || !['x','y','width','height'].every(key=>Number.isFinite(rect[key as keyof VisualRect])) || rect.x<0 || rect.y<0 || rect.width<4 || rect.height<4 || rect.width>4096 || rect.height>4096)throw new Error('Invalid selection bounds');
+    const viewport=await page.evaluate(()=>({width:innerWidth,height:innerHeight}));
+    rect={x:Math.min(rect.x,viewport.width),y:Math.min(rect.y,viewport.height),width:Math.min(rect.width,Math.max(0,viewport.width-rect.x)),height:Math.min(rect.height,Math.max(0,viewport.height-rect.y))};
+    if(rect.width<4||rect.height<4)throw Error('Selection does not intersect the approved viewport');
     const evidence=await groundRegion(page,rect);
     if(new URL(evidence.url).origin!==this.origin || rect.x+rect.width>evidence.viewport.width+1 || rect.y+rect.height>evidence.viewport.height+1)throw new Error('Selection outside approved viewport');
     const id='region-'+randomUUID();

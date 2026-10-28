@@ -6,6 +6,8 @@ app.setPath('userData',join(root,'electron'));
 let quitting=false;
 app.on('before-quit',event=>{if(quitting)return;event.preventDefault();quitting=true;void require(resolve('dist/main/ipc/register-ipc.js')).shutdownRuntime().catch(error=>console.error('Fixture shutdown failed',error)).finally(()=>app.quit());});
 app.whenReady().then(async()=>{
+ const historyPath=process.env.LOCAL_AI_TEST_REQUEST_HISTORY;
+ if(historyPath?.startsWith('/tmp/')){const Runtime=require(resolve('dist/main/services/rust-agent-runtime.js')).RustAgentRuntime,stream=Runtime.prototype.stream;Runtime.prototype.stream=function(...args){require('node:fs').writeFileSync(historyPath,JSON.stringify(args[1]),{mode:0o600});return stream.apply(this,args);};}
  const fixture=await require(resolve('dist/main/ipc/context-profiles.test.js')).contextProfileFixture(root,true,process.env.LOCAL_AI_TEST_MODEL_ID??'qwen3.8:27b-q4_K_M');
  const controller=require(resolve('dist/main/services/llama-runtime-controller.js')).LlamaRuntimeController;controller.prototype.unload=async()=>{fixture.set({cold:true});return {ok:true,state:fixture.state()};};
  const initialProfile=require(resolve('dist/main/services/runtime-settings.js')).effectiveRuntimeConfiguration().models.find(m=>m.id===fixture.modelId);
@@ -22,6 +24,7 @@ app.whenReady().then(async()=>{
  global.visualFixture={events,db:fixture.db,chat:fixture.chat.id,project,window,approvals:[],
  entry(){return [...liveBrowsers.entries.values()].find(e=>e.state.conversationId===fixture.chat.id&&!e.ended)},
   setOwnership(value){const entry=this.entry();entry.native.ownership(value);entry.state={...entry.state,ownership:value};entry.owner.send('live-browser:event',{type:'state',state:entry.state});},
+  async captureOwnWindow(path){if(!path.startsWith(root+'/'))throw Error('Fixture capture path');const sources=await require('electron').desktopCapturer.getSources({types:['window'],thumbnailSize:{width:1500,height:1000}}),own=sources.find(source=>source.id===window.getMediaSourceId());if(!own||own.thumbnail.isEmpty())throw Error('Own window compositor capture unavailable');require('node:fs').writeFileSync(path,own.thumbnail.toPNG());},
   nativeSurfaceBounds(){const container=window.contentView.children.find(view=>view.children?.length);return container?.children?.[0]?.getBounds();},
   async drag(selector){const page=this.entry().page,b=await page.locator(selector).boundingBox();if(!b)throw Error('Missing target');await page.mouse.move(b.x+1,b.y+1);await page.mouse.down();await page.mouse.move(b.x+b.width-1,b.y+b.height-1,{steps:5});await page.mouse.up();},
   async info(){const entry=this.entry();return {id:entry?.native?.contents.id,pageCount:entry?.page?.context().pages().length,ownership:entry?.state.ownership,regions:this.db.visualDocument(this.chat,this.db.getConversation(this.chat).primaryProjectId),snapshot:entry?.page?await entry.page.evaluate(()=>({width:globalThis.innerWidth,height:globalThis.innerHeight,dpr:globalThis.devicePixelRatio,scrollY:globalThis.scrollY,overlay:!!globalThis.document.getElementById('__lad-visual-selection')})).catch(error=>{if(/Execution context was destroyed/.test(String(error)))return null;throw error;}):null}},

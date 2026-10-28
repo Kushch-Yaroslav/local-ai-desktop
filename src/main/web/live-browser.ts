@@ -25,6 +25,8 @@ interface Entry {
 }
 /** Owns the native surface for the SAME Playwright Page. No frame transport. */
 export class LiveBrowserHub {
+  private resizeSaved?: (conversationId:string,settings:BrowserWorkspaceSettings)=>void;
+  onResizeSaved(listener:(conversationId:string,settings:BrowserWorkspaceSettings)=>void){this.resizeSaved=listener;}
   private readonly entries = new Map<string, Entry>();
   private readonly viewers = new Map<number, { conversationId: string | null; visible: boolean; bounds?: Rectangle }>();
   private readonly preferences = new Map<string,BrowserWorkspaceSettings>();
@@ -75,7 +77,7 @@ export class LiveBrowserHub {
           if (!item.ended) { item.state = {...item.state,status:'error',ownership:'unavailable',error}; this.send(item,{type:'state',state:item.state}); }
         });
         if (item.ended) { await native.close(); throw new Error('Browser closed during creation'); }
-        item.native = native;native.onWorkspace?.(workspace=>{const key=this.key(owner.id,conversationId),saved=this.preferences.get(key);const settings={...workspace.settings,...(saved?.layout?{layout:saved.layout}:{}),...(saved?.toolsWidth?{toolsWidth:saved.toolsWidth}:{}),...(saved?.toolsCollapsed!==undefined?{toolsCollapsed:saved.toolsCollapsed}:{}),...(saved?.workspaceVisible!==undefined?{workspaceVisible:saved.workspaceVisible}:{})};this.preferences.set(key,settings);item.state={...item.state,workspace:{...workspace,settings}};this.send(item,{type:'state',state:item.state});});const saved=this.preferences.get(this.key(owner.id,conversationId));if(saved)await native.workspace(saved);this.reconcile(item); return native;
+        item.native = native;native.onResizeSaved?.(settings=>{if(!item.ended&&!owner.isDestroyed())this.resizeSaved?.(conversationId,validateBrowserWorkspace(this.preferences.get(this.key(owner.id,conversationId))??settings));});native.onWorkspace?.(workspace=>{const key=this.key(owner.id,conversationId),saved=this.preferences.get(key);const settings={...workspace.settings,...(saved?.layout?{layout:saved.layout}:{}),...(saved?.toolsWidth?{toolsWidth:saved.toolsWidth}:{}),...(saved?.toolsCollapsed!==undefined?{toolsCollapsed:saved.toolsCollapsed}:{}),...(saved?.workspaceVisible!==undefined?{workspaceVisible:saved.workspaceVisible}:{})};this.preferences.set(key,settings);item.state={...item.state,workspace:{...workspace,settings}};this.send(item,{type:'state',state:item.state});});const saved=this.preferences.get(this.key(owner.id,conversationId));if(saved)await native.workspace(saved);this.reconcile(item); return native;
       }, createQaPage: async (origin:string) => {
         const {createNativeProjectPage}=await import('./native-project-page');
         // Hidden, scoped to this owner; never registered as the user's Live Browser.

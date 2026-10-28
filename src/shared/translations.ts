@@ -1,5 +1,7 @@
 /** UI text only. Protocol identifiers, model output and saved chat content are never translated. */
 export const english: Record<string, string> = {
+  "Произвольный размер": "Custom size",
+  "Изменить размер браузера": "Resize browser",
   "Перейти": "Go",
   "Контекст задачи": "Task context",
   "Добавьте локальную модель с компьютера.": "Add a local model from your computer.",

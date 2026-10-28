@@ -68,6 +68,7 @@ export interface NativeProjectPage {
   layout(bounds: Rectangle | undefined): void;
   workspace(settings:BrowserWorkspaceSettings):Promise<void>;
   revealCss?(rect:{x:number;y:number;width:number;height:number}):Promise<void>;
+  onResizeSaved?(callback:(settings:BrowserWorkspaceSettings)=>void):void;
   onWorkspace?(callback:(state:BrowserWorkspaceState)=>void):void;
   workspaceState?():BrowserWorkspaceState|undefined;
   captureCss?(rect:{x:number;y:number;width:number;height:number},dpr:number):Promise<Buffer>;
@@ -111,10 +112,11 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
   };
   const pressed = new Map<string, { key:string; code:string }>();
   const buttons = new Map<string, { x:number; y:number; button:string }>();
+  let endResize:((focus?:boolean)=>void)|undefined;
   let release = Promise.resolve();let endPan:(()=>void)|undefined;
   let detachPan:(()=>void)|undefined;
   const releaseInput = () => {
-    endPan?.();const keys = [...pressed.values()]; pressed.clear();
+    endResize?.(false);endPan?.();const keys = [...pressed.values()]; pressed.clear();
     const pointer = [...buttons.values()]; buttons.clear();
     release = release.then(async () => {
       if (contents.isDestroyed() || !contents.debugger.isAttached()) return;
@@ -170,7 +172,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     destroyed = true;
     // Publish before any cleanup can synchronously trigger CDP/page-close callbacks.
     closing = Promise.resolve().then(async () => {
-      endPan?.();detachPan?.();
+      endResize?.(false);endPan?.();detachPan?.();
       isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
       networkAbort.abort(); requestHandler = undefined;
       if (!window.isDestroyed()) { window.contentView.removeChildView(shield); container.removeChildView(view); window.contentView.removeChildView(container); }
@@ -195,7 +197,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
     await contents.debugger.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true });
     const { targetInfo } = await contents.debugger.sendCommand('Target.getTargetInfo');
     let settings:BrowserWorkspaceSettings=structuredClone(defaultBrowserWorkspace),actual:BrowserWorkspaceState|undefined;
-    let changed:((state:BrowserWorkspaceState)=>void)|undefined;
+    let changed:((state:BrowserWorkspaceState)=>void)|undefined;let resizeSaved:((settings:BrowserWorkspaceSettings)=>void)|undefined;
     let bounds:Rectangle|undefined,applied='',serial=Promise.resolve();
     transport = new ViewTransport(contents, { ...targetInfo, type: 'page', browserContextId: 'native-project', attached: true }, () => {
       isolated.webRequest.onBeforeRequest((_details, callback) => callback({cancel:true}));
@@ -209,6 +211,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       highlighted=rects;if(destroyed||contents.isDestroyed()||shieldContents.isDestroyed())return;
       const zoom=contents.getZoomFactor()*(actual?.displayScale??1),pan=actual?.settings.pan??{x:0,y:0};
       const key=JSON.stringify([rects,zoom,pan]);if(key===highlightKey)return;highlightKey=key;
+      if(ownerState==='user'&&!gesture&&!resizeGesture){highlightKey='';return;}
       const paint=(boxes:typeof rects)=>{document.body.replaceChildren();for(const b of boxes){const node=document.createElement('div');if(b.id)node.dataset.regionId=b.id;node.style.cssText=`opacity:${b.muted?(b.selected?'.55':'.35'):'1'};position:absolute;left:${b.x}px;top:${b.y}px;width:${b.width}px;height:${b.height}px;border:${b.selected?5:3}px solid ${b.color};box-shadow:0 0 0 2px #fff,0 0 0 3px #111;box-sizing:border-box;background:${b.color}22;color:white;font:12px sans-serif;`;const text=document.createElement('span');text.style.background='#111';text.textContent=b.label;node.append(text);document.body.append(node);}};
       void shieldContents.executeJavaScript(`(${paint.toString()})(${JSON.stringify(rects.map(b=>({...b,...cssToPresentation(b,zoom,pan),width:b.width*zoom,height:b.height*zoom})))})`).catch(()=>undefined);
 
@@ -235,12 +238,29 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       container.setBounds({x,y,...panel});
       const offset=cssToPresentation({x:0,y:0},zoom*scale,pan);
       view.setBounds({x:Math.round(offset.x),y:Math.round(offset.y),...surface});
-      shield.setBounds({x,y,...panel});
-      settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable&&(ownerState!=='user'||Boolean(gesture)));
+      const corner=ownerState==='user'&&!gesture&&!resizeGesture;
+      shield.setBounds(corner?{x:x+Math.max(0,Math.min(panel.width,offset.x+surface.width)-24),y:y+Math.max(0,Math.min(panel.height,offset.y+surface.height)-24),width:24,height:24}:{x,y,...panel});
+      if(corner)void shieldContents.executeJavaScript(`document.body.style.cssText='margin:0;width:24px;height:24px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 40%,#d9a574 40%,#d9a574 48%,transparent 48%,transparent 60%,#d9a574 60%,#d9a574 68%,transparent 68%);border-radius:3px';document.body.title=${JSON.stringify(t('Изменить размер браузера'))};document.body.replaceChildren();`).catch(()=>undefined);
+      if(!corner)void shieldContents.executeJavaScript(`document.body.style.cssText='margin:0;height:100%;background:transparent;cursor:${gesture?'grabbing':resizeGesture?'nwse-resize':'wait'}';document.body.title='';`).catch(()=>undefined);
+      settings=next.settings;actual=next;visible=drawable;contents.setBackgroundThrottling(!drawable&&ownerState!=='agent');view.setVisible(drawable);shield.setVisible(drawable);workerResizeAvailable=corner;
       highlight(highlighted);changed?.(next);
     };
     let queued=false;
     const schedule=()=>{if(queued)return serial;queued=true;serial=serial.catch(()=>undefined).then(async()=>{queued=false;await apply();}).catch(error=>{if(actual)changed?.({...actual,error:String(error)});});return serial;};
+    let workerResizeAvailable=false;
+    let resizeGesture:{point:{x:number;y:number};viewport:{width:number;height:number};factor:number;zoom:number}|undefined;
+    endResize=(focus=true)=>{if(!resizeGesture)return;resizeGesture=undefined;if(!destroyed){if(focus&&ownerState==='user'&&visible)contents.focus();void schedule().then(()=>resizeSaved?.(actual?.settings??settings)).catch(error=>{if(actual)changed?.({...actual,error:String(error)});});}};
+    const resizeMouse=(event:Electron.Event,input:Electron.MouseInputEvent)=>{
+      if(ownerState!=='user')return;
+      if(input.type==='mouseDown'&&input.button==='left'&&workerResizeAvailable&&actual){event.preventDefault();resizeGesture={point:screen.getCursorScreenPoint(),viewport:{...actual.viewport},factor:actual.displayScale*actual.browserZoom,zoom:actual.browserZoom};settings={...settings,customViewport:true,viewport:settings.viewport==='auto'?{width:Math.round(actual.viewport.width*actual.browserZoom),height:Math.round(actual.viewport.height*actual.browserZoom)}:settings.viewport};void schedule();return;}
+      if(!resizeGesture)return;event.preventDefault();
+      if(input.type==='mouseUp'){endResize?.();return;}
+      if(input.type!=='mouseMove')return;
+      const p=screen.getCursorScreenPoint(),g=resizeGesture;
+      const width=Math.max(240,Math.ceil(240*g.zoom),Math.min(4096,Math.round((g.viewport.width+(p.x-g.point.x)/g.factor)*g.zoom)));
+      const height=Math.max(240,Math.ceil(240*g.zoom),Math.min(4096,Math.floor(8847360/width),Math.round((g.viewport.height+(p.y-g.point.y)/g.factor)*g.zoom)));
+      settings={...settings,customViewport:true,viewport:{width,height}};void schedule();
+    };
     let gesture:{point:{x:number;y:number};pan:{x:number;y:number}}|undefined;
     let panTimer:ReturnType<typeof setTimeout>|undefined,panWatch:ReturnType<typeof setInterval>|undefined;
     endPan=()=>{if(!gesture)return;gesture=undefined;clearTimeout(panTimer);clearInterval(panWatch);panWatch=undefined;panTimer=undefined;if(!destroyed&&!shieldContents.isDestroyed()&&!window.isDestroyed())shield.setVisible(visible&&ownerState!=='user');if(!destroyed)void schedule();};
@@ -264,9 +284,9 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
       if(!panTimer)panTimer=setTimeout(()=>{panTimer=undefined;void schedule();},16);
     };
     const projectMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState==='user')middle(e,i);};
-    const shieldMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState!=='user'){e.preventDefault();return;}middle(e,i);};const ownerMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(gesture&&i.type==='mouseUp'&&i.button==='middle'){e.preventDefault();endPan?.();}};
+    const shieldMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(ownerState!=='user'){e.preventDefault();return;}if(workerResizeAvailable||resizeGesture){resizeMouse(e,i);return;}middle(e,i);};const ownerMouse=(e:Electron.Event,i:Electron.MouseInputEvent)=>{if(resizeGesture){resizeMouse(e,i);return;}if(gesture&&i.type==='mouseUp'&&i.button==='middle'){e.preventDefault();endPan?.();}};
     contents.on('before-mouse-event',projectMouse);shieldContents.on('before-mouse-event',shieldMouse);owner.on('before-mouse-event',ownerMouse);
-    const blur=()=>endPan?.();contents.on('blur',blur);window.on('blur',blur);
+    const blur=()=>{endResize?.(false);endPan?.();};contents.on('blur',blur);window.on('blur',blur);
     detachPan=()=>{clearInterval(panWatch);contents.removeListener('blur',blur);window.removeListener('blur',blur);contents.removeListener('before-mouse-event',projectMouse);shieldContents.removeListener('before-mouse-event',shieldMouse);owner.removeListener('before-mouse-event',ownerMouse);};
     contents.on('zoom-changed',()=>{void schedule();});
     return { browser, context, page, contents, close, releaseInput, highlight,
@@ -286,6 +306,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
         const image=await contents.capturePage({x:Math.floor(x),y:Math.floor(y),width:Math.max(1,Math.ceil(rect.width*scale)),height:Math.max(1,Math.ceil(rect.height*scale))});
         if(image.isEmpty())throw new Error('Native compositor crop unavailable');return image.toPNG();
       },
+      onResizeSaved(callback){resizeSaved=callback;},
       onWorkspace(callback){changed=callback;if(actual)callback(actual);},
       async workspace(value){settings=structuredClone(value);if(value.zoom!==undefined&&Math.abs(contents.getZoomFactor()-value.zoom)>.001)contents.setZoomFactor(value.zoom);await schedule();},
       hmr(enabled){hmrEnabled=enabled;},
@@ -298,7 +319,7 @@ export async function createNativeProjectPage(owner: WebContents, origin: string
         approvedOrigin=value;hmrEnabled=false;
       },
       handleRequests(handler) { if (destroyed) throw new Error('Native browser closed'); requestHandler = handler; },
-      ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); shield.setVisible(visible && value !== 'user'); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
+      ownership(value) { if (destroyed) return; if (value !== 'user') {void releaseInput();void shieldContents.executeJavaScript(`document.body.style.cursor='wait'`).catch(()=>undefined);} ownerState = value; contents.setBackgroundThrottling(!visible && value !== 'agent'); if(value!=='user')shield.setBounds(container.getBounds());shield.setVisible(visible);void schedule(); if (value !== 'user' && !contents.isDestroyed() && contents.isFocused()) owner.focus(); },
       layout(value) {
         bounds=value;
         if (destroyed || window.isDestroyed()) return;

@@ -15,7 +15,8 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
     if(transient)host.style.pointerEvents='none';
     const shadow = host.attachShadow({mode:'closed'});
     const layer = document.createElement('div'); shadow.append(layer);
-    let start: {x:number;y:number} | undefined;let pending=false;
+    let start: {x:number;y:number} | undefined;let lastPoint={x:0,y:0};let pending=false;
+    const point=(event:PointerEvent)=>({x:Math.max(0,Math.min(innerWidth,event.clientX)),y:Math.max(0,Math.min(innerHeight,event.clientY))});
     const box = (rect: VisualRect, label: string, color: string) => {
       const node = document.createElement('div');
       node.style.cssText = `position:absolute;pointer-events:none;box-sizing:border-box;border:3px solid ${color};box-shadow:0 0 0 1px #fff,0 0 0 2px #111;background:${color}22;left:${rect.x}px;top:${rect.y}px;width:${rect.width}px;height:${rect.height}px;color:#fff;font:12px sans-serif;`;
@@ -26,10 +27,13 @@ export async function selectionOverlay(page: Page, enabled: boolean, regions: Vi
     let timer:ReturnType<typeof setTimeout>|undefined;
     const cleanup = () => { clearTimeout(timer);cancelAnimationFrame(frame);host.remove();removeEventListener('scroll',draw,true);removeEventListener('resize',draw);removeEventListener('keydown',key,true);if(transient)delete state.__ladHighlight;else delete state.__ladSelection; };
     const key = (event: KeyboardEvent) => {if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();if(start){start=undefined;draw();}else {cleanup();void state.__ladRegionSelect?.(null).catch(()=>undefined);}}};
-    host.onpointerdown = event => {if(pending)return;if(event.button!==0){event.preventDefault();return;}event.preventDefault();start={x:event.clientX,y:event.clientY};host.setPointerCapture(event.pointerId);};
-    host.onpointermove = event => {if(!start)return;draw();box({x:Math.min(start.x,event.clientX),y:Math.min(start.y,event.clientY),width:Math.abs(event.clientX-start.x),height:Math.abs(event.clientY-start.y)},'Selection','#fff');};
-    host.onpointerup = async event => {if(!start)return;const rect={x:Math.min(start.x,event.clientX),y:Math.min(start.y,event.clientY),width:Math.abs(event.clientX-start.x),height:Math.abs(event.clientY-start.y)};start=undefined;draw();if(rect.width>=4&&rect.height>=4){pending=true;box(rect,'…','#fff');try{await state.__ladRegionSelect?.(rect);}catch{/* main publishes explicit failure; the unsaved draft is removed */}finally{pending=false;draw();}}};
-    host.onpointercancel=()=>{start=undefined;draw();};
+    host.onpointerdown = event => {if(pending)return;if(event.button!==0){event.preventDefault();return;}event.preventDefault();start=point(event);lastPoint=start;host.setPointerCapture(event.pointerId);};
+    host.onpointermove = event => {if(!start)return;lastPoint=point(event);draw();box({x:Math.min(start.x,lastPoint.x),y:Math.min(start.y,lastPoint.y),width:Math.abs(lastPoint.x-start.x),height:Math.abs(lastPoint.y-start.y)},'Selection','#fff');};
+    const finish = async () => {if(!start)return;const rect={x:Math.min(start.x,lastPoint.x),y:Math.min(start.y,lastPoint.y),width:Math.abs(lastPoint.x-start.x),height:Math.abs(lastPoint.y-start.y)};start=undefined;draw();if(rect.width>=4&&rect.height>=4){pending=true;box(rect,'…','#fff');try{await state.__ladRegionSelect?.(rect);}catch{/* main publishes explicit failure; the unsaved draft is removed */}finally{pending=false;draw();}}};
+    host.onpointerup=event=>{lastPoint=point(event);void finish();};
+    // Native bounds/scrollbar transitions may cancel capture before pointerup.
+    // Commit the last bounded user drag; Escape still explicitly cancels it.
+    host.onpointercancel=()=>void finish();host.onlostpointercapture=()=>void finish();
     host.onwheel=event=>{event.preventDefault();window.scrollBy(event.deltaX,event.deltaY);};
     document.documentElement.append(host);if(transient)state.__ladHighlight=cleanup;else state.__ladSelection=cleanup;frame=requestAnimationFrame(tick);if(transient)timer=setTimeout(cleanup,2200);addEventListener('scroll',draw,true);addEventListener('resize',draw);if(!transient)addEventListener('keydown',key,true);draw();
   };
