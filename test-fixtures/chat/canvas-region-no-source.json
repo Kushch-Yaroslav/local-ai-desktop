@@ -1,0 +1,12 @@
+{
+  "url": "https://project-preview.invalid/index.html#universe",
+  "route": "/index.html#universe",
+  "viewport": { "width": 698, "height": 395 },
+  "dpr": 1,
+  "scroll": { "x": 0, "y": 0 },
+  "rect": { "x": 248, "y": 110, "width": 194, "height": 197 },
+  "anchors": [],
+  "sourceHints": [],
+  "diagnostics": ["Screenshot-only Canvas/SVG region; no source mapping"],
+  "snapshot": "RC7 manual Canvas selection; no pixels supplied to the model"
+}

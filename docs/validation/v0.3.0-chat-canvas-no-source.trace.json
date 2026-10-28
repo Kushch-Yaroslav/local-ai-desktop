@@ -1,0 +1,279 @@
+{
+  "status": "PASS",
+  "model": "qwen3.6:35b-a3b-ud-q4_k_m",
+  "real_model": true,
+  "scripted_responses": false,
+  "context_window": 32768,
+  "kv_cache": "f16",
+  "elapsed_seconds": 61,
+  "browser_workspace": {
+    "real": true,
+    "url": "https://project-preview.invalid/index.html#universe",
+    "ownership": "user"
+  },
+  "region_fixture": {
+    "url": "https://project-preview.invalid/index.html#universe",
+    "route": "/index.html#universe",
+    "viewport": {
+      "width": 698,
+      "height": 395
+    },
+    "dpr": 1,
+    "scroll": {
+      "x": 0,
+      "y": 0
+    },
+    "rect": {
+      "x": 248,
+      "y": 110,
+      "width": 194,
+      "height": 197
+    },
+    "anchors": [],
+    "sourceHints": [],
+    "diagnostics": [
+      "Screenshot-only Canvas/SVG region; no source mapping"
+    ],
+    "snapshot": "RC7 manual Canvas selection; no pixels supplied to the model"
+  },
+  "source_file": {
+    "path": "index.html",
+    "sha256": "8d893ae6edfa396c9fd0e22534aecb9fb91e9a7b61779878c1e3fbb606b355d9"
+  },
+  "tool_calls": [
+    {
+      "id": "9gfSJFgPIWzU4BBeAYS0nx03cStYXAyB",
+      "name": "inspect_region",
+      "arguments": {
+        "region_id": "region-deadbeef"
+      }
+    },
+    {
+      "id": "RBqs8GHpRw8NdI6vXxSyNP9xWHAyvHhz",
+      "name": "list_project_files",
+      "arguments": {
+        "project_slot": 1,
+        "path": "",
+        "depth": 3
+      }
+    },
+    {
+      "id": "FzHpQxxqCuNkpGS2yxCZ0KA3RmTWo5Sc",
+      "name": "search_project_text",
+      "arguments": {
+        "project_slot": 1,
+        "query": "universe",
+        "path": "index.html"
+      }
+    },
+    {
+      "id": "LlcP69mq7PhlfuM4NSH2ziQDbbnsgXt4",
+      "name": "read_project_file",
+      "arguments": {
+        "project_slot": 1,
+        "path": "index.html",
+        "start_line": 750,
+        "max_bytes": 10000
+      }
+    },
+    {
+      "id": "jx3bf957IOSbi8ZPEFW2HqPhunH1DzzX",
+      "name": "read_project_file",
+      "arguments": {
+        "project_slot": 1,
+        "path": "index.html",
+        "start_line": 390,
+        "max_bytes": 12000
+      }
+    }
+  ],
+  "chat_requests": [
+    {
+      "index": 0,
+      "offered_tools": [
+        "web_search",
+        "web_image_search",
+        "web_open",
+        "web_read",
+        "web_follow_link",
+        "web_back",
+        "create_visual_artifact",
+        "list_attachments",
+        "attachment_metadata",
+        "read_file",
+        "search_attachments",
+        "read_document",
+        "document_memory",
+        "save_chat_note",
+        "list_observations",
+        "read_observation",
+        "read_browser",
+        "list_project_files",
+        "read_project_file",
+        "search_project_files",
+        "search_project_text",
+        "inspect_region"
+      ],
+      "finish_reason": "tool_calls"
+    },
+    {
+      "index": 1,
+      "offered_tools": [
+        "web_search",
+        "web_image_search",
+        "web_open",
+        "web_read",
+        "web_follow_link",
+        "web_back",
+        "create_visual_artifact",
+        "list_attachments",
+        "attachment_metadata",
+        "read_file",
+        "search_attachments",
+        "read_document",
+        "document_memory",
+        "save_chat_note",
+        "list_observations",
+        "read_observation",
+        "read_browser",
+        "list_project_files",
+        "read_project_file",
+        "search_project_files",
+        "search_project_text",
+        "inspect_region"
+      ],
+      "finish_reason": "tool_calls"
+    },
+    {
+      "index": 2,
+      "offered_tools": [
+        "web_search",
+        "web_image_search",
+        "web_open",
+        "web_read",
+        "web_follow_link",
+        "web_back",
+        "create_visual_artifact",
+        "list_attachments",
+        "attachment_metadata",
+        "read_file",
+        "search_attachments",
+        "read_document",
+        "document_memory",
+        "save_chat_note",
+        "list_observations",
+        "read_observation",
+        "read_browser",
+        "list_project_files",
+        "read_project_file",
+        "search_project_files",
+        "search_project_text",
+        "inspect_region"
+      ],
+      "finish_reason": "tool_calls"
+    },
+    {
+      "index": 3,
+      "offered_tools": [
+        "web_search",
+        "web_image_search",
+        "web_open",
+        "web_read",
+        "web_follow_link",
+        "web_back",
+        "create_visual_artifact",
+        "list_attachments",
+        "attachment_metadata",
+        "read_file",
+        "search_attachments",
+        "read_document",
+        "document_memory",
+        "save_chat_note",
+        "list_observations",
+        "read_observation",
+        "read_browser",
+        "list_project_files",
+        "read_project_file",
+        "search_project_files",
+        "search_project_text",
+        "inspect_region"
+      ],
+      "finish_reason": "tool_calls"
+    },
+    {
+      "index": 4,
+      "offered_tools": [
+        "web_search",
+        "web_image_search",
+        "web_open",
+        "web_read",
+        "web_follow_link",
+        "web_back",
+        "create_visual_artifact",
+        "list_attachments",
+        "attachment_metadata",
+        "read_file",
+        "search_attachments",
+        "read_document",
+        "document_memory",
+        "save_chat_note",
+        "list_observations",
+        "read_observation",
+        "read_browser",
+        "list_project_files",
+        "read_project_file",
+        "search_project_files",
+        "search_project_text",
+        "inspect_region"
+      ],
+      "finish_reason": "stop"
+    }
+  ],
+  "region_tool_evidence": {
+    "region_id": "region-deadbeef",
+    "url": "https://project-preview.invalid/index.html#universe",
+    "route": "/index.html#universe",
+    "anchors": [],
+    "source_hints": [],
+    "pixel_bytes_sent": false,
+    "source_research": {
+      "access": "already-authorized-selected-project-read-only",
+      "project_slots": [
+        1
+      ],
+      "url_file_candidate": {
+        "path": "index.html",
+        "provenance": "URL pathname lookup candidate only; NOT a verified source mapping"
+      },
+      "guidance": "Use available project read/search tools in this answer to investigate the candidate or locate the rendering code. Perform the lookup instead of asking permission or ending with a promise to investigate. If no relevant source is found, explain that limit."
+    }
+  },
+  "source_read_contained_drawUni": true,
+  "answer_identified_black_hole": true,
+  "answer_identified_accretion_disk": true,
+  "answer_identified_star_field": true,
+  "answer_stated_source_basis": true,
+  "answer_sha256": "c5e3d9d1af13b8071bbc07e38e433f4c424f2ac8a10b7540be24b205474a22c1",
+  "no_project": {
+    "offered_tools": [
+      "web_search",
+      "web_image_search",
+      "web_open",
+      "web_read",
+      "web_follow_link",
+      "web_back",
+      "create_visual_artifact",
+      "list_attachments",
+      "attachment_metadata",
+      "read_file",
+      "search_attachments",
+      "read_document",
+      "document_memory",
+      "save_chat_note",
+      "list_observations",
+      "read_observation"
+    ],
+    "answer": "4"
+  },
+  "note": "The Browser Workspace, model, Chat IPC, selected project and source reads were real. Stored selection metadata reproduces the RC7 manual case with empty anchors/source hints and no pixel payload. The URL candidate is not a source mapping. No model reasoning or project source contents are included here."
+}

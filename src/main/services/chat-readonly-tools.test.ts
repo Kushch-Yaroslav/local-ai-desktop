@@ -1,6 +1,6 @@
 import './test-runtime-isolation';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ChatMessage, StreamEvent } from '../../shared/types';
@@ -76,6 +76,23 @@ async function main(){
     const browser=await call(scoped,'read_browser',{action:'read'}) as {instruction:string;data:{content:string}};assert.equal(browser.data.content,'Canvas present; pixels not inspected.');assert.match(browser.instruction,/UNTRUSTED DATA/);assert.deepEqual(browserArgs,{action:'read'});
     const firstRegion=await call(scoped,'inspect_region',{region_id:'region-one'}) as Record<string,unknown>;assert.equal(firstRegion.pixel_bytes_sent,false);assert.match(String(firstRegion.vision_claim_guidance),/No screenshot pixels/);assert(JSON.stringify(firstRegion).includes('index.html'));assert(!JSON.stringify(firstRegion).includes(project));assert(!JSON.stringify(firstRegion).includes('should-not-leak'));
     const secondRegion=await call(scoped,'inspect_region',{region_id:'region-two'});assert(JSON.stringify(secondRegion).includes('region-two'));
+    const unmappedRegion:VisualRegion={...region('region-unmapped','index.html'),...JSON.parse(await readFile(join(__dirname,'../../../test-fixtures/chat/canvas-region-no-source.json'),'utf8'))};
+    const unmappedScope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536,async()=>({url:unmappedRegion.url,content:'Canvas; no detailed DOM mapping'}),[{slot:1,label:'Project 1 — test',reader}],[unmappedRegion],false);
+    const unmapped=await call(unmappedScope,'inspect_region',{region_id:unmappedRegion.id});
+    assert.deepEqual(unmapped.anchors,[]);assert.deepEqual(unmapped.source_hints,[]);assert.equal(unmapped.pixel_bytes_sent,false);
+    assert.deepEqual((unmapped.source_research as {project_slots:number[]}).project_slots,[1]);
+    assert.equal((unmapped.source_research as {url_file_candidate:{path:string}}).url_file_candidate.path,'index.html');
+    assert.match(JSON.stringify(unmapped.source_research),/NOT a verified source mapping/);assert.equal(unmapped.route,'/index.html#universe');
+    assert.match(String(unmapped.instruction),/already authorized/);assert.match(String(unmapped.instruction),/NOT an absolute filesystem path/);
+    for(const url of ['https://example.com/index.html','https://project-preview.invalid/%2fetc/passwd','https://project-preview.invalid/..%2fsecret','https://project-preview.invalid/..%5csecret','not a URL']) {
+      const scope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536,undefined,[{slot:1,label:'test',reader}],[{...unmappedRegion,url}],false);
+      const result=await call(scope,'inspect_region',{region_id:unmappedRegion.id});assert.equal((result.source_research as {url_file_candidate?:unknown}).url_file_candidate,undefined);
+    }
+    const regionWithoutProject=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536,undefined,[],[unmappedRegion],false);
+    assert.equal((await call(regionWithoutProject,'inspect_region',{region_id:unmappedRegion.id})).source_research,undefined);
+    assert(!regionWithoutProject.definitions.some(tool=>tool.function.name==='read_project_file'));
+    await assert.rejects(call(unmappedScope,'read_project_file',{project_slot:1,path:'/index.html'}),/relative/);
+    assert(JSON.stringify(await call(unmappedScope,'read_project_file',{project_slot:1,path:'index.html'})).includes('drawUni'));
     const pixelScope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536,undefined,[{slot:1,label:'Project 1 — test',reader}],[region('region-one','index.html')],true);assert.equal((await call(pixelScope,'inspect_region',{region_id:'region-one'})).pixel_bytes_sent,true);
     await assert.rejects(call(scoped,'inspect_region',{region_id:'region-from-other-chat'}),/not attached/);
     assert(!scoped.context().includes('web_project'));assert.match(scoped.context(),/Chat is a read-only research mode/);
@@ -83,14 +100,20 @@ async function main(){
     assert(!unrelated.definitions.some(definition=>(definition as {function:{name:string}}).function.name==='read_project_file'));
     await assert.rejects(call(unrelated,'read_project_file',{project_slot:1,path:'index.html'}),/Capability denied/);
     const loopMessages:ToolMessage[]=[];let loopTurn=0;
-    const loopBackend={...backend,async *streamWithTools(_model:string,messages:ToolMessage[]){
+    const loopBackend={...backend,async *streamWithTools(_model:string,messages:ToolMessage[],definitions?:Array<{function:{name:string}}>){
       loopMessages.push(...messages);loopTurn++;
+      if(loopTurn===2){
+        const result=messages.find(message=>message.role==='tool'&&message.tool_name==='inspect_region');
+        assert(result);assert.deepEqual(JSON.parse(result.content).source_hints,[]);assert.deepEqual(JSON.parse(result.content).anchors,[]);
+        for(const name of ['read_project_file','search_project_files','search_project_text','read_browser'])assert(definitions?.some(tool=>tool.function.name===name),`Tool lost after inspect_region: ${name}`);
+      }
       const response=loopTurn===1
-        ?{role:'assistant' as const,content:'',tool_calls:[{id:'read-index',function:{name:'read_project_file',arguments:{project_slot:1,path:'index.html',start_line:1,end_line:2}}}],finish_reason:'tool_calls' as const}
+        ?{role:'assistant' as const,content:'',tool_calls:[{id:'inspect-unmapped',function:{name:'inspect_region',arguments:{region_id:unmappedRegion.id}}}],finish_reason:'tool_calls' as const}
+        :loopTurn===2?{role:'assistant' as const,content:'',tool_calls:[{id:'read-index',function:{name:'read_project_file',arguments:{project_slot:1,path:'index.html',start_line:1,end_line:2}}}],finish_reason:'tool_calls' as const}
         :{role:'assistant' as const,content:'The selected canvas is rendered by drawUni; source confirms a black hole, accretion disk and star field. Pixels were not analyzed.',finish_reason:'stop' as const};
       yield {type:'response' as const,response};
     }} as unknown as LlmBackend&ToolCallingBackend;
-    const turnEvents:StreamEvent[]=[];for await(const event of new WebChatService(loopBackend,{openSession:async()=>{throw Error('Web session is not needed');}} as never).stream('fixture',[{...user,content:'What is shown in the selected canvas?'}],new AbortController().signal,65536,'fast',false,undefined,undefined,'project-tool-loop',scoped))turnEvents.push(event);
+    const turnEvents:StreamEvent[]=[];for await(const event of new WebChatService(loopBackend,{openSession:async()=>{throw Error('Web session is not needed');}} as never).stream('fixture',[{...user,content:'What is shown in the selected canvas?',regionReferences:[unmappedRegion]}],new AbortController().signal,65536,'fast',false,undefined,undefined,'project-tool-loop',unmappedScope))turnEvents.push(event);
     assert(turnEvents.some(event=>event.type==='token'&&event.content.includes('drawUni')));assert(loopMessages.some(message=>message.role==='tool'&&message.tool_name==='read_project_file'&&message.content.includes('drawUni')),'Tool output must stay in the same model context through the final answer');
     const stopped=new AbortController();stopped.abort();await assert.rejects(call(scoped,'read_project_file',{project_slot:1,path:'index.html'},stopped.signal),/abort/i);
   } finally { await rm(projectsRoot,{recursive:true,force:true}); }

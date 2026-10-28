@@ -15,6 +15,7 @@ User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs
 
 ### Changed
 
+- Chat investigates selected-project sources even when a Canvas/SVG region has no pixels, DOM anchors or source mapping. Preview URL paths are relative lookup candidates, not absolute filesystem paths or confirmed mappings; existing read-only permissions remain in force.
 - Linux model discovery refreshes after a removable GGUF drive is mounted. See [GPU performance troubleshooting](docs/gpu-performance-troubleshooting.md) for hardware and context guidance.
 
 ### Known limitations
