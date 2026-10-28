@@ -1,0 +1,633 @@
+{
+  "date": "2026-10-28",
+  "branch": "feature/v0.3-chat-readonly-tools-long-context",
+  "recoveredHead": "02e8463",
+  "baseCommit": "0ce7eeb",
+  "recovery": {
+    "recoveredAt": "2026-10-28T16:16:09.290476+00:00",
+    "originalRuntime": "/tmp/lad-chat-readonly-qwen-DA1dhL/runtime-lAm5fm",
+    "confirmedOffset": 554858,
+    "ranges": [
+      [
+        0,
+        24000,
+        1,
+        "2026-10-28T15:49:50.821Z"
+      ],
+      [
+        24000,
+        48000,
+        1,
+        "2026-10-28T15:50:35.128Z"
+      ],
+      [
+        48000,
+        72000,
+        1,
+        "2026-10-28T15:51:20.101Z"
+      ],
+      [
+        72000,
+        96000,
+        1,
+        "2026-10-28T15:52:37.383Z"
+      ],
+      [
+        96000,
+        120000,
+        1,
+        "2026-10-28T15:53:18.673Z"
+      ],
+      [
+        120000,
+        144000,
+        1,
+        "2026-10-28T15:59:25.953Z"
+      ],
+      [
+        144000,
+        168000,
+        1,
+        "2026-10-28T16:00:05.378Z"
+      ],
+      [
+        168000,
+        192000,
+        1,
+        "2026-10-28T16:00:43.158Z"
+      ],
+      [
+        192000,
+        216000,
+        1,
+        "2026-10-28T16:01:22.434Z"
+      ],
+      [
+        216000,
+        240000,
+        1,
+        "2026-10-28T16:02:01.550Z"
+      ],
+      [
+        240000,
+        264000,
+        1,
+        "2026-10-28T16:02:40.782Z"
+      ],
+      [
+        264000,
+        288000,
+        1,
+        "2026-10-28T16:03:25.212Z"
+      ],
+      [
+        288000,
+        312000,
+        1,
+        "2026-10-28T16:04:06.128Z"
+      ],
+      [
+        312000,
+        336000,
+        1,
+        "2026-10-28T16:04:46.384Z"
+      ],
+      [
+        336000,
+        360000,
+        1,
+        "2026-10-28T16:05:19.543Z"
+      ],
+      [
+        360000,
+        384000,
+        1,
+        "2026-10-28T16:06:00.255Z"
+      ],
+      [
+        384000,
+        408000,
+        1,
+        "2026-10-28T16:06:41.707Z"
+      ],
+      [
+        408000,
+        432000,
+        1,
+        "2026-10-28T16:07:32.895Z"
+      ],
+      [
+        432000,
+        456000,
+        1,
+        "2026-10-28T16:08:11.439Z"
+      ],
+      [
+        456000,
+        480000,
+        1,
+        "2026-10-28T16:08:49.676Z"
+      ],
+      [
+        480000,
+        504000,
+        1,
+        "2026-10-28T16:09:20.966Z"
+      ],
+      [
+        504000,
+        528000,
+        1,
+        "2026-10-28T16:09:59.116Z"
+      ],
+      [
+        528000,
+        552000,
+        1,
+        "2026-10-28T16:10:39.097Z"
+      ],
+      [
+        552000,
+        554858,
+        1,
+        "2026-10-28T16:11:03.800Z"
+      ]
+    ]
+  },
+  "document": {
+    "status": "PASS",
+    "artifact": "/tmp/lad-chat-readonly-qwen-DA1dhL/runtime-lAm5fm/result-1793204897192.json",
+    "characters": 554858,
+    "bytes": 1013616,
+    "restoredCheckpoint": {
+      "notes": 24,
+      "offset": 554858
+    },
+    "confirmedOffset": 554858,
+    "rangeCount": 24,
+    "coveredRanges": [
+      [
+        0,
+        24000
+      ],
+      [
+        24000,
+        48000
+      ],
+      [
+        48000,
+        72000
+      ],
+      [
+        72000,
+        96000
+      ],
+      [
+        96000,
+        120000
+      ],
+      [
+        120000,
+        144000
+      ],
+      [
+        144000,
+        168000
+      ],
+      [
+        168000,
+        192000
+      ],
+      [
+        192000,
+        216000
+      ],
+      [
+        216000,
+        240000
+      ],
+      [
+        240000,
+        264000
+      ],
+      [
+        264000,
+        288000
+      ],
+      [
+        288000,
+        312000
+      ],
+      [
+        312000,
+        336000
+      ],
+      [
+        336000,
+        360000
+      ],
+      [
+        360000,
+        384000
+      ],
+      [
+        384000,
+        408000
+      ],
+      [
+        408000,
+        432000
+      ],
+      [
+        432000,
+        456000
+      ],
+      [
+        456000,
+        480000
+      ],
+      [
+        480000,
+        504000
+      ],
+      [
+        504000,
+        528000
+      ],
+      [
+        528000,
+        552000
+      ],
+      [
+        552000,
+        554858
+      ]
+    ],
+    "contextCompacted": true,
+    "restartedAfterCompaction": true,
+    "resumedSourceRanges": [],
+    "factChecks": [
+      {
+        "code": "БИРЮЗА-417",
+        "mentioned": true
+      },
+      {
+        "code": "ЛАДОГА-826",
+        "mentioned": true
+      },
+      {
+        "code": "РУБИН-593",
+        "mentioned": true
+      },
+      {
+        "code": "СКВОРЕЦ-264",
+        "mentioned": true
+      },
+      {
+        "code": "ЯНТАРЬ-781",
+        "mentioned": true
+      }
+    ],
+    "followupCorrect": true,
+    "http": [
+      {
+        "index": 0,
+        "finishReason": "stop",
+        "completionTokens": 828
+      },
+      {
+        "index": 1,
+        "finishReason": "tool_calls",
+        "completionTokens": 61
+      },
+      {
+        "index": 2,
+        "finishReason": "tool_calls",
+        "completionTokens": 60
+      },
+      {
+        "index": 3,
+        "finishReason": "tool_calls",
+        "completionTokens": 465
+      },
+      {
+        "index": 4,
+        "finishReason": "stop",
+        "completionTokens": 756
+      },
+      {
+        "index": 5,
+        "finishReason": "tool_calls",
+        "completionTokens": 93
+      },
+      {
+        "index": 6,
+        "finishReason": "stop",
+        "completionTokens": 196
+      }
+    ]
+  },
+  "realTechnicalLength": {
+    "status": "PASS",
+    "artifact": "/tmp/lad-chat-readonly-qwen-DA1dhL/runtime-QM1uVQ/result-1793205103727.json",
+    "forwardedCap": 128,
+    "note": "Only the first two requests are deliberately capped by the test proxy. All generated responses are real Qwen. App diagnostics retain its original requested cap; proxy metrics record the actual forwarded cap.",
+    "segments": [
+      {
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "generationId": "14a9009f-23ef-41d7-83b4-8bfd054492d2",
+        "conversationId": "4ce6d20a-b102-492f-b273-792429cad496",
+        "segment": 0,
+        "contextWindow": 65536,
+        "promptTokens": 4228,
+        "generatedTokens": 128,
+        "visibleTextTokens": 128,
+        "reasoningTextTokens": 0,
+        "requestedMaxTokens": 32768,
+        "effectiveMaxTokens": 32768,
+        "contextHeadroom": 61308,
+        "finishReason": "length",
+        "backendFinishReason": "length",
+        "aggregateGeneratedTokens": 128,
+        "aggregateBudget": 50000,
+        "autoContinuation": true,
+        "decision": "continue_length"
+      },
+      {
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "generationId": "14a9009f-23ef-41d7-83b4-8bfd054492d2",
+        "conversationId": "4ce6d20a-b102-492f-b273-792429cad496",
+        "segment": 1,
+        "contextWindow": 65536,
+        "promptTokens": 4421,
+        "generatedTokens": 128,
+        "visibleTextTokens": 128,
+        "reasoningTextTokens": 0,
+        "requestedMaxTokens": 32768,
+        "effectiveMaxTokens": 32768,
+        "contextHeadroom": 61115,
+        "finishReason": "length",
+        "backendFinishReason": "length",
+        "aggregateGeneratedTokens": 256,
+        "aggregateBudget": 50000,
+        "autoContinuation": true,
+        "decision": "continue_length"
+      },
+      {
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "generationId": "14a9009f-23ef-41d7-83b4-8bfd054492d2",
+        "conversationId": "4ce6d20a-b102-492f-b273-792429cad496",
+        "segment": 2,
+        "contextWindow": 65536,
+        "promptTokens": 4614,
+        "generatedTokens": 1062,
+        "visibleTextTokens": 1061,
+        "reasoningTextTokens": 0,
+        "requestedMaxTokens": 32768,
+        "effectiveMaxTokens": 32768,
+        "contextHeadroom": 60922,
+        "finishReason": "stop",
+        "backendFinishReason": "stop",
+        "aggregateGeneratedTokens": 1318,
+        "aggregateBudget": 50000,
+        "autoContinuation": false,
+        "decision": "natural_eos"
+      }
+    ],
+    "requests": [
+      {
+        "index": 0,
+        "phase": "technical-length",
+        "startedAt": "2026-10-28T16:30:56.579Z",
+        "stream": true,
+        "requestedMaxTokens": 32768,
+        "max_tokens": 128,
+        "messages": 4,
+        "toolCount": 10,
+        "finishReason": "length",
+        "usage": {
+          "completion_tokens": 128,
+          "prompt_tokens": 4228,
+          "total_tokens": 4356,
+          "prompt_tokens_details": {
+            "cached_tokens": 4224
+          }
+        },
+        "contentCharacters": 557,
+        "reasoningCharacters": 0,
+        "elapsedMs": 4424
+      },
+      {
+        "index": 1,
+        "phase": "technical-length",
+        "startedAt": "2026-10-28T16:31:01.176Z",
+        "stream": true,
+        "requestedMaxTokens": 32768,
+        "max_tokens": 128,
+        "messages": 6,
+        "toolCount": 10,
+        "finishReason": "length",
+        "usage": {
+          "completion_tokens": 128,
+          "prompt_tokens": 4421,
+          "total_tokens": 4549,
+          "prompt_tokens_details": {
+            "cached_tokens": 4355
+          }
+        },
+        "contentCharacters": 581,
+        "reasoningCharacters": 0,
+        "elapsedMs": 4592
+      },
+      {
+        "index": 2,
+        "phase": "technical-length",
+        "startedAt": "2026-10-28T16:31:05.814Z",
+        "stream": true,
+        "requestedMaxTokens": 32768,
+        "max_tokens": 32768,
+        "messages": 8,
+        "toolCount": 10,
+        "finishReason": "stop",
+        "usage": {
+          "completion_tokens": 1062,
+          "prompt_tokens": 4614,
+          "total_tokens": 5676,
+          "prompt_tokens_details": {
+            "cached_tokens": 4548
+          }
+        },
+        "contentCharacters": 4368,
+        "reasoningCharacters": 0,
+        "elapsedMs": 35326
+      },
+      {
+        "index": 3,
+        "phase": "real-user-stop",
+        "startedAt": "2026-10-28T16:31:41.826Z",
+        "stream": true,
+        "requestedMaxTokens": 32768,
+        "max_tokens": 32768,
+        "messages": 6,
+        "toolCount": 10,
+        "error": "AbortError: This operation was aborted"
+      }
+    ],
+    "userStop": {
+      "characters": 11,
+      "saved": true,
+      "segments": [
+        {
+          "modelId": "qwen3.8:27b-q4_K_M",
+          "generationId": "f15d677e-91c7-4246-88d5-b8f8b0bf02a1",
+          "conversationId": "4ce6d20a-b102-492f-b273-792429cad496",
+          "segment": 0,
+          "contextWindow": 65536,
+          "requestedMaxTokens": 0,
+          "aggregateGeneratedTokens": 0,
+          "aggregateBudget": 50000,
+          "autoContinuation": false,
+          "decision": "user_stop"
+        }
+      ]
+    }
+  },
+  "historicalNaturalStops": [
+    {
+      "generationId": "6a4c79a0-fa68-421c-9d56-bb6f962ce54c",
+      "requestedMaxOutputTokens": 32768,
+      "effectiveMaxOutputTokens": 32768,
+      "contextLimit": 65536,
+      "inputTokens": 3630,
+      "evalCount": 6286,
+      "finishReason": "stop"
+    },
+    {
+      "generationId": "3411bd12-28f9-4bf7-8ba9-042af77cff2c",
+      "requestedMaxOutputTokens": 32768,
+      "effectiveMaxOutputTokens": 32768,
+      "contextLimit": 65536,
+      "inputTokens": 9168,
+      "evalCount": 16212,
+      "finishReason": "stop"
+    }
+  ],
+  "controlled50K": {
+    "result": "PASS",
+    "root": "/tmp/lad-chat50k-nxQSJa",
+    "checks": [
+      "Natural stop makes one request and one persisted assistant",
+      "50K aggregate budget, three real HTTP streams, same SQLite message, no synthetic user turns",
+      "User Stop durably saves partial chat text",
+      "Backend failure retains partial text in SQLite",
+      "Exact backend input-token exhaustion preserves partial text without invented capacity",
+      "Repeated segment produces no duplicate and no infinite continuation"
+    ],
+    "realLongInference": false
+  },
+  "rust": {
+    "passed": 436,
+    "failed": 0,
+    "ignored": 1,
+    "log": "/tmp/lad-resume-rust-final.log"
+  },
+  "verification": {
+    "build": "/tmp/lad-resume-build-verified.log",
+    "lint": "/tmp/lad-resume-lint-verified.log",
+    "browser": "/tmp/lad-resume-browser.log",
+    "agentAttachments": {
+      "result": "PASS",
+      "root": "/tmp/lad-conversation-attachment-agent-UHmum4",
+      "requests": 2,
+      "realModel": false,
+      "sourceReceived": true,
+      "noProject": true,
+      "chatAgentChatAttachmentPreserved": true,
+      "planningContractsPreserved": true
+    },
+    "nativeLineage": "/tmp/lad-resume-lineage.log",
+    "ggufStorage": "/tmp/lad-resume-gguf.log",
+    "coldStart": "/tmp/lad-resume-cold-start.log",
+    "isolation": "/tmp/lad-resume-isolation.log",
+    "renderer": {
+      "result": "PASS",
+      "root": "/tmp/lad-chat-readonly-ui-pODc1d",
+      "progressAndChapterVisible": true,
+      "sourceErrorVisible": true
+    },
+    "regressions": {
+      "root": "/tmp/lad-chat-readonly-regressions-0UAKMa",
+      "passed": 27,
+      "total": 27
+    }
+  },
+  "realWriting": {
+    "transportStatus": "PASS",
+    "artifact": "/tmp/lad-chat-readonly-qwen-DA1dhL/runtime-EdU6nM/result-1793205563970.json",
+    "requestedCompletionTokens": [
+      24000,
+      28000
+    ],
+    "requestedChapters": 24,
+    "actualChapterHeadings": 9,
+    "characters": 55775,
+    "segments": [
+      {
+        "modelId": "qwen3.8:27b-q4_K_M",
+        "generationId": "e5aaf743-9e88-423b-ab13-e75098012d07",
+        "conversationId": "daafa8af-e524-4473-a71c-3151667e2c52",
+        "segment": 0,
+        "contextWindow": 65536,
+        "promptTokens": 4322,
+        "generatedTokens": 12931,
+        "visibleTextTokens": 12930,
+        "reasoningTextTokens": 0,
+        "requestedMaxTokens": 32768,
+        "effectiveMaxTokens": 32768,
+        "contextHeadroom": 61214,
+        "finishReason": "stop",
+        "backendFinishReason": "stop",
+        "aggregateGeneratedTokens": 12931,
+        "aggregateBudget": 50000,
+        "autoContinuation": false,
+        "decision": "natural_eos"
+      }
+    ],
+    "requests": [
+      {
+        "index": 0,
+        "phase": "long-writing",
+        "startedAt": "2026-10-28T16:32:14.965Z",
+        "stream": true,
+        "requestedMaxTokens": 32768,
+        "max_tokens": 32768,
+        "messages": 4,
+        "toolCount": 10,
+        "finishReason": "stop",
+        "usage": {
+          "completion_tokens": 12931,
+          "prompt_tokens": 4322,
+          "total_tokens": 17253,
+          "prompt_tokens_details": {
+            "cached_tokens": 4163
+          }
+        },
+        "contentCharacters": 55775,
+        "reasoningCharacters": 0,
+        "elapsedMs": 428440
+      }
+    ],
+    "exactLongParagraphRepetitions": 41,
+    "requestedLengthReached": false,
+    "contentQualityPassed": false,
+    "real50KConfirmed": false,
+    "note": "Natural stop respected. Repeated paragraphs originated within one model segment; boundary deduplication is tested separately."
+  },
+  "cleanup": {
+    "stoppedAt": "2026-10-28T16:41:34.993350+00:00",
+    "serverPid": 37367,
+    "verifiedServerIdentity": true,
+    "remainingOwnedTestProcessesFound": [],
+    "userProcessesStopped": false
+  }
+}

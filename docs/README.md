@@ -17,6 +17,7 @@ Start with the guides for your language. The release notes describe what changed
 
 ## Advanced / Technical references
 
+- [Chat read-only tools, persistent attachments, recovered EOF and real Qwen long-output audit](v0.3-chat-readonly-long-context.md)
 - [Native resize, Continue/criteria contracts, real Qwen verification and Chat 50K audit](v0.3-resize-qwen-chat50k.md)
 
 These documents cover security boundaries, privileged setup and implementation evidence. They are intended for administrators and developers.
