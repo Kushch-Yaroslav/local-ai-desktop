@@ -218,6 +218,8 @@ export interface ChatMessage {
   attachments?: Attachment[];
   projectReferences?: ProjectReference[];
   regionReferences?: import('./visual-debugging').VisualRegion[];
+  /** Ephemeral IDs whose retained region crops were actually encoded into this request. */
+  regionPixelReferences?: string[];
   /** Native model reasoning, when the backend exposes it. It is never inferred from tool activity. */
   thinking?: string;
   /** Ordered reasoning/activity references for Agent turns. Older messages omit this. */

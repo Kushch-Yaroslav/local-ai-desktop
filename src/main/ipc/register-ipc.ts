@@ -55,7 +55,7 @@ import { richArtifactFingerprint } from '../../shared/rich-artifacts';
 import { ReadonlyProjectTools } from '../tools/project-tools';
 import { imageMimeType, AttachmentService } from '../services/attachment-service';
 import { AttachmentPipeline } from '../services/attachment-pipeline';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { saveGenerationDiagnosticsBestEffort } from '../services/generation-diagnostics';
 import { projectDirectoryName } from '../../shared/project-references';
 import { executionMode } from '../../shared/generation-mode';
@@ -1136,11 +1136,19 @@ export function registerIpc(): void {
       event.sender.send('chat:stream', { type: 'context', conversationId: request.conversationId, generationId: generation.id, ...context });
       // Image descriptions are excluded for native-vision requests: the original
       // image payload is attached only to its owning user turn below.
-      let history = attachmentPipeline.buildContext(requestMessages, !hasImages, mode === 'agent');
+      let history = attachmentPipeline.buildContext(requestMessages, !hasImages, mode === 'agent', mode);
       if (nativeVision) history = await attachmentPipeline.prepareNativeImages(history, abort.signal);
       // The host, not renderer history or model paths, selects the persistent scope.
       const chatBackend = chatTelemetry?.observe(backend) ?? backend;
-      const readonlyScope = new ChatReadonlyTools(database, attachments, request.conversationId, chatBackend, request.model, context.active, mode === 'chat' && conversation.webMode === 'auto' ? liveBrowsers.chatDiagnosticReader(event.sender,request.conversationId) : undefined);
+      const chatProjects:Array<{slot:1|2;label:string;reader:import('../tools/project-tools').ChatProjectReader}>=[];
+      let projectUnavailable=false;
+      if(mode==='chat')for(const project of selectedProjects){try{const root=await realpath(project.root);chatProjects.push({slot:project.slot,label:project.label,reader:await ReadonlyProjectTools.openChatReader(root)});}catch{projectUnavailable=true;}}
+      const activeUserId=requestUser?.id;
+      const selectedRegionEvidence=activeUserId?requestMessages.find(message=>message.id===activeUserId)?.regionReferences??[]:[];
+      const pixelsSent=Boolean(nativeVision&&activeUserId&&selectedRegionEvidence.some(region=>history.find(message=>message.id===activeUserId)?.regionPixelReferences?.includes(region.id)));
+      const chatBrowserRoots=await Promise.all(selectedProjects.map(project=>realpath(project.root).catch(()=>''))).then(roots=>roots.filter(Boolean));
+      const readBrowser=mode==='chat'&&chatBrowserRoots.length?liveBrowsers.chatDiagnosticReader(event.sender,request.conversationId,chatBrowserRoots):undefined;
+      const readonlyScope = new ChatReadonlyTools(database, attachments, request.conversationId, chatBackend, request.model, context.active, readBrowser, chatProjects, selectedRegionEvidence, pixelsSent, projectUnavailable);
       if (readonlyScope) await readonlyScope.prepare(abort.signal);
       if (readonlyScope) history = [{ id: 'conversation-attachments', conversationId: request.conversationId, role: 'system', content: mode === 'agent' ? readonlyScope.context('agent') : '', createdAt: new Date().toISOString(), attachments: database.listAttachmentsForConversation(request.conversationId) }, ...history];
       const persistedTaskMemory = mode === 'agent' ? taskPlan(database.getAgentPlan(request.conversationId, logicalTaskId) ?? {}).taskMemory : undefined;

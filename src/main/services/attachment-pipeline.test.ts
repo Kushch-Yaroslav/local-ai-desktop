@@ -5,6 +5,9 @@ import { AttachmentPipeline, MAX_ATTACHMENT_CONTEXT_CHARACTERS } from './attachm
 import type { ProjectReference } from '../../shared/types';
 import { projectDirectoryName, removeProjectReferenceQuery } from '../../shared/project-references';
 import { existingProjectDirectory } from './project-picker';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 /** Focused persistence/pipeline regression coverage; run with `npm run test:attachments`. */
@@ -104,6 +107,16 @@ export async function runAttachmentPipelineRegression(): Promise<void> {
     const visualFollowUp = database.addMessage(chat.id, 'user', 'А что находится справа на той картинке?');
     const visualHistory = await nativePipeline.prepareNativeImages(nativePipeline.buildContext([nativeTurn, nativeAssistant, unrelatedFollowUp, visualFollowUp], false), new AbortController().signal);
     assert(visualHistory.some((entry) => entry.id === nativeTurn.id && entry.images?.length === 1), 'an explicit follow-up about an old image lost its native visual context');
+
+    const cropRoot=await mkdtemp(join(tmpdir(),'lad-region-pixel-test-'));
+    try {
+      const cropPath=join(cropRoot,'region.png');await writeFile(cropPath,png);
+      const regionTurn=database.addMessage(chat.id,'user','What is shown in this selected region?');
+      const region={id:'region-12345678',conversationId:chat.id,projectId:'project-fixture',projectRoot:cropRoot,groupId:'group-fixture',url:'http://project-preview.invalid/index.html#canvas',route:'#canvas',viewport:{width:800,height:600},dpr:1,scroll:{x:0,y:0},rect:{x:10,y:10,width:400,height:300},anchors:[],sourceHints:[],screenshotPath:cropPath,createdAt:new Date().toISOString(),snapshot:'fixture',diagnostics:[]};
+      database.setRegionReferences(regionTurn.id,chat.id,[region]);regionTurn.regionReferences=[region];
+      const preparedRegion=await nativePipeline.prepareNativeImages(nativePipeline.buildContext([regionTurn],false),new AbortController().signal);
+      assert.deepEqual(preparedRegion.at(-1)?.regionPixelReferences,['region-12345678'],'pixel provenance must identify only image bytes actually attached to the selected region turn');
+    } finally { await rm(cropRoot,{recursive:true,force:true}); }
 
     const regenerateUser = database.addMessage(chat.id, 'user', 'Regenerate this image answer');
     const regenerateImage = await service.import({ messageId: regenerateUser.id, index: 0, filename: 'regenerate.png', mimeType: 'image/png', data: png });

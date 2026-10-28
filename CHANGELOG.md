@@ -6,7 +6,8 @@ User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs
 
 ### Added
 
-- Read-only Chat tools for supported attachments, persistent conversation-scoped sources, progressive large-document reading, saved progress and recovery after Stop, compaction and restart.
+- Read-only Chat tools for selected projects, the approved Browser Workspace and Visual Regions, plus supported attachments, persistent conversation-scoped sources, progressive large-document reading, saved progress and recovery after Stop, compaction and restart.
+- Chat project exploration is read-only: scoped file listing, text/file search and bounded file reads; browser diagnostics read the existing approved page without navigation or interaction.
 - Agent Runtime V2 improvements, persistent task state, stronger recovery and verification workflows.
 - Browser Workspace with native and live previews, resizable/custom viewports, visual regions and browser QA evidence.
 - Model profile and GGUF availability improvements, cold-start recovery, context controls, MTP and vision capability diagnostics.

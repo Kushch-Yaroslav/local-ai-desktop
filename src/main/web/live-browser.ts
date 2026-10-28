@@ -10,7 +10,7 @@ export interface ProjectBrowserObserver {
   renew?():ProjectBrowserObserver;
   createPage?(origin: string): Promise<NativeProjectPage>;
   createQaPage?(origin: string): Promise<NativeProjectPage>;
-  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; diagnosticRead?(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> }): void;
+  ready(page: Page, visibility?: (visible: boolean) => void, controls?: { input(input: BrowserInput): Promise<void>; diagnosticRead?(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>; projectRoot?:string; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> }): void;
   freshness?(value:NonNullable<LiveBrowserState['freshness']>):void;
   visual?(feedback:import('../../shared/visual-debugging').VisualSelectionFeedback):void;
   ownership?(ownership: BrowserOwnership): void;
@@ -19,7 +19,7 @@ export interface ProjectBrowserObserver {
   closed(reason?:string): void;
 }
 interface Entry {
-  controls?: { input(input: BrowserInput): Promise<void>; diagnosticRead?(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> };
+  controls?: { input(input: BrowserInput): Promise<void>; diagnosticRead?(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown>; projectRoot?:string; suspend?(): Promise<void>; policyChanged?(): Promise<void>; close(reason?:string): Promise<void> };
   owner: WebContents; state: LiveBrowserState; page?: Page; native?: NativeProjectPage;
   ended: boolean; ending?:Promise<void>; visibility?: (visible: boolean) => void;
 }
@@ -156,11 +156,11 @@ export class LiveBrowserHub {
     return entry;
   }
   /** Reuses the approved session policy. Never opens, navigates or takes Browser ownership. */
-  chatDiagnosticReader(owner: WebContents, conversationId: string): ((args: Record<string, unknown>, signal: AbortSignal) => Promise<unknown>) | undefined {
+  chatDiagnosticReader(owner: WebContents, conversationId: string, allowedProjectRoots: string[]): ((args: Record<string, unknown>, signal: AbortSignal) => Promise<unknown>) | undefined {
     const entry = this.entries.get(this.key(owner.id, conversationId));
-    if (!entry || entry.ended || !entry.controls?.diagnosticRead) return undefined;
+    if (!entry || entry.ended || !entry.controls?.diagnosticRead || !entry.controls.projectRoot || !allowedProjectRoots.includes(entry.controls.projectRoot)) return undefined;
     return async (args, signal) => {
-      if (entry.ended || entry.owner.isDestroyed() || !entry.page || entry.page.isClosed() || ['agent','blocked','recovering','closed','unavailable'].includes(entry.state.ownership ?? 'unavailable')) throw new Error('Browser diagnostic read unavailable.');
+      if (entry.ended || entry.owner.isDestroyed() || !entry.page || entry.page.isClosed() || !entry.controls?.projectRoot || !allowedProjectRoots.includes(entry.controls.projectRoot) || ['agent','blocked','recovering','closed','unavailable'].includes(entry.state.ownership ?? 'unavailable')) throw new Error('Browser diagnostic read unavailable.');
       if (!['read','inspect'].includes(String(args.action))) throw new Error('Chat Browser capability is read-only.');
       return entry.controls!.diagnosticRead!(args, signal);
     };

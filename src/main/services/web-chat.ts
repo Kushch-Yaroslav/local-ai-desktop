@@ -10,13 +10,14 @@ import { attachmentDataTool } from './attachment-service';
 import { log } from './logger';
 import type { ChatSegmentRecord } from './chat-segments';
 import { fitChatContext } from './chat-context';
-import { chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
+import { chatProjectToolNames, chatReadonlyNames, type ChatReadonlyScope } from './chat-readonly-tools';
 import {CHAT_OUTPUT_TOKEN_LIMIT,CHAT_CONTINUATION_REQUEST_LIMIT,ChatContinuationBoundary,chatContinuationInstruction} from './chat-continuation';
 import { QwenContentBuffer } from './qwen-content-buffer';
 
 const maxModelTurns = 12;
 const maxToolActions = 16;
-const supportedToolNames = new Set(['web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'create_visual_artifact', 'read_attachment_data', ...chatReadonlyNames]);
+const supportedToolNames = new Set(['web_search', 'web_image_search', 'web_open', 'web_read', 'web_follow_link', 'web_back', 'create_visual_artifact', 'read_attachment_data', ...chatReadonlyNames, ...chatProjectToolNames]);
+const isChatReadOnlyTool = (name:string) => chatReadonlyNames.has(name) || chatProjectToolNames.has(name);
 
 type RoutedCall = { id: string; name: string; arguments: Record<string, unknown>; parseError?: string };
 type ParsedToolText = { calls: RoutedCall[]; visibleContent: string };
@@ -68,6 +69,7 @@ export function parseQwenToolText(content: string): ParsedToolText {
 
 const chatToolInstruction = `Answer the user directly. Tools remain available after every tool result until you answer or the host reports its execution limit. Use native function calls, not tool JSON in prose. Do not output routing sentinels or plan a separate final pass.
 For requested interactive charts, dashboards or artifact diagrams, call create_visual_artifact; Markdown tables, ASCII charts and Mermaid code blocks do not create persisted interactive artifacts. Ordinary answers may still use Markdown tables and Mermaid when an artifact was not requested. Do not repeat a successfully created diagram as a Markdown code block or add a generic fallback diagram.
+When read-only project tools are present, use them to inspect the selected project with relative paths and bounded file offsets; never assume a project root or mention a tool absent from the current schema. For a selected visual region, call inspect_region at most once, read its exact source hint first, search only within that hinted file if a relevant function line is unknown, then read that bounded range and answer when the evidence is sufficient. Avoid whole-project searches and repeated unchanged reads when a region provides a source hint. Use read_browser only for an already-open approved page. Chat cannot edit project files, run commands, or navigate/interact with the Browser Workspace. State whether a visual claim comes from source, DOM, actual image input, or inference.
 Use web tools when live research is needed and enabled. For real photographs use web_image_search then image_gallery with returned discovery_id values. Never invent URLs or source references. A successful tool result is evidence only for what it actually contains.
 For analysis use one coherent dataset across metrics, charts and tables. Numeric JSON values must be numbers; unknown values are null. Clearly label fictional demo data, estimates and unverified values. User-authorized fictional demo data is allowed; do not present it as factual research. Correct invalid artifact arguments using the returned field diagnostics. Do not repeat rejected arguments unchanged.`;
 
@@ -184,7 +186,7 @@ export class WebChatService {
         for (const call of calls) {
           if (signal.aborted) return;
           const signature = `${call.name}:${canonicalArguments(call.arguments)}`;
-          const activity = { id: call.id, toolName: call.name, ...(call.name === 'create_visual_artifact' ? { metadata: { artifactType: String((call.arguments.artifact as { type?: string })?.type ?? '') } } : {}), label: chatReadonlyNames.has(call.name) ? (call.name === 'read_document' || call.name === 'read_file' ? 'Чтение файла' : call.name === 'save_chat_note' ? 'Сохранение заметок' : 'Источники разговора') : call.name === 'create_visual_artifact' ? ((call.arguments.artifact as { type?: string })?.type === 'chart' ? 'Создаю график' : (call.arguments.artifact as { type?: string })?.type === 'diagram' ? 'Отрисовка диаграммы…' : 'Создаю визуализацию') : call.name === 'read_attachment_data' ? 'Подготавливаю данные' : activityForWebTool(call).label, kind: chatReadonlyNames.has(call.name) ? 'file_read' as const : call.name === 'create_visual_artifact' || call.name === 'read_attachment_data' ? 'other' as const : 'web' as const };
+          const activity = { id: call.id, toolName: call.name, ...(call.name === 'create_visual_artifact' ? { metadata: { artifactType: String((call.arguments.artifact as { type?: string })?.type ?? '') } } : {}), label: isChatReadOnlyTool(call.name) ? (call.name === 'read_document' || call.name === 'read_file' || call.name === 'read_project_file' ? 'Чтение файла' : call.name.startsWith('search_project_') ? 'Поиск в проекте' : call.name === 'list_project_files' ? 'Структура проекта' : call.name === 'inspect_region' || call.name === 'read_browser' ? 'Исследование области' : call.name === 'save_chat_note' ? 'Сохранение заметок' : 'Источники разговора') : call.name === 'create_visual_artifact' ? ((call.arguments.artifact as { type?: string })?.type === 'chart' ? 'Создаю график' : (call.arguments.artifact as { type?: string })?.type === 'diagram' ? 'Отрисовка диаграммы…' : 'Создаю визуализацию') : call.name === 'read_attachment_data' ? 'Подготавливаю данные' : activityForWebTool(call).label, kind: isChatReadOnlyTool(call.name) ? 'file_read' as const : call.name === 'create_visual_artifact' || call.name === 'read_attachment_data' ? 'other' as const : 'web' as const };
           let result: unknown; let failed = false; const toolStarted = performance.now();
           trace('tool_started', { turn, tool: call.name, callId: call.id });
           yield { type: 'tool', activity: { ...activity, state: 'running' } };
@@ -193,7 +195,7 @@ export class WebChatService {
             toolActions += 1;
             if ((failures.get(signature) ?? 0) >= ((call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 1 : 2)) throw new ArtifactToolError({ error: (call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 'This gallery request already failed. Correct the reported fields or image ID; repeating unchanged arguments is not useful.' : 'These identical arguments already failed twice. Change the invalid fields using the previous error; other valid tool calls remain available.', code: 'ARTIFACT_DUPLICATE', retrySameArguments: false });
             if (call.parseError) throw new Error(call.parseError);
-            if (chatReadonlyNames.has(call.name)) {
+            if (isChatReadOnlyTool(call.name)) {
               if (!readonlyScope || !readonlyScope.definitions.some(definition => (definition as {function?:{name?:string}}).function?.name === call.name)) throw new Error('Read-only capability unavailable.');
               const repeats=(readonlyRepeats.get(signature)??0)+1;readonlyRepeats.set(signature,repeats);
               if(repeats>=4){if(repeats>=5)toolActions=toolActionLimit;throw new Error('Repeated identical read without new progress. Use the saved result, advance the offset, or answer. Memory IDs are not observation IDs.');}
@@ -234,7 +236,7 @@ export class WebChatService {
           if (failed) failures.set(signature, (failures.get(signature) ?? 0) + 1); else failures.delete(signature);
           messages.push({ role: 'tool', tool_name: call.name, tool_call_id: call.id, content: JSON.stringify(result) });
           trace('tool_completed', { turn, tool: call.name, callId: call.id, failed, ...(failed && result && typeof result === 'object' ? { code: (result as { code?: string }).code } : {}), durationMs: Math.round(performance.now() - toolStarted) });
-          yield { type: 'tool', activity: { ...activity, state: failed ? 'error' : 'completed', ...(failed&&chatReadonlyNames.has(call.name)?{metadata:{chatSource:true},detail:String((result as {error?:unknown})?.error??'Source processing failed.')}:{}) } };
+          yield { type: 'tool', activity: { ...activity, state: failed ? 'error' : 'completed', ...(failed&&isChatReadOnlyTool(call.name)?{metadata:{chatSource:true},detail:String((result as {error?:unknown})?.error??'Source processing failed.')}:{}) } };
         }
       }
     } catch (error) {

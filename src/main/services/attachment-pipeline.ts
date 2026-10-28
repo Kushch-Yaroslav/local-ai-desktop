@@ -49,13 +49,13 @@ export class AttachmentPipeline {
   }
 
   /** Insert a temporary block directly before its owning user turn; never into global capability context. */
-  buildContext(history: ChatMessage[], includeImageDescriptions = true, inlineDocumentPreviews = true): ChatMessage[] {
+  buildContext(history: ChatMessage[], includeImageDescriptions = true, inlineDocumentPreviews = true, mode: 'chat' | 'agent' = 'agent'): ChatMessage[] {
     const contextualized: ChatMessage[] = [];
     for (const message of history) {
       const attachments = this.database.listAttachments(message.id).filter((attachment) => includeImageDescriptions || attachment.kind !== 'image');
       if (attachments.length) contextualized.push({ id: `attachments-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: attachmentTurnContext(inlineDocumentPreviews ? attachments : attachments.filter(a=>a.kind==='image')) });
       if (message.projectReferences?.length) contextualized.push({ id: `project-references-${message.id}`, conversationId: message.conversationId, role: 'system', createdAt: message.createdAt, content: projectReferenceTurnContext(message.projectReferences) });
-      if (message.regionReferences?.length) contextualized.push({id:`regions-${message.id}`,conversationId:message.conversationId,role:'system',createdAt:message.createdAt,content:visualTurnContext(message.regionReferences)});
+      if (message.regionReferences?.length) contextualized.push({id:`regions-${message.id}`,conversationId:message.conversationId,role:'system',createdAt:message.createdAt,content:visualTurnContext(message.regionReferences,mode)});
       contextualized.push(message);
     }
     return contextualized;
@@ -75,7 +75,7 @@ export class AttachmentPipeline {
       const images = this.database.listAttachments(message.id).filter((attachment) => attachment.kind === 'image');
       const regions=this.database.getMessage(message.id)?.regionReferences??[];
       if (!images.length && !regions.some(r=>r.screenshotPath)) { prepared.push(message); continue; }
-      const encoded: string[] = [];
+      const encoded: string[] = [];const regionPixelReferences:string[]=[];
       for (const image of images) {
         if (signal.aborted) throw new DOMException('Attachment preparation cancelled', 'AbortError');
         try { encoded.push(`data:${imageMimeType(image.filename)};base64,${(await this.attachments.readBytes(image)).toString('base64')}`); }
@@ -83,9 +83,9 @@ export class AttachmentPipeline {
       }
       for(const region of regions.slice(0,12)){
         if(signal.aborted)throw new DOMException('Attachment preparation cancelled','AbortError');
-        if(region.screenshotPath){try{const bytes=await readFile(region.screenshotPath);if(bytes.length<=8_000_000)encoded.push(`data:image/png;base64,${bytes.toString('base64')}`);}catch{ /* DOM evidence remains available */ }}
+        if(region.screenshotPath){try{const bytes=await readFile(region.screenshotPath);if(bytes.length<=8_000_000){encoded.push(`data:image/png;base64,${bytes.toString('base64')}`);regionPixelReferences.push(region.id);}}catch{ /* DOM evidence remains available */ }}
       }
-      prepared.push({ ...message, images: encoded });
+      prepared.push({ ...message, images: encoded, ...(regionPixelReferences.length?{regionPixelReferences}:{}) });
     }
     return prepared;
   }

@@ -10,9 +10,11 @@ const {AttachmentService}=require('../dist/main/services/attachment-service.js')
 const {AttachmentPipeline}=require('../dist/main/services/attachment-pipeline.js');
 const {VisualDebugging}=require('../dist/main/services/visual-debugging.js');
 const {permitsImages}=require('../dist/shared/model-features.js');
+const {visualTurnContext}=require('../dist/shared/visual-debugging.js');
 const db=new Database(join(root,'test.db')),chat=db.createConversation('fixture');
 const crop=join(root,'crop.png');await writeFile(crop,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1sAAAAASUVORK5CYII=','base64'));
 const region={id:'region-12345678',conversationId:chat.id,projectId:'project',projectRoot:'/tmp/fixture-project',groupId:'button-issue',url:'https://project-preview.invalid/index.html',route:'/index.html',viewport:{width:800,height:600},dpr:2,scroll:{x:0,y:100},rect:{x:10,y:120,width:100,height:30},anchors:[],screenshotPath:crop,createdAt:new Date().toISOString(),snapshot:'fixture',diagnostics:['Screenshot-only region']};
+const chatRegionContext=visualTurnContext([region],'chat');assert(chatRegionContext.includes('inspect_region'));assert(!chatRegionContext.includes('web_project'));assert(!chatRegionContext.includes('/tmp/fixture-project'));assert(chatRegionContext.includes('does not mean image pixels were attached'));assert(visualTurnContext([region],'agent').includes('web_project'),'Agent visual instructions remain unchanged');
 const message=db.addMessage(chat.id,'user','Fix the selected button','region-user');db.setRegionReferences(message.id,chat.id,[region]);
 const pipeline=new AttachmentPipeline(db,new AttachmentService(db));
 const history=[db.getMessage(message.id)];assert(pipeline.hasNativeImagesForRequest(history));

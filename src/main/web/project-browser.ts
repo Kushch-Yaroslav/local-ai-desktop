@@ -235,7 +235,7 @@ export class ProjectBrowserSession {
   }
   async pauseRun() { await this.clearSelection(); this.ownership = this.userSession?'user':'paused'; await this.releaseInput(); this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon(); }
   private bindObserver() {
-    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), diagnosticRead:(args,signal)=>this.diagnosticRead(args,signal), suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
+    this.observer?.ready(this.page!, visible => { this.previewVisible = visible; this.scheduleRefresh(); }, { input: input => this.input(input), diagnosticRead:(args,signal)=>this.diagnosticRead(args,signal), projectRoot:this.root, suspend:()=>this.clearSelection(), policyChanged:()=>this.policyChanged(), close: reason => this.close(false,reason??'user_closed') });
     this.observer?.ownership?.(this.ownership);this.refreshVisualDisplaySoon();
   }
   private displayedRegions:VisualRegion[]=[];
