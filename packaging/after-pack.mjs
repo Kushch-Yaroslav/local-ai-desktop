@@ -37,7 +37,15 @@ export default async ({ appOutDir, packager }) => {
       try { await access(dest); continue; } catch { /* source-only reference */ }
       const repoPath = path.relative(app, dest);
       if (repoPath.startsWith('..') || path.isAbsolute(repoPath)) throw Error(`Unsafe documentation link: ${target}`);
-      await access(join(packager.projectDir, repoPath));
+      try { await access(join(packager.projectDir, repoPath)); }
+      catch {
+        // Local test evidence may be intentionally excluded from a clean release
+        // snapshot. Keep its label readable without shipping a dangling link or
+        // copying private/generated artifacts into the package.
+        const label = match[1].slice(match[1].startsWith('![') ? 2 : 1, -2);
+        text = text.replace(match[0], label);
+        continue;
+      }
       const url = `${metadata.homepage}/blob/v${metadata.version}/${repoPath.split(path.sep).map(encodeURIComponent).join('/')}${fragment ? '#'+fragment : ''}`;
       text = text.replace(match[0], match[1]+url+match[3]);
     }
