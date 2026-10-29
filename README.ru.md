@@ -10,9 +10,9 @@ Local AI Desktop — экспериментальное приложение д�
 
 ## Посмотреть демонстрацию
 
-[![Демонстрация Local AI Desktop v0.3.0](docs/img/releases/v0.3.0/browser2-select-area.png)](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4)
+https://github.com/user-attachments/assets/57c946f5-5263-4dc0-95b4-0d182d3d36e1
 
-[Открыть видео](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4) · **Scripted demonstration. No live model inference.**
+**Постановочная демонстрация. Без реального запуска модели.**
 
 ## Возможности
 
