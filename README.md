@@ -2,66 +2,52 @@
 
 [English](README.md) · [Русский](README.ru.md)
 
-Local AI Desktop is an experimental Linux app for chatting with local language models and asking an AI agent to work on your code. Your model runs on your own computer through `llama.cpp`; the agent can read and edit a selected project, run commands in an isolated terminal, and show what it checked.
+Local AI Desktop is an experimental Linux app for chatting with local language models and asking an AI agent to work on your code. Your model runs on your computer through `llama.cpp`; the Agent can work with a selected project and report the checks it ran.
 
-It brings local AI chat and coding work into one desktop app, with saved conversations and tasks. You choose the model and project, and you stay in control of permissions and changes.
+**v0.3.0 Experimental Alpha** adds Browser Workspace for local web projects, selectable page regions, and progressive reading of long text documents.
 
-[Local v0.3.0 Experimental Alpha](docs/releases/v0.3.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation index](docs/README.md)
+[Release notes](docs/releases/v0.3.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation](docs/README.md)
+
+## Watch the demo
+
+[![Watch the Local AI Desktop v0.3.0 demo](docs/img/releases/v0.3.0/browser2-select-area.png)](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4)
+
+[Open the demo video](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4) · **Scripted demonstration. No live model inference.**
 
 ## What you can do
 
 - Chat with a local GGUF model and attach supported files.
-- Ask the Agent to explore a project, make changes, run checks and report its results.
-- Save task plans and verified results, switch chats, then continue a task later.
-- Choose whether the Agent asks before actions or uses Absolute Autopilot within the same enforced boundaries.
-- View rich answers with tables, charts and diagrams, and export charts as SVG.
-- Choose FP16 or Q8 context settings and discover model-specific context sizes that loaded successfully.
+- Ask the Agent to explore a project, make changes, run checks and show its results.
+- Open a running local web project in Browser Workspace, adjust its viewport and select one or more regions to discuss changes.
+- Ask Chat to read a long supported text document progressively, then request a summary or follow-up.
+- Save Agent tasks and continue them later; review plans, progress and verification results.
 
-See [Features](docs/en/FEATURES.md) for the current scope and limits.
+Select a part of a page, then describe the change you want. A text-only model does not directly see browser pixels: it may use region details, page elements and project sources; image input depends on the selected model and vision settings. Browser Workspace is intended mainly for local projects, not as a secure general-purpose browser. Start the project's dev server yourself if needed.
 
 ## Screenshots
 
-Continue saved work from another chat. The task menu lets you return to a saved task or start a new one.
+![A local web project open beside Chat in Browser Workspace](docs/img/releases/v0.3.0/browser1.png)
 
-![Saved plan and verified deliverables with the Continue this task action and task selector](docs/img/releases/v0.2.0/continue.png)
+![A long TXT document being read with visible progress](docs/img/releases/v0.3.0/book.png)
 
-Rich Responses can combine cards and charts, with SVG export.
+[More v0.3.0 screenshots and details](docs/releases/v0.3.0.md#browser-workspace).
 
-![Rich response with cards and a chart](docs/img/interface/4-e.png)
+## Install
 
-## Requirements
-
-The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. You need a compatible `llama-server` build and local GGUF model files. They are not included in the app. Agent terminal commands also require Bubblewrap 0.9.0 or later and enforcing AppArmor 4.0.0 or later. Other distributions, ARM systems, GPUs and drivers have not been broadly validated.
-
-## Install the local v0.3.0 package
-
-The v0.3.0 Experimental Alpha package is prepared locally and has not been published. From the repository root, install the amd64 `.deb` with:
+Download `local-ai-desktop_0.3.0_amd64.deb` and `SHA256SUMS` from the [v0.3.0 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0), verify the checksum, then install:
 
 ```sh
-sudo apt install ./release/local-ai-desktop_0.3.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.0_amd64.deb
 ```
 
-An administrator must authorize each desktop account for Agent terminal use. See [Getting started](docs/en/GETTING_STARTED.md) for the required setup and verification. Never launch the desktop app with `sudo`.
-
-## Quick start
-
-1. Install the app and complete the Agent isolation setup in [Getting started](docs/en/GETTING_STARTED.md).
-2. Install a compatible `llama-server` and choose its location and your GGUF model in **Settings → Models and runtime**.
-3. Select a context and KV-cache type, load that configuration, and wait for the model to be ready.
-4. Start a chat. To work on code, select a project and switch to Agent. Begin with **Ask for confirmation** while you learn how its actions work.
-
-The [User guide](docs/en/USER_GUIDE.md) explains the controls and common workflows.
-
-For context sizing, VRAM headroom, MTP and Vision performance, see [GPU performance troubleshooting](docs/gpu-performance-troubleshooting.md).
+The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. You need a compatible `llama-server` and local GGUF model files; they are not included. Agent terminal use requires administrator-authorized Bubblewrap and enforcing AppArmor setup. Never launch the app with `sudo`.
 
 ## Current limitations
 
-This is an Experimental Alpha. The app does not download models, and model compatibility depends on the GGUF, `llama.cpp`, hardware and task. Agent changes affect real project files, so review them and keep backups. Terminal isolation is mandatory, but it is not a privacy boundary: readable host files may remain visible and network access is shared. Unsupported terminal startup fails closed. A clean installation and broad distribution compatibility have not been independently verified.
+This is an **Experimental Alpha**, not a stable or production-ready release. Model support and results depend on the GGUF, `llama.cpp`, hardware and task. Agent changes affect real project files, so review them and keep backups. Terminal isolation is mandatory, but readable host files and network access are not a privacy boundary. Other Linux distributions, ARM systems, GPUs and drivers have not been broadly validated.
+
+See [Features](docs/en/FEATURES.md), [Getting started](docs/en/GETTING_STARTED.md), [User guide](docs/en/USER_GUIDE.md), and [all documentation](docs/README.md). Русская версия: [описание v0.3.0](docs/releases/v0.3.0.ru.md).
 
 ## License
 
 Original code is available under MIT; portions adapted from Jan are under Apache-2.0. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and [asset attributions](assets/ATTRIBUTION.md).
-
-## Project
-
-This is an independently developed open-source project. [Report an issue](https://github.com/Kushch-Yaroslav/local-ai-desktop/issues) with reproduction steps and redacted diagnostics.

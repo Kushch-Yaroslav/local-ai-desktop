@@ -20,6 +20,7 @@ try {
   for(const pattern of [/apparmor \(>= 4\.0\.0\)/,/bubblewrap \(>= 0\.9\.0\)/,/adduser/,/libcap2-bin/])assert.match(dependencies,pattern);
   const contents=run('dpkg-deb',['-c',artifact]);
   assert(!/runtime-settings\.json|local-ai-desktop\.db|\.gguf$|resources\/app\/runtime\//m.test(contents),'no user configuration, database, weights or runtime data');
+  assert(!/docs\/img\/releases\/v0\.3\.0\//.test(contents),'v0.3.0 documentation screenshots stay outside the desktop package');
   await mkdir(join(root,'control'));run('dpkg-deb',['-e',artifact,join(root,'control')]);run('dpkg-deb',['-x',artifact,root]);
   const app=join(root,'opt/local-ai-desktop/resources/app');
   const json=JSON.parse(await readFile(join(app,'package.json'),'utf8'));assert.equal(json.version,version);assert.equal(json.main,'dist/main/bootstrap.js');

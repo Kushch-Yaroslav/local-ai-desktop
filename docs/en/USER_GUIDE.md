@@ -81,4 +81,28 @@ Attach documents or supported images; check extraction status. Image Processing 
 
 Rich responses support cards, charts, tables, Mermaid and image galleries. Expand errors/source when a diagram fails; retry rendering if appropriate. Tables support copy/CSV; charts and diagrams support SVG. Rendering support does not guarantee correct facts or that every model generates every format.
 
+## Browser Workspace and page regions
+
+Select a project and start its development server in the usual way if it does not already run. Open Browser Workspace, enter the local page address and select **Go**. The app provides the preview; it does not necessarily start your dev server.
+
+Choose a desktop or mobile viewport, then adjust page zoom and preview scale independently. Use the layout selector to position the browser beside the conversation or agent work. Collapse secondary panels or expand the browser when you need more page space. The page may be larger than its preview; scroll or pan to inspect it.
+
+To show what you want changed, choose **New area** and drag across the page. Choose **Add selection** before drawing another region. Review the region list, remove selections you do not need, then include the areas in your request. For a move, select both the content and the intended destination and describe the relationship in words.
+
+The selected regions provide context such as their location and available page elements. When a project is selected, Chat or Agent may also use relevant project sources and browser evidence. A text-only model does not directly receive the browser pixels. Vision input is conditional on the model and current Vision settings; do not assume that source code or DOM details identify the exact appearance of each pixel.
+
+![Two page regions selected for a request](../img/releases/v0.3.0/browser2-select-area.png)
+
+Browser Workspace is meant primarily for local development previews. Do not treat it as a secure general-purpose browser or assume every external URL is blocked. Open only pages you intend to use in the app.
+
+## Read a long text attachment
+
+Attach a supported text file such as `.txt`, `.md`, `.json`, `.csv` or `.log` (up to 25 MB per attachment). Ask Chat to read the whole document, then watch its reading status. The app processes the text in sequence and saves confirmed progress and notes; if processing is interrupted or reaches a model limit, continue reading in a later turn. Once complete, ask for a summary or follow-up questions.
+
+This workflow is not unlimited. File size and extraction support matter, and the model may omit or forget details. The result depends on the selected model and its available context. Other attachment formats have their own extraction paths; scanned PDFs require external OCR. A sequential read does not mean the model has perfect recall.
+
+![Reading progress for a long TXT attachment](../img/releases/v0.3.0/book.png)
+
+Collapse the history sidebar or other secondary panels when you want to focus on the current conversation.
+
 See [capabilities and security limits](FEATURES.md) and [model observations](MODELS.md).

@@ -154,6 +154,7 @@
       "package.json",
       "assets/ATTRIBUTION.md",
       "docs/**",
+      "!docs/img/releases/v0.3.0/**",
       "CHANGELOG.md",
       "assets/apparmor/**",
       "BUILD_INFO.json"
