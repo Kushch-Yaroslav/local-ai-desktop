@@ -10,7 +10,7 @@ Local AI Desktop — экспериментальное приложение д�
 
 ## Посмотреть демонстрацию
 
-![](GITHUB_ATTACHMENT_URL_PENDING)
+https://github.com/user-attachments/assets/57c946f5-5263-4dc0-95b4-0d182d3d36e1
 
 **Постановочная демонстрация. Без реального запуска модели.**
 
