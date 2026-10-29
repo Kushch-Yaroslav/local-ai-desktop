@@ -10,9 +10,9 @@ Local AI Desktop is an experimental Linux app for chatting with local language m
 
 ## Watch the demo
 
-[![Watch the Local AI Desktop v0.3.0 demo](docs/img/releases/v0.3.0/browser2-select-area.png)](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4)
+![](GITHUB_ATTACHMENT_URL_PENDING)
 
-[Open the demo video](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/download/v0.3.0/local-ai-desktop-v0.3.0-demo-v4.mp4) · **Scripted demonstration. No live model inference.**
+**Scripted demonstration. No live model inference.**
 
 ## What you can do
 
