@@ -1,0 +1,542 @@
+{
+  "started_utc": "2026-10-30T21:56:21.810435+00:00",
+  "baseline": {
+    "system": {
+      "MemTotal": 62.69834899902344,
+      "MemAvailable": 52.573150634765625
+    },
+    "gpu": {
+      "used_mib": 764,
+      "total_mib": 24576,
+      "free_mib": 23812,
+      "utilization_percent": 5
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/experiments/advanced-placement-moe/qwen-cache16384",
+    "moe_cache_mib": 16384,
+    "ngl": 48,
+    "cpu_moe_layers": 48,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 512,
+    "ubatch": 128,
+    "ctx": 65536,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "load_mode": "mmap",
+    "tokens": 64,
+    "prompt_tokens": 0,
+    "mtp_draft": null,
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "verbosity": 4,
+    "repeats": 3,
+    "startup_timeout": 600,
+    "request_timeout": 600,
+    "min_available_gib": 6.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "56195",
+    "--ctx-size",
+    "65536",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "48",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "512",
+    "--ubatch-size",
+    "128",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "mmap",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--verbosity",
+    "4",
+    "--moe-cache-mib",
+    "16384",
+    "--spec-type",
+    "none"
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "content": " Ensure it handles empty input and single-interval cases.\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals, sort by start time, and return as list of tuples.\n    \n",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 64,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 64,
+        "n_predict": 64,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 121,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 1098.932,
+        "prompt_per_token_ms": 18.94710344827586,
+        "prompt_per_second": 52.77851586813379,
+        "predicted_n": 64,
+        "predicted_ms": 1455.885,
+        "predicted_per_token_ms": 23.109285714285715,
+        "predicted_per_second": 43.27264859518437
+      },
+      "_wall_seconds": 2.645414475002326,
+      "_ttft_seconds": 1.189522743003181,
+      "repeat": 1
+    },
+    {
+      "index": 0,
+      "content": " Ensure it handles empty input and single-interval cases.\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals, sort by start time, and return as list of tuples.\n    \n",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 64,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 64,
+        "n_predict": 64,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 121,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 474.799,
+        "prompt_per_token_ms": 8.186189655172413,
+        "prompt_per_second": 122.15695483773133,
+        "predicted_n": 64,
+        "predicted_ms": 607.158,
+        "predicted_per_token_ms": 9.637428571428572,
+        "predicted_per_second": 103.7621179330586
+      },
+      "_wall_seconds": 1.1830312210004195,
+      "_ttft_seconds": 0.575745016001747,
+      "repeat": 2
+    },
+    {
+      "index": 0,
+      "content": " Ensure it handles empty input and single-interval cases.\n\n```python\nfrom typing import List, Tuple\n\ndef merge_intervals(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:\n    \"\"\"\n    Merge overlapping or touching intervals, sort by start time, and return as list of tuples.\n    \n",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 64,
+      "tokens_evaluated": 58,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 64,
+        "n_predict": 64,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "Write a concise Python 3 function merge_intervals(intervals) that accepts a list of integer [start, end] pairs, merges overlapping or touching intervals, sorts the input regardless of order, and returns a new list. Include the function only, with a short docstring and type hints.",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 121,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 58,
+        "prompt_ms": 432.424,
+        "prompt_per_token_ms": 7.455586206896552,
+        "prompt_per_second": 134.12761548850202,
+        "predicted_n": 64,
+        "predicted_ms": 588.593,
+        "predicted_per_token_ms": 9.342746031746032,
+        "predicted_per_second": 107.03491206997026
+      },
+      "_wall_seconds": 1.0222354129982705,
+      "_ttft_seconds": 0.4335002699990582,
+      "repeat": 3
+    }
+  ],
+  "status": "passed",
+  "ready_utc": "2026-10-30T21:56:28.055816+00:00",
+  "requested_prompt_tokens": 0,
+  "summary": {
+    "prompt_per_second": {
+      "median": 122.15695483773133,
+      "min": 52.77851586813379,
+      "max": 134.12761548850202
+    },
+    "predicted_per_second": {
+      "median": 103.7621179330586,
+      "min": 43.27264859518437,
+      "max": 107.03491206997026
+    },
+    "ttft_seconds": {
+      "median": 0.575745016001747,
+      "min": 0.4335002699990582,
+      "max": 1.189522743003181
+    }
+  },
+  "metrics_before": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 6\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 0.34615\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 3\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 0.074775\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 4\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 8\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 17.3335\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 26.7469\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n",
+  "metrics_after": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 180\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 2.33201\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 195\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 2.72641\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 199\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 121\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 87.6196\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 71.2768\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n",
+  "server_exit_code": 0,
+  "resources": {
+    "peak_used_mib": 20922,
+    "peak_utilization_percent": 80,
+    "peak_process_rss_gib": 46.12408447265625,
+    "peak_process_swap_kib": 0,
+    "peak_cgroup_swap_bytes": 0,
+    "cgroup_limits": {
+      "memory.max": "59055800320",
+      "memory.swap.max": "0"
+    },
+    "peak_process_cpu_percent": 330.0,
+    "peak_system_cpu_percent": 21.877905175085218,
+    "min_available_gib": 51.67609405517578,
+    "min_free_vram_mib": 3654,
+    "swap_in_pages": 7,
+    "swap_out_pages": 1978,
+    "samples": 6
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-30T21:56:23.833991+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 52.315765380859375
+      },
+      "gpu": {
+        "used_mib": 1028,
+        "total_mib": 24576,
+        "free_mib": 23548,
+        "utilization_percent": 1
+      },
+      "process_rss_gib": 15.56280517578125,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T21:56:25.857095+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 52.2855110168457
+      },
+      "gpu": {
+        "used_mib": 1028,
+        "total_mib": 24576,
+        "free_mib": 23548,
+        "utilization_percent": 2
+      },
+      "process_rss_gib": 42.36328125,
+      "process_cpu_percent_of_one_core": 101.5,
+      "system_cpu_percent": 7.461300309597523,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T21:56:27.879113+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 52.17277908325195
+      },
+      "gpu": {
+        "used_mib": 20848,
+        "total_mib": 24576,
+        "free_mib": 3728,
+        "utilization_percent": 11
+      },
+      "process_rss_gib": 45.565242767333984,
+      "process_cpu_percent_of_one_core": 47.0,
+      "system_cpu_percent": 6.56298600311042,
+      "swap_page_deltas": {
+        "pswpin": 6,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T21:56:29.904305+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 51.836483001708984
+      },
+      "gpu": {
+        "used_mib": 20886,
+        "total_mib": 24576,
+        "free_mib": 3690,
+        "utilization_percent": 58
+      },
+      "process_rss_gib": 45.95823669433594,
+      "process_cpu_percent_of_one_core": 125.5,
+      "system_cpu_percent": 8.42366057602973,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T21:56:31.927851+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 51.729469299316406
+      },
+      "gpu": {
+        "used_mib": 20922,
+        "total_mib": 24576,
+        "free_mib": 3654,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.12408447265625,
+      "process_cpu_percent_of_one_core": 271.5,
+      "system_cpu_percent": 18.443893366398015,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 1978
+      }
+    },
+    {
+      "time_utc": "2026-10-30T21:56:33.950591+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 51.67609405517578
+      },
+      "gpu": {
+        "used_mib": 1132,
+        "total_mib": 24576,
+        "free_mib": 23444,
+        "utilization_percent": 80
+      },
+      "process_rss_gib": 32.52667236328125,
+      "process_cpu_percent_of_one_core": 330.0,
+      "system_cpu_percent": 21.877905175085218,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    }
+  ],
+  "ended_utc": "2026-10-30T21:56:35.312725+00:00",
+  "server_log": "docs/experiments/advanced-placement-moe/qwen-cache16384/20261030T215621Z-cache16384-ngl48-ncmoe48-t8-tb8-b512-ub128.server.log"
+}
