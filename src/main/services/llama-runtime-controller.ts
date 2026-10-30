@@ -1,3 +1,4 @@
+import {liveLauncherPid} from './launcher-identity';
 import { runtimeProfileFingerprint } from './runtime-profile-identity';
 import type { RuntimeModelConfiguration } from '../../shared/types';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
@@ -50,6 +51,7 @@ export type LlamaRuntimeFiles = {
 };
 
 type Deps = {
+  ensureLauncher?:()=>Promise<void|number>;
   readText: (path: string) => Promise<string>;
   signal: (pid: number) => void;
   sleep: (ms: number) => Promise<void>;
@@ -116,7 +118,13 @@ export class LlamaRuntimeController {
     let parsed: LlamaRuntimeState | null;
     try {
       parsed = parseLlamaRuntimeState(await this.deps.readText(this.files.stateFile));
-    } catch { return gone; }
+    } catch {
+      const launcherPid=await liveLauncherPid(this.files,this.deps.readText);
+      return launcherPid?{status:'offline',modelId:null,contextWindow:null,launcherPid,error:'Нет подтверждённого состояния llama.cpp. Загрузите модель.'}:gone;
+    }
+    const live=await liveLauncherPid(this.files,this.deps.readText);
+    if(live&&parsed?.launcherPid!==live)return {status:'offline',modelId:null,contextWindow:null,launcherPid:live,error:'Сохранённое состояние устарело. Загрузите модель.'};
+    if(!live)return gone;
     if (!parsed) return { status: 'offline', modelId: null, contextWindow: null, error: 'Состояние llama.cpp не читается' };
     // A state file outlives its launcher; only a live launcher can vouch for it.
     if (parsed.launcherPid !== undefined && !(await this.deps.readText(`/proc/${parsed.launcherPid}/cmdline`).then((text) => text.includes('run-local-ai-desktop-llama-cpp-mtp.sh'), () => false))) return gone;
@@ -125,6 +133,7 @@ export class LlamaRuntimeController {
       return raw.slice(raw.lastIndexOf(') ') + 2).trim().split(/\s+/)[19];
     };
     if (parsed.launcherPid && parsed.launcherStartTime && await startTime(parsed.launcherPid) !== parsed.launcherStartTime) return gone;
+    if(parsed.status==='ready'&&!parsed.serverPid)return {...parsed,status:'offline',modelId:null,contextWindow:null,error:SERVER_ABSENT};
     if (parsed.status === 'ready' && parsed.serverPid) {
       const commandLine = await this.deps.readText(`/proc/${parsed.serverPid}/cmdline`).catch(() => '');
       // Runtime settings permit renamed/custom server binaries. Recognize the
@@ -157,8 +166,8 @@ export class LlamaRuntimeController {
   }
   private async performUnload():Promise<LlamaSwitchResult>{
     const state=await this.state();
-    const pid=Number((await this.deps.readText(this.files.launcherPidFile).catch(()=>'' )).trim());
-    if(!Number.isSafeInteger(pid)||pid<=0||!(await this.deps.readText(`/proc/${pid}/cmdline`).catch(()=>'' )).includes('run-local-ai-desktop-llama-cpp-mtp.sh'))return {ok:false,state,error:LAUNCHER_ABSENT};
+    const pid=await liveLauncherPid(this.files,this.deps.readText);
+    if(!pid||!(await this.deps.readText(`/proc/${pid}/cmdline`).catch(()=>'' )).includes('run-local-ai-desktop-llama-cpp-mtp.sh'))return {ok:false,state,error:LAUNCHER_ABSENT};
     const requestId=randomUUID(),temporary=`${this.files.requestFile}.${process.pid}.tmp`;
     await mkdir(dirname(this.files.requestFile),{recursive:true});await writeFile(temporary,`REQUEST_ID=${requestId}\nACTION=unload\n`,'utf8');await rename(temporary,this.files.requestFile);
     try{this.deps.signal(pid);}catch(error){await rm(this.files.requestFile,{force:true});return {ok:false,state,error:String(error)};}
@@ -173,10 +182,11 @@ export class LlamaRuntimeController {
     if (!profile) return { ok: false, state: await this.state(), error: `Модель ${modelId} не поддерживается llama.cpp runtime` };
     if (!Number.isSafeInteger(contextWindow) || contextWindow < 4_096 || contextWindow > await this.deps.capabilityLimit(modelId) || contextWindow % 4_096 !== 0) return { ok: false, state: await this.state(), error: `Контекст ${contextWindow} не поддерживается для ${modelId}` };
 
-    const launcherPid = Number((await this.deps.readText(this.files.launcherPidFile).catch(() => '')).trim());
-    if (!Number.isSafeInteger(launcherPid) || launcherPid <= 0) return { ok: false, state: await this.state(), error: 'Launcher llama.cpp не запущен: перезапуск модели невозможен без него.' };
-    const commandLine = await this.deps.readText(`/proc/${launcherPid}/cmdline`).catch(() => '');
-    if (!commandLine.includes('run-local-ai-desktop-llama-cpp-mtp.sh')) return { ok: false, state: await this.state(), error: 'PID launcher не принадлежит Local AI Desktop.' };
+    let launcherPid=await liveLauncherPid(this.files,this.deps.readText);
+    if(!launcherPid&&this.deps.ensureLauncher) {
+      try{const started=await this.deps.ensureLauncher();launcherPid=await liveLauncherPid(this.files,this.deps.readText,typeof started==='number'?started:process.ppid);}catch(error){return {ok:false,state:await this.state(),error:`Не удалось запустить launcher llama.cpp: ${error instanceof Error?error.message:String(error)}`};}
+    }
+    if(!launcherPid)return {ok:false,state:await this.state(),error:'Launcher llama.cpp не запущен: перезапуск модели невозможен без него.'};
 
     const requestId = randomUUID();
     await mkdir(dirname(this.files.requestFile), { recursive: true });
@@ -196,6 +206,7 @@ export class LlamaRuntimeController {
         if (state.status === 'ready' && (state.profileFingerprint?state.profileFingerprint===runtimeProfileFingerprint(modelId):!force&&!profile.advanced) && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || state.projectorDevice === projectorDevice) && (!mtpMode || state.mtpMode === mtpMode && (mtpMode !== 'on' || state.speculativeMode === 'mtp') && (mtpMode !== 'off' || state.speculativeMode === 'none'))) return { ok: true, state };
         return { ok: false, state, error: state.error ?? `llama.cpp не подтвердил запрошенную конфигурацию: ${modelId}, ${contextWindow / 1024}K ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}; активно ${state.modelId ?? 'none'}, ${(state.contextWindow ?? 0) / 1024}K ${state.kvCacheType ?? '?'}, KV ${state.kvOffload ? 'GPU' : 'RAM'}.` };
       }
+      if(await liveLauncherPid(this.files,this.deps.readText,launcherPid)!==launcherPid)return {ok:false,state,error:'Launcher llama.cpp завершился во время загрузки. Состояние модели не подтверждено; повторите загрузку.'};
       await this.deps.sleep(500);
     }
     return { ok: false, state: await this.state(), error: 'Launcher llama.cpp не ответил на запрос смены модели вовремя' };

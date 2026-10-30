@@ -234,7 +234,7 @@ launch_server() {
   build_server_args "$context" "$gpu_layers" || return 1
   printf -v printed_command '%q ' "$LLAMA_BIN" "${server_args[@]}"
   log "llama-server.command=${printed_command% }"
-  "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 &
+  "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 9>&- &
   SERVER_PID=$!; SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
   printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
   log "llama-server.pid=$SERVER_PID"
@@ -310,11 +310,21 @@ launch_server() {
   return 0
 }
 
+# Serialize the entire ownership lifetime, including EXIT cleanup. Children must
+# not inherit this lock: a dead supervisor must never leave a permanent lock.
+mkdir -p "$STATE_DIR"
+exec 9>"$STATE_DIR/llama-cpp-launcher.lock"
+flock -w 15 9 || { log "launcher.error=Another launcher owns this runtime directory"; exit 1; }
+
 cleanup() {
   local status=$?
   if [[ -n "${sleeper:-}" ]]; then kill "$sleeper" 2>/dev/null || true; wait "$sleeper" 2>/dev/null || true; fi
   log "launcher.cleanup reason=$CLEANUP_REASON status=$status launcher_pid=$$ electron_pid=${ELECTRON_PID:-none} server_pid=${SERVER_PID:-none}"
   stop_llama_server "$SERVER_PID"
+  # A stale process must not erase registration belonging to a successor.
+  local owner
+  owner="$(cat "$LAUNCHER_PID_FILE" 2>/dev/null || true)"
+  if [[ -n "$owner" && "$owner" != "$$" ]]; then log "launcher.cleanup shared_state=skipped successor=$owner"; return 0; fi
   rm -f "$SERVER_PID_FILE" "$LAUNCHER_PID_FILE" "$REQUEST_FILE"
   ACTIVE_MODEL=""; ACTIVE_CONTEXT=0; SERVER_PID=""; ACTIVE_SPECULATIVE_MODE="none"
   if (( status == 0 || status == 130 || status == 143 )); then
@@ -460,7 +470,7 @@ if [[ "${LOCAL_AI_LAUNCHER_HEADLESS:-}" == "1" ]]; then
 fi
 
 log "electron.start command=$ELECTRON_BIN cwd=$(pwd) runtime=llama.cpp"
-"$ELECTRON_BIN" "$APP_DIR" >> "$LOG_FILE" 2>&1 &
+"$ELECTRON_BIN" "$APP_DIR" >> "$LOG_FILE" 2>&1 9>&- &
 ELECTRON_PID=$!
 log "electron.pid=$ELECTRON_PID"
 # Poll both children: waiting only for Electron hides a dead llama-server.

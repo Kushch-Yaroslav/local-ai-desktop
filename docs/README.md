@@ -54,3 +54,5 @@ These documents cover security boundaries, privileged setup and implementation e
 ## Release status
 
 v0.3.0 is an Experimental Alpha pre-release for Linux x86_64. Download the package and checksum from the [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0). The English and Russian [release notes](releases/v0.3.0.md) include a clickable demo preview; the MP4 is a release asset. Earlier [v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) and [v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) releases remain available.
+
+- [v0.3.1 release notes (EN)](releases/v0.3.1.md) · [RU](releases/v0.3.1.ru.md)

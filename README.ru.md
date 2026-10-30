@@ -4,9 +4,9 @@
 
 Local AI Desktop — экспериментальное приложение для Linux: локальный чат с языковыми моделями и AI-агент для работы с кодом. Модель запускается на компьютере через `llama.cpp`; Agent работает с выбранным проектом и сообщает, какие проверки выполнил.
 
-В **Experimental Alpha v0.3.0** появились Browser Workspace для локальных веб-проектов, выбор областей страницы и последовательное чтение больших текстовых документов.
+**v0.3.1 Experimental Alpha** — надёжнее загрузка моделей, эффективнее чтение больших документов и восстановление, постепенное отображение проверенных ответов.
 
-[Примечания к выпуску](docs/releases/v0.3.0.ru.md) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство пользователя](docs/ru/USER_GUIDE.md) · [Вся документация](docs/README.md)
+[Примечания к выпуску](docs/releases/v0.3.1.ru.md) · [Начало работы](docs/ru/GETTING_STARTED.md) · [Руководство пользователя](docs/ru/USER_GUIDE.md) · [Вся документация](docs/README.md)
 
 ## Посмотреть демонстрацию
 
@@ -34,10 +34,10 @@ https://github.com/user-attachments/assets/57c946f5-5263-4dc0-95b4-0d182d3d36e1
 
 ## Установка
 
-Скачайте `local-ai-desktop_0.3.0_amd64.deb` и `SHA256SUMS` со [страницы релиза v0.3.0 на GitHub](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0), проверьте контрольную сумму и установите пакет:
+Скачайте `local-ai-desktop_0.3.1_amd64.deb` и `SHA256SUMS` со [страницы релиза v0.3.1 на GitHub](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1), проверьте контрольную сумму и установите пакет:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.3.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
 ```
 
 Целевая платформа — Linux x86_64; основная проверенная среда — Ubuntu 24.04. Нужны совместимый `llama-server` и локальные файлы GGUF — они не входят в пакет. Для терминала Agent администратор должен настроить Bubblewrap и enforcing-профили AppArmor. Не запускайте приложение от `root`.

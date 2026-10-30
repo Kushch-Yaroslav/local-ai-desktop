@@ -2187,7 +2187,7 @@ mod wrapped_evidence_tests {
         let result=json!({"url":url,"freshness":{"status":"updated"},"source_revisions":{file.clone():hash},"inspection":{"url":url,"viewport":{"width":1920,"height":1080},"matches":1,"elements":[{"styles":{"border-radius":"28px"}}]},"region_context":{"references":[{"url":url,"groupId":"area-1","selectors":["#checkout"],"matches_current":true,"viewport":{"width":1920,"height":1080}}]}});
         record_project_browser_evidence(&mut state,&root,&json!({"action":"inspect","selector":"#checkout"}),&result);
         let item=&state.task_memory.deliverables.items[0];assert!(sufficient_css_observation(&state,item));
-        let mut russian=Transcript::default();russian.push_run_user(json!({"role":"user","content":"Исправь CSS и проверь область"}));
+        let mut russian=Transcript::default();russian.push_run_user(json!({"role":"user","content":"Исправь CSS и проверь размеры области"}));
         let terminal=terminal_status_note(&state,&russian,false);
         assert!(terminal.contains("записано свежее наблюдение браузера"));
         assert!(terminal.contains("не формальный статус Verified"));

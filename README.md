@@ -4,9 +4,9 @@
 
 Local AI Desktop is an experimental Linux app for chatting with local language models and asking an AI agent to work on your code. Your model runs on your computer through `llama.cpp`; the Agent can work with a selected project and report the checks it ran.
 
-**v0.3.0 Experimental Alpha** adds Browser Workspace for local web projects, selectable page regions, and progressive reading of long text documents.
+**v0.3.1 Experimental Alpha** — more reliable model loading, improved long-document efficiency and recovery, and progressive display of reviewed answers.
 
-[Release notes](docs/releases/v0.3.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation](docs/README.md)
+[Release notes](docs/releases/v0.3.1.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation](docs/README.md)
 
 ## Watch the demo
 
@@ -34,10 +34,10 @@ Select a part of a page, then describe the change you want. A text-only model do
 
 ## Install
 
-Download `local-ai-desktop_0.3.0_amd64.deb` and `SHA256SUMS` from the [v0.3.0 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0), verify the checksum, then install:
+Download `local-ai-desktop_0.3.1_amd64.deb` and `SHA256SUMS` from the [v0.3.1 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1), verify the checksum, then install:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.3.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
 ```
 
 The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. You need a compatible `llama-server` and local GGUF model files; they are not included. Agent terminal use requires administrator-authorized Bubblewrap and enforcing AppArmor setup. Never launch the app with `sudo`.

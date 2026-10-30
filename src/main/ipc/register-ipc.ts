@@ -1,3 +1,4 @@
+import {startRuntimeSupervisor} from '../services/runtime-supervisor';
 import { dirname } from 'node:path';
 import { modelLocationDirectory } from '../services/model-location';
 import { ModelStorageWatch } from '../services/model-storage-watch';
@@ -114,7 +115,7 @@ const llamaRuntime = new LlamaRuntimeController({
   stateFile: `${paths.dataRoot}/llama-cpp-runtime-state.json`,
   requestFile: `${paths.dataRoot}/llama-cpp-runtime-request.env`,
   launcherPidFile: `${paths.dataRoot}/llama-cpp-mtp-launcher.pid`,
-});
+},240_000,{ensureLauncher:startRuntimeSupervisor});
 const discoveredContextOptions = new Map<string, { option: ContextDiscoveryOption; modelIdentity: string }>();
 let contextDiscoveryBusy = false;
 let savedDiscoveryAttempted: string | null = null;
