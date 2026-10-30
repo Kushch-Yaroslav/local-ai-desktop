@@ -7,6 +7,12 @@ export async function fitChatContext(backend:ToolCallingBackend, model:string, m
   signal:AbortSignal, window:number, reasoning:ReasoningInput, objective:string, pinned?:string, basePrefix?:string):Promise<ChatContextResult> {
   const count=async (items:ToolMessage[]) => backend.countInputTokens ? backend.countInputTokens(model,items,tools,window,reasoning,signal) : Math.ceil(JSON.stringify([items,tools]).length/2)+512;
   let inputTokens=await count(messages);
+  // Fresh whole-document notes are the evidence for the requested chapter-by-chapter
+  // answer. Do not reduce them to a generic 600-word history summary when they fit.
+  const latest=messages.at(-1);
+  if(latest?.role==='tool'&&latest.tool_name==='read_document'&&inputTokens<=window-4096) {
+    try { if(JSON.parse(latest.content).completed===true)return {messages,compacted:false,inputTokens}; } catch { /* ordinary malformed tool data follows normal fitting */ }
+  }
   if(inputTokens<=window*0.65 || !backend.countInputTokens) return {messages,compacted:false,inputTokens};
   const prefix=basePrefix ?? messages.filter(m=>m.role==='system').map(m=>m.content).join('\n');
   const body=messages.filter(m=>m.role!=='system');

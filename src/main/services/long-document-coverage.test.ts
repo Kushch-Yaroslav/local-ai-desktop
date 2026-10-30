@@ -17,11 +17,12 @@ async function main(){
   const m=/range=\[(\d+),(\d+)\)/.exec(messages[0].content)!;ranges.push([+m[1],+m[2]]);
   return {role:'assistant',content:fail?'broken JSON':JSON.stringify({events:['controlled fact, not a real book summary']}),finish_reason:'stop'};
  },async *streamWithTools(){outer++;yield {type:'response',response:outer===1?{role:'assistant',content:'',tool_calls:[{id:'read',function:{name:'read_document',arguments:{attachment_id:file.id}}}]}:{role:'assistant',content:'FABRICATED ENDING',finish_reason:'stop'}};}} as unknown as ToolCallingBackend&LlmBackend;
- const call=async(scope:ChatReadonlyTools)=>{const iterator=scope.execute('read_document',{attachment_id:file.id},new AbortController().signal);let step=await iterator.next();while(!step.done)step=await iterator.next();return step.value as {completed:boolean;notes:DocumentChunkNote[];current_offset:number;sections:Array<{completed:boolean}>};};
+ const call=async(scope:ChatReadonlyTools)=>{const iterator=scope.execute('read_document',{attachment_id:file.id},new AbortController().signal);let step=await iterator.next();while(!step.done)step=await iterator.next();return step.value as {completed:boolean;notes:DocumentChunkNote[];current_offset:number;opening_excerpt:{start:number;end:number;text:string};closing_excerpt:{start:number;end:number;text:string};sections:Array<{completed:boolean}>};};
  let scope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536);let output='';
  for await(const e of new WebChatService(backend,{} as never).stream('fixture',[user],new AbortController().signal,65536,'deep',false,undefined,undefined,'coverage',scope))if(e.type==='token')output+=e.content;
  assert.equal(outer,1,'Failure must not trigger another reasoning loop or ungrounded final');assert(!output.includes('FABRICATED'));assert(output.includes('0 из'));assert.equal(db.documentNotes(chat.id).length,0);
  fail=false;ranges.length=0;scope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536);const result=await call(scope);
+ assert.equal(result.opening_excerpt.text,text.slice(result.opening_excerpt.start,result.opening_excerpt.end));assert.equal(result.closing_excerpt.end,text.length);assert.equal(result.closing_excerpt.text,text.slice(result.closing_excerpt.start));assert(result.closing_excerpt.text.length<=8000);
  assert(result.completed);assert.equal(result.current_offset,text.length);assert.equal(result.notes.length,ranges.length);assert(result.sections.every(s=>s.completed));
  assert.equal(ranges[0][0],0);for(let i=1;i<ranges.length;i++)assert.equal(ranges[i][0],ranges[i-1][1]);assert.equal(ranges.at(-1)![1],text.length);
  assert.equal(documentSections(text).length,process.env.LAD_TEST_BOOK?22:2,'TOC must not be counted as narrative chapters');

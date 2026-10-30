@@ -26,7 +26,7 @@ async function main(){
   await files.preprocess(attachment,new AbortController().signal);
   let chunks=0; const sourceRanges:Array<[number,number]>=[];
   const backend={
-    async chatWithTools(_m:string,messages:ToolMessage[]){chunks++;const match=/range=\[(\d+),(\d+)\)/.exec(messages[0].content)!;sourceRanges.push([Number(match[1]),Number(match[2])]);return {role:'assistant',content:JSON.stringify({events:JSON.parse(messages[1].content).source_text.match(/Unique fact[^\n]+/g)??[],continuity:"Ordinary narrative continues in this fixture.",hypotheses:[],uncertainties:[]}),finish_reason:'stop'};},
+    async chatWithTools(_m:string,messages:ToolMessage[]){if(messages[0].content.includes('Review the final document answer'))return {role:'assistant',content:JSON.stringify({edits:[]}),finish_reason:'stop'};chunks++;const match=/range=\[(\d+),(\d+)\)/.exec(messages[0].content)!;sourceRanges.push([Number(match[1]),Number(match[2])]);return {role:'assistant',content:JSON.stringify({events:JSON.parse(messages[1].content).source_text.match(/Unique fact[^\n]+/g)??[],continuity:"Ordinary narrative continues in this fixture.",hypotheses:[],uncertainties:[]}),finish_reason:'stop'};},
     async *streamWithTools(_m:string,messages:ToolMessage[]){
       const hasResult=messages.some(m=>m.role==='tool');
       yield {type:'response',response:hasResult?{role:'assistant',content:'Answer from processed document.',finish_reason:'stop'}:{role:'assistant',content:'',tool_calls:[{id:'read-whole',function:{name:'read_document',arguments:{attachment_id:attachment.id}}}],finish_reason:'tool_calls'}};
@@ -38,6 +38,16 @@ async function main(){
   assert(events.some(e=>e.type==='token'&&e.content==='Answer from processed document.'));
   const state=await call(scope,'attachment_metadata',{attachment_id:attachment.id});assert.equal(state.completed,true);assert.equal(state.current_offset,text.length);
   assert.deepEqual(sourceRanges[0],[0,24000]);for(let i=1;i<sourceRanges.length;i++)assert.equal(sourceRanges[i][0],sourceRanges[i-1][1]);assert.equal(sourceRanges.at(-1)?.[1],text.length);
+  const beforeRestored=chunks;
+  const restoredScope=new ChatReadonlyTools(db,files,chat.id,backend,'fixture',65536);
+  const restoredOutput:StreamEvent[]=[];
+  for await(const e of new WebChatService(backend,{} as never).stream('fixture',[user],new AbortController().signal,65536,'fast',false,undefined,undefined,'restored-reading',restoredScope))restoredOutput.push(e);
+  assert(restoredOutput.some(e=>e.type==='token'&&e.content==='Answer from processed document.'));
+  assert.equal(chunks,beforeRestored,'A repeated whole-book request must receive all stored notes without reprocessing source ranges');
+  const saved=await restoredScope.completedReading([user],new AbortController().signal) as Array<{notes:Array<{summary:unknown}>}>;
+  assert.equal(saved[0].notes.length,sourceRanges.length);
+  assert(!JSON.stringify(saved[0].notes).includes('chunk_sha256'),'Inference payload must not repeat application storage receipts');
+  assert.deepEqual(await restoredScope.completedReading([{...user,content:'Hello, how are you?'}],new AbortController().signal),[],'Ordinary conversation must not receive the entire document memory');
   const count=chunks;await call(scope,'read_document',{attachment_id:attachment.id});assert.equal(chunks,count,'Completed document must not be reprocessed');
   await call(scope,'read_file',{attachment_id:attachment.id,offset_chars:0,limit_chars:24000});assert(db.documentNotes(chat.id,attachment.id).find(n=>n.start===0)?.summary.includes('events'),'A re-read must not erase processed notes');
   const unrelated=new ChatReadonlyTools(db,files,other.id,backend,'fixture',65536);

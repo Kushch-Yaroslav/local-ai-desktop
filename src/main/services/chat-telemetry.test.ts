@@ -57,13 +57,13 @@ async function main() {
   const provider=reader.observe({async chatWithTools(_model,messages,tools,_signal,_window,_reasoning,meta){
     const internal=messages[0].content.includes('Process exactly this source chunk');if(internal)chunks++;
     meta?.onUsage?.({inputTokens:internal?350:100,outputTokens:internal?7:4});
-    return {role:'assistant',content:internal?JSON.stringify({events:['fact']}):tools&&!messages.some(m=>m.role==='tool')?'':'Done',
+    return {role:'assistant',content:messages[0].content.includes('Review the final document answer')?JSON.stringify({edits:[]}):internal?JSON.stringify({events:['fact']}):tools&&!messages.some(m=>m.role==='tool')?'':'Done',
       ...(!internal&&tools&&!messages.some(m=>m.role==='tool')?{tool_calls:[{id:'read',function:{name:'read_document',arguments:{attachment_id:file.id}}}]}:{}),
       prompt_eval_count:internal?350:100,inference:{evalCount:internal?7:4} as never,finish_reason:'stop'};
   },getModels:async()=>[],getStatus:async()=>({available:true}),async *streamChat(){}} as ToolCallingBackend & LlmBackend);
   const scope=new ChatReadonlyTools(reopened,files,chat.id,provider,'fixture',65536);
   for await(const event of new WebChatService(provider,{openSession:async()=>{throw Error('No web');}} as never).stream('fixture',[user],signal,65536,'fast',false,undefined,undefined,'reading',scope))if(event.type==='tool')reader.activity(event.activity);
-  assert.equal(chunks,Math.ceil(text.length/24000));assert.equal(reader.snapshot().turn,chunks+2);assert.equal(reader.snapshot().inputTokens,350*chunks+200);assert.equal(reader.snapshot().outputTokens,7*chunks+8);assert.equal(reader.snapshot().actions,1);
+  assert.equal(chunks,Math.ceil(text.length/24000));assert.equal(reader.snapshot().turn,chunks+3);assert.equal(reader.snapshot().inputTokens,350*chunks+300);assert.equal(reader.snapshot().outputTokens,7*chunks+12);assert.equal(reader.snapshot().actions,1);
   reopened.close();console.log('PASS Chat telemetry: live usage, internal document requests, absolute snapshots, compaction totals, missing metrics, restart and Agent deltas');
 }
 void main().catch(error=>{console.error(error);process.exitCode=1;});

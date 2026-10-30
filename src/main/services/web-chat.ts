@@ -108,6 +108,15 @@ export class WebChatService {
     let toolActions = 0; let visibleStarted = false;
     const waiting = (turn: number): StreamEvent => ({ type: 'tool', activity: { id: `${runId}:model:${turn}`, label: 'Ожидаю ответ модели', kind: 'progress', state: 'running' } });
     try {
+      const savedReading=await readonlyScope?.completedReading?.(history,signal)??[];
+      for(const result of savedReading) {
+        const id=`${runId}:saved-document:${messages.length}`;
+        const attachmentId=(result as {attachment_id:string}).attachment_id;
+        messages.push({role:'assistant',content:'',tool_calls:[{id,function:{name:'read_document',arguments:JSON.stringify({attachment_id:attachmentId})}}]},
+          {role:'tool',tool_name:'read_document',tool_call_id:id,content:JSON.stringify(result)});
+      }
+      if(savedReading.length)trace('saved_document_evidence',{documents:savedReading.length});
+
       for (let turn = 0; !signal.aborted && turn <= modelTurnLimit; turn += 1) {
         const readingFailure=readonlyScope?.readingFailure?.();
         if(readingFailure) {
@@ -130,6 +139,7 @@ export class WebChatService {
         trace('model_started', { turn, toolCount: availableTools?.length ?? 0, toolNames: availableTools?.map(tool=>(tool as {function:{name:string}}).function.name) ?? [], toolActions });
         yield { type: 'model-state', state: 'waiting' };
         yield waiting(turn);
+        const reviewing=Boolean(readonlyScope?.readingReviewReady?.()&&readonlyScope.reviewReadingAnswer);
         let response: ToolMessage | undefined; let rawContent = ''; let reasoningSeen = false;
         let outputStarted = false;let segmentVisible='';
         const boundary=new ChatContinuationBoundary(continuing?answerText:'');
@@ -147,7 +157,7 @@ export class WebChatService {
           } else if (delta.type === 'token') {
             if (!rawContent) trace('first_token', { turn }); rawContent += delta.content;
             const content = boundary.push(buffer.push(delta.content));
-            if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;yield { type: 'token', content }; }
+            if (content) { if (!visibleStarted&&!reviewing) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;if(!reviewing)yield { type: 'token', content }; }
           } else if (delta.type === 'tool_call_delta' && delta.name) trace('tool_detected', { turn, tool: delta.name });
         }
         if (signal.aborted) return;
@@ -155,9 +165,9 @@ export class WebChatService {
         if (!rawContent) {
           if (response.thinking && !reasoningSeen) { trace('first_reasoning', { turn }); yield { type: 'thinking', content: response.thinking }; }
           const content = boundary.push(buffer.push(response.content ?? ''));
-          if (content) { if (!visibleStarted) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;yield { type: 'token', content }; }
+          if (content) { if (!visibleStarted&&!reviewing) { trace('first_visible_content', { turn }); visibleStarted = true; } segmentVisible+=content;answerText+=content;if(!reviewing)yield { type: 'token', content }; }
         }
-        const tail=boundary.push(buffer.finish())+boundary.finish();if(tail){segmentVisible+=tail;answerText+=tail;yield {type:'token',content:tail};}
+        const tail=boundary.push(buffer.finish())+boundary.finish();if(tail){segmentVisible+=tail;answerText+=tail;if(!reviewing)yield {type:'token',content:tail};}
         outputTokens+=Math.max(1,response.inference?.evalCount??Math.ceil(((response.content??'').length+(response.thinking??'').length)/2));evalNanos+=response.inference?.evalDuration??0;
         yield { type: 'tool', activity: { id: `${runId}:model:${turn}`, label: 'Ожидаю ответ модели', kind: 'progress', state: 'completed' } };
         trace('model_completed', { turn, inputTokens: response.inference?.inputTokens, outputTokens: response.inference?.evalCount });
@@ -184,6 +194,13 @@ export class WebChatService {
           continuing=true;continuations++;turn--;trace('automatic_continuation',{outputTokens,continuations,remaining:CHAT_OUTPUT_TOKEN_LIMIT-outputTokens});continue;
         }
         if (!calls.length || exhausted) {
+          if(reviewing&&answerText.trim()) {
+            yield {type:'tool',activity:{id:`${runId}:reading-review`,kind:'file_read',label:'Проверка пересказа по источнику',state:'running'}};
+            const checked=await readonlyScope!.reviewReadingAnswer!(answerText,signal);
+            if(!visibleStarted){trace('first_visible_content',{turn,reviewed:true});visibleStarted=true;}
+            yield {type:'token',content:checked};
+            yield {type:'tool',activity:{id:`${runId}:reading-review`,kind:'file_read',label:'Проверка пересказа по источнику',state:'completed'}};
+          }
           if (response.inference) yield { type: 'diagnostics', diagnostics: { ...response.inference,...(continuations?{evalCount:outputTokens,...(evalNanos?{evalDuration:evalNanos,tokensPerSecond:outputTokens/(evalNanos/1e9)}:{})}:{}), agentStepCount: toolActions, finishReason: response.finish_reason ?? 'stop' } };
           trace('final_completed', { turn, toolActions, exhausted });
           yield { type: 'done', finishReason: exhausted||outputTokens>=CHAT_OUTPUT_TOKEN_LIMIT ? 'length' : response.finish_reason ?? 'stop' }; return;

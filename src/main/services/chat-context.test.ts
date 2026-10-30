@@ -39,6 +39,11 @@ async function main(){
   assert(afterLargeResult.compacted);assert.equal(afterLargeResult.messages.at(-1)?.role,'user');assert.equal(afterLargeResult.messages.at(-1)?.content,latestQuestion,'The actual current user turn must survive as a user message after compaction.');
   assert(!afterLargeResult.messages.some(message=>message.role==='tool'),'An oversized protocol group must be summarized as a whole, without an orphan tool result.');
   assert(compactedUserInputs.some(input=>input.includes('BLACK_HOLE_FACT_914')),'Compaction must process the oversized read-only result before dropping its protocol group.');
+  const completeNotes:ToolMessage[]=[{role:'system',content:'Read only'}, {role:'user',content:'Summarize every chapter'},
+    {role:'assistant',content:'',tool_calls:[{id:'whole',function:{name:'read_document',arguments:'{}'}}]},
+    {role:'tool',tool_name:'read_document',tool_call_id:'whole',content:JSON.stringify({completed:true,notes:Array.from({length:22},(_,i)=>({chapter:i+1,fact:'fact '+i}))})}];
+  const noLoss=await fitChatContext({...backend,countInputTokens:async()=>40000},'fixture',completeNotes,[],new AbortController().signal,57344,'fast','Summarize every chapter');
+  assert(!noLoss.compacted);assert.deepEqual(noLoss.messages,completeNotes,'Fresh complete document evidence must survive the 65% history threshold intact');
   console.log('PASS Chat compaction: bounded history, complete tool protocol, pinned objective/source cursor, preserved current user turn, full answer unchanged, fast ordinary question');
 }
 void main();
