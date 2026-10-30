@@ -1,12 +1,12 @@
 import './test-runtime-isolation';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureAppDirectories, paths } from './paths';
 import { loadRuntimeConfiguration, saveRuntimeConfiguration } from './runtime-settings';
 import { builtinModelCatalog } from '../models/model-catalog';
-import { LAUNCHER_ABSENT, SERVER_ABSENT, LlamaRuntimeController, parseLlamaRuntimeState } from './llama-runtime-controller';
+import { SERVER_ABSENT, LlamaRuntimeController, parseLlamaRuntimeState } from './llama-runtime-controller';
 
 const qwen = 'qwen3.8:27b-q4_K_M';
 const secondaryModel = 'qwen3.6:35b-a3b-ud-q4_k_m';
@@ -17,14 +17,15 @@ async function fixture(timeoutMs = 5_000) {
   await writeFile(files.launcherPidFile, '4242\n');
   const signals: number[] = [];
   let clock = 0;
-  return { files, signals, dir, make: (onSignal: (request: Record<string, string>) => Promise<void>) => new LlamaRuntimeController(files, timeoutMs, {
+  return { files, signals, dir, make: (onSignal: (request: Record<string, string>) => Promise<void>, extra: {ensureLauncher?:()=>Promise<void>;readText?:(path:string)=>Promise<string>}={}) => new LlamaRuntimeController(files, timeoutMs, {
     readText: async (path) => path === '/proc/4242/cmdline' ? '/bin/bash\0/media/yaroslav/DATA/local-ai-desktop/run-local-ai-desktop-llama-cpp-mtp.sh' : path === '/proc/1/cmdline' ? ['/test/custom-server', '--port', '8081', '--ctx-size', '65536'].join('\0') : readFile(path, 'utf8'),
     signal: (pid) => {
       signals.push(pid);
       void readFile(files.requestFile, 'utf8').then((text) => onSignal(Object.fromEntries(text.trim().split('\n').map((line) => line.split('=') as [string, string]))));
     },
-    sleep: async () => { clock += 500; await new Promise((resolve) => setImmediate(resolve)); },
+    sleep: async () => { clock += 500; await new Promise((resolve) => setTimeout(resolve,5)); },
     now: () => clock,
+    ...extra,
     capabilityLimit: async (modelId) => modelId === qwen ? 262144 : 131072,
   }) };
 }
@@ -45,6 +46,26 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     const result = await controller.switchTo(qwen, 110592, 'f16');
     assert.equal(result.ok, false, '64K Q8 must not acknowledge an explicit 108K FP16 request');
     if (!result.ok) { assert.match(result.error, /108K f16.*64K q8_0/); assert.equal(result.state.contextWindow, 65536); assert.equal(result.state.kvCacheType, 'q8_0'); }
+  }
+  {
+    const {files,make,signals}=await fixture();await rm(files.launcherPidFile);
+    await writeFile(files.stateFile,state({launcherPid:999999,serverPid:999999}));let starts=0;
+    const control=make(async request=>{await writeFile(files.stateFile,state({requestId:request.REQUEST_ID,modelId:qwen,contextWindow:Number(request.CONTEXT),kvCacheType:request.KV_TYPE}));},
+      {ensureLauncher:async()=>{starts++;await writeFile(files.launcherPidFile,'4242');await writeFile(files.stateFile,state({status:'idle',serverPid:0}));}});
+    const results=await Promise.all([control.switchTo(qwen,4096),control.switchTo(qwen,8192)]);
+    assert(results.every(r=>r.ok));assert.equal(starts,1);assert.equal(signals.length,2);assert.equal((await control.state()).contextWindow,8192);
+    await writeFile(files.stateFile,state({serverPid:999999}));assert.equal((await control.state()).status,'offline');
+    assert((await control.switchTo(qwen,4096)).ok,'Crash recovery keeps the live supervisor');assert.equal(starts,1);
+  }
+  {
+    const {files,make,signals}=await fixture();await rm(files.launcherPidFile);
+    const control=make(async()=>{}, {ensureLauncher:async()=>{throw Error('fixture executable denied');}});
+    const failed=await control.switchTo(qwen,4096);assert(!failed.ok);if(!failed.ok)assert.match(failed.error,/fixture executable denied/);assert.equal(signals.length,0);
+  }
+  {
+    const {make}=await fixture();let dead=false;
+    const control=make(async()=>{dead=true;},{readText:async path=>path==='/proc/4242/cmdline'?dead?'':'bash\0/project/run-local-ai-desktop-llama-cpp-mtp.sh':readFile(path,'utf8')});
+    const failure=await control.switchTo(qwen,4096);assert(!failure.ok);if(!failure.ok)assert.match(failure.error,/завершился во время загрузки/);
   }
   assert.equal(parseLlamaRuntimeState('not json'), null);
   assert.equal(parseLlamaRuntimeState(state({ status: 'weird' })), null);
@@ -128,7 +149,7 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     await writeFile(files.stateFile, state({ status: 'ready', modelId: qwen, contextWindow: 65_536, launcherPid: 999_999 }));
     const stale = await make(async () => undefined).state();
     assert.equal(stale.status, 'offline');
-    assert.equal(stale.error, LAUNCHER_ABSENT);
+    assert.match(stale.error??'',/устарело/);
     await writeFile(files.stateFile, state({ status: 'ready', modelId: qwen, contextWindow: 65_536, launcherPid: 4242 }));
     assert.equal((await make(async () => undefined).state()).status, 'ready', 'a live launcher vouches for its state');
   }

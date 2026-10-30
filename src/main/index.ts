@@ -85,7 +85,7 @@ app.whenReady().then(async () => {
     if (language !== 'en' && language !== 'ru') throw new Error('Invalid language');
     selectLanguage(language);
   });
-  await startRuntimeSupervisor();
+  await startRuntimeSupervisor().catch(error=>log('runtime.supervisor.start_failed',{error:error instanceof Error?error.message:String(error)}));
   protectedRuntime.start();
   const { registerIpc } = await import('./ipc/register-ipc');
   registerIpc();

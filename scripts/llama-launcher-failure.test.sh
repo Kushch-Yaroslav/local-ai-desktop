@@ -2,7 +2,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 fixture="$(mktemp -d)"
-trap 'rm -f "$fixture/launcher.sh" "$fixture/llama-cpp-runtime-state.json" "$fixture/logs/llama-cpp-mtp-launcher.log" "$fixture/stderr"; rmdir "$fixture/logs" "$fixture"' EXIT
+trap 'rm -f "$fixture/llama-cpp-launcher.lock" "$fixture/launcher.sh" "$fixture/llama-cpp-runtime-state.json" "$fixture/logs/llama-cpp-mtp-launcher.log" "$fixture/stderr"; rmdir "$fixture/logs" "$fixture"' EXIT
 
 # Exercise a failed explicit runtime dependency without loading a model or
 # requiring a particular host Chrome installation.
