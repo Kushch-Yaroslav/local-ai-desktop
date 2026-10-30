@@ -1,0 +1,596 @@
+{
+  "started_utc": "2026-10-30T23:24:00.240737+00:00",
+  "baseline": {
+    "system_swap_used_kib": 3470476,
+    "system": {
+      "MemTotal": 62.69834899902344,
+      "MemAvailable": 54.37677001953125
+    },
+    "gpu": {
+      "used_mib": 953,
+      "total_mib": 24576,
+      "free_mib": 23623,
+      "utilization_percent": 35
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/experiments/advanced-placement-moe/diagnostic-cache",
+    "moe_cache_mib": 16384,
+    "ngl": 48,
+    "cpu_moe_layers": 48,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 512,
+    "ubatch": 128,
+    "ctx": 4096,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "no_repack": true,
+    "no_host": true,
+    "lazy_mode": "off",
+    "numa": null,
+    "suite": "scripts/moe-diagnostics/prompt.json",
+    "alternate_order": false,
+    "require_swappiness_zero": false,
+    "load_mode": "dio",
+    "tokens": 768,
+    "prompt_tokens": 0,
+    "mtp_draft": null,
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "verbosity": 4,
+    "repeats": 2,
+    "startup_timeout": 100,
+    "request_timeout": 40,
+    "min_available_gib": 7.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "51875",
+    "--ctx-size",
+    "4096",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "48",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "512",
+    "--ubatch-size",
+    "128",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "dio",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--verbosity",
+    "4",
+    "--lazy-mode",
+    "off",
+    "--no-repack",
+    "--no-host",
+    "--moe-cache-mib",
+    "16384",
+    "--spec-type",
+    "none"
+  ],
+  "runs": [],
+  "status": "failed",
+  "error": "llama-server exited during load with status -6",
+  "server_exit_code": -6,
+  "resources": {
+    "peak_used_mib": 20237,
+    "peak_utilization_percent": 46,
+    "peak_process_rss_gib": 44.16217803955078,
+    "safety_stop": null,
+    "peak_system_swap_growth_kib": 0,
+    "peak_process_swap_kib": 0,
+    "peak_cgroup_swap_bytes": 0,
+    "cgroup_limits": {
+      "memory.max": "54760833024",
+      "memory.swap.max": "0"
+    },
+    "peak_process_cpu_percent": 76.0,
+    "peak_system_cpu_percent": 9.903756597330021,
+    "min_available_gib": 10.351974487304688,
+    "min_free_vram_mib": 4339,
+    "swap_in_pages": 85,
+    "swap_out_pages": 0,
+    "samples": 23,
+    "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891205\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496479\n",
+    "cgroup_last_memory_stat": {
+      "anon": 26503172096,
+      "file": 20049920,
+      "file_mapped": 8388608,
+      "file_dirty": 8192,
+      "unevictable": 0
+    },
+    "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-30T23:24:02.266606+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 53.729736328125
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 14
+      },
+      "process_rss_gib": 0.7157974243164062,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:04.290798+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 51.69691467285156
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 2.758922576904297,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.745341614906832,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:06.314834+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 49.63054656982422
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 4.8124847412109375,
+      "process_cpu_percent_of_one_core": 68.5,
+      "system_cpu_percent": 5.684995340167754,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:08.338702+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 47.564083099365234
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 15
+      },
+      "process_rss_gib": 6.853336334228516,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 7.151741293532338,
+      "swap_page_deltas": {
+        "pswpin": 6,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:10.362955+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 45.54125213623047
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 8.88851547241211,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 5.527950310559007,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:12.387019+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 43.47909164428711
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 10.954113006591797,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 6.1471592673082895,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:14.411119+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 41.345821380615234
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 13.072265625,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 5.7799875699192045,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:16.434939+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 39.18153381347656
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 15.177658081054688,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 5.717837165941579,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:18.458842+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 37.162086486816406
+      },
+      "gpu": {
+        "used_mib": 2849,
+        "total_mib": 24576,
+        "free_mib": 21727,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 17.286758422851562,
+      "process_cpu_percent_of_one_core": 68.5,
+      "system_cpu_percent": 6.991260923845194,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:20.484184+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 35.01849365234375
+      },
+      "gpu": {
+        "used_mib": 2848,
+        "total_mib": 24576,
+        "free_mib": 21728,
+        "utilization_percent": 9
+      },
+      "process_rss_gib": 19.351699829101562,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 6.162464985994398,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:22.512713+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 32.943931579589844
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 16
+      },
+      "process_rss_gib": 21.50318145751953,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.803848541278709,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:24.554977+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 30.857192993164062
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 46
+      },
+      "process_rss_gib": 23.65823745727539,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.951279679309281,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:26.594255+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 28.71744155883789
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 44
+      },
+      "process_rss_gib": 25.805217742919922,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.860579888957433,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:28.640479+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 26.551891326904297
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 38
+      },
+      "process_rss_gib": 27.889144897460938,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 6.027060270602706,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:30.678183+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 24.404094696044922
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 45
+      },
+      "process_rss_gib": 30.068805694580078,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.869632375656472,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:32.732954+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 22.295753479003906
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 40
+      },
+      "process_rss_gib": 32.21759033203125,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.9706062461726885,
+      "swap_page_deltas": {
+        "pswpin": 8,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:34.764101+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 20.12311553955078
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 25
+      },
+      "process_rss_gib": 34.36146926879883,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 7.133995037220844,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:36.810245+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 17.969345092773438
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 37
+      },
+      "process_rss_gib": 36.4573860168457,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.992624462200369,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:38.834282+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 15.82955551147461
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 38.619285583496094,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 7.398197078023003,
+      "swap_page_deltas": {
+        "pswpin": 7,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:40.859393+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 13.788349151611328
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 14
+      },
+      "process_rss_gib": 40.724754333496094,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 6.048387096774194,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:42.889405+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 11.675765991210938
+      },
+      "gpu": {
+        "used_mib": 2844,
+        "total_mib": 24576,
+        "free_mib": 21732,
+        "utilization_percent": 19
+      },
+      "process_rss_gib": 42.827392578125,
+      "process_cpu_percent_of_one_core": 65.0,
+      "system_cpu_percent": 5.851393188854489,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:44.914294+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.351974487304688
+      },
+      "gpu": {
+        "used_mib": 20236,
+        "total_mib": 24576,
+        "free_mib": 4340,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 44.16217803955078,
+      "process_cpu_percent_of_one_core": 53.5,
+      "system_cpu_percent": 9.903756597330021,
+      "swap_page_deltas": {
+        "pswpin": 50,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T23:24:46.938102+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 28.111427307128906
+      },
+      "gpu": {
+        "used_mib": 20237,
+        "total_mib": 24576,
+        "free_mib": 4339,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 0,
+      "process_cpu_percent_of_one_core": 76.0,
+      "system_cpu_percent": 6.834420627524076,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    }
+  ],
+  "ended_utc": "2026-10-30T23:24:48.922527+00:00",
+  "server_log": "docs/experiments/advanced-placement-moe/diagnostic-cache/20261030T232400Z-cache16384-ngl48-ncmoe48-t8-tb8-b512-ub128.server.log"
+}

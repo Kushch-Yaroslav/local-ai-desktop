@@ -1,0 +1,142 @@
+[
+  {
+    "experiment": "diagnostic-baseline",
+    "status": "passed",
+    "error": null,
+    "resources": {
+      "peak_used_mib": 3947,
+      "peak_utilization_percent": 61,
+      "peak_process_rss_gib": 44.591773986816406,
+      "safety_stop": null,
+      "peak_system_swap_growth_kib": 0,
+      "peak_process_swap_kib": 0,
+      "peak_cgroup_swap_bytes": 0,
+      "cgroup_limits": {
+        "memory.max": "54760833024",
+        "memory.swap.max": "0"
+      },
+      "peak_process_cpu_percent": 816.0,
+      "peak_system_cpu_percent": 55.370370370370374,
+      "min_available_gib": 9.75667953491211,
+      "min_free_vram_mib": 20629,
+      "swap_in_pages": 171,
+      "swap_out_pages": 0,
+      "samples": 43,
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891205\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496479\n",
+      "cgroup_last_memory_stat": {
+        "anon": 22972837888,
+        "file": 59265024,
+        "file_mapped": 10485760,
+        "file_dirty": 29261824,
+        "unevictable": 0
+      },
+      "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+    },
+    "timings_are_diagnostic_not_benchmarks": true
+  },
+  {
+    "experiment": "diagnostic-cache",
+    "status": "failed",
+    "error": "llama-server exited during load with status -6",
+    "resources": {
+      "peak_used_mib": 20237,
+      "peak_utilization_percent": 46,
+      "peak_process_rss_gib": 44.16217803955078,
+      "safety_stop": null,
+      "peak_system_swap_growth_kib": 0,
+      "peak_process_swap_kib": 0,
+      "peak_cgroup_swap_bytes": 0,
+      "cgroup_limits": {
+        "memory.max": "54760833024",
+        "memory.swap.max": "0"
+      },
+      "peak_process_cpu_percent": 76.0,
+      "peak_system_cpu_percent": 9.903756597330021,
+      "min_available_gib": 10.351974487304688,
+      "min_free_vram_mib": 4339,
+      "swap_in_pages": 85,
+      "swap_out_pages": 0,
+      "samples": 23,
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891205\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496479\n",
+      "cgroup_last_memory_stat": {
+        "anon": 26503172096,
+        "file": 20049920,
+        "file_mapped": 8388608,
+        "file_dirty": 8192,
+        "unevictable": 0
+      },
+      "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+    },
+    "timings_are_diagnostic_not_benchmarks": true
+  },
+  {
+    "experiment": "diagnostic-cache-weights",
+    "status": "passed",
+    "error": null,
+    "resources": {
+      "peak_used_mib": 20332,
+      "peak_utilization_percent": 76,
+      "peak_process_rss_gib": 44.61244583129883,
+      "safety_stop": null,
+      "peak_system_swap_growth_kib": 0,
+      "peak_process_swap_kib": 0,
+      "peak_cgroup_swap_bytes": 0,
+      "cgroup_limits": {
+        "memory.max": "54760833024",
+        "memory.swap.max": "0"
+      },
+      "peak_process_cpu_percent": 421.0,
+      "peak_system_cpu_percent": 31.833695314923983,
+      "min_available_gib": 9.764968872070312,
+      "min_free_vram_mib": 4244,
+      "swap_in_pages": 49,
+      "swap_out_pages": 0,
+      "samples": 33,
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891205\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496479\n",
+      "cgroup_last_memory_stat": {
+        "anon": 24812707840,
+        "file": 59260928,
+        "file_mapped": 10485760,
+        "file_dirty": 48762880,
+        "unevictable": 0
+      },
+      "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+    },
+    "timings_are_diagnostic_not_benchmarks": true
+  },
+  {
+    "experiment": "diagnostic-cache-final",
+    "status": "failed",
+    "error": "timed out",
+    "resources": {
+      "peak_used_mib": 20244,
+      "peak_utilization_percent": 84,
+      "peak_process_rss_gib": 44.4294548034668,
+      "safety_stop": null,
+      "peak_system_swap_growth_kib": 0,
+      "peak_process_swap_kib": 0,
+      "peak_cgroup_swap_bytes": 0,
+      "cgroup_limits": {
+        "memory.max": "54760833024",
+        "memory.swap.max": "0"
+      },
+      "peak_process_cpu_percent": 135.5,
+      "peak_system_cpu_percent": 13.467492260061919,
+      "min_available_gib": 9.90134048461914,
+      "min_free_vram_mib": 4332,
+      "swap_in_pages": 83,
+      "swap_out_pages": 0,
+      "samples": 45,
+      "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891205\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496479\n",
+      "cgroup_last_memory_stat": {
+        "anon": 26366828544,
+        "file": 29966336,
+        "file_mapped": 10485760,
+        "file_dirty": 19460096,
+        "unevictable": 0
+      },
+      "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+    },
+    "timings_are_diagnostic_not_benchmarks": true
+  }
+]

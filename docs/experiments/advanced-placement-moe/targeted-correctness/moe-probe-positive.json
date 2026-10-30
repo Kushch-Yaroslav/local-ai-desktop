@@ -1,0 +1,1 @@
+{"ggml_type":12,"input":2048,"output":512,"CPU_CUDA_max_abs":0.000687689,"CPU_CUDA_mean_abs":5.92029e-05,"CPU_mean_abs":0.0274828,"CUDA_static_slot_max_abs":0,"full_expert_bytes_equal":true}

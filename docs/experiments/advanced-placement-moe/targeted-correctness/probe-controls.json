@@ -1,0 +1,9 @@
+{
+  "positive": "PASS uploads=3 blocks=9 errors=0 pending=0",
+  "negative": "Expected SIGABRT134 with LAD_TRANSFER_MISMATCH offset589824 on deliberately modified private GPU tensor",
+  "initial_probe_issues": [
+    "slot_map tensors initially classified as weights; excluded",
+    "CPU tensor pending samples initially retained across tensor/backend lifetimes in micro control; probe restricted to GPU weights"
+  ],
+  "model_run": "417 sampled512-byte blocks passed before final GPU-only filter; expert bank names in model code refer to GPU allocations. No claim of exhaustive transfer proof."
+}
