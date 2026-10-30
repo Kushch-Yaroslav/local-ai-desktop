@@ -1,0 +1,8 @@
+{
+  "status": "blocked-before-benchmarks",
+  "cuda_devices": [],
+  "reason": "CUDA initialization failed; /dev/nvidia* absent",
+  "runtime_commit": "d1d3c3396aa13a5f239109a822666c4870490ad5",
+  "expert_cache_supported_locally": false,
+  "benchmarks": []
+}
