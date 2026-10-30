@@ -1,0 +1,24 @@
+{
+  "all_answers_eos": true,
+  "same_output_across_cycles": {
+    "typescript": true,
+    "react": true,
+    "algorithm": true,
+    "review": true,
+    "explain": true,
+    "conversation": true,
+    "facts": true
+  },
+  "tests": {
+    "facts_exact": true,
+    "lower_bound_passed": 464,
+    "lower_bound_total": 464
+  },
+  "manual_findings": [
+    "React: initial prop is not clamped; initial=20 violates requested 0..10 range. Buttons lack descriptive accessible labels.",
+    "Binary search implementation correct on tested cases, but requested duplicate/empty assertions absent.",
+    "Dijkstra explanation contains arithmetic error: the modified counterexample shortest path is -1, not -2.",
+    "Code review identifies async forEach bug and preserves ordering but changes Response[] to parsed JSON[] without a requirement."
+  ],
+  "limitations": "Single cache configuration; no paired no-cache quality comparison. Findings do not establish cache causality."
+}

@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import socket
+import signal
 import statistics
 import subprocess
 import threading
@@ -138,6 +139,9 @@ def make_context_prompt(url, target_tokens, timeout):
 
 
 def main():
+    def cancel(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, cancel)
     parser = argparse.ArgumentParser()
     parser.add_argument('--server', required=True)
     parser.add_argument('--model', required=True)
@@ -158,6 +162,7 @@ def main():
     parser.add_argument('--lazy-mode', choices=('auto','on','off'), default='auto')
     parser.add_argument('--numa', choices=('isolate', 'distribute', 'numactl'))
     parser.add_argument('--suite')
+    parser.add_argument('--require-swappiness-zero', action='store_true')
     parser.add_argument('--load-mode', choices=('auto', 'mmap', 'none', 'dio'), default='mmap')
     parser.add_argument('--tokens', type=int, default=64)
     parser.add_argument('--prompt-tokens', type=int, default=0,
@@ -237,6 +242,8 @@ def main():
             sampler['memory_pressure'] = pressure
             sampler['peak_system_swap_growth_kib'] = max(sampler['peak_system_swap_growth_kib'], growth)
             reason = memory_stop_reason(system['MemAvailable'], growth, out_bytes, pressure)
+            if args.require_swappiness_zero and Path('/proc/sys/vm/swappiness').read_text().strip() != '0':
+                reason = 'Authorized swappiness-zero window ended'
             if reason and process and process.poll() is None:
                 sampler['safety_stop'] = reason
                 process.terminate()
@@ -292,6 +299,8 @@ def main():
 
     result = {'started_utc': datetime.now(timezone.utc).isoformat(), 'baseline': baseline, 'args': vars(args), 'command': command, 'runs': [], 'status': 'starting'}
     try:
+        if args.require_swappiness_zero and Path('/proc/sys/vm/swappiness').read_text().strip() != '0':
+            raise RuntimeError('No active swappiness-zero window')
         scope = Path('/sys/fs/cgroup') / Path('/proc/self/cgroup').read_text().split('0::', 1)[1].strip().lstrip('/')
         limit = (scope / 'memory.max').read_text().strip()
         if (scope / 'memory.swap.max').read_text().strip() != '0' or limit == 'max' or int(limit) > 55 * 1024**3:
