@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Isolated MoE experiment; run inside a systemd scope with RAM/swap limits."""
 import argparse
+import hashlib
 import json
 import os
 import socket
@@ -162,6 +163,7 @@ def main():
     parser.add_argument('--lazy-mode', choices=('auto','on','off'), default='auto')
     parser.add_argument('--numa', choices=('isolate', 'distribute', 'numactl'))
     parser.add_argument('--suite')
+    parser.add_argument('--alternate-order', action='store_true')
     parser.add_argument('--require-swappiness-zero', action='store_true')
     parser.add_argument('--load-mode', choices=('auto', 'mmap', 'none', 'dio'), default='mmap')
     parser.add_argument('--tokens', type=int, default=64)
@@ -350,7 +352,7 @@ def main():
                 post_completion(base_url, 'Reply with the word ready.', 4, args.request_timeout)
             metrics_before = get_metrics(base_url)
             tasks = json.loads(Path(args.suite).read_text()) if args.suite else [{'id': 'merge', 'prompt': prompt}]
-            schedule = [(cycle, task) for cycle in range(args.repeats) for task in tasks]
+            schedule = [(cycle, task) for cycle in range(args.repeats) for task in (list(reversed(tasks)) if args.alternate_order and cycle % 2 else tasks)]
             for index, (cycle, task) in enumerate(schedule):
                 prompt = task['prompt']
                 if args.suite:
@@ -358,6 +360,7 @@ def main():
                 run = post_completion(base_url, prompt, args.tokens, args.request_timeout)
                 run['repeat'] = cycle + 1
                 run['task'] = task['id']
+                run['formatted_prompt_sha256'] = hashlib.sha256(prompt.encode()).hexdigest()
                 run['cache_phase'] = 'first-request-after-load' if index == 0 else ('sequential-distinct' if cycle == 0 else 'warm-cycle')
                 run['timings'] = run.get('timings', {})
                 result['runs'].append(run)

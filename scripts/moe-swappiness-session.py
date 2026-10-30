@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Privileged, bounded swappiness controller. Does not launch model processes.
-Run through systemd with RuntimeMaxSec=660. Records the original value before
+Run through systemd with RuntimeMaxSec slightly larger than the session duration. Records the original value before
 writing 0; restores in finally on normal stop, SIGTERM/SIGINT/SIGHUP, or timeout.
 State and stop paths must be supplied explicitly by the operator.
 """
@@ -16,9 +16,12 @@ def main():
     if os.geteuid() != 0:
         raise SystemExit('Requires host administrative authorization')
     state_path, stop_path = map(Path, sys.argv[1:3])
+    duration = int(sys.argv[3]) if len(sys.argv) > 3 else 600
+    if not 1 <= duration <= 1800:
+        raise SystemExit('Duration must be between 1 and 1800 seconds')
     knob = Path('/proc/sys/vm/swappiness')
     original = int(knob.read_text().strip())
-    state = {'original': original, 'pid': os.getpid(), 'status': 'saved'}
+    state = {'original': original, 'pid': os.getpid(), 'status': 'saved', 'duration_seconds': duration, 'started_unix': time.time()}
     def record():
         state_path.write_text(json.dumps(state, indent=2) + '\n')
     def interrupted(signum, frame):
@@ -32,7 +35,7 @@ def main():
             raise RuntimeError('swappiness=0 verification failed')
         state['status'] = 'active'
         record()
-        deadline = time.monotonic() + 600
+        deadline = time.monotonic() + duration
         while not stop_path.exists() and time.monotonic() < deadline:
             time.sleep(0.5)
     finally:
