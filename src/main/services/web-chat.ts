@@ -109,6 +109,14 @@ export class WebChatService {
     const waiting = (turn: number): StreamEvent => ({ type: 'tool', activity: { id: `${runId}:model:${turn}`, label: 'Ожидаю ответ модели', kind: 'progress', state: 'running' } });
     try {
       for (let turn = 0; !signal.aborted && turn <= modelTurnLimit; turn += 1) {
+        const readingFailure=readonlyScope?.readingFailure?.();
+        if(readingFailure) {
+          // A failed whole-document pass must not turn into an unsupported plot summary.
+          yield {type:'token',content:readingFailure};
+          trace('reading_incomplete');
+          yield {type:'done',finishReason:'stop'};
+          return;
+        }
         const exhausted = turn === modelTurnLimit || toolActions >= toolActionLimit;
         if (exhausted) messages[0].content += '\nThe host tool execution budget is exhausted. Answer from the recorded results; accurately disclose any missing visualization or information. Do not print tool protocol or invent successful artifacts.';
         const availableTools = exhausted ? undefined : tools;
@@ -193,16 +201,17 @@ export class WebChatService {
           try {
             if (toolActions >= toolActionLimit) throw new Error('The host tool execution budget is exhausted.');
             toolActions += 1;
-            if ((failures.get(signature) ?? 0) >= ((call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 1 : 2)) throw new ArtifactToolError({ error: (call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 'This gallery request already failed. Correct the reported fields or image ID; repeating unchanged arguments is not useful.' : 'These identical arguments already failed twice. Change the invalid fields using the previous error; other valid tool calls remain available.', code: 'ARTIFACT_DUPLICATE', retrySameArguments: false });
+            if (!isChatReadOnlyTool(call.name) && (failures.get(signature) ?? 0) >= ((call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 1 : 2)) throw new ArtifactToolError({ error: (call.arguments.artifact as { type?: string })?.type === 'image_gallery' ? 'This gallery request already failed. Correct the reported fields or image ID; repeating unchanged arguments is not useful.' : 'These identical arguments already failed twice. Change the invalid fields using the previous error; other valid tool calls remain available.', code: 'ARTIFACT_DUPLICATE', retrySameArguments: false });
             if (call.parseError) throw new Error(call.parseError);
             if (isChatReadOnlyTool(call.name)) {
               if (!readonlyScope || !readonlyScope.definitions.some(definition => (definition as {function?:{name?:string}}).function?.name === call.name)) throw new Error('Read-only capability unavailable.');
-              const repeats=(readonlyRepeats.get(signature)??0)+1;readonlyRepeats.set(signature,repeats);
+              const progressSignature=call.name==='read_document'?`${signature}:${readonlyScope.context()}`:signature;
+              const repeats=(readonlyRepeats.get(progressSignature)??0)+1;readonlyRepeats.set(progressSignature,repeats);
               if(repeats>=4){if(repeats>=5)toolActions=toolActionLimit;throw new Error('Repeated identical read without new progress. Use the saved result, advance the offset, or answer. Memory IDs are not observation IDs.');}
               const execution = readonlyScope.execute(call.name, call.arguments, signal);
               while (true) {
                 const item = await execution.next();
-                if (item.done) { result = item.value; break; }
+                if (item.done) { result = item.value; failed=Boolean(result && typeof result==='object' && (result as {error?:unknown}).error); break; }
                 yield item.value;
               }
             } else if (call.name === 'create_visual_artifact') {

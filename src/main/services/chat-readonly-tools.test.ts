@@ -26,7 +26,7 @@ async function main(){
   await files.preprocess(attachment,new AbortController().signal);
   let chunks=0; const sourceRanges:Array<[number,number]>=[];
   const backend={
-    async chatWithTools(_m:string,messages:ToolMessage[]){chunks++;const match=/range=\[(\d+),(\d+)\)/.exec(messages[0].content)!;sourceRanges.push([Number(match[1]),Number(match[2])]);return {role:'assistant',content:JSON.stringify({events:JSON.parse(messages[1].content).source_text.match(/Unique fact[^\n]+/g)??[],hypotheses:[],uncertainties:[]}),finish_reason:'stop'};},
+    async chatWithTools(_m:string,messages:ToolMessage[]){chunks++;const match=/range=\[(\d+),(\d+)\)/.exec(messages[0].content)!;sourceRanges.push([Number(match[1]),Number(match[2])]);return {role:'assistant',content:JSON.stringify({events:JSON.parse(messages[1].content).source_text.match(/Unique fact[^\n]+/g)??[],continuity:"Ordinary narrative continues in this fixture.",hypotheses:[],uncertainties:[]}),finish_reason:'stop'};},
     async *streamWithTools(_m:string,messages:ToolMessage[]){
       const hasResult=messages.some(m=>m.role==='tool');
       yield {type:'response',response:hasResult?{role:'assistant',content:'Answer from processed document.',finish_reason:'stop'}:{role:'assistant',content:'',tool_calls:[{id:'read-whole',function:{name:'read_document',arguments:{attachment_id:attachment.id}}}],finish_reason:'tool_calls'}};
