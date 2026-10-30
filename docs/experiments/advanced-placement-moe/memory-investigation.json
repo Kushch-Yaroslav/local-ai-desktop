@@ -1,0 +1,104 @@
+[
+  {
+    "experiment": "gptoss-dio-base",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >2%",
+    "rss_gib": 4.092365264892578,
+    "vram_mib": 15648,
+    "swap_growth_kib": 38724,
+    "process_swap_kib": 0,
+    "swapout_pages": 5259,
+    "cgroup": {
+      "anon": 215568384,
+      "file": 4133093376,
+      "file_mapped": 4101304320,
+      "file_dirty": 0,
+      "unevictable": 0
+    }
+  },
+  {
+    "experiment": "gptoss-dio-nohost",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >10% with MemAvailable <10 GiB",
+    "rss_gib": 2.8334693908691406,
+    "vram_mib": 15764,
+    "swap_growth_kib": 41028,
+    "process_swap_kib": 0,
+    "swapout_pages": 7575,
+    "cgroup": {
+      "anon": 247705600,
+      "file": 27103232,
+      "file_mapped": 8421376,
+      "file_dirty": 4096,
+      "unevictable": 0
+    }
+  },
+  {
+    "experiment": "gptoss-mmap-isolate",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >2%",
+    "rss_gib": 9.410484313964844,
+    "vram_mib": 1166,
+    "swap_growth_kib": 0,
+    "process_swap_kib": 0,
+    "swapout_pages": 0,
+    "cgroup": {
+      "anon": 215678976,
+      "file": 1008631808,
+      "file_mapped": 1008459776,
+      "file_dirty": 12288,
+      "unevictable": 0
+    }
+  },
+  {
+    "experiment": "gptoss-isolate-guard2",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >10% with MemAvailable <10 GiB",
+    "rss_gib": 50.281349182128906,
+    "vram_mib": 1160,
+    "swap_growth_kib": 96768,
+    "process_swap_kib": 0,
+    "swapout_pages": 18339,
+    "cgroup": {
+      "anon": 114294784,
+      "file": 8744697856,
+      "file_mapped": 1585471488,
+      "file_dirty": 0,
+      "unevictable": 0
+    }
+  },
+  {
+    "experiment": "gptoss-norepack-cache2048",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >10% with MemAvailable <10 GiB",
+    "rss_gib": 15.900794982910156,
+    "vram_mib": 15844,
+    "swap_growth_kib": 48628,
+    "process_swap_kib": 0,
+    "swapout_pages": 10213,
+    "cgroup": {
+      "anon": 16932577280,
+      "file": 44392448,
+      "file_mapped": 8638464,
+      "file_dirty": 0,
+      "unevictable": 0
+    }
+  },
+  {
+    "experiment": "qwen-suite4k-cache0",
+    "status": "failed",
+    "reason": "Aggregate swap-out >32 MiB or memory PSI avg10 >10% with MemAvailable <10 GiB",
+    "rss_gib": 13.651176452636719,
+    "vram_mib": 1277,
+    "swap_growth_kib": 56140,
+    "process_swap_kib": 0,
+    "swapout_pages": 12596,
+    "cgroup": {
+      "anon": 163934208,
+      "file": 17170939904,
+      "file_mapped": 17153200128,
+      "file_dirty": 20480,
+      "unevictable": 0
+    }
+  }
+]

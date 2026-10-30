@@ -34,6 +34,16 @@ def system_swap_used_kib():
     return fields['SwapTotal'] - fields['SwapFree']
 
 
+def memory_stop_reason(available_gib, swap_growth_kib, swapout_bytes, pressure):
+    if swap_growth_kib > 128 * 1024:
+        return 'System swap grew by more than 128 MiB'
+    if swapout_bytes > 32 * 1024**2:
+        return 'Aggregate swap-out exceeded 32 MiB'
+    if available_gib < 10 and any(float(line.split('avg10=')[1].split()[0]) > 10 for line in pressure.splitlines()):
+        return 'Memory pressure avg10 exceeded 10% with less than 10 GiB available'
+    return None
+
+
 def proc_counters(pid):
     """Return process CPU ticks, system CPU ticks, and swap counters."""
     process_ticks = 0
@@ -143,7 +153,12 @@ def main():
     parser.add_argument('--kv-k', default='q8_0')
     parser.add_argument('--kv-v', default='q8_0')
     parser.add_argument('--flash-attn', choices=('on', 'off', 'auto'), default='on')
-    parser.add_argument('--load-mode', choices=('auto', 'mmap', 'none'), default='mmap')
+    parser.add_argument('--no-repack', action='store_true')
+    parser.add_argument('--no-host', action='store_true')
+    parser.add_argument('--lazy-mode', choices=('auto','on','off'), default='auto')
+    parser.add_argument('--numa', choices=('isolate', 'distribute', 'numactl'))
+    parser.add_argument('--suite')
+    parser.add_argument('--load-mode', choices=('auto', 'mmap', 'none', 'dio'), default='mmap')
     parser.add_argument('--tokens', type=int, default=64)
     parser.add_argument('--prompt-tokens', type=int, default=0,
                         help='approximate input prompt token count; 0 uses the fixed short prompt')
@@ -177,6 +192,13 @@ def main():
         '--flash-attn', args.flash_attn, '--load-mode', args.load_mode, '--fit', 'off',
         '--parallel', '1', '--no-webui', '--metrics', '--verbosity', str(args.verbosity),
     ]
+    command.extend(['--lazy-mode', args.lazy_mode])
+    if args.no_repack:
+        command.append('--no-repack')
+    if args.no_host:
+        command.append('--no-host')
+    if args.numa:
+        command.extend(['--numa', args.numa])
     if args.moe_cache_mib:
         help_text = subprocess.run([args.server, '--help'], capture_output=True, text=True, timeout=20)
         if '--moe-cache-mib' not in help_text.stdout:
@@ -201,6 +223,7 @@ def main():
     process = None
     samples = []
     previous_counters = None
+    initial_vmstat = proc_counters(-1)[3]
 
     def sample_resources():
         nonlocal previous_counters
@@ -208,9 +231,14 @@ def main():
             system = free_memory_gib()
             gpu = gpu_stats()
             growth = max(0, system_swap_used_kib() - initial_swap_kib)
+            pressure = Path('/proc/pressure/memory').read_text()
+            vm = proc_counters(-1)[3]
+            out_bytes = max(0, vm.get('pswpout', 0) - initial_vmstat.get('pswpout', 0)) * os.sysconf('SC_PAGE_SIZE')
+            sampler['memory_pressure'] = pressure
             sampler['peak_system_swap_growth_kib'] = max(sampler['peak_system_swap_growth_kib'], growth)
-            if growth > 128 * 1024 and process and process.poll() is None:
-                sampler['safety_stop'] = 'System swap grew by more than 128 MiB'
+            reason = memory_stop_reason(system['MemAvailable'], growth, out_bytes, pressure)
+            if reason and process and process.poll() is None:
+                sampler['safety_stop'] = reason
                 process.terminate()
             rss_gib = 0
             if process and process.poll() is None:
@@ -222,6 +250,9 @@ def main():
                             rss_gib = int(line.split()[1]) / 1024 / 1024
                     cg = Path('/sys/fs/cgroup') / Path(f'/proc/{process.pid}/cgroup').read_text().split('0::', 1)[1].strip().lstrip('/')
                     sampler['peak_cgroup_swap_bytes'] = max(sampler['peak_cgroup_swap_bytes'], int((cg / 'memory.swap.current').read_text()))
+                    stats = dict(line.split() for line in (cg / 'memory.stat').read_text().splitlines())
+                    sampler['cgroup_last_memory_stat'] = {k: int(stats.get(k, 0)) for k in ('anon', 'file', 'file_mapped', 'file_dirty', 'unevictable')}
+                    sampler['cgroup_events'] = (cg / 'memory.events').read_text()
                     sampler['cgroup_limits'] = {n: (cg / n).read_text().strip() for n in ('memory.max', 'memory.swap.max')}
                 except OSError:
                     pass
@@ -261,6 +292,10 @@ def main():
 
     result = {'started_utc': datetime.now(timezone.utc).isoformat(), 'baseline': baseline, 'args': vars(args), 'command': command, 'runs': [], 'status': 'starting'}
     try:
+        scope = Path('/sys/fs/cgroup') / Path('/proc/self/cgroup').read_text().split('0::', 1)[1].strip().lstrip('/')
+        limit = (scope / 'memory.max').read_text().strip()
+        if (scope / 'memory.swap.max').read_text().strip() != '0' or limit == 'max' or int(limit) > 55 * 1024**3:
+            raise RuntimeError('Run in a cgroup with MemorySwapMax=0 and MemoryMax <=55 GiB')
         if args.moe_cache_mib < 0:
             raise RuntimeError('Expert cache budget must be nonnegative')
         if baseline['system']['MemAvailable'] < args.min_available_gib:
@@ -302,11 +337,19 @@ def main():
             prompt, requested_prompt_tokens = make_context_prompt(base_url, args.prompt_tokens, args.request_timeout)
             result['requested_prompt_tokens'] = requested_prompt_tokens
             # One untimed request primes backend code paths and page mappings.
-            post_completion(base_url, 'Reply with the word ready.', 4, args.request_timeout)
+            if not args.suite:
+                post_completion(base_url, 'Reply with the word ready.', 4, args.request_timeout)
             metrics_before = get_metrics(base_url)
-            for index in range(args.repeats):
+            tasks = json.loads(Path(args.suite).read_text()) if args.suite else [{'id': 'merge', 'prompt': prompt}]
+            schedule = [(cycle, task) for cycle in range(args.repeats) for task in tasks]
+            for index, (cycle, task) in enumerate(schedule):
+                prompt = task['prompt']
+                if args.suite:
+                    prompt = post_json(base_url, '/apply-template', {'messages': [{'role': 'user', 'content': prompt}], 'add_generation_prompt': True}, args.request_timeout)['prompt']
                 run = post_completion(base_url, prompt, args.tokens, args.request_timeout)
-                run['repeat'] = index + 1
+                run['repeat'] = cycle + 1
+                run['task'] = task['id']
+                run['cache_phase'] = 'first-request-after-load' if index == 0 else ('sequential-distinct' if cycle == 0 else 'warm-cycle')
                 run['timings'] = run.get('timings', {})
                 result['runs'].append(run)
                 if free_memory_gib()['MemAvailable'] < args.min_available_gib:

@@ -1,0 +1,250 @@
+{
+  "started_utc": "2026-10-30T22:17:48.234433+00:00",
+  "baseline": {
+    "system_swap_used_kib": 3535312,
+    "system": {
+      "MemTotal": 62.69834899902344,
+      "MemAvailable": 55.700653076171875
+    },
+    "gpu": {
+      "used_mib": 1019,
+      "total_mib": 24576,
+      "free_mib": 23557,
+      "utilization_percent": 8
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/experiments/advanced-placement-moe/qwen-suite4k-cache0",
+    "moe_cache_mib": 0,
+    "ngl": 48,
+    "cpu_moe_layers": 48,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 512,
+    "ubatch": 128,
+    "ctx": 4096,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "no_repack": false,
+    "no_host": false,
+    "lazy_mode": "auto",
+    "numa": null,
+    "suite": "scripts/moe-evaluation-prompts.json",
+    "load_mode": "mmap",
+    "tokens": 512,
+    "prompt_tokens": 0,
+    "mtp_draft": null,
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "verbosity": 4,
+    "repeats": 2,
+    "startup_timeout": 500,
+    "request_timeout": 600,
+    "min_available_gib": 7.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "58637",
+    "--ctx-size",
+    "4096",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "48",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "512",
+    "--ubatch-size",
+    "128",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "mmap",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--verbosity",
+    "4",
+    "--lazy-mode",
+    "auto",
+    "--spec-type",
+    "none"
+  ],
+  "runs": [],
+  "status": "failed",
+  "error": "llama-server exited during load with status -15",
+  "server_exit_code": -15,
+  "resources": {
+    "peak_used_mib": 1277,
+    "peak_utilization_percent": 5,
+    "peak_process_rss_gib": 13.651176452636719,
+    "safety_stop": "Aggregate swap-out >32 MiB or memory PSI avg10 >10% with MemAvailable <10 GiB",
+    "peak_system_swap_growth_kib": 56140,
+    "peak_process_swap_kib": 0,
+    "peak_cgroup_swap_bytes": 0,
+    "cgroup_limits": {
+      "memory.max": "54760833024",
+      "memory.swap.max": "0"
+    },
+    "peak_process_cpu_percent": 62.0,
+    "peak_system_cpu_percent": 7.589006870705809,
+    "min_available_gib": 55.426475524902344,
+    "min_free_vram_mib": 23299,
+    "swap_in_pages": 84,
+    "swap_out_pages": 12596,
+    "samples": 6,
+    "memory_pressure": "some avg10=0.12 avg60=1.12 avg300=1.43 total=32428168\nfull avg10=0.12 avg60=1.11 avg300=1.41 total=32085392\n",
+    "cgroup_last_memory_stat": {
+      "anon": 163934208,
+      "file": 17170939904,
+      "file_mapped": 17153200128,
+      "file_dirty": 20480,
+      "unevictable": 0
+    },
+    "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 2\n"
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-30T22:17:50.258311+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.482521057128906
+      },
+      "gpu": {
+        "used_mib": 1277,
+        "total_mib": 24576,
+        "free_mib": 23299,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 2.0574913024902344,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:17:52.281404+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.448341369628906
+      },
+      "gpu": {
+        "used_mib": 1270,
+        "total_mib": 24576,
+        "free_mib": 23306,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 5.059055328369141,
+      "process_cpu_percent_of_one_core": 61.0,
+      "system_cpu_percent": 4.763387297633873,
+      "swap_page_deltas": {
+        "pswpin": 23,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:17:54.304034+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.428096771240234
+      },
+      "gpu": {
+        "used_mib": 1246,
+        "total_mib": 24576,
+        "free_mib": 23330,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 7.813232421875,
+      "process_cpu_percent_of_one_core": 52.5,
+      "system_cpu_percent": 4.4534412955465585,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:17:56.326386+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.43769836425781
+      },
+      "gpu": {
+        "used_mib": 1246,
+        "total_mib": 24576,
+        "free_mib": 23330,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 10.58132553100586,
+      "process_cpu_percent_of_one_core": 52.5,
+      "system_cpu_percent": 4.357298474945534,
+      "swap_page_deltas": {
+        "pswpin": 24,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:17:58.349246+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.43452453613281
+      },
+      "gpu": {
+        "used_mib": 1246,
+        "total_mib": 24576,
+        "free_mib": 23330,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 13.651176452636719,
+      "process_cpu_percent_of_one_core": 58.5,
+      "system_cpu_percent": 7.589006870705809,
+      "swap_page_deltas": {
+        "pswpin": 30,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:18:00.418490+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 55.426475524902344
+      },
+      "gpu": {
+        "used_mib": 1246,
+        "total_mib": 24576,
+        "free_mib": 23330,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 0,
+      "process_cpu_percent_of_one_core": 62.0,
+      "system_cpu_percent": 6.778115501519757,
+      "swap_page_deltas": {
+        "pswpin": 7,
+        "pswpout": 12596
+      }
+    }
+  ],
+  "ended_utc": "2026-10-30T22:18:02.404039+00:00",
+  "server_log": "docs/experiments/advanced-placement-moe/qwen-suite4k-cache0/20261030T221748Z-cache0-ngl48-ncmoe48-t8-tb8-b512-ub128.server.log"
+}
