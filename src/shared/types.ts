@@ -207,6 +207,8 @@ export interface ProjectReference {
 export type ProjectSuggestion = ProjectReference;
 
 export interface ChatMessage {
+  /** Renderer-only hint; never persisted. */
+  readyDisplayAt?: number;
   logicalTaskId?: string;
   /** Previous generation retained for immutable task history, excluded from provider context. */
   archivedAttempt?: boolean;
@@ -468,7 +470,7 @@ export type StreamEvent =
   | { type: 'model-state'; state: 'waiting' | 'streaming' }
   | { type: 'work-budget'; budget: WorkBudget }
   | { type: 'loop-state'; notice: LoopNotice | null; paused: boolean }
-  | { type: 'token'; content: string }
+  | { type: 'token'; content: string; presentation?: 'reviewed-ready' }
   | { type: 'thinking'; content: string; timelinePosition?: number }
   | { type: 'rich-artifact'; artifact: import('./rich-artifacts').RichArtifact }
   | { type: 'task-memory'; memory: NonNullable<AgentPlan['taskMemory']> }

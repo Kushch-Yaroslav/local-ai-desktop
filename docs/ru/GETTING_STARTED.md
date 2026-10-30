@@ -8,13 +8,13 @@
 
 Командам Agent в терминале нужны Bubblewrap, Linux user namespaces и защита AppArmor в режиме enforcing. Не отключайте AppArmor или ограничения user namespaces ради запуска терминала. Если нужная изоляция недоступна, выполнение команд будет заблокировано. Чат и поддерживаемые файловые функции при этом доступны.
 
-## Установка или обновление до v0.3.0
+## Установка или обновление до v0.3.1
 
-Скачайте `local-ai-desktop_0.3.0_amd64.deb` и `SHA256SUMS` со [страницы релиза v0.3.0 на GitHub](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0). В каталоге загрузки проверьте пакет и установите его:
+Скачайте `local-ai-desktop_0.3.1_amd64.deb` и `SHA256SUMS` со [страницы релиза v0.3.1 на GitHub](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1). В каталоге загрузки проверьте пакет и установите его:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./local-ai-desktop_0.3.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
 ```
 
 Эта команда с правами администратора устанавливает пакет и системные зависимости, настраивает управляемый helper Agent и профили AppArmor. Ознакомьтесь с пакетом и подтвердите системные изменения менеджеру пакетов. Само приложение Local AI Desktop нельзя запускать от `root`.

@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import {mkdtemp} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {build} from 'esbuild';import {createRequire} from 'node:module';
+const root=await mkdtemp(join(tmpdir(),'lad-display-store-'));const bundle=join(root,'store.cjs');await build({entryPoints:['src/renderer/store/app-store.ts'],bundle:true,platform:'node',format:'cjs',outfile:bundle});
+globalThis.window={requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{},localAi:{}};
+const {useAppStore:store}=createRequire(import.meta.url)(bundle);
+const setup=()=>store.setState({activeId:'c',generationId:'g',generationConversationId:'c',generationOwnerId:'c',isGenerating:true,messages:[{id:'stream-g',conversationId:'c',role:'assistant',content:'',createdAt:'now'}]});
+const send=e=>store.getState().handleStream({conversationId:'c',generationId:'g',...e});
+setup();const full='checked '.repeat(1000);send({type:'token',content:full,presentation:'reviewed-ready'});send({type:'done',assistant:{id:'saved',conversationId:'c',role:'assistant',content:full,createdAt:'now'}});assert.equal(store.getState().messages[0].content,full);assert(store.getState().messages[0].readyDisplayAt,'Completed saved message retains a renderer-only hint');assert.equal(store.getState().isGenerating,false);
+setup();send({type:'token',content:'partial'});send({type:'cancelled'});assert.equal(store.getState().messages[0].content,'partial');assert.equal(store.getState().isGenerating,false);
+setup();send({type:'token',content:'live'});send({type:'done',assistant:{id:'normal',conversationId:'c',role:'assistant',content:'live',createdAt:'now'}});assert.equal(store.getState().messages[0].readyDisplayAt,undefined,'Normal stream does not acquire a ready-text delay');
+console.log('PASS store: immediate complete persistence semantics, transient ready hint across done replacement, cancellation keeps text, ordinary stream untouched');

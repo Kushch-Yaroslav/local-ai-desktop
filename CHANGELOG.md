@@ -2,6 +2,14 @@
 
 User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides. This file summarizes changes; it does not replace the guides.
 
+## v0.3.1 — 2026-10-30 — Experimental Alpha (pre-release)
+
+- Fixed launcher cleanup ownership races and offline model loading/recovery; added serialized supervisor bootstrap and stale-state checks.
+- Improved large-document processing, saved notes, resume, quote provenance and incomplete-summary safeguards. Model hallucinations remain possible.
+- Fixed atomic appearance of reviewed document answers with explicit ready-text presentation; normal streaming and immediate persistence are retained.
+- Исправлены гонка launcher и загрузка из offline; улучшены чтение больших документов, передача заметок и восстановление. Проверенные готовые ответы отображаются постепенно; обычный streaming и сохранение не задерживаются. Полная достоверность пересказов не гарантируется.
+- [Release notes EN](docs/releases/v0.3.1.md) · [RU](docs/releases/v0.3.1.ru.md).
+
 ## v0.3.0 — 2026-10-29 — Experimental Alpha (pre-release)
 
 ### Added

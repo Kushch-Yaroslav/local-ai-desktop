@@ -198,7 +198,7 @@ export class WebChatService {
             yield {type:'tool',activity:{id:`${runId}:reading-review`,kind:'file_read',label:'Проверка пересказа по источнику',state:'running'}};
             const checked=await readonlyScope!.reviewReadingAnswer!(answerText,signal);
             if(!visibleStarted){trace('first_visible_content',{turn,reviewed:true});visibleStarted=true;}
-            yield {type:'token',content:checked};
+            yield {type:'token',content:checked,presentation:'reviewed-ready'};
             yield {type:'tool',activity:{id:`${runId}:reading-review`,kind:'file_read',label:'Проверка пересказа по источнику',state:'completed'}};
           }
           if (response.inference) yield { type: 'diagnostics', diagnostics: { ...response.inference,...(continuations?{evalCount:outputTokens,...(evalNanos?{evalDuration:evalNanos,tokensPerSecond:outputTokens/(evalNanos/1e9)}:{})}:{}), agentStepCount: toolActions, finishReason: response.finish_reason ?? 'stop' } };

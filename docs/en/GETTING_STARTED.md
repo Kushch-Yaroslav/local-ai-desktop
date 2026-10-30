@@ -4,17 +4,17 @@
 
 ## Before you begin
 
-The v0.3.0 Experimental Alpha package targets Linux x86_64. Ubuntu 24.04 is the primary tested environment. The amd64 Debian package requires Bubblewrap 0.9.0 or later and AppArmor 4.0.0 or later; `apt` installs these system dependencies when compatible versions are available. The package includes the desktop app and Agent runtime, but not `llama.cpp` or model weights. Install a compatible `llama-server` and obtain a GGUF model separately. Other Linux distributions, ARM devices, GPUs, drivers and desktop environments need their own validation.
+The v0.3.1 Experimental Alpha package targets Linux x86_64. Ubuntu 24.04 is the primary tested environment. The amd64 Debian package requires Bubblewrap 0.9.0 or later and AppArmor 4.0.0 or later; `apt` installs these system dependencies when compatible versions are available. The package includes the desktop app and Agent runtime, but not `llama.cpp` or model weights. Install a compatible `llama-server` and obtain a GGUF model separately. Other Linux distributions, ARM devices, GPUs, drivers and desktop environments need their own validation.
 
 Agent terminal commands require Bubblewrap, Linux user namespaces and AppArmor enforcement. Do not disable AppArmor or user-namespace restrictions to make the terminal start. If required isolation is unavailable, terminal commands remain blocked. You can still use chat and supported file features.
 
-## Install or update to v0.3.0
+## Install or update to v0.3.1
 
-Download `local-ai-desktop_0.3.0_amd64.deb` and `SHA256SUMS` from the [v0.3.0 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0). In the download directory, verify the package and install it:
+Download `local-ai-desktop_0.3.1_amd64.deb` and `SHA256SUMS` from the [v0.3.1 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1). In the download directory, verify the package and install it:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./local-ai-desktop_0.3.0_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
 ```
 
 This privileged command installs the package and its system dependencies and configures the managed Agent helper and AppArmor profiles. Review the package source and allow the package manager to make these system changes. Never run Local AI Desktop itself as root.
