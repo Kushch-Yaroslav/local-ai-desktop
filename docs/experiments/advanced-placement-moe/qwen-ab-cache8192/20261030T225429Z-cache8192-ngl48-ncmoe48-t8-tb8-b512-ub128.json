@@ -1,0 +1,3997 @@
+{
+  "started_utc": "2026-10-30T22:54:29.332700+00:00",
+  "baseline": {
+    "system_swap_used_kib": 3491744,
+    "system": {
+      "MemTotal": 62.69834899902344,
+      "MemAvailable": 54.93966293334961
+    },
+    "gpu": {
+      "used_mib": 949,
+      "total_mib": 24576,
+      "free_mib": 23627,
+      "utilization_percent": 42
+    }
+  },
+  "args": {
+    "server": "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "outdir": "docs/experiments/advanced-placement-moe/qwen-ab-cache8192",
+    "moe_cache_mib": 8192,
+    "ngl": 48,
+    "cpu_moe_layers": 48,
+    "threads": 8,
+    "threads_batch": 8,
+    "batch": 512,
+    "ubatch": 128,
+    "ctx": 4096,
+    "kv_k": "q8_0",
+    "kv_v": "q8_0",
+    "flash_attn": "on",
+    "no_repack": true,
+    "no_host": true,
+    "lazy_mode": "off",
+    "numa": null,
+    "suite": "scripts/moe-ab-prompts.json",
+    "alternate_order": true,
+    "require_swappiness_zero": true,
+    "load_mode": "dio",
+    "tokens": 768,
+    "prompt_tokens": 0,
+    "mtp_draft": null,
+    "mtp_nmax": 2,
+    "draft_ngl": "auto",
+    "verbosity": 4,
+    "repeats": 2,
+    "startup_timeout": 80,
+    "request_timeout": 60,
+    "min_available_gib": 7.0,
+    "min_free_vram_mib": 2048
+  },
+  "command": [
+    "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+    "--model",
+    "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "57471",
+    "--ctx-size",
+    "4096",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--kv-offload",
+    "--n-gpu-layers",
+    "48",
+    "--n-cpu-moe",
+    "48",
+    "--threads",
+    "8",
+    "--threads-batch",
+    "8",
+    "--batch-size",
+    "512",
+    "--ubatch-size",
+    "128",
+    "--flash-attn",
+    "on",
+    "--load-mode",
+    "dio",
+    "--fit",
+    "off",
+    "--parallel",
+    "1",
+    "--no-webui",
+    "--metrics",
+    "--verbosity",
+    "4",
+    "--lazy-mode",
+    "off",
+    "--no-repack",
+    "--no-host",
+    "--moe-cache-mib",
+    "8192",
+    "--spec-type",
+    "none"
+  ],
+  "runs": [
+    {
+      "index": 0,
+      "content": "```ts\nfunction stableUnique<T>(values: readonly T[], key: (v: T) => string): T[] {\n  const seen = new Set<string>();\n  const result: T[] = [];\n  \n  for (const value of values) {\n    const k = key(value);\n    if (!seen.has(k)) {\n      seen.add(k);\n      result.push(value);\n    }\n  }\n  \n  return result;\n}\n\n// Assertions\nconst arr1 = [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }, { id: 1, name: 'Alicia' }];\nconst result1 = stableUnique(arr1, v => v.id.toString());\nconsole.assert(result1.length === 2, 'Should keep first two unique items by id');\nconsole.assert(result1[0].name === 'Alice' && result1[1].name === 'Bob', 'Should preserve first occurrence order');\n\nconst arr2 = ['apple', 'banana', 'apricot', 'blueberry'];\nconst result2 = stableUnique(arr2, s => s[0]);\nconsole.assert(result2.length === 2, 'Should keep first two unique items by first letter');\nconsole.assert(result2[0] === 'apple' && result2[1] === 'banana', 'Should preserve first occurrence order by first letter');\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 283,
+      "tokens_evaluated": 41,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite only TypeScript code for stableUnique<T>(values: readonly T[], key:(v:T)=>string): T[]. Preserve first occurrence and input. Include two assertions.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 323,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 41,
+        "prompt_ms": 1146.873,
+        "prompt_per_token_ms": 27.97251219512195,
+        "prompt_per_second": 35.749381143334965,
+        "predicted_n": 283,
+        "predicted_ms": 8002.054,
+        "predicted_per_token_ms": 28.376078014184397,
+        "predicted_per_second": 35.24095188560337
+      },
+      "_wall_seconds": 9.149795372999506,
+      "_ttft_seconds": 1.147626122001384,
+      "repeat": 1,
+      "task": "typescript",
+      "formatted_prompt_sha256": "0958c30106f7942fa03f9cc68598945d5f5a56b5d8e7f371edf51b6d83ac328c",
+      "cache_phase": "first-request-after-load"
+    },
+    {
+      "index": 0,
+      "content": "```tsx\nimport React, { useState } from 'react';\n\ninterface CounterProps {\n  initial?: number;\n  onChange?: (value: number) => void;\n}\n\nexport const Counter: React.FC<CounterProps> = ({ initial = 0, onChange }) => {\n  const [count, setCount] = useState(initial);\n\n  const handleIncrement = () => {\n    if (count < 10) {\n      const newValue = count + 1;\n      setCount(newValue);\n      onChange?.(newValue);\n    }\n  };\n\n  const handleDecrement = () => {\n    if (count > 0) {\n      const newValue = count - 1;\n      setCount(newValue);\n      onChange?.(newValue);\n    }\n  };\n\n  return (\n    <div className=\"flex items-center gap-2\">\n      <button\n        onClick={handleDecrement}\n        disabled={count === 0}\n        className=\"px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300\"\n      >\n        -\n      </button>\n      <span className=\"w-8 text-center font-medium\">{count}</span>\n      <button\n        onClick={handleIncrement}\n        disabled={count === 10}\n        className=\"px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300\"\n      >\n        +\n      </button>\n    </div>\n  );\n};\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 318,
+      "tokens_evaluated": 38,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite a concise accessible React TypeScript Counter component with decrement/increment buttons, bounded from 0 to 10. Include disabled states. Code only.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 355,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 38,
+        "prompt_ms": 933.321,
+        "prompt_per_token_ms": 24.561078947368422,
+        "prompt_per_second": 40.71482373159931,
+        "predicted_n": 318,
+        "predicted_ms": 7817.985,
+        "predicted_per_token_ms": 24.662413249211355,
+        "predicted_per_second": 40.54753238846071
+      },
+      "_wall_seconds": 8.85181260399986,
+      "_ttft_seconds": 1.0336892269988311,
+      "repeat": 1,
+      "task": "react",
+      "formatted_prompt_sha256": "b58c216f196cbf2170dcd3166e366efa42b57826925aa7dad36d67bd53491142",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "```python\ndef lower_bound(a, x):\n    # Assert input is a list or sequence\n    assert hasattr(a, '__getitem__'), \"Input 'a' must be a sequence (e.g., list, tuple)\"\n    \n    # Handle empty input\n    if len(a) == 0:\n        return 0\n    \n    # Assert elements are comparable (basic check)\n    # Note: We don't assert sortedness here as that's the caller's responsibility,\n    # but we do assert no duplicates if the caller wants that (optional)\n    # For this implementation, we'll just ensure the list is sorted in non-decreasing order\n    # by checking adjacent elements (optional assertion)\n    # Uncomment the next lines if you want to enforce sortedness:\n    # for i in range(len(a) - 1):\n    #     assert a[i] <= a[i+1], \"Input list must be sorted in non-decreasing order\"\n    \n    left, right = 0, len(a)\n    \n    while left < right:\n        mid = (left + right) // 2\n        if a[mid] < x:\n            left = mid + 1\n        else:\n            right = mid\n    \n    return left\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 255,
+      "tokens_evaluated": 41,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite Python lower_bound(a,x) using binary search. Return first index with value >=x or len(a). Include assertions for duplicates and empty input. Code only.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 295,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 41,
+        "prompt_ms": 1030.812,
+        "prompt_per_token_ms": 25.14175609756097,
+        "prompt_per_second": 39.77446905934351,
+        "predicted_n": 255,
+        "predicted_ms": 6694.601,
+        "predicted_per_token_ms": 26.3566968503937,
+        "predicted_per_second": 37.94102142905903
+      },
+      "_wall_seconds": 7.828153854999982,
+      "_ttft_seconds": 1.1334230890024628,
+      "repeat": 1,
+      "task": "algorithm",
+      "formatted_prompt_sha256": "910bfb92de72cd7c4ff31c2ddc42897f217d88c1483f7efb85a651dd90257f12",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "**Bug:** `forEach` doesn\u2019t wait for async callbacks, so `out` is returned *before* any fetches complete (it\u2019s usually empty). Also, `fetch` returns a `Response`, not the data\u2014likely you want `.json()` or `.text()`.\n\n**Concise fix (preserving order):**\n```js\nasync function f(urls) {\n  return Promise.all(urls.map(async u => {\n    const res = await fetch(u);\n    return res.json(); // or res.text()\n  }));\n}\n```\n\n*Why this works:* `Promise.all` with `map` runs all fetches in parallel, waits for all to finish, and preserves the order of `urls` in the result array.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 150,
+      "tokens_evaluated": 46,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReview this JS: async function f(urls){const out=[]; urls.forEach(async u=>out.push(await fetch(u))); return out;} Identify the bug and provide a concise fix preserving order.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 195,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 46,
+        "prompt_ms": 1033.119,
+        "prompt_per_token_ms": 22.459108695652173,
+        "prompt_per_second": 44.5253644546272,
+        "predicted_n": 150,
+        "predicted_ms": 4135.897,
+        "predicted_per_token_ms": 27.75769798657718,
+        "predicted_per_second": 36.02604223461078
+      },
+      "_wall_seconds": 5.271077767996758,
+      "_ttft_seconds": 1.1350720829977945,
+      "repeat": 1,
+      "task": "review",
+      "formatted_prompt_sha256": "2c890d7be37c5b93798e1a35abc37d3c076deeaff8c5b48cd6489bdfa9c5a157",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "Dijkstra\u2019s algorithm fails with negative edge weights because it greedily selects the node with the smallest *current* distance estimate and assumes this is the final shortest path\u2014relying on the fact that adding non-negative edges can\u2019t reduce future distances. With negative edges, a longer path (in terms of hops) might become shorter overall, but Dijkstra won\u2019t revisit already finalized nodes.\n\n**Example (3 nodes):**  \nNodes: *A*, *B*, *C*.  \nEdges: *A*\u2192*B* (weight 2), *A*\u2192*C* (weight 4), *B*\u2192*C* (weight \u22123).  \nShortest path from *A* to *C* is *A*\u2192*B*\u2192*C* with total weight 2 + (\u22123) = \u22121.  \n\nDijkstra\u2019s steps:  \n1. Start at *A*: dist[*B*] = 2, dist[*C*] = 4.  \n2. Pick *B* (smallest tentative dist = 2), finalize it.  \n3. Relax *B*\u2192*C*: new dist[*C*] = 2 + (\u22123) = \u22121.  \n4. Next, pick *C* (dist = \u22121), finalize it.  \n5. Done. Result: dist[*C*] = \u22121 \u2014 *correct in this case*, but...  \n\nIf we change *A*\u2192*C* to weight 1:  \n- Dijkstra picks *C* first (dist = 1), finalizes it *before* considering *B*, missing the \u22122 path *A*\u2192*B*\u2192*C*.  \n\n**Alternative:** Bellman\u2013Ford algorithm, which relaxes all edges *V*\u22121 times and detects negative cycles.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 379,
+      "tokens_evaluated": 40,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nExplain why Dijkstra fails with negative edge weights. Give a concrete 3-node example and name an appropriate alternative. Limit to 180 words.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 418,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 40,
+        "prompt_ms": 910.011,
+        "prompt_per_token_ms": 22.750275,
+        "prompt_per_second": 43.95551262567156,
+        "predicted_n": 379,
+        "predicted_ms": 9298.704,
+        "predicted_per_token_ms": 24.59974603174603,
+        "predicted_per_second": 40.65082617964826
+      },
+      "_wall_seconds": 10.311070992000168,
+      "_ttft_seconds": 1.01222219400006,
+      "repeat": 1,
+      "task": "explain",
+      "formatted_prompt_sha256": "71dc42a9129c121debca0e5b5495142b78e608ae64331f124dcc333c84e8a399",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "1. **\u041a\u043e\u0440\u043e\u0442\u043a\u0430\u044f \u043f\u0440\u043e\u0433\u0443\u043b\u043a\u0430** \u2014 10\u201315 \u043c\u0438\u043d\u0443\u0442 \u0445\u043e\u0434\u044c\u0431\u044b \u043d\u0430 \u0441\u0432\u0435\u0436\u0435\u043c \u0432\u043e\u0437\u0434\u0443\u0445\u0435 \u043f\u043e\u043c\u043e\u0433\u0430\u044e\u0442 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u0438 \u00ab\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c\u0441\u044f\u00bb \u043f\u0435\u0440\u0435\u0434 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0435\u043d\u0438\u0435\u043c \u0434\u043e\u043c\u043e\u0439.  \n2. **\u0427\u0430\u0448\u043a\u0430 \u0430\u0440\u043e\u043c\u0430\u0442\u043d\u043e\u0433\u043e \u0447\u0430\u044f \u0438\u043b\u0438 \u043a\u043e\u0444\u0435** \u2014 \u043f\u0440\u0438\u0433\u043e\u0442\u043e\u0432\u044c\u0442\u0435 \u043d\u0430\u043f\u0438\u0442\u043e\u043a \u0441\u043e\u0437\u043d\u0430\u0442\u0435\u043b\u044c\u043d\u043e: \u0437\u0430\u0432\u0430\u0440\u0438\u0442\u0435, \u043f\u043e\u043d\u044e\u0445\u0430\u0439\u0442\u0435 \u0430\u0440\u043e\u043c\u0430\u0442, \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043d\u0430 \u0432\u043a\u0443\u0441, \u043e\u0442\u0434\u043e\u0445\u043d\u0438\u0442\u0435 \u0432 \u0442\u0438\u0448\u0438\u043d\u0435 \u0438\u043b\u0438 \u0441 \u043b\u044e\u0431\u0438\u043c\u043e\u0439 \u043c\u0443\u0437\u044b\u043a\u043e\u0439.  \n3. **\u041c\u0438\u043d\u0438-\u0440\u0438\u0442\u0443\u0430\u043b \u00ab\u0432\u044b\u0445\u043e\u0434\u0430 \u0438\u0437 \u0440\u0430\u0431\u043e\u0442\u044b\u00bb** \u2014 \u043d\u0430\u0434\u0435\u043d\u044c\u0442\u0435 \u0434\u043e\u043c\u0430\u0448\u043d\u044e\u044e \u043e\u0434\u0435\u0436\u0434\u0443, \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u043b\u044e\u0431\u0438\u043c\u0443\u044e \u043c\u0435\u043b\u043e\u0434\u0438\u044e, \u043e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043e\u043a\u043d\u043e \u0438\u043b\u0438 \u0437\u0430\u0436\u0433\u0438\u0442\u0435 \u0441\u0432\u0435\u0447\u0443. \u042d\u0442\u043e \u0441\u043e\u0437\u0434\u0430\u0451\u0442 \u0447\u0451\u0442\u043a\u0438\u0439 \u043f\u0441\u0438\u0445\u043e\u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0431\u0430\u0440\u044c\u0435\u0440 \u043c\u0435\u0436\u0434\u0443 \u0440\u0430\u0431\u043e\u0447\u0438\u043c \u0438 \u043b\u0438\u0447\u043d\u044b\u043c \u0432\u0440\u0435\u043c\u0435\u043d\u0435\u043c.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 193,
+      "tokens_evaluated": 45,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\n\u041f\u043e-\u0440\u0443\u0441\u0441\u043a\u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438 \u0442\u0440\u0438 \u043f\u0440\u0430\u043a\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0441\u043f\u043e\u0441\u043e\u0431\u0430 \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u043e\u0432\u0430\u0442\u044c \u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u043e\u0442\u0434\u044b\u0445 \u043f\u043e\u0441\u043b\u0435 \u0440\u0430\u0431\u043e\u0442\u044b. \u0414\u043e 120 \u0441\u043b\u043e\u0432, \u0431\u0435\u0437 \u043c\u0435\u0434\u0438\u0446\u0438\u043d\u0441\u043a\u0438\u0445 \u0443\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0439.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 237,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 45,
+        "prompt_ms": 856.38,
+        "prompt_per_token_ms": 19.030666666666665,
+        "prompt_per_second": 52.546766622293845,
+        "predicted_n": 193,
+        "predicted_ms": 3060.676,
+        "predicted_per_token_ms": 15.941020833333333,
+        "predicted_per_second": 62.73123976533289
+      },
+      "_wall_seconds": 4.021980686000461,
+      "_ttft_seconds": 0.9611572729991167,
+      "repeat": 1,
+      "task": "conversation",
+      "formatted_prompt_sha256": "9bbdf86db1beac2904caedcb2ab132e6c84656e5b80300db57adfd9e99188fd4",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "{\"owner\":\"Nadia\",\"date\":\"2027-03-14\",\"budget\":\"7300 EUR\"}",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 28,
+      "tokens_evaluated": 990,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nExtract ONLY JSON {\"owner\":...,\"date\":...,\"budget\":...} for project ORION. Other projects are distractors.\nProject TEST0: owner Sam; date 2030-01-01; budget 99.\nProject TEST1: owner Sam; date 2030-01-01; budget 99.\nProject TEST2: owner Sam; date 2030-01-01; budget 99.\nProject TEST3: owner Sam; date 2030-01-01; budget 99.\nProject TEST4: owner Sam; date 2030-01-01; budget 99.\nProject TEST5: owner Sam; date 2030-01-01; budget 99.\nProject TEST6: owner Sam; date 2030-01-01; budget 99.\nProject TEST7: owner Sam; date 2030-01-01; budget 99.\nProject TEST8: owner Sam; date 2030-01-01; budget 99.\nProject TEST9: owner Sam; date 2030-01-01; budget 99.\nProject TEST10: owner Sam; date 2030-01-01; budget 99.\nProject TEST11: owner Sam; date 2030-01-01; budget 99.\nProject TEST12: owner Sam; date 2030-01-01; budget 99.\nProject TEST13: owner Sam; date 2030-01-01; budget 99.\nProject TEST14: owner Sam; date 2030-01-01; budget 99.\nProject TEST15: owner Sam; date 2030-01-01; budget 99.\nProject TEST16: owner Sam; date 2030-01-01; budget 99.\nProject TEST17: owner Sam; date 2030-01-01; budget 99.\nProject TEST18: owner Sam; date 2030-01-01; budget 99.\nProject TEST19: owner Sam; date 2030-01-01; budget 99.\nProject TEST20: owner Sam; date 2030-01-01; budget 99.\nProject TEST21: owner Sam; date 2030-01-01; budget 99.\nProject TEST22: owner Sam; date 2030-01-01; budget 99.\nProject TEST23: owner Sam; date 2030-01-01; budget 99.\nProject TEST24: owner Sam; date 2030-01-01; budget 99.\nProject TEST25: owner Sam; date 2030-01-01; budget 99.\nProject TEST26: owner Sam; date 2030-01-01; budget 99.\nProject TEST27: owner Sam; date 2030-01-01; budget 99.\nProject TEST28: owner Sam; date 2030-01-01; budget 99.\nProject TEST29: owner Sam; date 2030-01-01; budget 99.\nProject TEST30: owner Sam; date 2030-01-01; budget 99.\nProject TEST31: owner Sam; date 2030-01-01; budget 99.\nProject TEST32: owner Sam; date 2030-01-01; budget 99.\nProject TEST33: owner Sam; date 2030-01-01; budget 99.\nProject TEST34: owner Sam; date 2030-01-01; budget 99.\nProject ORION: owner Nadia; date 2027-03-14; budget 7300 EUR.\nProject OTHER: owner Leo; date 2028-04-11; budget 400 EUR.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 1017,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 990,
+        "prompt_ms": 10050.225,
+        "prompt_per_token_ms": 10.151742424242425,
+        "prompt_per_second": 98.50525734498481,
+        "predicted_n": 28,
+        "predicted_ms": 910.229,
+        "predicted_per_token_ms": 33.712185185185184,
+        "predicted_per_second": 29.66286505923235
+      },
+      "_wall_seconds": 11.064396658999613,
+      "_ttft_seconds": 10.154072577999614,
+      "repeat": 1,
+      "task": "facts",
+      "formatted_prompt_sha256": "a91b7e0d29029bdd060173b76f37ff033db9ff55ac7b82a1539a6588fa75f8d3",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "```typescript\nexport function rotateRight<T>(a: readonly T[], k: number): T[] {\n  const n = a.length;\n  \n  // Handle empty array\n  if (n === 0) {\n    return [];\n  }\n  \n  // Normalize k to handle negative and large values\n  // For negative k, rotate left: equivalent to rotating right by (n - |k| mod n)\n  // For positive k, rotate right normally\n  const normalizedK = ((k % n) + n) % n;\n  \n  // If normalizedK is 0, return a copy of the original array\n  if (normalizedK === 0) {\n    return [...a];\n  }\n  \n  // Rotate right by normalizedK: take last normalizedK elements and put them in front\n  const rightPart = a.slice(n - normalizedK);\n  const leftPart = a.slice(0, n - normalizedK);\n  \n  return [...rightPart, ...leftPart];\n}\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 206,
+      "tokens_evaluated": 64,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReturn TypeScript code only. Export function rotateRight<T>(a: readonly T[], k: number): T[]. Rotate right by k; negative k rotates left. Do not mutate input. Empty input returns []. k is an integer. Include assertions for empty, negative and large k.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 269,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 1216.476,
+        "prompt_per_token_ms": 19.0074375,
+        "prompt_per_second": 52.610984515929616,
+        "predicted_n": 206,
+        "predicted_ms": 5751.915,
+        "predicted_per_token_ms": 28.058121951219512,
+        "predicted_per_second": 35.64030414218569
+      },
+      "_wall_seconds": 7.126226398002473,
+      "_ttft_seconds": 1.3742242049993365,
+      "repeat": 1,
+      "task": "rotate_ts",
+      "formatted_prompt_sha256": "396e54ac3dc38bdb390736a0bcc567e18d546320107fff7020964620d47a1aae",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "```typescript\nexport function lowerBound(a: readonly number[], x: number): number {\n  // Handle empty array case\n  if (a.length === 0) {\n    return 0;\n  }\n\n  let left = 0;\n  let right = a.length;\n\n  while (left < right) {\n    const mid = Math.floor((left + right) / 2);\n    \n    // Use strict inequality to find first element >= x\n    if (a[mid] < x) {\n      left = mid + 1;\n    } else {\n      right = mid;\n    }\n  }\n\n  // Post-condition: left is the first index where a[left] >= x, or a.length if no such index\n  return left;\n}\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 155,
+      "tokens_evaluated": 60,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReturn TypeScript code only. Export function lowerBound(a: readonly number[], x:number):number returning first index with a[i]>=x or length. Input sorted ascending, duplicates allowed. O(log n), do not mutate. Include assertions for duplicates and empty input.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 214,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 60,
+        "prompt_ms": 1161.449,
+        "prompt_per_token_ms": 19.357483333333334,
+        "prompt_per_second": 51.65960795523523,
+        "predicted_n": 155,
+        "predicted_ms": 4228.964,
+        "predicted_per_token_ms": 27.460805194805193,
+        "predicted_per_second": 36.415538179090674
+      },
+      "_wall_seconds": 5.4921169849985745,
+      "_ttft_seconds": 1.26301974099988,
+      "repeat": 1,
+      "task": "lower_bound_ts",
+      "formatted_prompt_sha256": "566a312b63c5609ec2739ed501c02183b1beca7db5345245d501890a047fdc45",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "{\"ticket\":\"R-17\",\"owner\":\"Lina\",\"count\":0,\"enabled\":false}",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 22,
+      "tokens_evaluated": 90,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nOutput ONLY a JSON object with keys ticket, owner, count and enabled. Select the FINAL record of ticket R-17, preserving types. Records in order: R-17 owner=\"Ava\" count=9 enabled=true; R-18 owner=\"Max\" count=900 enabled=true; R-17 owner=\"Lina\" count=0 enabled=false. No explanation.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 111,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 90,
+        "prompt_ms": 1471.876,
+        "prompt_per_token_ms": 16.354177777777778,
+        "prompt_per_second": 61.14645527204737,
+        "predicted_n": 22,
+        "predicted_ms": 749.022,
+        "predicted_per_token_ms": 35.66771428571429,
+        "predicted_per_second": 28.03655967381465
+      },
+      "_wall_seconds": 2.323134862999723,
+      "_ttft_seconds": 1.574022860997502,
+      "repeat": 1,
+      "task": "facts_exact",
+      "formatted_prompt_sha256": "3037d5d52a1290f5045a9f269c6512f2f6922a6d5336f1bf55da04413a7c621d",
+      "cache_phase": "sequential-distinct"
+    },
+    {
+      "index": 0,
+      "content": "{\"ticket\":\"R-17\",\"owner\":\"Lina\",\"count\":0,\"enabled\":false}",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 22,
+      "tokens_evaluated": 90,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nOutput ONLY a JSON object with keys ticket, owner, count and enabled. Select the FINAL record of ticket R-17, preserving types. Records in order: R-17 owner=\"Ava\" count=9 enabled=true; R-18 owner=\"Max\" count=900 enabled=true; R-17 owner=\"Lina\" count=0 enabled=false. No explanation.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 111,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 90,
+        "prompt_ms": 1252.574,
+        "prompt_per_token_ms": 13.91748888888889,
+        "prompt_per_second": 71.85204227454824,
+        "predicted_n": 22,
+        "predicted_ms": 504.635,
+        "predicted_per_token_ms": 24.030238095238094,
+        "predicted_per_second": 41.614236031983516
+      },
+      "_wall_seconds": 1.7580685690008977,
+      "_ttft_seconds": 1.2533128469985968,
+      "repeat": 2,
+      "task": "facts_exact",
+      "formatted_prompt_sha256": "3037d5d52a1290f5045a9f269c6512f2f6922a6d5336f1bf55da04413a7c621d",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "```typescript\nexport function lowerBound(a: readonly number[], x: number): number {\n  // Handle empty array case\n  if (a.length === 0) {\n    return 0;\n  }\n\n  let left = 0;\n  let right = a.length;\n\n  while (left < right) {\n    const mid = Math.floor((left + right) / 2);\n    \n    // Use strict inequality to find first element >= x\n    if (a[mid] < x) {\n      left = mid + 1;\n    } else {\n      right = mid;\n    }\n  }\n\n  // Post-condition: left is the first index where a[left] >= x, or a.length if no such index\n  return left;\n}\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 155,
+      "tokens_evaluated": 60,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReturn TypeScript code only. Export function lowerBound(a: readonly number[], x:number):number returning first index with a[i]>=x or length. Input sorted ascending, duplicates allowed. O(log n), do not mutate. Include assertions for duplicates and empty input.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 214,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 60,
+        "prompt_ms": 1162.509,
+        "prompt_per_token_ms": 19.37515,
+        "prompt_per_second": 51.61250364513307,
+        "predicted_n": 155,
+        "predicted_ms": 4275.111,
+        "predicted_per_token_ms": 27.760461038961036,
+        "predicted_per_second": 36.022456492942524
+      },
+      "_wall_seconds": 5.555834334001702,
+      "_ttft_seconds": 1.2806051070001558,
+      "repeat": 2,
+      "task": "lower_bound_ts",
+      "formatted_prompt_sha256": "566a312b63c5609ec2739ed501c02183b1beca7db5345245d501890a047fdc45",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "```typescript\nexport function rotateRight<T>(a: readonly T[], k: number): T[] {\n  const n = a.length;\n  \n  // Handle empty array\n  if (n === 0) {\n    return [];\n  }\n  \n  // Normalize k to handle negative and large values\n  // For negative k, rotate left: equivalent to rotating right by (n - |k| mod n)\n  // For positive k, rotate right normally\n  const normalizedK = ((k % n) + n) % n;\n  \n  // If normalizedK is 0, return a copy of the original array\n  if (normalizedK === 0) {\n    return [...a];\n  }\n  \n  // Rotate right by normalizedK: take last normalizedK elements and put them in front\n  const rightPart = a.slice(n - normalizedK);\n  const leftPart = a.slice(0, n - normalizedK);\n  \n  return [...rightPart, ...leftPart];\n}\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 206,
+      "tokens_evaluated": 64,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReturn TypeScript code only. Export function rotateRight<T>(a: readonly T[], k: number): T[]. Rotate right by k; negative k rotates left. Do not mutate input. Empty input returns []. k is an integer. Include assertions for empty, negative and large k.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 269,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 64,
+        "prompt_ms": 1107.531,
+        "prompt_per_token_ms": 17.305171875,
+        "prompt_per_second": 57.7861928921177,
+        "predicted_n": 206,
+        "predicted_ms": 5700.782,
+        "predicted_per_token_ms": 27.80869268292683,
+        "predicted_per_second": 35.95997882395783
+      },
+      "_wall_seconds": 6.911487877998297,
+      "_ttft_seconds": 1.2105548139988969,
+      "repeat": 2,
+      "task": "rotate_ts",
+      "formatted_prompt_sha256": "396e54ac3dc38bdb390736a0bcc567e18d546320107fff7020964620d47a1aae",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "{\"owner\":\"Nadia\",\"date\":\"2027-03-14\",\"budget\":\"7300 EUR\"}",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 28,
+      "tokens_evaluated": 990,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nExtract ONLY JSON {\"owner\":...,\"date\":...,\"budget\":...} for project ORION. Other projects are distractors.\nProject TEST0: owner Sam; date 2030-01-01; budget 99.\nProject TEST1: owner Sam; date 2030-01-01; budget 99.\nProject TEST2: owner Sam; date 2030-01-01; budget 99.\nProject TEST3: owner Sam; date 2030-01-01; budget 99.\nProject TEST4: owner Sam; date 2030-01-01; budget 99.\nProject TEST5: owner Sam; date 2030-01-01; budget 99.\nProject TEST6: owner Sam; date 2030-01-01; budget 99.\nProject TEST7: owner Sam; date 2030-01-01; budget 99.\nProject TEST8: owner Sam; date 2030-01-01; budget 99.\nProject TEST9: owner Sam; date 2030-01-01; budget 99.\nProject TEST10: owner Sam; date 2030-01-01; budget 99.\nProject TEST11: owner Sam; date 2030-01-01; budget 99.\nProject TEST12: owner Sam; date 2030-01-01; budget 99.\nProject TEST13: owner Sam; date 2030-01-01; budget 99.\nProject TEST14: owner Sam; date 2030-01-01; budget 99.\nProject TEST15: owner Sam; date 2030-01-01; budget 99.\nProject TEST16: owner Sam; date 2030-01-01; budget 99.\nProject TEST17: owner Sam; date 2030-01-01; budget 99.\nProject TEST18: owner Sam; date 2030-01-01; budget 99.\nProject TEST19: owner Sam; date 2030-01-01; budget 99.\nProject TEST20: owner Sam; date 2030-01-01; budget 99.\nProject TEST21: owner Sam; date 2030-01-01; budget 99.\nProject TEST22: owner Sam; date 2030-01-01; budget 99.\nProject TEST23: owner Sam; date 2030-01-01; budget 99.\nProject TEST24: owner Sam; date 2030-01-01; budget 99.\nProject TEST25: owner Sam; date 2030-01-01; budget 99.\nProject TEST26: owner Sam; date 2030-01-01; budget 99.\nProject TEST27: owner Sam; date 2030-01-01; budget 99.\nProject TEST28: owner Sam; date 2030-01-01; budget 99.\nProject TEST29: owner Sam; date 2030-01-01; budget 99.\nProject TEST30: owner Sam; date 2030-01-01; budget 99.\nProject TEST31: owner Sam; date 2030-01-01; budget 99.\nProject TEST32: owner Sam; date 2030-01-01; budget 99.\nProject TEST33: owner Sam; date 2030-01-01; budget 99.\nProject TEST34: owner Sam; date 2030-01-01; budget 99.\nProject ORION: owner Nadia; date 2027-03-14; budget 7300 EUR.\nProject OTHER: owner Leo; date 2028-04-11; budget 400 EUR.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 1017,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 990,
+        "prompt_ms": 9768.886,
+        "prompt_per_token_ms": 9.867561616161616,
+        "prompt_per_second": 101.34215917761759,
+        "predicted_n": 28,
+        "predicted_ms": 849.741,
+        "predicted_per_token_ms": 31.471888888888888,
+        "predicted_per_second": 31.774387725200977
+      },
+      "_wall_seconds": 10.638993112999742,
+      "_ttft_seconds": 9.789161616001365,
+      "repeat": 2,
+      "task": "facts",
+      "formatted_prompt_sha256": "a91b7e0d29029bdd060173b76f37ff033db9ff55ac7b82a1539a6588fa75f8d3",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "1. **\u041a\u043e\u0440\u043e\u0442\u043a\u0430\u044f \u043f\u0440\u043e\u0433\u0443\u043b\u043a\u0430** \u2014 10\u201315 \u043c\u0438\u043d\u0443\u0442 \u0445\u043e\u0434\u044c\u0431\u044b \u043d\u0430 \u0441\u0432\u0435\u0436\u0435\u043c \u0432\u043e\u0437\u0434\u0443\u0445\u0435 \u043f\u043e\u043c\u043e\u0433\u0430\u044e\u0442 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u0438 \u00ab\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c\u0441\u044f\u00bb \u043f\u0435\u0440\u0435\u0434 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0435\u043d\u0438\u0435\u043c \u0434\u043e\u043c\u043e\u0439.  \n2. **\u0427\u0430\u0448\u043a\u0430 \u0430\u0440\u043e\u043c\u0430\u0442\u043d\u043e\u0433\u043e \u0447\u0430\u044f \u0438\u043b\u0438 \u043a\u043e\u0444\u0435** \u2014 \u043f\u0440\u0438\u0433\u043e\u0442\u043e\u0432\u044c\u0442\u0435 \u043d\u0430\u043f\u0438\u0442\u043e\u043a \u0441\u043e\u0437\u043d\u0430\u0442\u0435\u043b\u044c\u043d\u043e: \u0437\u0430\u0432\u0430\u0440\u0438\u0442\u0435, \u043f\u043e\u043d\u044e\u0445\u0430\u0439\u0442\u0435 \u0430\u0440\u043e\u043c\u0430\u0442, \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043d\u0430 \u0432\u043a\u0443\u0441, \u043e\u0442\u0434\u043e\u0445\u043d\u0438\u0442\u0435 \u0432 \u0442\u0438\u0448\u0438\u043d\u0435 \u0438\u043b\u0438 \u0441 \u043b\u044e\u0431\u0438\u043c\u043e\u0439 \u043c\u0443\u0437\u044b\u043a\u043e\u0439.  \n3. **\u041c\u0438\u043d\u0438-\u0440\u0438\u0442\u0443\u0430\u043b \u00ab\u0432\u044b\u0445\u043e\u0434\u0430 \u0438\u0437 \u0440\u0430\u0431\u043e\u0442\u044b\u00bb** \u2014 \u043d\u0430\u0434\u0435\u043d\u044c\u0442\u0435 \u0434\u043e\u043c\u0430\u0448\u043d\u044e\u044e \u043e\u0434\u0435\u0436\u0434\u0443, \u0432\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u043b\u044e\u0431\u0438\u043c\u0443\u044e \u043c\u0435\u043b\u043e\u0434\u0438\u044e, \u043e\u0442\u043a\u0440\u043e\u0439\u0442\u0435 \u043e\u043a\u043d\u043e \u0438\u043b\u0438 \u0437\u0430\u0436\u0433\u0438\u0442\u0435 \u0441\u0432\u0435\u0447\u0443. \u042d\u0442\u043e \u0441\u043e\u0437\u0434\u0430\u0451\u0442 \u0447\u0451\u0442\u043a\u0438\u0439 \u043f\u0441\u0438\u0445\u043e\u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0431\u0430\u0440\u044c\u0435\u0440 \u043c\u0435\u0436\u0434\u0443 \u0440\u0430\u0431\u043e\u0447\u0438\u043c \u0438 \u043b\u0438\u0447\u043d\u044b\u043c \u0432\u0440\u0435\u043c\u0435\u043d\u0435\u043c.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 193,
+      "tokens_evaluated": 45,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\n\u041f\u043e-\u0440\u0443\u0441\u0441\u043a\u0438 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0438 \u0442\u0440\u0438 \u043f\u0440\u0430\u043a\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0445 \u0441\u043f\u043e\u0441\u043e\u0431\u0430 \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u043e\u0432\u0430\u0442\u044c \u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u043e\u0442\u0434\u044b\u0445 \u043f\u043e\u0441\u043b\u0435 \u0440\u0430\u0431\u043e\u0442\u044b. \u0414\u043e 120 \u0441\u043b\u043e\u0432, \u0431\u0435\u0437 \u043c\u0435\u0434\u0438\u0446\u0438\u043d\u0441\u043a\u0438\u0445 \u0443\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0439.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 237,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 45,
+        "prompt_ms": 882.859,
+        "prompt_per_token_ms": 19.61908888888889,
+        "prompt_per_second": 50.97076656634864,
+        "predicted_n": 193,
+        "predicted_ms": 3012.538,
+        "predicted_per_token_ms": 15.690302083333334,
+        "predicted_per_second": 63.73363589106594
+      },
+      "_wall_seconds": 4.049956871996983,
+      "_ttft_seconds": 1.037258024996845,
+      "repeat": 2,
+      "task": "conversation",
+      "formatted_prompt_sha256": "9bbdf86db1beac2904caedcb2ab132e6c84656e5b80300db57adfd9e99188fd4",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "Dijkstra\u2019s algorithm fails with negative edge weights because it greedily selects the node with the smallest *current* distance estimate and assumes this is the final shortest path\u2014relying on the fact that adding non-negative edges can\u2019t reduce future distances. With negative edges, a longer path (in terms of hops) might become shorter overall, but Dijkstra won\u2019t revisit already finalized nodes.\n\n**Example (3 nodes):**  \nNodes: *A*, *B*, *C*.  \nEdges: *A*\u2192*B* (weight 2), *A*\u2192*C* (weight 4), *B*\u2192*C* (weight \u22123).  \nShortest path from *A* to *C* is *A*\u2192*B*\u2192*C* with total weight 2 + (\u22123) = \u22121.  \n\nDijkstra\u2019s steps:  \n1. Start at *A*: dist[*B*] = 2, dist[*C*] = 4.  \n2. Pick *B* (smallest tentative dist = 2), finalize it.  \n3. Relax *B*\u2192*C*: new dist[*C*] = 2 + (\u22123) = \u22121.  \n4. Next, pick *C* (dist = \u22121), finalize it.  \n5. Done. Result: dist[*C*] = \u22121 \u2014 *correct in this case*, but...  \n\nIf we change *A*\u2192*C* to weight 1:  \n- Dijkstra picks *C* first (dist = 1), finalizes it *before* considering *B*, missing the \u22122 path *A*\u2192*B*\u2192*C*.  \n\n**Alternative:** Bellman\u2013Ford algorithm, which relaxes all edges *V*\u22121 times and detects negative cycles.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 379,
+      "tokens_evaluated": 40,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nExplain why Dijkstra fails with negative edge weights. Give a concrete 3-node example and name an appropriate alternative. Limit to 180 words.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 418,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 40,
+        "prompt_ms": 948.43,
+        "prompt_per_token_ms": 23.710749999999997,
+        "prompt_per_second": 42.174962833314005,
+        "predicted_n": 379,
+        "predicted_ms": 9048.799,
+        "predicted_per_token_ms": 23.938621693121696,
+        "predicted_per_second": 41.77349944451191
+      },
+      "_wall_seconds": 9.998163820000627,
+      "_ttft_seconds": 0.9491631499986397,
+      "repeat": 2,
+      "task": "explain",
+      "formatted_prompt_sha256": "71dc42a9129c121debca0e5b5495142b78e608ae64331f124dcc333c84e8a399",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "**Bug:** `forEach` doesn\u2019t wait for async callbacks, so `out` is returned *before* any fetches complete (it\u2019s usually empty). Also, `fetch` returns a `Response`, not the data\u2014likely you want `.json()` or `.text()`.\n\n**Concise fix (preserving order):**\n```js\nasync function f(urls) {\n  return Promise.all(urls.map(async u => {\n    const res = await fetch(u);\n    return res.json(); // or res.text()\n  }));\n}\n```\n\n*Why this works:* `Promise.all` with `map` runs all fetches in parallel, waits for all to finish, and preserves the order of `urls` in the result array.",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 150,
+      "tokens_evaluated": 46,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nReview this JS: async function f(urls){const out=[]; urls.forEach(async u=>out.push(await fetch(u))); return out;} Identify the bug and provide a concise fix preserving order.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 195,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 46,
+        "prompt_ms": 996.388,
+        "prompt_per_token_ms": 21.660608695652176,
+        "prompt_per_second": 46.16675431659152,
+        "predicted_n": 150,
+        "predicted_ms": 3950.346,
+        "predicted_per_token_ms": 26.512389261744968,
+        "predicted_per_second": 37.718215062680585
+      },
+      "_wall_seconds": 4.9474926330003655,
+      "_ttft_seconds": 0.9970498750008119,
+      "repeat": 2,
+      "task": "review",
+      "formatted_prompt_sha256": "2c890d7be37c5b93798e1a35abc37d3c076deeaff8c5b48cd6489bdfa9c5a157",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "```python\ndef lower_bound(a, x):\n    # Assert input is a list or sequence\n    assert hasattr(a, '__getitem__'), \"Input 'a' must be a sequence (e.g., list, tuple)\"\n    \n    # Handle empty input\n    if len(a) == 0:\n        return 0\n    \n    # Assert elements are comparable (basic check)\n    # Note: We don't assert sortedness here as that's the caller's responsibility,\n    # but we do assert no duplicates if the caller wants that (optional)\n    # For this implementation, we'll just ensure the list is sorted in non-decreasing order\n    # by checking adjacent elements (optional assertion)\n    # Uncomment the next lines if you want to enforce sortedness:\n    # for i in range(len(a) - 1):\n    #     assert a[i] <= a[i+1], \"Input list must be sorted in non-decreasing order\"\n    \n    left, right = 0, len(a)\n    \n    while left < right:\n        mid = (left + right) // 2\n        if a[mid] < x:\n            left = mid + 1\n        else:\n            right = mid\n    \n    return left\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 255,
+      "tokens_evaluated": 41,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite Python lower_bound(a,x) using binary search. Return first index with value >=x or len(a). Include assertions for duplicates and empty input. Code only.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 295,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 41,
+        "prompt_ms": 877.015,
+        "prompt_per_token_ms": 21.39060975609756,
+        "prompt_per_second": 46.74948547060198,
+        "predicted_n": 255,
+        "predicted_ms": 6771.498,
+        "predicted_per_token_ms": 26.659440944881887,
+        "predicted_per_second": 37.51016392532347
+      },
+      "_wall_seconds": 7.649314715999935,
+      "_ttft_seconds": 0.8776743980015453,
+      "repeat": 2,
+      "task": "algorithm",
+      "formatted_prompt_sha256": "910bfb92de72cd7c4ff31c2ddc42897f217d88c1483f7efb85a651dd90257f12",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "```tsx\nimport React, { useState } from 'react';\n\ninterface CounterProps {\n  initial?: number;\n  onChange?: (value: number) => void;\n}\n\nexport const Counter: React.FC<CounterProps> = ({ initial = 0, onChange }) => {\n  const [count, setCount] = useState(initial);\n\n  const handleIncrement = () => {\n    if (count < 10) {\n      const newValue = count + 1;\n      setCount(newValue);\n      onChange?.(newValue);\n    }\n  };\n\n  const handleDecrement = () => {\n    if (count > 0) {\n      const newValue = count - 1;\n      setCount(newValue);\n      onChange?.(newValue);\n    }\n  };\n\n  return (\n    <div className=\"flex items-center gap-2\">\n      <button\n        onClick={handleDecrement}\n        disabled={count === 0}\n        className=\"px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300\"\n      >\n        -\n      </button>\n      <span className=\"w-8 text-center font-medium\">{count}</span>\n      <button\n        onClick={handleIncrement}\n        disabled={count === 10}\n        className=\"px-3 py-1 bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300\"\n      >\n        +\n      </button>\n    </div>\n  );\n};\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 318,
+      "tokens_evaluated": 38,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite a concise accessible React TypeScript Counter component with decrement/increment buttons, bounded from 0 to 10. Include disabled states. Code only.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 355,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 38,
+        "prompt_ms": 958.16,
+        "prompt_per_token_ms": 25.214736842105264,
+        "prompt_per_second": 39.65934708190699,
+        "predicted_n": 318,
+        "predicted_ms": 7849.618,
+        "predicted_per_token_ms": 24.762201892744482,
+        "predicted_per_second": 40.38413079464504
+      },
+      "_wall_seconds": 8.80856260300061,
+      "_ttft_seconds": 0.95879735500057,
+      "repeat": 2,
+      "task": "react",
+      "formatted_prompt_sha256": "b58c216f196cbf2170dcd3166e366efa42b57826925aa7dad36d67bd53491142",
+      "cache_phase": "warm-cycle"
+    },
+    {
+      "index": 0,
+      "content": "```ts\nfunction stableUnique<T>(values: readonly T[], key: (v: T) => string): T[] {\n  const seen = new Set<string>();\n  const result: T[] = [];\n  \n  for (const value of values) {\n    const k = key(value);\n    if (!seen.has(k)) {\n      seen.add(k);\n      result.push(value);\n    }\n  }\n  \n  return result;\n}\n\n// Assertions\nconst arr1 = [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }, { id: 1, name: 'Alicia' }];\nconst result1 = stableUnique(arr1, v => v.id.toString());\nconsole.assert(result1.length === 2, 'Should keep first two unique items by id');\nconsole.assert(result1[0].name === 'Alice' && result1[1].name === 'Bob', 'Should preserve first occurrence order');\n\nconst arr2 = ['apple', 'banana', 'apricot', 'blueberry'];\nconst result2 = stableUnique(arr2, s => s[0]);\nconsole.assert(result2.length === 2, 'Should keep first two unique items by first letter');\nconsole.assert(result2[0] === 'apple' && result2[1] === 'banana', 'Should preserve first occurrence order by first letter');\n```",
+      "tokens": [],
+      "stop": true,
+      "id_slot": 0,
+      "tokens_predicted": 283,
+      "tokens_evaluated": 41,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 1,
+        "top_p": 1.0,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 768,
+        "n_predict": 768,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": true,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<|im_start|>user\nWrite only TypeScript code for stableUnique<T>(values: readonly T[], key:(v:T)=>string): T[]. Preserve first occurrence and input. Include two assertions.<|im_end|>\n<|im_start|>assistant\n",
+      "has_new_line": true,
+      "truncated": false,
+      "stop_type": "eos",
+      "stopping_word": "",
+      "tokens_cached": 323,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 41,
+        "prompt_ms": 1033.7,
+        "prompt_per_token_ms": 25.212195121951222,
+        "prompt_per_second": 39.66334526458353,
+        "predicted_n": 283,
+        "predicted_ms": 8028.079,
+        "predicted_per_token_ms": 28.46836524822695,
+        "predicted_per_second": 35.1267096400023
+      },
+      "_wall_seconds": 9.062573773997428,
+      "_ttft_seconds": 1.034351563997916,
+      "repeat": 2,
+      "task": "typescript",
+      "formatted_prompt_sha256": "0958c30106f7942fa03f9cc68598945d5f5a56b5d8e7f371edf51b6d83ac328c",
+      "cache_phase": "warm-cycle"
+    }
+  ],
+  "status": "passed",
+  "ready_utc": "2026-10-30T22:55:14.006747+00:00",
+  "requested_prompt_tokens": 0,
+  "summary": {
+    "prompt_per_second": {
+      "median": 48.86012601847531,
+      "min": 35.749381143334965,
+      "max": 101.34215917761759
+    },
+    "predicted_per_second": {
+      "median": 36.96285105220707,
+      "min": 28.03655967381465,
+      "max": 63.73363589106594
+    },
+    "ttft_seconds": {
+      "median": 1.1342475860001286,
+      "min": 0.8776743980015453,
+      "max": 10.154072577999614
+    }
+  },
+  "metrics_before": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 0\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 0\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 0\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 0\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 0\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 0\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 0\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 0\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 0\n",
+  "metrics_after": "# HELP llamacpp:prompt_tokens_total Number of prompt tokens processed, excluding cached tokens\n# TYPE llamacpp:prompt_tokens_total counter\nllamacpp:prompt_tokens_total 2910\n# HELP llamacpp:prompt_tokens_cached_total Number of prompt tokens reused from the cache\n# TYPE llamacpp:prompt_tokens_cached_total counter\nllamacpp:prompt_tokens_cached_total 0\n# HELP llamacpp:prompt_seconds_total Total time spent processing prompts\n# TYPE llamacpp:prompt_seconds_total counter\nllamacpp:prompt_seconds_total 38.6693\n# HELP llamacpp:tokens_predicted_total Number of generation tokens processed\n# TYPE llamacpp:tokens_predicted_total counter\nllamacpp:tokens_predicted_total 3978\n# HELP llamacpp:tokens_predicted_seconds_total Total time spent generating tokens\n# TYPE llamacpp:tokens_predicted_seconds_total counter\nllamacpp:tokens_predicted_seconds_total 100.641\n# HELP llamacpp:n_decode_total Total number of llama_decode() calls, excluding speculative decoding and multimodal decoding\n# TYPE llamacpp:n_decode_total counter\nllamacpp:n_decode_total 4002\n# HELP llamacpp:n_tokens_max Largest observed sequence length (prompt + generation)\n# TYPE llamacpp:n_tokens_max counter\nllamacpp:n_tokens_max 1017\n# HELP llamacpp:spec_decode_num_draft_tokens_total Speculative: Total draft tokens generated\n# TYPE llamacpp:spec_decode_num_draft_tokens_total counter\nllamacpp:spec_decode_num_draft_tokens_total 0\n# HELP llamacpp:spec_decode_num_accepted_tokens_total Speculative: Total draft tokens accepted by the target model\n# TYPE llamacpp:spec_decode_num_accepted_tokens_total counter\nllamacpp:spec_decode_num_accepted_tokens_total 0\n# HELP llamacpp:spec_decode_num_drafts_total Speculative: Total speculative decoding verification steps\n# TYPE llamacpp:spec_decode_num_drafts_total counter\nllamacpp:spec_decode_num_drafts_total 0\n# HELP llamacpp:prompt_tokens_seconds Average prompt throughput in tokens/s\n# TYPE llamacpp:prompt_tokens_seconds gauge\nllamacpp:prompt_tokens_seconds 75.2535\n# HELP llamacpp:predicted_tokens_seconds Average generation throughput in tokens/s\n# TYPE llamacpp:predicted_tokens_seconds gauge\nllamacpp:predicted_tokens_seconds 39.3278\n# HELP llamacpp:requests_processing Number of requests processing\n# TYPE llamacpp:requests_processing gauge\nllamacpp:requests_processing 0\n# HELP llamacpp:requests_deferred Number of requests deferred\n# TYPE llamacpp:requests_deferred gauge\nllamacpp:requests_deferred 0\n# HELP llamacpp:n_busy_slots_per_decode Average number of busy slots per llama_decode() call\n# TYPE llamacpp:n_busy_slots_per_decode gauge\nllamacpp:n_busy_slots_per_decode 1\n",
+  "server_exit_code": 0,
+  "resources": {
+    "peak_used_mib": 12183,
+    "peak_utilization_percent": 75,
+    "peak_process_rss_gib": 46.05117416381836,
+    "safety_stop": null,
+    "peak_system_swap_growth_kib": 0,
+    "peak_process_swap_kib": 0,
+    "peak_cgroup_swap_bytes": 0,
+    "cgroup_limits": {
+      "memory.max": "54760833024",
+      "memory.swap.max": "0"
+    },
+    "peak_process_cpu_percent": 377.5,
+    "peak_system_cpu_percent": 29.19799498746867,
+    "min_available_gib": 8.573284149169922,
+    "min_free_vram_mib": 12393,
+    "swap_in_pages": 6029,
+    "swap_out_pages": 0,
+    "samples": 93,
+    "memory_pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=35891021\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=35496299\n",
+    "cgroup_last_memory_stat": {
+      "anon": 11617538048,
+      "file": 16216064,
+      "file_mapped": 10485760,
+      "file_dirty": 12288,
+      "unevictable": 0
+    },
+    "cgroup_events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0\n"
+  },
+  "resource_samples": [
+    {
+      "time_utc": "2026-10-30T22:54:31.358047+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 53.9250602722168
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 0.9123802185058594,
+      "process_cpu_percent_of_one_core": null,
+      "system_cpu_percent": null,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:33.381264+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 51.84904861450195
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 2.9588661193847656,
+      "process_cpu_percent_of_one_core": 68.5,
+      "system_cpu_percent": 5.988209742475954,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:35.405003+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 49.83035659790039
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 6
+      },
+      "process_rss_gib": 5.007621765136719,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 7.65639589169001,
+      "swap_page_deltas": {
+        "pswpin": 79,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:37.429254+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 47.783695220947266
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 6
+      },
+      "process_rss_gib": 7.043476104736328,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.716060888474682,
+      "swap_page_deltas": {
+        "pswpin": 7,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:39.452978+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 45.74166488647461
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 6
+      },
+      "process_rss_gib": 9.04476547241211,
+      "process_cpu_percent_of_one_core": 65.5,
+      "system_cpu_percent": 6.236425690350605,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:41.476266+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 43.677146911621094
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 11.08883285522461,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 6.312189054726368,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:43.499342+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 41.56321716308594
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 13.236225128173828,
+      "process_cpu_percent_of_one_core": 69.0,
+      "system_cpu_percent": 6.306306306306307,
+      "swap_page_deltas": {
+        "pswpin": 11,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:45.522365+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 39.40949249267578
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 15.333904266357422,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 6.432566811684276,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:47.546559+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 37.293739318847656
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 7
+      },
+      "process_rss_gib": 17.431591033935547,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 6.965174129353234,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:49.573857+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 35.200618743896484
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 40
+      },
+      "process_rss_gib": 19.54407501220703,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 7.047500776156473,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:51.601068+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 33.109745025634766
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 18
+      },
+      "process_rss_gib": 21.682140350341797,
+      "process_cpu_percent_of_one_core": 68.0,
+      "system_cpu_percent": 6.0173697270471465,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:53.635443+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 30.963722229003906
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 31
+      },
+      "process_rss_gib": 23.802791595458984,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.845963501391896,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:55.665543+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 28.81167984008789
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 35
+      },
+      "process_rss_gib": 25.91217041015625,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 6.546695625193919,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:57.708242+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 26.725032806396484
+      },
+      "gpu": {
+        "used_mib": 2845,
+        "total_mib": 24576,
+        "free_mib": 21731,
+        "utilization_percent": 18
+      },
+      "process_rss_gib": 28.072349548339844,
+      "process_cpu_percent_of_one_core": 67.5,
+      "system_cpu_percent": 5.972906403940887,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:54:59.740335+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 24.538585662841797
+      },
+      "gpu": {
+        "used_mib": 2841,
+        "total_mib": 24576,
+        "free_mib": 21735,
+        "utilization_percent": 17
+      },
+      "process_rss_gib": 30.177989959716797,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 5.793060718711276,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:01.772358+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 22.350975036621094
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 20
+      },
+      "process_rss_gib": 32.32630920410156,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.787681832250078,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:03.807210+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 20.191360473632812
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 35
+      },
+      "process_rss_gib": 34.45521545410156,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.687789799072643,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:05.843204+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 18.072513580322266
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 32
+      },
+      "process_rss_gib": 36.60371780395508,
+      "process_cpu_percent_of_one_core": 66.5,
+      "system_cpu_percent": 5.684275563793636,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:07.877202+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 15.974472045898438
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 31
+      },
+      "process_rss_gib": 38.71448516845703,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 5.62596599690881,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:09.918402+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 13.907569885253906
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 33
+      },
+      "process_rss_gib": 40.84975051879883,
+      "process_cpu_percent_of_one_core": 66.0,
+      "system_cpu_percent": 5.521283158544109,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:11.961618+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 11.757835388183594
+      },
+      "gpu": {
+        "used_mib": 2813,
+        "total_mib": 24576,
+        "free_mib": 21763,
+        "utilization_percent": 35
+      },
+      "process_rss_gib": 42.980560302734375,
+      "process_cpu_percent_of_one_core": 67.0,
+      "system_cpu_percent": 5.731895223420647,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:13.983990+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.444477081298828
+      },
+      "gpu": {
+        "used_mib": 12035,
+        "total_mib": 24576,
+        "free_mib": 12541,
+        "utilization_percent": 36
+      },
+      "process_rss_gib": 44.19915771484375,
+      "process_cpu_percent_of_one_core": 60.5,
+      "system_cpu_percent": 5.774604160198696,
+      "swap_page_deltas": {
+        "pswpin": 11,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:16.011488+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.234241485595703
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 27
+      },
+      "process_rss_gib": 44.438655853271484,
+      "process_cpu_percent_of_one_core": 172.0,
+      "system_cpu_percent": 12.41486068111455,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:18.039092+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.228370666503906
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 44.4387321472168,
+      "process_cpu_percent_of_one_core": 278.5,
+      "system_cpu_percent": 18.872017353579174,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:20.066580+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.22613525390625
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 44.438785552978516,
+      "process_cpu_percent_of_one_core": 257.5,
+      "system_cpu_percent": 18.17900278724063,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:22.093313+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.243061065673828
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 44.4411735534668,
+      "process_cpu_percent_of_one_core": 247.5,
+      "system_cpu_percent": 17.089783281733745,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:24.122810+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.106193542480469
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 44.59249496459961,
+      "process_cpu_percent_of_one_core": 177.5,
+      "system_cpu_percent": 12.751470133085732,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:26.149225+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.112834930419922
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 69
+      },
+      "process_rss_gib": 44.59421920776367,
+      "process_cpu_percent_of_one_core": 275.0,
+      "system_cpu_percent": 18.6183395291202,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:28.175558+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.115116119384766
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 44.594261169433594,
+      "process_cpu_percent_of_one_core": 276.5,
+      "system_cpu_percent": 18.58516909711449,
+      "swap_page_deltas": {
+        "pswpin": 10,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:30.202865+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.113517761230469
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 44.594337463378906,
+      "process_cpu_percent_of_one_core": 293.5,
+      "system_cpu_percent": 19.91957933807609,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:32.230406+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 10.01712417602539
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 44.67241668701172,
+      "process_cpu_percent_of_one_core": 253.5,
+      "system_cpu_percent": 17.430340557275542,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:34.258198+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.948387145996094
+      },
+      "gpu": {
+        "used_mib": 12075,
+        "total_mib": 24576,
+        "free_mib": 12501,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 44.746028900146484,
+      "process_cpu_percent_of_one_core": 181.5,
+      "system_cpu_percent": 13.409724372870858,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:36.285008+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.951896667480469
+      },
+      "gpu": {
+        "used_mib": 12075,
+        "total_mib": 24576,
+        "free_mib": 12501,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 44.746070861816406,
+      "process_cpu_percent_of_one_core": 269.5,
+      "system_cpu_percent": 18.717074682367524,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:38.313533+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.949272155761719
+      },
+      "gpu": {
+        "used_mib": 12071,
+        "total_mib": 24576,
+        "free_mib": 12505,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 44.74612808227539,
+      "process_cpu_percent_of_one_core": 275.0,
+      "system_cpu_percent": 18.53341584158416,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:40.342550+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.866668701171875
+      },
+      "gpu": {
+        "used_mib": 12073,
+        "total_mib": 24576,
+        "free_mib": 12503,
+        "utilization_percent": 4
+      },
+      "process_rss_gib": 44.823577880859375,
+      "process_cpu_percent_of_one_core": 239.5,
+      "system_cpu_percent": 16.6511915815537,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:42.370638+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.800609588623047
+      },
+      "gpu": {
+        "used_mib": 12073,
+        "total_mib": 24576,
+        "free_mib": 12503,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 44.89719772338867,
+      "process_cpu_percent_of_one_core": 218.0,
+      "system_cpu_percent": 15.386996904024768,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:44.397760+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.802024841308594
+      },
+      "gpu": {
+        "used_mib": 12073,
+        "total_mib": 24576,
+        "free_mib": 12503,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 44.89723205566406,
+      "process_cpu_percent_of_one_core": 250.0,
+      "system_cpu_percent": 17.818407189339943,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:46.427120+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.63040542602539
+      },
+      "gpu": {
+        "used_mib": 12104,
+        "total_mib": 24576,
+        "free_mib": 12472,
+        "utilization_percent": 70
+      },
+      "process_rss_gib": 45.046958923339844,
+      "process_cpu_percent_of_one_core": 191.0,
+      "system_cpu_percent": 16.0625,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:48.455195+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.61993408203125
+      },
+      "gpu": {
+        "used_mib": 12103,
+        "total_mib": 24576,
+        "free_mib": 12473,
+        "utilization_percent": 72
+      },
+      "process_rss_gib": 45.04700469970703,
+      "process_cpu_percent_of_one_core": 291.5,
+      "system_cpu_percent": 22.786783042394013,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:50.483668+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.630573272705078
+      },
+      "gpu": {
+        "used_mib": 12103,
+        "total_mib": 24576,
+        "free_mib": 12473,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 45.047035217285156,
+      "process_cpu_percent_of_one_core": 288.5,
+      "system_cpu_percent": 20.427774333539986,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:52.511511+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.631919860839844
+      },
+      "gpu": {
+        "used_mib": 12099,
+        "total_mib": 24576,
+        "free_mib": 12477,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 45.047080993652344,
+      "process_cpu_percent_of_one_core": 283.5,
+      "system_cpu_percent": 19.49548427281221,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:54.539631+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.620594024658203
+      },
+      "gpu": {
+        "used_mib": 12183,
+        "total_mib": 24576,
+        "free_mib": 12393,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 45.047142028808594,
+      "process_cpu_percent_of_one_core": 303.5,
+      "system_cpu_percent": 29.19799498746867,
+      "swap_page_deltas": {
+        "pswpin": 23,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:56.567847+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.46334457397461
+      },
+      "gpu": {
+        "used_mib": 12120,
+        "total_mib": 24576,
+        "free_mib": 12456,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 45.19956970214844,
+      "process_cpu_percent_of_one_core": 189.0,
+      "system_cpu_percent": 14.206128133704736,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:55:58.594005+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.464725494384766
+      },
+      "gpu": {
+        "used_mib": 12119,
+        "total_mib": 24576,
+        "free_mib": 12457,
+        "utilization_percent": 75
+      },
+      "process_rss_gib": 45.19963073730469,
+      "process_cpu_percent_of_one_core": 377.5,
+      "system_cpu_percent": 29.001240694789082,
+      "swap_page_deltas": {
+        "pswpin": 7,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:00.622663+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.37997817993164
+      },
+      "gpu": {
+        "used_mib": 12100,
+        "total_mib": 24576,
+        "free_mib": 12476,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 45.276554107666016,
+      "process_cpu_percent_of_one_core": 256.5,
+      "system_cpu_percent": 23.28173374613003,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:02.651989+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.374801635742188
+      },
+      "gpu": {
+        "used_mib": 12112,
+        "total_mib": 24576,
+        "free_mib": 12464,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 45.28165054321289,
+      "process_cpu_percent_of_one_core": 106.5,
+      "system_cpu_percent": 8.725247524752476,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:04.681499+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.383377075195312
+      },
+      "gpu": {
+        "used_mib": 12128,
+        "total_mib": 24576,
+        "free_mib": 12448,
+        "utilization_percent": 63
+      },
+      "process_rss_gib": 45.291500091552734,
+      "process_cpu_percent_of_one_core": 106.0,
+      "system_cpu_percent": 9.755342211210902,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:06.710185+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.37493896484375
+      },
+      "gpu": {
+        "used_mib": 12128,
+        "total_mib": 24576,
+        "free_mib": 12448,
+        "utilization_percent": 62
+      },
+      "process_rss_gib": 45.291500091552734,
+      "process_cpu_percent_of_one_core": 103.5,
+      "system_cpu_percent": 8.449396471680593,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:08.738510+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.294742584228516
+      },
+      "gpu": {
+        "used_mib": 12127,
+        "total_mib": 24576,
+        "free_mib": 12449,
+        "utilization_percent": 63
+      },
+      "process_rss_gib": 45.36549758911133,
+      "process_cpu_percent_of_one_core": 106.0,
+      "system_cpu_percent": 8.547537937441932,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:10.761481+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.11026382446289
+      },
+      "gpu": {
+        "used_mib": 12128,
+        "total_mib": 24576,
+        "free_mib": 12448,
+        "utilization_percent": 63
+      },
+      "process_rss_gib": 45.58783721923828,
+      "process_cpu_percent_of_one_core": 165.0,
+      "system_cpu_percent": 13.26086956521739,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:12.789018+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.077171325683594
+      },
+      "gpu": {
+        "used_mib": 12128,
+        "total_mib": 24576,
+        "free_mib": 12448,
+        "utilization_percent": 54
+      },
+      "process_rss_gib": 45.600440979003906,
+      "process_cpu_percent_of_one_core": 161.5,
+      "system_cpu_percent": 11.93058568329718,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:14.816294+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.111263275146484
+      },
+      "gpu": {
+        "used_mib": 12140,
+        "total_mib": 24576,
+        "free_mib": 12436,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.60044860839844,
+      "process_cpu_percent_of_one_core": 265.5,
+      "system_cpu_percent": 19.428926132836747,
+      "swap_page_deltas": {
+        "pswpin": 112,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:16.843824+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.114452362060547
+      },
+      "gpu": {
+        "used_mib": 12159,
+        "total_mib": 24576,
+        "free_mib": 12417,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 45.60048294067383,
+      "process_cpu_percent_of_one_core": 257.5,
+      "system_cpu_percent": 21.804043545878695,
+      "swap_page_deltas": {
+        "pswpin": 3831,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:18.872523+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 9.04770278930664
+      },
+      "gpu": {
+        "used_mib": 12155,
+        "total_mib": 24576,
+        "free_mib": 12421,
+        "utilization_percent": 44
+      },
+      "process_rss_gib": 45.67740249633789,
+      "process_cpu_percent_of_one_core": 177.5,
+      "system_cpu_percent": 18.951612903225808,
+      "swap_page_deltas": {
+        "pswpin": 1219,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:20.899547+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.982051849365234
+      },
+      "gpu": {
+        "used_mib": 12156,
+        "total_mib": 24576,
+        "free_mib": 12420,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.751434326171875,
+      "process_cpu_percent_of_one_core": 261.0,
+      "system_cpu_percent": 19.571295433364398,
+      "swap_page_deltas": {
+        "pswpin": 248,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:22.926857+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.994194030761719
+      },
+      "gpu": {
+        "used_mib": 12153,
+        "total_mib": 24576,
+        "free_mib": 12423,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.7514533996582,
+      "process_cpu_percent_of_one_core": 257.0,
+      "system_cpu_percent": 17.672547199009596,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:24.960843+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.859882354736328
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.901302337646484,
+      "process_cpu_percent_of_one_core": 136.5,
+      "system_cpu_percent": 20.477075588599753,
+      "swap_page_deltas": {
+        "pswpin": 256,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:26.989726+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.851085662841797
+      },
+      "gpu": {
+        "used_mib": 12156,
+        "total_mib": 24576,
+        "free_mib": 12420,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 45.90188980102539,
+      "process_cpu_percent_of_one_core": 156.0,
+      "system_cpu_percent": 13.637785423834845,
+      "swap_page_deltas": {
+        "pswpin": 20,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:29.017922+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.83188247680664
+      },
+      "gpu": {
+        "used_mib": 12157,
+        "total_mib": 24576,
+        "free_mib": 12419,
+        "utilization_percent": 62
+      },
+      "process_rss_gib": 45.90065383911133,
+      "process_cpu_percent_of_one_core": 170.0,
+      "system_cpu_percent": 14.34349719975109,
+      "swap_page_deltas": {
+        "pswpin": 1,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:31.045573+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.824684143066406
+      },
+      "gpu": {
+        "used_mib": 12163,
+        "total_mib": 24576,
+        "free_mib": 12413,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.900657653808594,
+      "process_cpu_percent_of_one_core": 272.0,
+      "system_cpu_percent": 18.908865468071916,
+      "swap_page_deltas": {
+        "pswpin": 6,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:33.068919+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.82181167602539
+      },
+      "gpu": {
+        "used_mib": 12142,
+        "total_mib": 24576,
+        "free_mib": 12434,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 45.938568115234375,
+      "process_cpu_percent_of_one_core": 246.5,
+      "system_cpu_percent": 17.168581185967092,
+      "swap_page_deltas": {
+        "pswpin": 72,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:35.096531+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.653312683105469
+      },
+      "gpu": {
+        "used_mib": 12142,
+        "total_mib": 24576,
+        "free_mib": 12434,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.05052185058594,
+      "process_cpu_percent_of_one_core": 176.0,
+      "system_cpu_percent": 17.141971481711096,
+      "swap_page_deltas": {
+        "pswpin": 6,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:37.123779+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.644027709960938
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 46.05052947998047,
+      "process_cpu_percent_of_one_core": 268.0,
+      "system_cpu_percent": 19.76456009913259,
+      "swap_page_deltas": {
+        "pswpin": 8,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:39.151293+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.64052963256836
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 46.050567626953125,
+      "process_cpu_percent_of_one_core": 253.5,
+      "system_cpu_percent": 17.555831265508687,
+      "swap_page_deltas": {
+        "pswpin": 11,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:41.179039+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.917469024658203
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.7440185546875,
+      "process_cpu_percent_of_one_core": 165.5,
+      "system_cpu_percent": 12.643321970870778,
+      "swap_page_deltas": {
+        "pswpin": 4,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:43.207914+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.92327880859375
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.7440185546875,
+      "process_cpu_percent_of_one_core": 106.5,
+      "system_cpu_percent": 9.699411217849395,
+      "swap_page_deltas": {
+        "pswpin": 10,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:45.236994+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.92824935913086
+      },
+      "gpu": {
+        "used_mib": 12134,
+        "total_mib": 24576,
+        "free_mib": 12442,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.7440185546875,
+      "process_cpu_percent_of_one_core": 106.0,
+      "system_cpu_percent": 10.315985130111525,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:47.265668+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.945960998535156
+      },
+      "gpu": {
+        "used_mib": 12134,
+        "total_mib": 24576,
+        "free_mib": 12442,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 45.7440185546875,
+      "process_cpu_percent_of_one_core": 105.5,
+      "system_cpu_percent": 8.865468071915686,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:49.292806+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.87069320678711
+      },
+      "gpu": {
+        "used_mib": 12134,
+        "total_mib": 24576,
+        "free_mib": 12442,
+        "utilization_percent": 65
+      },
+      "process_rss_gib": 45.817630767822266,
+      "process_cpu_percent_of_one_core": 104.0,
+      "system_cpu_percent": 8.496124031007753,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:51.321387+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.573284149169922
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 45.977230072021484,
+      "process_cpu_percent_of_one_core": 166.0,
+      "system_cpu_percent": 12.329615861214375,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:53.347685+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.615779876708984
+      },
+      "gpu": {
+        "used_mib": 12138,
+        "total_mib": 24576,
+        "free_mib": 12438,
+        "utilization_percent": 74
+      },
+      "process_rss_gib": 46.05085372924805,
+      "process_cpu_percent_of_one_core": 307.5,
+      "system_cpu_percent": 20.873335397956023,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:55.375966+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.6240234375
+      },
+      "gpu": {
+        "used_mib": 12142,
+        "total_mib": 24576,
+        "free_mib": 12434,
+        "utilization_percent": 64
+      },
+      "process_rss_gib": 45.97734832763672,
+      "process_cpu_percent_of_one_core": 313.5,
+      "system_cpu_percent": 21.675943104514534,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:57.402772+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.578311920166016
+      },
+      "gpu": {
+        "used_mib": 12141,
+        "total_mib": 24576,
+        "free_mib": 12435,
+        "utilization_percent": 71
+      },
+      "process_rss_gib": 46.050960540771484,
+      "process_cpu_percent_of_one_core": 274.0,
+      "system_cpu_percent": 18.703473945409428,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:56:59.429656+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.632156372070312
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.050960540771484,
+      "process_cpu_percent_of_one_core": 286.5,
+      "system_cpu_percent": 20.705663881151345,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:01.458259+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.672622680664062
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 46.05097961425781,
+      "process_cpu_percent_of_one_core": 277.0,
+      "system_cpu_percent": 19.02257964738633,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:03.485375+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.709091186523438
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 69
+      },
+      "process_rss_gib": 46.05099105834961,
+      "process_cpu_percent_of_one_core": 294.5,
+      "system_cpu_percent": 19.925627517818405,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:05.513870+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.787361145019531
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 45.97739791870117,
+      "process_cpu_percent_of_one_core": 200.5,
+      "system_cpu_percent": 14.467162329615862,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:07.541834+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.753158569335938
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 46.05101013183594,
+      "process_cpu_percent_of_one_core": 266.5,
+      "system_cpu_percent": 18.204334365325078,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:09.569373+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.773258209228516
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.05101013183594,
+      "process_cpu_percent_of_one_core": 253.0,
+      "system_cpu_percent": 17.327960322380658,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:11.596579+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.810249328613281
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.05101776123047,
+      "process_cpu_percent_of_one_core": 193.0,
+      "system_cpu_percent": 14.015503875968992,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:13.622276+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.817657470703125
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 46.05101776123047,
+      "process_cpu_percent_of_one_core": 262.5,
+      "system_cpu_percent": 18.90717168581186,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:15.650423+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.838951110839844
+      },
+      "gpu": {
+        "used_mib": 12133,
+        "total_mib": 24576,
+        "free_mib": 12443,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 46.05101776123047,
+      "process_cpu_percent_of_one_core": 276.5,
+      "system_cpu_percent": 19.348837209302324,
+      "swap_page_deltas": {
+        "pswpin": 3,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:17.678275+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.8631591796875
+      },
+      "gpu": {
+        "used_mib": 12130,
+        "total_mib": 24576,
+        "free_mib": 12446,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 45.97745132446289,
+      "process_cpu_percent_of_one_core": 250.0,
+      "system_cpu_percent": 17.874845105328376,
+      "swap_page_deltas": {
+        "pswpin": 2,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:19.704863+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.806102752685547
+      },
+      "gpu": {
+        "used_mib": 12130,
+        "total_mib": 24576,
+        "free_mib": 12446,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 46.051063537597656,
+      "process_cpu_percent_of_one_core": 222.0,
+      "system_cpu_percent": 15.760024867889339,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:21.732501+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.822223663330078
+      },
+      "gpu": {
+        "used_mib": 12132,
+        "total_mib": 24576,
+        "free_mib": 12444,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 46.051063537597656,
+      "process_cpu_percent_of_one_core": 287.5,
+      "system_cpu_percent": 19.925742574257427,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:23.760821+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.820816040039062
+      },
+      "gpu": {
+        "used_mib": 12132,
+        "total_mib": 24576,
+        "free_mib": 12444,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.05109786987305,
+      "process_cpu_percent_of_one_core": 287.5,
+      "system_cpu_percent": 19.628482972136222,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:25.788452+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.834850311279297
+      },
+      "gpu": {
+        "used_mib": 12132,
+        "total_mib": 24576,
+        "free_mib": 12444,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.0511589050293,
+      "process_cpu_percent_of_one_core": 274.5,
+      "system_cpu_percent": 18.511627906976745,
+      "swap_page_deltas": {
+        "pswpin": 5,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:27.815792+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.813552856445312
+      },
+      "gpu": {
+        "used_mib": 12132,
+        "total_mib": 24576,
+        "free_mib": 12444,
+        "utilization_percent": 62
+      },
+      "process_rss_gib": 46.05117416381836,
+      "process_cpu_percent_of_one_core": 176.5,
+      "system_cpu_percent": 13.81558522198075,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:29.843520+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.834087371826172
+      },
+      "gpu": {
+        "used_mib": 12118,
+        "total_mib": 24576,
+        "free_mib": 12458,
+        "utilization_percent": 68
+      },
+      "process_rss_gib": 46.05117416381836,
+      "process_cpu_percent_of_one_core": 284.0,
+      "system_cpu_percent": 19.751937984496124,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:31.871571+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.840324401855469
+      },
+      "gpu": {
+        "used_mib": 12118,
+        "total_mib": 24576,
+        "free_mib": 12458,
+        "utilization_percent": 66
+      },
+      "process_rss_gib": 46.05117416381836,
+      "process_cpu_percent_of_one_core": 259.0,
+      "system_cpu_percent": 17.739938080495357,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:33.899667+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 8.843505859375
+      },
+      "gpu": {
+        "used_mib": 12137,
+        "total_mib": 24576,
+        "free_mib": 12439,
+        "utilization_percent": 67
+      },
+      "process_rss_gib": 46.05117416381836,
+      "process_cpu_percent_of_one_core": 246.0,
+      "system_cpu_percent": 16.93548387096774,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:35.923167+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 15.643165588378906
+      },
+      "gpu": {
+        "used_mib": 2940,
+        "total_mib": 24576,
+        "free_mib": 21636,
+        "utilization_percent": 63
+      },
+      "process_rss_gib": 38.91450500488281,
+      "process_cpu_percent_of_one_core": 192.5,
+      "system_cpu_percent": 13.841368584758943,
+      "swap_page_deltas": {
+        "pswpin": 9,
+        "pswpout": 0
+      }
+    },
+    {
+      "time_utc": "2026-10-30T22:57:37.946829+00:00",
+      "system": {
+        "MemTotal": 62.69834899902344,
+        "MemAvailable": 43.530052185058594
+      },
+      "gpu": {
+        "used_mib": 2940,
+        "total_mib": 24576,
+        "free_mib": 21636,
+        "utilization_percent": 5
+      },
+      "process_rss_gib": 11.004013061523438,
+      "process_cpu_percent_of_one_core": 101.5,
+      "system_cpu_percent": 7.548928238583411,
+      "swap_page_deltas": {
+        "pswpin": 0,
+        "pswpout": 0
+      }
+    }
+  ],
+  "ended_utc": "2026-10-30T22:57:38.861493+00:00",
+  "server_log": "docs/experiments/advanced-placement-moe/qwen-ab-cache8192/20261030T225429Z-cache8192-ngl48-ncmoe48-t8-tb8-b512-ub128.server.log"
+}

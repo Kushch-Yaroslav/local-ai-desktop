@@ -13,7 +13,7 @@ try{
  ];
  for(const budget of [0,8192]){
   const dir=path.join(root,`qwen-ab-cache${budget}`);fs.mkdirSync(dir);
-  const runs=answers.map(([task,content])=>({task,content:budget&&task==='lower_bound_ts'?'export function lowerBound(a:readonly number[],x:number):number{return 0;}':budget&&task==='facts_exact'?'{}':content,repeat:1,stop_type:'eos',formatted_prompt_sha256:'identical'}));
+  const runs=answers.map(([task,original])=>{const content=task==='facts_exact'?original:original+'\nconsole.assert(true);console.assert(true);console.assert(true);';return {task,content:budget&&task==='lower_bound_ts'?'export function lowerBound(a:readonly number[],x:number):number{return 0;}':budget&&task==='facts_exact'?'{}':content,repeat:1,stop_type:'eos',formatted_prompt_sha256:'identical'};});
   fs.writeFileSync(path.join(dir,'fixture.json'),JSON.stringify({status:'passed',runs}));
  }
  execFileSync(process.execPath,['scripts/evaluate-qwen-ab.mjs',root],{timeout:60000});

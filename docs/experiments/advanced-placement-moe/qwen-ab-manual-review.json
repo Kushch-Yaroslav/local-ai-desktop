@@ -1,0 +1,82 @@
+{
+  "reviews": [
+    {
+      "budget_mib": 0,
+      "task": "explain",
+      "same_across_cycles": true,
+      "observations": [
+        {
+          "repeat": 1,
+          "sha256": "9cf25b3966ae14801fea9795e29264b9b033e6cd62a89576f5b3622416f452a0",
+          "incorrect_minus_two_claim": false,
+          "rationale": "Baseline graph A->B2,A->C4,C->B-3 has shortest A->C->B cost1; the counterexample is correct for settled-node Dijkstra."
+        },
+        {
+          "repeat": 2,
+          "sha256": "9cf25b3966ae14801fea9795e29264b9b033e6cd62a89576f5b3622416f452a0",
+          "incorrect_minus_two_claim": false,
+          "rationale": "Baseline graph A->B2,A->C4,C->B-3 has shortest A->C->B cost1; the counterexample is correct for settled-node Dijkstra."
+        }
+      ]
+    },
+    {
+      "budget_mib": 8192,
+      "task": "explain",
+      "same_across_cycles": true,
+      "observations": [
+        {
+          "repeat": 1,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        },
+        {
+          "repeat": 2,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        }
+      ]
+    },
+    {
+      "budget_mib": 12288,
+      "task": "explain",
+      "same_across_cycles": true,
+      "observations": [
+        {
+          "repeat": 1,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        },
+        {
+          "repeat": 2,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        }
+      ]
+    },
+    {
+      "budget_mib": 16384,
+      "task": "explain",
+      "same_across_cycles": true,
+      "observations": [
+        {
+          "repeat": 1,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        },
+        {
+          "repeat": 2,
+          "sha256": "81b3a45b5715df41a3ad64241b97d07d8de6a4633a421916072c14f2eb510439",
+          "incorrect_minus_two_claim": true,
+          "rationale": "In the cache answer the path A->B->C has weights2 and-3, so its cost is-1, independent of changing direct A->C. The claimed-2 is incorrect."
+        }
+      ]
+    }
+  ],
+  "other_findings": "React initial not clamped in baseline/cache; requested assertions absent for rotate/lowerBound in every configuration. This is not evidence that all other narrative outputs are correct.",
+  "decision": "Do not integrate as validated acceleration until the reproducible arithmetic regression is investigated with teacher-forced logits and numerical/reference checks."
+}

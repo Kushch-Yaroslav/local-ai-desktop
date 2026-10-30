@@ -1,6 +1,7 @@
 // Offline evaluation of saved answers. Generated TS runs without supplied I/O APIs,
 // with a VM timeout. This is a correctness harness, not a security sandbox.
 import fs from 'node:fs';
+import {createHash} from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import vm from 'node:vm';
@@ -15,11 +16,13 @@ const checks = {
 };
 function codeOf(text) { return [...text.matchAll(/```(?:typescript|ts|tsx|javascript|js)?\s*\n([\s\S]*?)```/g)].map(m=>m[1]).join('\n') || text; }
 function evaluate(run) {
- const result={task:run.task,repeat:run.repeat,complete:run.stop_type==='eos',promptHash:run.formatted_prompt_sha256,checks:[]};
+ const result={task:run.task,repeat:run.repeat,complete:run.stop_type==='eos',promptHash:run.formatted_prompt_sha256,textHash:createHash('sha256').update(run.content).digest('hex'),checks:[]};
  const add=(name,fn)=>{try{fn();result.checks.push({name,passed:true});}catch(e){result.checks.push({name,passed:false,error:String(e.message).slice(0,250)});}};
  if(run.task==='facts'||run.task==='facts_exact') add('exact-json',()=>assert.deepEqual(JSON.parse(run.content),run.task==='facts'?{owner:'Nadia',date:'2027-03-14',budget:'7300 EUR'}:{ticket:'R-17',owner:'Lina',count:0,enabled:false}));
  if(checks[run.task]) {
-  const source=codeOf(run.content);const temp=fs.mkdtempSync(path.join(os.tmpdir(),'qwen-quality-'));const file=path.join(temp,'answer.ts');
+  const source=codeOf(run.content);
+  add('requested-assertions-present',()=>{const count=[...source.matchAll(/(?:console\.)?assert(?:Equal|DeepEqual)?\s*\(/g)].length;assert.ok(count >= (run.task==='rotate_ts'?3:2),'Missing requested assertions; test-case relevance still requires review');});
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'qwen-quality-'));const file=path.join(temp,'answer.ts');
   try {
    fs.writeFileSync(file,source);
    add('typescript-strict-typecheck',()=>{
@@ -40,10 +43,10 @@ const reports=[];
 for(const budget of [0,8192,12288,16384]) {
  const dir=path.join(root,`qwen-ab-cache${budget}`);if(!fs.existsSync(dir))continue;
  for(const name of fs.readdirSync(dir).filter(n=>n.endsWith('.json'))) {
-  const data=JSON.parse(fs.readFileSync(path.join(dir,name),'utf8'));reports.push({budget,file:path.join(dir,name),status:data.status,answers:data.runs.map(evaluate)});
+  const data=JSON.parse(fs.readFileSync(path.join(dir,name),'utf8'));reports.push({budget,file:path.join(dir,name),status:data.status,settings:Object.fromEntries(Object.entries(data.args||{}).filter(([k])=>!['outdir','moe_cache_mib'].includes(k))),answers:data.runs.map(evaluate)});
  }
 }
 const baseline=reports.find(r=>r.budget===0);const comparisons=[];
-if(baseline)for(const report of reports.filter(r=>r.budget!==0))for(const a of report.answers){const b=baseline.answers.find(b=>b.task===a.task&&b.repeat===a.repeat);if(!b)continue;comparisons.push({budget:report.budget,task:a.task,repeat:a.repeat,samePromptHash:a.promptHash===b.promptHash,newAutomatedFailure:b.automatedVerdict==='pass'&&a.automatedVerdict==='fail'});}
+if(baseline)for(const report of reports.filter(r=>r.budget!==0))for(const a of report.answers){const b=baseline.answers.find(b=>b.task===a.task&&b.repeat===a.repeat);if(!b)continue;comparisons.push({budget:report.budget,task:a.task,repeat:a.repeat,samePromptHash:!!a.promptHash&&a.promptHash===b.promptHash,sameText:a.textHash===b.textHash,sameSettings:JSON.stringify(report.settings)===JSON.stringify(baseline.settings),newAutomatedFailure:b.automatedVerdict==='pass'&&a.automatedVerdict==='fail'});}
 fs.writeFileSync(path.join(root,'qwen-ab-quality.json'),JSON.stringify({reports,comparisons,limitations:'Manual review remains required. No-check answers are not counted as passing; this suite cannot certify universal quality.'},null,2)+'\n');
 console.log(JSON.stringify({reports:reports.length,checks:reports.flatMap(r=>r.answers.flatMap(a=>a.checks)).length,newFailures:comparisons.filter(c=>c.newAutomatedFailure).length}));
