@@ -1,8 +1,9 @@
 import {open} from 'node:fs/promises';
-export interface LlamaPlacementReport {offloadedLayers?:number;reportedLayers?:number;modelMiB:Record<string,number>;kvMiB:Record<string,number>;computeMiB:Record<string,number>;source:'owned-server-log';observedAt:string;}
+export interface LlamaPlacementReport {expertCacheMiB?:number;offloadedLayers?:number;reportedLayers?:number;modelMiB:Record<string,number>;kvMiB:Record<string,number>;computeMiB:Record<string,number>;source:'owned-server-log';observedAt:string;}
 export function parseLlamaPlacement(log:string):LlamaPlacementReport|undefined{
  const result:LlamaPlacementReport={modelMiB:{},kvMiB:{},computeMiB:{},source:'owned-server-log',observedAt:new Date().toISOString()};
- for(const line of new Set(log.split('\n'))){
+ for(const line of log.split('\n')){
+  const expert=/MoE cache size\s*=\s*([\d.]+) MiB/.exec(line);if(expert)result.expertCacheMiB=(result.expertCacheMiB??0)+Number(expert[1]);
   const offload=/load_tensors: offloaded (\d+)\/(\d+) layers to GPU/.exec(line);if(offload){result.offloadedLayers=Number(offload[1]);result.reportedLayers=Number(offload[2]);}
   const buffer=/\b(CUDA\d+|CPU_Mapped|CPU|CUDA_Host)\s+(model|KV|compute) buffer size\s*=\s*([\d.]+) MiB/.exec(line);if(!buffer)continue;
   const target=buffer[2]==='model'?result.modelMiB:buffer[2]==='KV'?result.kvMiB:result.computeMiB;

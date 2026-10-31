@@ -1,0 +1,137 @@
+{
+  "root": "/tmp/lad-placement-electron-T7Vj3o",
+  "port": 37885,
+  "steps": [
+    {
+      "ui": "PASS metadata4, single/noncontiguous/range/all/reset/invalid/keyboard/save/restart"
+    },
+    {
+      "model": "custom:123e4567-e89b-42d3-a456-426614174081",
+      "state": {
+        "status": "ready",
+        "modelId": "custom:123e4567-e89b-42d3-a456-426614174081",
+        "contextWindow": 4096,
+        "profileFingerprint": "2182a44dea115948c196095e9634672816467a2df53fffe0f2e928deb760aaec",
+        "profileConfiguration": {
+          "id": "custom:123e4567-e89b-42d3-a456-426614174081",
+          "displayName": "Dense placement fixture",
+          "family": "auto",
+          "advanced": {
+            "mode": "gpu-layers",
+            "inheritPlacement": true,
+            "gpuLayerIds": [
+              0,
+              2
+            ],
+            "experimentalRuntimePath": "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server"
+          },
+          "defaults": {
+            "contextWindow": 4096,
+            "kvCacheType": "q8_0",
+            "kvOffload": true
+          },
+          "mtpMode": "off",
+          "modelPath": "/tmp/placement-dense.gguf",
+          "mmprojPath": "",
+          "gpuLayers": 999,
+          "projectorDevice": "auto",
+          "supportsTools": true,
+          "toolCallingMode": "auto",
+          "speculative": "none",
+          "builtin": false
+        },
+        "mtpMode": "off",
+        "kvCacheType": "q8_0",
+        "kvOffload": true,
+        "speculativeMode": "none",
+        "requestId": "c450e2ec-f92f-48c4-8d31-66379eef3b09",
+        "launcherPid": 18854,
+        "serverPid": 19499,
+        "serverStartTime": "290996",
+        "launcherStartTime": "288675",
+        "launchArguments": [
+          "/media/yaroslav/DATA/local-ai-desktop/runtime/experimental-llama-moe/build/bin/llama-server",
+          "--log-verbosity",
+          "5",
+          "-m",
+          "/tmp/placement-dense.gguf",
+          "--alias",
+          "custom:123e4567-e89b-42d3-a456-426614174081",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "37885",
+          "--ctx-size",
+          "4096",
+          "--gpu-layers",
+          "999",
+          "--flash-attn",
+          "on",
+          "--cache-type-k",
+          "q8_0",
+          "--cache-type-v",
+          "q8_0",
+          "--kv-offload",
+          "--parallel",
+          "1",
+          "--jinja",
+          "--reasoning",
+          "on",
+          "--reasoning-format",
+          "auto",
+          "--fit",
+          "off",
+          "--override-tensor",
+          "^blk[.](?:1|3)[.]=CPU,^blk[.](?:0|2)[.]=CUDA0,^(?!blk[.]).*=CPU",
+          "--no-warmup",
+          "--spec-type",
+          "none"
+        ],
+        "placement": {
+          "modelMiB": {
+            "CPU_Mapped": 37.13,
+            "CUDA0": 0.08
+          },
+          "kvMiB": {
+            "CUDA0": 1.07
+          },
+          "computeMiB": {
+            "CUDA0": 0.64,
+            "CUDA_Host": 4.47
+          },
+          "source": "owned-server-log",
+          "observedAt": "2026-10-31T18:52:18.071Z",
+          "offloadedLayers": 5,
+          "reportedLayers": 5
+        },
+        "desiredProfileFingerprint": "2182a44dea115948c196095e9634672816467a2df53fffe0f2e928deb760aaec",
+        "diagnosticsHistory": []
+      }
+    },
+    {
+      "denseStreaming": true
+    }
+  ],
+  "scope": "Real Electron, isolated profiles/SQLite/launcher. Dense synthetic4-block GGUF; Qwen real GGUF only in explicit GPU mode.",
+  "denseTensorEvidence": [
+    "0.00.353.749 D tensor blk.0.attn_q.weight (0 MiB f32) buffer type overridden to CUDA0",
+    "0.00.354.152 D tensor blk.0.ffn_up.weight (0 MiB f32) buffer type overridden to CUDA0",
+    "0.00.355.071 D tensor blk.1.attn_q.weight (0 MiB f32) buffer type overridden to CUDA_Host",
+    "0.00.361.154 D tensor blk.1.ffn_up.weight (0 MiB f32) buffer type overridden to CUDA_Host",
+    "0.00.362.074 D tensor blk.2.attn_q.weight (0 MiB f32) buffer type overridden to CUDA0",
+    "0.00.362.477 D tensor blk.2.ffn_up.weight (0 MiB f32) buffer type overridden to CUDA0",
+    "0.00.363.408 D tensor blk.3.attn_q.weight (0 MiB f32) buffer type overridden to CUDA_Host",
+    "0.00.369.779 D tensor blk.3.ffn_up.weight (0 MiB f32) buffer type overridden to CUDA_Host"
+  ],
+  "memory": {
+    "before": {
+      "availableMiB": 55070.7265625,
+      "swapOutPages": 0
+    },
+    "minAvailableMiB": 8883.16796875,
+    "maxNewSwapOutPages": 31527
+  },
+  "status": "FAILED",
+  "error": "Error: page.evaluate: Target page, context or browser has been closed",
+  "safetyFailure": "Memory watchdog stopped test: {\"availableMiB\":8883.16796875,\"swapOutPages\":31527}"
+}

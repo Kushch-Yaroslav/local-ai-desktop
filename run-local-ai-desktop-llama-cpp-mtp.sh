@@ -45,6 +45,7 @@ REQUEST_CONTEXT_FOR_ERROR=""
 VARIANT=""; MODEL=""; MMPROJ=""; RUNTIME_MODEL_ID=""; RUNTIME_LABEL=""; DEFAULT_LLAMA_CONTEXT=""; MAX_LLAMA_CONTEXT=""; MODEL_GPU_LAYERS=""
 SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""; DRAFT_GPU_LAYERS="auto"
 PROFILE_SERVER_ARGS=()
+PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0
 PROFILE_VISION_REQUIRED="0"; PROFILE_FINGERPRINT=""; PROFILE_MODEL_CONFIG=""; SELECTED_PROFILE_ENV=""
 ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""; ACTIVE_PROFILE_ENV=""; ACTIVE_RUNTIME_CONFIG=""; SERVER_START_TIME=""
 
@@ -57,7 +58,7 @@ log() { printf '%s %s\n' "$(timestamp)" "$*" >> "$LOG_FILE"; }
 # Sets the launch variables for a model id. Fails for a model without a runtime.
 select_variant() {
   local config
-  config="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_MTP_MODE="${REQUESTED_MTP_MODE:-}" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$1" "${2:-}" 2>&1)" || { LAUNCH_ERROR="$config"; return 1; }
+  config="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_OWNED_SERVER_PID="${SERVER_PID:-}" LOCAL_AI_PLACEMENT_CONTEXT="${context:-}" LOCAL_AI_PLACEMENT_KV="${kv_type:-}" LOCAL_AI_PLACEMENT_KV_OFFLOAD="${kv_offload:-}" LOCAL_AI_MTP_MODE="${REQUESTED_MTP_MODE:-}" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$1" "${2:-}" 2>&1)" || { LAUNCH_ERROR="$config"; return 1; }
   # The compiled profile helper emits fixed variable names and shell-quoted values.
   eval "$config"
   SELECTED_PROFILE_ENV="$config"
@@ -115,11 +116,31 @@ stop_llama_server() {
   wait "$pid" 2>/dev/null || true
 }
 
+# Experimental placement guard: only the owned child is stopped; no system policy changes.
+placement_memory_ok() {
+  [[ "${PROFILE_MEMORY_GUARD:-0}" == "1" ]] || return 0
+  local available out page_size
+  available="$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)"
+  out="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
+  page_size="$(getconf PAGESIZE)"
+  if [[ -z "$available" || -z "$out" ]] || (( available < 7*1024*1024 || (out-MODEL_SWAP_BASE)*page_size > 32*1024*1024 )); then
+    LAUNCH_ERROR="Memory safety stop: RAM reserve below7GiB or aggregate swap-out above32MiB. Only the owned model was stopped."
+    return 1
+  fi
+}
+
 # Record unexpected server death while retaining the launcher for explicit
 # reload. Never allocate a model automatically after a crash or user stop.
 check_server_lifecycle() {
   [[ -n "$SERVER_PID" ]] || return 0
-  kill -0 "$SERVER_PID" 2>/dev/null && return 0
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    if ! placement_memory_ok; then
+      local reason="$LAUNCH_ERROR"
+      stop_llama_server "$SERVER_PID"; SERVER_PID=""; ACTIVE_MODEL=""; ACTIVE_CONTEXT=0
+      rm -f "$SERVER_PID_FILE"; write_state offline "" "$reason"; log "$reason"
+    fi
+    return 0
+  fi
   local dead_pid="$SERVER_PID" server_status=0
   wait "$dead_pid" 2>/dev/null || server_status=$?
   log "llama-server.exit pid=$dead_pid status=$server_status unexpected=true"
@@ -215,6 +236,8 @@ launch_server() {
   if [[ -n "${8:-}" ]]; then runtime_config="$8"; else runtime_config="$(ELECTRON_RUN_AS_NODE=1 "$ELECTRON_BIN" "$APP_DIR/dist/main/services/runtime-settings.js" 2>&1)" || { LAUNCH_ERROR="$runtime_config"; return 1; }; fi
   eval "$runtime_config"
   if [[ -n "${7:-}" ]]; then eval "$7"; SELECTED_PROFILE_ENV="$7"; else select_variant "$model_id" --verify || return 1; fi
+  LLAMA_BIN="${PROFILE_RUNTIME_PATH:-$LLAMA_BIN}"
+  log "placement.runtime=$LLAMA_BIN note=${PROFILE_PLACEMENT_NOTE:-}"
   valid_context "$context" || { LAUNCH_ERROR="Неподдерживаемый размер контекста llama.cpp: $context"; return 1; }
   [[ "$kv_type" == "f16" || "$kv_type" == "q8_0" ]] || { LAUNCH_ERROR="Неподдерживаемый тип KV-cache: $kv_type"; return 1; }
   [[ "$kv_offload" == "0" || "$kv_offload" == "1" ]] || { LAUNCH_ERROR="Неподдерживаемая настройка KV offload"; return 1; }
@@ -234,6 +257,7 @@ launch_server() {
   build_server_args "$context" "$gpu_layers" || return 1
   printf -v printed_command '%q ' "$LLAMA_BIN" "${server_args[@]}"
   log "llama-server.command=${printed_command% }"
+  MODEL_SWAP_BASE="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
   "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 9>&- &
   SERVER_PID=$!; SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
   printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
@@ -250,6 +274,7 @@ launch_server() {
       SERVER_PID=""; rm -f "$SERVER_PID_FILE"
       return 1
     fi
+    if ! placement_memory_ok; then stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"; return 1; fi
     if curl --silent --fail "$URL/health" >/dev/null 2>&1; then healthy=1; break; fi
     sleep 1; waited=$((waited + 1))
   done
@@ -259,6 +284,10 @@ launch_server() {
     return 1
   fi
   log "health.result=ok seconds=$waited"
+  if [[ " ${PROFILE_SERVER_ARGS[*]} " == *" --moe-cache-mib "* ]] && ! grep -Eq 'MoE cache size = +[1-9][0-9]*[.]?[0-9]* MiB' "$SERVER_LOG"; then
+    LAUNCH_ERROR="Requested GPU expert cache allocation was not confirmed in backend logs."
+    stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"; return 1
+  fi
   if [[ "$SPECULATIVE_MODE" != "none" ]]; then
     local implementation="draft-mtp"
     [[ "$SPECULATIVE_MODE" == "eagle3" ]] && implementation="draft-eagle3"
@@ -371,7 +400,7 @@ switch_runtime() {
   # healthy process. Keep the command in a subshell: target profile variables
   # must not overwrite the active identity on a rejected request.
   local preflight
-  if ! preflight="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_MTP_MODE="$REQUEST_MTP_MODE" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$MODEL_ID" --preflight 2>&1)"; then
+  if ! preflight="$(ELECTRON_RUN_AS_NODE=1 LOCAL_AI_OWNED_SERVER_PID="${SERVER_PID:-}" LOCAL_AI_PLACEMENT_CONTEXT="$CONTEXT" LOCAL_AI_PLACEMENT_KV="$KV_TYPE" LOCAL_AI_PLACEMENT_KV_OFFLOAD="$KV_OFFLOAD" LOCAL_AI_MTP_MODE="$REQUEST_MTP_MODE" "$ELECTRON_BIN" "$APP_DIR/dist/main/models/llama-launch-config.js" "$MODEL_ID" --preflight 2>&1)"; then
     log "runtime.switch request=$REQUEST_ID preflight=failed error=$preflight"
     if [[ -n "$previous_model" ]]; then write_state ready "$REQUEST_ID" "$preflight"; else write_state offline "$REQUEST_ID" "$preflight"; fi
     return 0

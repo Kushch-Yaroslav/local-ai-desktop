@@ -808,3 +808,15 @@ button.sidebar-footer { background: transparent; border: 0; text-align: left; }
 .visual-area-context {flex-wrap:wrap;gap:2px 8px}
 .visual-area-context>span:first-child {flex:1 1 120px}
 .visual-area-context>span:last-child {flex:1 1 220px;white-space:normal;overflow-wrap:anywhere}
+
+/* Integrated model placement and shared GPU budget. */
+.profile-memory-manager { grid-column:1/-1; min-width:0; padding:12px; border:1px solid var(--border); border-radius:8px; }
+.profile-memory-manager small { display:block; margin-top:6px; }
+.profile-memory-manager .layer-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(34px,1fr)); max-height:224px; overflow:auto; gap:5px; margin:12px 0; padding:3px; }
+.layer-grid button { min-height:32px; border:1px solid var(--border); border-radius:5px; background:transparent; color:var(--text); }
+.layer-grid button.gpu-selected { background:#237345; color:white; border-color:#46b476; }
+.layer-grid button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.vram-distribution { display:flex; height:18px; overflow:hidden; border:1px solid var(--border); border-radius:6px; margin-top:10px; background:var(--bg-secondary); }
+.vram-distribution span { flex-shrink:0; min-width:0; transition:width .15s; }
+.vram-legend { display:flex; flex-wrap:wrap; gap:8px 15px; margin-top:8px; font-size:12px; }
+.vram-legend i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; }

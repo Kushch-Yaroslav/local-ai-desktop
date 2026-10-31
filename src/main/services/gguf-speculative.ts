@@ -2,7 +2,7 @@ import { closeSync, fstatSync, openSync, readSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
-export type GgufSpeculativeMetadata = { values: Record<string, string | number | boolean>; tokenizer: Record<string, string>; tensors?: Record<string, number[]> };
+export type GgufSpeculativeMetadata = { values: Record<string, string | number | boolean>; tokenizer: Record<string, string>; tensors?: Record<string, number[]>; tensorLayout?:Array<{name:string;type:number;bytes:number;shape:number[]}> };
 
 const metadataCache = new Map<string, { identity: string; metadata?: GgufSpeculativeMetadata; error?: string }>();
 const metadataCacheLimit = 32;
@@ -121,14 +121,17 @@ function parseGgufSpeculativeMetadata(path: string): GgufSpeculativeMetadata {
     if (!Number.isSafeInteger(alignment) || alignment < 1 || alignment > 4096) throw new Error('Некорректное выравнивание GGUF.');
     const dataStart = Math.ceil(position / alignment) * alignment;
     const layouts: Record<number, [number, number]> = { 0: [1, 4], 1: [1, 2], 2: [32, 18], 3: [32, 20], 6: [32, 22], 7: [32, 24], 8: [32, 34], 12: [256, 144], 13: [256, 176], 14: [256, 210], 15: [256, 292], 30: [1, 2] };
+    metadata.tensorLayout=[];
     for (const tensor of locations) {
       const layout = layouts[tensor.type];
-      if (!layout) continue; // Unknown quantizations cannot certify MTP weights.
+      if (!layout) {metadata.tensorLayout.push({name:tensor.name,type:tensor.type,bytes:0,shape:tensor.shape});continue;} // Unknown quantizations cannot certify MTP weights.
       const elements = tensor.shape.reduce((a, b) => a * b, 1);
       const extent = dataStart + tensor.offset + elements / layout[0] * layout[1];
+      metadata.tensorLayout.push({name:tensor.name,type:tensor.type,bytes:Number.isSafeInteger(elements)&&Number.isInteger(elements/layout[0])&&extent<=size?elements/layout[0]*layout[1]:0,shape:tensor.shape});
       if (Number.isSafeInteger(elements) && Number.isInteger(elements / layout[0]) && extent <= size) metadata.tensors[tensor.name] = Object.freeze(tensor.shape) as number[];
     }
     Object.freeze(metadata.tensors);
+    metadata.tensorLayout.forEach(t=>{Object.freeze(t.shape);Object.freeze(t);});Object.freeze(metadata.tensorLayout);
     return metadata;
   } finally { closeSync(fd); }
 }

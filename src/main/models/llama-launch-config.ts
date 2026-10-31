@@ -1,3 +1,5 @@
+import {placementPreview,resolvePlacement} from '../services/model-placement';
+import {experimentalPlacement,profileRuntimePath} from '../../shared/model-memory';
 import { runtimeProfileFingerprint } from '../services/runtime-profile-identity';
 import type { BackendFeatureProbe } from '../../shared/model-profiles';
 import { advancedPlacementArguments } from './advanced-placement';
@@ -63,6 +65,7 @@ export async function verifyDraftFile(profile: LlamaRuntimeProfile): Promise<voi
 
 const quote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`;
 export function placementArguments(profile: LlamaRuntimeProfile,backend?:BackendFeatureProbe): string[] {
+  if(profile.advanced?.inheritPlacement&&!experimentalPlacement(profile.advanced))return placementArguments({...profile,advanced:undefined},backend);
   if(profile.advanced)return advancedPlacementArguments(profile.advanced,profile.inspection,backend);
   const placement = profile.placement;
   if (!placement) return [];
@@ -82,13 +85,14 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
   const runtimeConfig=effectiveRuntimeConfiguration(),configured=runtimeConfig.models.find(model=>model.id===profile.id);
   const snapshot=configured?{...configured,gpuLayers:profile.gpuLayers??runtimeConfig.gpuLayers,mtpMode:profile.mtpMode??configured.mtpMode,projectorDevice:profile.projectorDevice??configured.projectorDevice}:null;
   const values = {
+    PROFILE_RUNTIME_PATH:profileRuntimePath(profile.advanced,runtimeConfig.llamaServerPath)??'', PROFILE_MEMORY_GUARD:experimentalPlacement(profile.advanced)?'1':'0',
     PROFILE_VISION_REQUIRED: mmproj ? '1' : '0', PROFILE_FINGERPRINT: runtimeProfileFingerprint(profile.id), PROFILE_MODEL_CONFIG: Buffer.from(JSON.stringify(snapshot)).toString('base64'),
     PROJECTOR_PREFERENCE: profile.projectorPreference ?? '', PROJECTOR_DEVICE: profile.projectorDevice ?? 'auto', VARIANT: profile.id, MODEL: profile.modelPath, MMPROJ: mmproj, RUNTIME_MODEL_ID: profile.id,
     RUNTIME_LABEL: getModelProfile(profile.id)?.displayName ?? profile.id, DEFAULT_LLAMA_CONTEXT: String(profile.normalContext?.initialContextWindow ?? 32_768), MAX_LLAMA_CONTEXT: String(profile.maxContext),
     SPECULATIVE_MODE: mode, DRAFT_MODEL: draft?.path ?? '', DRAFT_KV_SHARED: draft?.kvCache === 'shared' ? '1' : '0',
     DRAFT_N_MAX: draft ? String(draft.maxDraftTokens) : mode === 'mtp' && profile.speculativeDraftTokens ? String(profile.speculativeDraftTokens) : '',
     DRAFT_GPU_LAYERS: draft ? 'auto' : '',
-    MODEL_GPU_LAYERS: profile.advanced?.mode==='automatic'?'auto':profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
+    MODEL_GPU_LAYERS: profile.advanced?.mode==='automatic'&&!experimentalPlacement(profile.advanced)?'auto':profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
   };
   return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${placementArguments(profile,backend).map(quote).join(' ')})`].join('\n');
 }
@@ -99,10 +103,15 @@ if (require.main === module) {
     if (!profile) throw new Error(`Unknown Local AI llama.cpp model: ${process.argv[2]}`);
     const requested = process.env.LOCAL_AI_MTP_MODE || (process.env.LOCAL_AI_LLAMA_SPECULATIVE === '0' ? 'off' : process.env.LOCAL_AI_LLAMA_SPECULATIVE === '1' ? 'on' : profile.mtpMode ?? (profile.speculative === 'none' ? 'off' : 'auto'));
     if (!['auto', 'on', 'off'].includes(requested)) throw new Error('Invalid MTP mode');
-    profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', effectiveRuntimeConfiguration().llamaServerPath,profile.draft?.path), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
+    const runtimePath=profileRuntimePath(profile.advanced,effectiveRuntimeConfiguration().llamaServerPath);
+    profile = { ...profile, mtpMode:requested as import('../../shared/types').MtpMode, speculative: await resolveMtpMode(requested as 'auto' | 'on' | 'off', profile.modelPath ?? '', runtimePath,profile.draft?.path), speculativeDraftTokens: profile.speculativeDraftTokens ?? 2 };
     // Vision is a chat image-input policy, not a prerequisite for loading a text model.
     // Configured projectors still require successful multimodal initialization at launch.
-    const backendFeatures=profile.advanced?await probeBackendFeatures(effectiveRuntimeConfiguration().llamaServerPath):undefined;
+    let backendFeatures=profile.advanced?await probeBackendFeatures(runtimePath):undefined;
+    let placementNote='';
+    if(experimentalPlacement(profile.advanced)&&profile.speculative!=='none')throw Error('Experimental placement does not budget speculative decoding; turn MTP off or use Standard.');
+    if(experimentalPlacement(profile.advanced)){const config=effectiveRuntimeConfiguration(),model=config.models.find(m=>m.id===profile!.id)!;const preview=await placementPreview(model,config.llamaServerPath,Number(process.env.LOCAL_AI_OWNED_SERVER_PID)||undefined);const context=Number(process.env.LOCAL_AI_PLACEMENT_CONTEXT)||profile.defaults?.contextWindow||32768;const defaults={...profile.defaults,contextWindow:context,kvCacheType:(process.env.LOCAL_AI_PLACEMENT_KV||profile.defaults?.kvCacheType||'f16') as 'f16'|'q8_0',kvOffload:process.env.LOCAL_AI_PLACEMENT_KV_OFFLOAD===undefined?profile.defaults?.kvOffload:process.env.LOCAL_AI_PLACEMENT_KV_OFFLOAD!=='0'};const plan=resolvePlacement(model,preview,profile.advanced?.gpuLayerIds!==undefined?999:profile.gpuLayers??config.gpuLayers,defaults);placementNote=plan.note;profile={...profile,advanced:plan.advanced,...(profile.advanced?.gpuLayerIds!==undefined?{gpuLayers:999}:{})};}
+    if(profileRuntimePath(profile.advanced,effectiveRuntimeConfiguration().llamaServerPath)!==runtimePath&&profile.advanced)backendFeatures=await probeBackendFeatures(profileRuntimePath(profile.advanced,effectiveRuntimeConfiguration().llamaServerPath));
     const environment = launchProfileEnvironment(profile,undefined,backendFeatures);
 
     if (process.argv[3] === '--verify' || process.argv[3] === '--preflight') {
@@ -112,6 +121,6 @@ if (require.main === module) {
       if (mode === 'mtp' && !profile.draft) verifyEmbeddedMtp(profile);
       if (mode !== 'none' && profile.draft) await verifyDraftFile(profile);
     }
-    process.stdout.write(environment + `\nMTP_REQUESTED_MODE=${quote(requested)}\n`);
+    process.stdout.write(environment + `\nPROFILE_PLACEMENT_NOTE=${quote(placementNote)}` + `\nMTP_REQUESTED_MODE=${quote(requested)}\n`);
   })().catch((error: unknown) => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 1; });
 }

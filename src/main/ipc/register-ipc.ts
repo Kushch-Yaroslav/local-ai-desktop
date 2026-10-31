@@ -1,3 +1,5 @@
+import {placementPreview,resolvePlacement} from '../services/model-placement';
+import {experimentalPlacement} from '../../shared/model-memory';
 import {startRuntimeSupervisor} from '../services/runtime-supervisor';
 import { dirname } from 'node:path';
 import { modelLocationDirectory } from '../services/model-location';
@@ -826,6 +828,7 @@ export function registerIpc(): void {
     }finally{runtimeSelectionBusy=false;void visionDevice.flush();}
   });
   ipcMain.handle('settings:get', getSettings);
+  ipcMain.handle('settings:placement',async (_event,raw:unknown,server:unknown)=>{if(server!==undefined&&server!==null&&(typeof server!=='string'||server.length>4096))throw Error('Invalid backend path');const current=effectiveRuntimeConfiguration(),model=normalizeConfiguration({...current,models:[raw]}).models[0];const owned=await llamaRuntime.state();return placementPreview(model,typeof server==='string'?server:current.llamaServerPath,owned.status==='ready'?owned.serverPid:undefined);});
   ipcMain.handle('settings:validateDraft', (_event, config: unknown) => runtimeDraftAvailability(config));
   const resolutionJobs = new Map<number, AbortController>();
   ipcMain.handle('settings:cancelResolution', (event) => { resolutionJobs.get(event.sender.id)?.abort(); });
@@ -862,7 +865,7 @@ export function registerIpc(): void {
     const features=next.models.some(model=>model.advanced)?await probeBackendFeatures(next.llamaServerPath):undefined;
     for(const model of next.models){
       const inspection=inspectModel(model.modelPath,model.family);
-      if(model.advanced)advancedPlacementArguments(model.advanced,inspection,features);
+      if(model.advanced){if(experimentalPlacement(model.advanced)){const owned=await llamaRuntime.state();const preview=await placementPreview(model,next.llamaServerPath,owned.status==='ready'?owned.serverPid:undefined);resolvePlacement(model,preview,model.advanced.gpuLayerIds!==undefined?999:model.gpuLayers??next.gpuLayers);}else advancedPlacementArguments(model.advanced,inspection,features);}
       if(inspection.status==='inspected'){
         if(model.defaults?.thinkingEnabled!==undefined&&model.defaults.thinkingEnabled!==null&&!inspection.reasoning.thinkingToggle)throw Error('The inspected template does not support a Thinking toggle');
         if(model.defaults?.reasoningEffort&&!inspection.reasoning.efforts.includes(model.defaults.reasoningEffort))throw Error('The inspected template does not support this reasoning effort');

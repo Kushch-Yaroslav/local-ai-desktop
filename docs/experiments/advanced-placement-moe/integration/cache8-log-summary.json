@@ -1,0 +1,28 @@
+{
+  "source": "/tmp/lad-placement-electron-2WKzv1/logs/llama-cpp-mtp-server.log",
+  "note": "Reparsed after fixing identical allocation-line deduplication. CPU_Mapped is mapping/allocation, not RSS.",
+  "allocations": {
+    "modelMiB": {
+      "CPU_Mapped": 44838.39,
+      "CUDA0": 1626.23
+    },
+    "kvMiB": {
+      "CUDA0": 204
+    },
+    "computeMiB": {
+      "CUDA0": 850.5,
+      "CUDA_Host": 10.1
+    },
+    "source": "owned-server-log",
+    "observedAt": "2026-10-31T19:06:33.098Z",
+    "offloadedLayers": 48,
+    "reportedLayers": 49,
+    "expertCacheMiB": 8190.52
+  },
+  "timingsAndCacheTelemetry": [
+    "1.10.605.096 I slot print_timing: id  0 | task 0 | prompt eval time =   65646.84 ms /  5295 tokens (   12.40 ms per token,    80.66 tokens per second)",
+    "1.10.605.097 I slot print_timing: id  0 | task 0 |        eval time =      41.65 ms /     2 tokens (   41.65 ms per token,    24.01 tokens per second)",
+    "1.10.902.575 I llama_moe_cache: ubatch <= 8: hits = 1158, misses = 1248, hit rate = 48.13%, uploaded = 2255.02 MiB",
+    "1.10.902.578 I llama_moe_cache: ubatch  > 8: hits = 255, misses = 2014, hit rate = 11.24%, uploaded = 3643.80 MiB"
+  ]
+}
