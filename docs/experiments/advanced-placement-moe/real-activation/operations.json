@@ -1,0 +1,2886 @@
+{
+  "operations": [
+    {
+      "expert_ids": [
+        319,
+        292,
+        83,
+        446,
+        44,
+        349,
+        354,
+        111,
+        322,
+        284
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-1.json",
+      "input": {
+        "bytes": 8192,
+        "name": "attn_post_norm-0 (reshaped)",
+        "nb": [
+          4,
+          8192,
+          8192,
+          8192
+        ],
+        "ne": [
+          2048,
+          1,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 0,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 39.347075160297166
+          },
+          "CPU_static": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.0018063092613535975,
+            "above_thresholds": [
+              3522,
+              3363,
+              2261,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009800873696804047,
+            "mean_abs": 0.0011836214224047125,
+            "reference_L2": 39.31881498598076,
+            "relative_L2": 0.0032872040915489084,
+            "relative_Linf": 0.002728608900670041,
+            "test_L2": 39.347075160297166
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.0009099944102863164,
+            "above_thresholds": [
+              3519,
+              3231,
+              1218,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.004685014486312866,
+            "mean_abs": 0.0005916806394168361,
+            "reference_L2": 39.31881498598076,
+            "relative_L2": 0.001656049389094197,
+            "relative_Linf": 0.0013043298610500352,
+            "test_L2": 39.32839721867188
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.0009099944102863164,
+            "above_thresholds": [
+              3519,
+              3231,
+              1218,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.004685014486312866,
+            "mean_abs": 0.0005916806394168361,
+            "reference_L2": 39.31881498598076,
+            "relative_L2": 0.001656049389094197,
+            "relative_Linf": 0.0013043298610500352,
+            "test_L2": 39.32839721867188
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 39.32839721867188,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 39.32839721867188
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "CPU_static": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 39.32839721867188,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 39.32839721867188
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018742589602657902,
+            "above_thresholds": [
+              3748,
+              3148,
+              1973,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0096539705991745,
+            "mean_abs": 0.0011301924859253632,
+            "reference_L2": 22.775303354197572,
+            "relative_L2": 0.005888442058368418,
+            "relative_Linf": 0.0034775642897458985,
+            "test_L2": 22.75579037087982
+          },
+          "CPU_static": {
+            "RMSE": 0.0018742589602657902,
+            "above_thresholds": [
+              3748,
+              3148,
+              1973,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0096539705991745,
+            "mean_abs": 0.0011301924859253632,
+            "reference_L2": 22.775303354197572,
+            "relative_L2": 0.005888442058368418,
+            "relative_Linf": 0.0034775642897458985,
+            "test_L2": 22.75579037087982
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 22.75579037087982,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 22.75579037087982
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "CPU_static": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 39.32839721867188,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 39.32839721867188
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "CPU_static": {
+            "RMSE": 0.0018390876414195994,
+            "above_thresholds": [
+              3522,
+              3369,
+              2232,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.009283848106861115,
+            "mean_abs": 0.0011972462983976585,
+            "reference_L2": 39.347075160297166,
+            "relative_L2": 0.003344451878908439,
+            "relative_Linf": 0.002583740464650573,
+            "test_L2": 39.32839721867188
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 39.32839721867188,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 39.32839721867188
+          }
+        }
+      ],
+      "weight": "blk.0.ffn_gate_exps.weight"
+    },
+    {
+      "expert_ids": [
+        319,
+        292,
+        83,
+        446,
+        44,
+        349,
+        354,
+        111,
+        322,
+        284
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-2.json",
+      "input": {
+        "bytes": 8192,
+        "name": "attn_post_norm-0 (reshaped)",
+        "nb": [
+          4,
+          8192,
+          8192,
+          8192
+        ],
+        "ne": [
+          2048,
+          1,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 0,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 13.52558486610675
+          },
+          "CPU_static": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.0018400247567771785,
+            "above_thresholds": [
+              3521,
+              3380,
+              2227,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.008782222867012024,
+            "mean_abs": 0.0011972833559248386,
+            "reference_L2": 13.513056515005886,
+            "relative_L2": 0.009743277090549774,
+            "relative_Linf": 0.0037481546841716777,
+            "test_L2": 13.52558486610675
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.0009053797616692373,
+            "above_thresholds": [
+              3518,
+              3261,
+              1228,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.004938872531056404,
+            "mean_abs": 0.0005943371069015768,
+            "reference_L2": 13.513056515005886,
+            "relative_L2": 0.004794156088187641,
+            "relative_Linf": 0.0021078556638934524,
+            "test_L2": 13.518592218809975
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.0009053797616692373,
+            "above_thresholds": [
+              3518,
+              3261,
+              1228,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.004938872531056404,
+            "mean_abs": 0.0005943371069015768,
+            "reference_L2": 13.513056515005886,
+            "relative_L2": 0.004794156088187641,
+            "relative_Linf": 0.0021078556638934524,
+            "test_L2": 13.518592218809975
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 13.518592218809975,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 13.518592218809975
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "CPU_static": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 13.518592218809975,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 13.518592218809975
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0018993598193429793,
+            "above_thresholds": [
+              3746,
+              3159,
+              1973,
+              1
+            ],
+            "elements": 5120,
+            "max_abs": 0.010676950216293335,
+            "mean_abs": 0.0011434394122716185,
+            "reference_L2": 11.039528129157675,
+            "relative_L2": 0.01231095422222668,
+            "relative_Linf": 0.006054988630935294,
+            "test_L2": 11.030281359302839
+          },
+          "CPU_static": {
+            "RMSE": 0.0018993598193429793,
+            "above_thresholds": [
+              3746,
+              3159,
+              1973,
+              1
+            ],
+            "elements": 5120,
+            "max_abs": 0.010676950216293335,
+            "mean_abs": 0.0011434394122716185,
+            "reference_L2": 11.039528129157675,
+            "relative_L2": 0.01231095422222668,
+            "relative_Linf": 0.006054988630935294,
+            "test_L2": 11.030281359302839
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 11.030281359302839,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 11.030281359302839
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "CPU_static": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 13.518592218809975,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 13.518592218809975
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "CPU_static": {
+            "RMSE": 0.0019000050202002646,
+            "above_thresholds": [
+              3522,
+              3403,
+              2311,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00839260220527649,
+            "mean_abs": 0.0012477978244533005,
+            "reference_L2": 13.52558486610675,
+            "relative_L2": 0.01005156476367666,
+            "relative_Linf": 0.0035767888656495364,
+            "test_L2": 13.518592218809975
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 13.518592218809975,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 13.518592218809975
+          }
+        }
+      ],
+      "weight": "blk.0.ffn_up_exps.weight"
+    },
+    {
+      "expert_ids": [
+        319,
+        292,
+        83,
+        446,
+        44,
+        349,
+        354,
+        111,
+        322,
+        284
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-3.json",
+      "input": {
+        "bytes": 20480,
+        "name": "ffn_moe_swiglu-0",
+        "nb": [
+          4,
+          2048,
+          20480,
+          20480
+        ],
+        "ne": [
+          512,
+          10,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 0,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.3192180236825433
+          },
+          "CPU_static": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.0002040503669522905,
+            "above_thresholds": [
+              20369,
+              11533,
+              9,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011280132457613945,
+            "mean_abs": 0.00015215788387638318,
+            "reference_L2": 2.318343088324421,
+            "relative_L2": 0.012595767896807494,
+            "relative_Linf": 0.004720214079116103,
+            "test_L2": 2.3192180236825433
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.00010417714554299656,
+            "above_thresholds": [
+              20268,
+              5520,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0006778091192245483,
+            "mean_abs": 7.674153886323142e-05,
+            "reference_L2": 2.318343088324421,
+            "relative_L2": 0.006430721811533544,
+            "relative_Linf": 0.002836317888587772,
+            "test_L2": 2.3193359567402623
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.00010417714554299656,
+            "above_thresholds": [
+              20268,
+              5520,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0006778091192245483,
+            "mean_abs": 7.674153886323142e-05,
+            "reference_L2": 2.318343088324421,
+            "relative_L2": 0.006430721811533544,
+            "relative_Linf": 0.002836317888587772,
+            "test_L2": 2.3193359567402623
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.3193359567402623,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.3193359567402623
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "CPU_static": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.3193359567402623,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.3193359567402623
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0001610571360453364,
+            "above_thresholds": [
+              20343,
+              8796,
+              1,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0010837968438863754,
+            "mean_abs": 0.00011619212809961254,
+            "reference_L2": 1.253591833948246,
+            "relative_L2": 0.018386065114009826,
+            "relative_Linf": 0.0178934348270202,
+            "test_L2": 1.2540848584058752
+          },
+          "CPU_static": {
+            "RMSE": 0.0001610571360453364,
+            "above_thresholds": [
+              20343,
+              8796,
+              1,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0010837968438863754,
+            "mean_abs": 0.00011619212809961254,
+            "reference_L2": 1.253591833948246,
+            "relative_L2": 0.018386065114009826,
+            "relative_Linf": 0.0178934348270202,
+            "test_L2": 1.2540848584058752
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            5,
+            4,
+            1,
+            9,
+            0,
+            7,
+            8,
+            2,
+            6,
+            3
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 1.2540848584058752,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 1.2540848584058752
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "CPU_static": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.3193359567402623,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.3193359567402623
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "CPU_static": {
+            "RMSE": 0.0002030537659773496,
+            "above_thresholds": [
+              20370,
+              11486,
+              10,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0011196183040738106,
+            "mean_abs": 0.00015143175293559353,
+            "reference_L2": 2.3192180236825433,
+            "relative_L2": 0.012529520393201979,
+            "relative_Linf": 0.004686149913762876,
+            "test_L2": 2.3193359567402623
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            319,
+            292,
+            83,
+            446,
+            44,
+            349,
+            354,
+            111,
+            322,
+            284
+          ],
+          "selected_slots": [
+            7,
+            0,
+            4,
+            3,
+            5,
+            2,
+            6,
+            1,
+            8,
+            9
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.3193359567402623,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.3193359567402623
+          }
+        }
+      ],
+      "weight": "blk.0.ffn_down_exps.weight"
+    },
+    {
+      "expert_ids": [
+        15,
+        110,
+        234,
+        326,
+        111,
+        422,
+        164,
+        95,
+        269,
+        265
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-4.json",
+      "input": {
+        "bytes": 8192,
+        "name": "CPU#attn_post_norm-1 (reshaped)#0",
+        "nb": [
+          4,
+          8192,
+          8192,
+          8192
+        ],
+        "ne": [
+          2048,
+          1,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 1,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 20.676955100737164
+          },
+          "CPU_static": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.0029970289380888424,
+            "above_thresholds": [
+              4622,
+              4516,
+              3464,
+              11
+            ],
+            "elements": 5120,
+            "max_abs": 0.010865539312362671,
+            "mean_abs": 0.0022710373480066435,
+            "reference_L2": 20.684533564736377,
+            "relative_L2": 0.010367646593724595,
+            "relative_Linf": 0.003135166436322035,
+            "test_L2": 20.676955100737164
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.0015143291601256023,
+            "above_thresholds": [
+              4620,
+              4398,
+              2409,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.006406515836715698,
+            "mean_abs": 0.001143122484529613,
+            "reference_L2": 20.684533564736377,
+            "relative_L2": 0.005238531186410793,
+            "relative_Linf": 0.0018485500671083688,
+            "test_L2": 20.680623694387087
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.0015143291601256023,
+            "above_thresholds": [
+              4620,
+              4398,
+              2409,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.006406515836715698,
+            "mean_abs": 0.001143122484529613,
+            "reference_L2": 20.684533564736377,
+            "relative_L2": 0.005238531186410793,
+            "relative_Linf": 0.0018485500671083688,
+            "test_L2": 20.680623694387087
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 20.680623694387087,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 20.680623694387087
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "CPU_static": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 20.680623694387087,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 20.680623694387087
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.003105719442986428,
+            "above_thresholds": [
+              4609,
+              4476,
+              3492,
+              19
+            ],
+            "elements": 5120,
+            "max_abs": 0.014094609767198563,
+            "mean_abs": 0.0023388180599795303,
+            "reference_L2": 17.00926076756598,
+            "relative_L2": 0.013065070635973007,
+            "relative_Linf": 0.013996486292792223,
+            "test_L2": 17.00676753527553
+          },
+          "CPU_static": {
+            "RMSE": 0.003105719442986428,
+            "above_thresholds": [
+              4609,
+              4476,
+              3492,
+              19
+            ],
+            "elements": 5120,
+            "max_abs": 0.014094609767198563,
+            "mean_abs": 0.0023388180599795303,
+            "reference_L2": 17.00926076756598,
+            "relative_L2": 0.013065070635973007,
+            "relative_Linf": 0.013996486292792223,
+            "test_L2": 17.00676753527553
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.00676753527553,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.00676753527553
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "CPU_static": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 20.680623694387087,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 20.680623694387087
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "CPU_static": {
+            "RMSE": 0.0030976728850517473,
+            "above_thresholds": [
+              4621,
+              4500,
+              3465,
+              17
+            ],
+            "elements": 5120,
+            "max_abs": 0.012703776359558105,
+            "mean_abs": 0.0023360861207038395,
+            "reference_L2": 20.676955100737164,
+            "relative_L2": 0.010719732547524513,
+            "relative_Linf": 0.0036701362145500046,
+            "test_L2": 20.680623694387087
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 20.680623694387087,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 20.680623694387087
+          }
+        }
+      ],
+      "weight": "blk.1.ffn_gate_exps.weight"
+    },
+    {
+      "expert_ids": [
+        15,
+        110,
+        234,
+        326,
+        111,
+        422,
+        164,
+        95,
+        269,
+        265
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-5.json",
+      "input": {
+        "bytes": 8192,
+        "name": "CPU#attn_post_norm-1 (reshaped)#0",
+        "nb": [
+          4,
+          8192,
+          8192,
+          8192
+        ],
+        "ne": [
+          2048,
+          1,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 1,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.215384461455077
+          },
+          "CPU_static": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.002911197386036929,
+            "above_thresholds": [
+              4618,
+              4500,
+              3425,
+              5
+            ],
+            "elements": 5120,
+            "max_abs": 0.010751068592071533,
+            "mean_abs": 0.0022133839222206577,
+            "reference_L2": 17.208736699001797,
+            "relative_L2": 0.01210480069970666,
+            "relative_Linf": 0.009074715406725834,
+            "test_L2": 17.215384461455077
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.0014871806351989699,
+            "above_thresholds": [
+              4621,
+              4372,
+              2453,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00590423122048378,
+            "mean_abs": 0.001126848784404899,
+            "reference_L2": 17.208736699001797,
+            "relative_L2": 0.006183718520733217,
+            "relative_Linf": 0.004983617913191279,
+            "test_L2": 17.20696229518646
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.0014871806351989699,
+            "above_thresholds": [
+              4621,
+              4372,
+              2453,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.00590423122048378,
+            "mean_abs": 0.001126848784404899,
+            "reference_L2": 17.208736699001797,
+            "relative_L2": 0.006183718520733217,
+            "relative_Linf": 0.004983617913191279,
+            "test_L2": 17.20696229518646
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.20696229518646,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.20696229518646
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "CPU_static": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.20696229518646,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.20696229518646
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0030336707653593514,
+            "above_thresholds": [
+              4607,
+              4475,
+              3410,
+              8
+            ],
+            "elements": 5120,
+            "max_abs": 0.01396363228559494,
+            "mean_abs": 0.002268791760980093,
+            "reference_L2": 15.28191139910229,
+            "relative_L2": 0.014204493405129014,
+            "relative_Linf": 0.012564903946717755,
+            "test_L2": 15.279117281307224
+          },
+          "CPU_static": {
+            "RMSE": 0.0030336707653593514,
+            "above_thresholds": [
+              4607,
+              4475,
+              3410,
+              8
+            ],
+            "elements": 5120,
+            "max_abs": 0.01396363228559494,
+            "mean_abs": 0.002268791760980093,
+            "reference_L2": 15.28191139910229,
+            "relative_L2": 0.014204493405129014,
+            "relative_Linf": 0.012564903946717755,
+            "test_L2": 15.279117281307224
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 15.279117281307224,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 15.279117281307224
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "CPU_static": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.20696229518646,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.20696229518646
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "CPU_static": {
+            "RMSE": 0.0029984958597791323,
+            "above_thresholds": [
+              4619,
+              4500,
+              3481,
+              6
+            ],
+            "elements": 5120,
+            "max_abs": 0.01151488721370697,
+            "mean_abs": 0.0022709652885168907,
+            "reference_L2": 17.215384461455077,
+            "relative_L2": 0.012462974545085215,
+            "relative_Linf": 0.009741029012358378,
+            "test_L2": 17.20696229518646
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 5120,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 17.20696229518646,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 17.20696229518646
+          }
+        }
+      ],
+      "weight": "blk.1.ffn_up_exps.weight"
+    },
+    {
+      "expert_ids": [
+        15,
+        110,
+        234,
+        326,
+        111,
+        422,
+        164,
+        95,
+        269,
+        265
+      ],
+      "fixture": "runtime/moe-activation-fixtures/op-6.json",
+      "input": {
+        "bytes": 20480,
+        "name": "ffn_moe_swiglu-1",
+        "nb": [
+          4,
+          2048,
+          20480,
+          20480
+        ],
+        "ne": [
+          512,
+          10,
+          1,
+          1
+        ],
+        "type": 0
+      },
+      "layer": 1,
+      "states": [
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "CPU_captured": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.454253185881392
+          },
+          "CPU_static": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "full_selected_weight_bytes_equal": true,
+          "oracle_CPU": {
+            "RMSE": 0.00029472312717354024,
+            "above_thresholds": [
+              20405,
+              12766,
+              230,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0018837079405784607,
+            "mean_abs": 0.00020551275697321125,
+            "reference_L2": 2.45252631333152,
+            "relative_L2": 0.017197507880921628,
+            "relative_Linf": 0.01824157578839492,
+            "test_L2": 2.454253185881392
+          },
+          "oracle_cached_CUDA": {
+            "RMSE": 0.00014118778081050496,
+            "above_thresholds": [
+              20330,
+              8019,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0008626971393823624,
+            "mean_abs": 0.00010373879988700153,
+            "reference_L2": 2.45252631333152,
+            "relative_L2": 0.008238505055454242,
+            "relative_Linf": 0.008354243729334314,
+            "test_L2": 2.452593502446083
+          },
+          "oracle_static_CUDA": {
+            "RMSE": 0.00014118778081050496,
+            "above_thresholds": [
+              20330,
+              8019,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0008626971393823624,
+            "mean_abs": 0.00010373879988700153,
+            "reference_L2": 2.45252631333152,
+            "relative_L2": 0.008238505055454242,
+            "relative_Linf": 0.008354243729334314,
+            "test_L2": 2.452593502446083
+          },
+          "phase": "first-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.452593502446083,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.452593502446083
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "CPU_static": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.452593502446083,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.452593502446083
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002778822921035093,
+            "above_thresholds": [
+              20405,
+              12864,
+              147,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0017105275765061378,
+            "mean_abs": 0.00019842316140739058,
+            "reference_L2": 2.0600170949817347,
+            "relative_L2": 0.019304342944355124,
+            "relative_Linf": 0.023368480747781206,
+            "test_L2": 2.059300917482962
+          },
+          "CPU_static": {
+            "RMSE": 0.0002778822921035093,
+            "above_thresholds": [
+              20405,
+              12864,
+              147,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0017105275765061378,
+            "mean_abs": 0.00019842316140739058,
+            "reference_L2": 2.0600170949817347,
+            "relative_L2": 0.019304342944355124,
+            "relative_Linf": 0.023368480747781206,
+            "test_L2": 2.059300917482962
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "disjoint-miss-eviction",
+          "selected_ids": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "selected_slots": [
+            0,
+            2,
+            5,
+            8,
+            3,
+            9,
+            4,
+            1,
+            7,
+            6
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.059300917482962,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.059300917482962
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "CPU_static": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "reuse-miss",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.452593502446083,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.452593502446083
+          }
+        },
+        {
+          "CPU_cached": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "CPU_static": {
+            "RMSE": 0.0002862473234241153,
+            "above_thresholds": [
+              20380,
+              12943,
+              176,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.002165749669075012,
+            "mean_abs": 0.00020359261401665664,
+            "reference_L2": 2.454253185881392,
+            "relative_L2": 0.016691180251121752,
+            "relative_Linf": 0.020945510199228853,
+            "test_L2": 2.452593502446083
+          },
+          "full_selected_weight_bytes_equal": true,
+          "phase": "hit-after-reuse",
+          "selected_ids": [
+            15,
+            110,
+            234,
+            326,
+            111,
+            422,
+            164,
+            95,
+            269,
+            265
+          ],
+          "selected_slots": [
+            0,
+            5,
+            9,
+            7,
+            8,
+            6,
+            3,
+            2,
+            1,
+            4
+          ],
+          "static_cached": {
+            "RMSE": 0.0,
+            "above_thresholds": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "elements": 20480,
+            "max_abs": 0.0,
+            "mean_abs": 0.0,
+            "reference_L2": 2.452593502446083,
+            "relative_L2": 0.0,
+            "relative_Linf": 0.0,
+            "test_L2": 2.452593502446083
+          }
+        }
+      ],
+      "weight": "blk.1.ffn_down_exps.weight"
+    }
+  ],
+  "system_swapout_pages": 0,
+  "net_swap_growth_kib": 0
+}

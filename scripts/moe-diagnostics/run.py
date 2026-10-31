@@ -12,7 +12,7 @@ spec=importlib.util.spec_from_file_location('runner',Path(__file__).parents[1]/'
 r=importlib.util.module_from_spec(spec);spec.loader.exec_module(r)
 root=Path(os.environ['LAD_DIAG_DIR']).resolve();root.mkdir(parents=True,exist_ok=True)
 marker=root/'marker';os.environ['LAD_LOGIT_MARKER']=str(marker)
-os.environ['LD_PRELOAD']=str(Path('runtime/moe-diagnostic-probe.so').resolve())
+os.environ['LD_PRELOAD']=os.environ.get('LAD_DIAG_PRELOAD',str(Path('runtime/moe-diagnostic-probe.so').resolve()))
 reference=Path('runtime/moe-diag-baseline/reference.json')
 cycle=0
 (root/'session.json').write_text(json.dumps({'status':'running','started_unix':time.time()}))
@@ -36,13 +36,19 @@ def request(url,prompt,tokens,timeout):
   out=r.post_json(url,'/completion',{'prompt':prefix,'n_predict':n,'temperature':0,'top_k':1,'top_p':1,'seed':42,'cache_prompt':False,'stream':False,'return_tokens':True},timeout)
   out['_wall_seconds']=time.monotonic()-start;out['_ttft_seconds']=None
   return out
+ if os.environ.get('LAD_TARGET_STEP'):
+  step=int(os.environ['LAD_TARGET_STEP']);assert ref is not None
+  prefix=ids+ref['output_ids'][:step]
+  out=complete('teacher-target',prefix,1)
+  (root/'teacher-target.json').write_text(json.dumps({'step':step,'prefix_ids':prefix,'result':out},indent=2)+'\n')
+  return out
  out=complete(f'free-{cycle}',ids,tokens)
  if not out.get('tokens'):raise RuntimeError('Missing returned token IDs')
  (root/f'free-{cycle}.json').write_text(json.dumps(out,indent=2)+'\n')
  if ref is None:
   ref={'input_ids':ids,'output_ids':out['tokens'],'formatted_prompt_sha256':digest,'formatted_prompt':prompt}
   reference.parent.mkdir(parents=True,exist_ok=True);reference.write_text(json.dumps(ref,indent=2)+'\n')
- if cycle==1:
+ if cycle==1 and not os.environ.get('LAD_SKIP_TEACHER'):
   # Re-evaluate identical prefixes in both modes, independent of free-generation divergence.
   teachers=[]
   for step in range(16):

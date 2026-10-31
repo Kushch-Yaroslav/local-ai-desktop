@@ -1,0 +1,32 @@
+{
+  "op-1-replay": [
+    "impl:      CUDA0 MoE cache size =     6.19 MiB for 288.00 MiB of host experts",
+    "impl:  1 layers, q4_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 16.88 MiB"
+  ],
+  "op-3-replay": [
+    "impl:      CUDA0 MoE cache size =     9.02 MiB for 420.00 MiB of host experts",
+    "impl:  1 layers, q6_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 24.61 MiB"
+  ],
+  "op-2-replay": [
+    "impl:      CUDA0 MoE cache size =     6.19 MiB for 288.00 MiB of host experts",
+    "impl:  1 layers, q4_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 16.88 MiB"
+  ],
+  "op-6-replay": [
+    "impl:      CUDA0 MoE cache size =     9.02 MiB for 420.00 MiB of host experts",
+    "impl:  1 layers, q6_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 24.61 MiB"
+  ],
+  "op-5-replay": [
+    "impl:      CUDA0 MoE cache size =     6.19 MiB for 288.00 MiB of host experts",
+    "impl:  1 layers, q4_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 16.88 MiB"
+  ],
+  "op-4-replay": [
+    "impl:      CUDA0 MoE cache size =     6.19 MiB for 288.00 MiB of host experts",
+    "impl:  1 layers, q4_K:    10 slots (2.0%)",
+    "llama_moe_cache: ubatch <= 8: hits = 20, misses = 30, hit rate = 40.00%, uploaded = 16.88 MiB"
+  ]
+}

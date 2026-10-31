@@ -1,0 +1,155 @@
+{
+  "epoch": "first incremental decode after prompt",
+  "ids": {
+    "bytes": 40,
+    "name": "ffn_moe_topk-0",
+    "nb": [
+      4,
+      2048,
+      2048,
+      2048
+    ],
+    "ne": [
+      10,
+      1,
+      1,
+      1
+    ],
+    "type": 26
+  },
+  "input": {
+    "bytes": 20480,
+    "name": "ffn_moe_swiglu-0",
+    "nb": [
+      4,
+      2048,
+      20480,
+      20480
+    ],
+    "ne": [
+      512,
+      10,
+      1,
+      1
+    ],
+    "type": 0
+  },
+  "op_params": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "output": {
+    "bytes": 81920,
+    "name": "ffn_moe_down-0",
+    "nb": [
+      4,
+      8192,
+      81920,
+      81920
+    ],
+    "ne": [
+      2048,
+      10,
+      1,
+      1
+    ],
+    "type": 0
+  },
+  "request_marker": "/media/yaroslav/DATA/local-ai-desktop/runtime/moe-activation-fixtures/free-1.f32",
+  "weight": {
+    "bytes": 440401920,
+    "name": "blk.0.ffn_down_exps.weight",
+    "nb": [
+      210,
+      420,
+      860160,
+      440401920
+    ],
+    "ne": [
+      512,
+      2048,
+      512,
+      1
+    ],
+    "type": 14
+  },
+  "weight_name": "blk.0.ffn_down_exps.weight",
+  "layer": 0,
+  "gguf": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+  "weight_offset": 452541120,
+  "prefix_ids": [
+    151644,
+    872,
+    198,
+    840,
+    20772,
+    3170,
+    422,
+    87177,
+    14525,
+    448,
+    8225,
+    6821,
+    14324,
+    13,
+    20678,
+    264,
+    14175,
+    220,
+    18,
+    39054,
+    3110,
+    323,
+    829,
+    458,
+    8311,
+    10555,
+    13,
+    28008,
+    311,
+    220,
+    16,
+    23,
+    15,
+    4244,
+    13,
+    151645,
+    198,
+    151644,
+    77091,
+    198,
+    35
+  ],
+  "decode_step_zero_based": 1,
+  "expert_ids": [
+    319,
+    292,
+    83,
+    446,
+    44,
+    349,
+    354,
+    111,
+    322,
+    284
+  ],
+  "fixture_hashes": {
+    "input": "ff56be20dde584311a4ce6a5f9d2289fad6828ac4bab3774f43fc17f2560df7f",
+    "ids": "edd30febb40c9017aac8a173da8081b134bbf8afb60d17ff6dfafaa5a9be5a5b",
+    "output": "4fc7300dcef0103380ab6185aa020c5128e9f3b74133da9b0c94d47ca3f083bf"
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "epoch": "first incremental decode after prompt",
+  "ids": {
+    "bytes": 40,
+    "name": "CPU#ffn_moe_topk-1#0",
+    "nb": [
+      4,
+      2048,
+      2048,
+      2048
+    ],
+    "ne": [
+      10,
+      1,
+      1,
+      1
+    ],
+    "type": 26
+  },
+  "input": {
+    "bytes": 8192,
+    "name": "CPU#attn_post_norm-1 (reshaped)#0",
+    "nb": [
+      4,
+      8192,
+      8192,
+      8192
+    ],
+    "ne": [
+      2048,
+      1,
+      1,
+      1
+    ],
+    "type": 0
+  },
+  "op_params": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "output": {
+    "bytes": 20480,
+    "name": "ffn_moe_up-1",
+    "nb": [
+      4,
+      2048,
+      20480,
+      20480
+    ],
+    "ne": [
+      512,
+      10,
+      1,
+      1
+    ],
+    "type": 0
+  },
+  "request_marker": "/media/yaroslav/DATA/local-ai-desktop/runtime/moe-activation-fixtures/free-1.f32",
+  "weight": {
+    "bytes": 301989888,
+    "name": "blk.1.ffn_up_exps.weight",
+    "nb": [
+      144,
+      1152,
+      589824,
+      301989888
+    ],
+    "ne": [
+      2048,
+      512,
+      512,
+      1
+    ],
+    "type": 12
+  },
+  "weight_name": "blk.1.ffn_up_exps.weight",
+  "layer": 1,
+  "gguf": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf",
+  "weight_offset": 2278743488,
+  "prefix_ids": [
+    151644,
+    872,
+    198,
+    840,
+    20772,
+    3170,
+    422,
+    87177,
+    14525,
+    448,
+    8225,
+    6821,
+    14324,
+    13,
+    20678,
+    264,
+    14175,
+    220,
+    18,
+    39054,
+    3110,
+    323,
+    829,
+    458,
+    8311,
+    10555,
+    13,
+    28008,
+    311,
+    220,
+    16,
+    23,
+    15,
+    4244,
+    13,
+    151645,
+    198,
+    151644,
+    77091,
+    198,
+    35
+  ],
+  "decode_step_zero_based": 1,
+  "expert_ids": [
+    15,
+    110,
+    234,
+    326,
+    111,
+    422,
+    164,
+    95,
+    269,
+    265
+  ],
+  "fixture_hashes": {
+    "input": "d7276129eb8634c0ba93fc9d39636cc780c288b9e0705d4818a8dd6662713337",
+    "ids": "b3bab517061ec2e17723bfdc4fb91a97bd448454d66db1ef3c14dbb158152a3c",
+    "output": "3ed888487cbf5982ecf98d5310981807e3c624547ccfb3e2d8cf4769e0f59dde"
+  }
+}
