@@ -854,7 +854,7 @@ export function registerIpc(): void {
     if(running.status==='ready'&&running.modelId&&!next.models.some(model=>model.id===running.modelId))throw Error('Unload the active model before deleting its profile.');
     next.models = next.models.map(model => ({ ...model, mtpMode: existingConfig.models.find(current => current.id === model.id)?.mtpMode ?? model.mtpMode }));
     for(const model of next.models){
-      if(model.mtpDraft?.path)model.mtpDraft=await prepareExternalMtpDraft(model.modelPath,model.mtpDraft.path,model.mtpDraft.maxDraftTokens);
+      if(model.mtpDraft?.path&&model.mtpMode!=='off')model.mtpDraft=await prepareExternalMtpDraft(model.modelPath,model.mtpDraft.path,model.mtpDraft.maxDraftTokens);
     }
     const input = next.llamaServerInput ?? next.llamaServerPath ?? '';
     if (input.trim()) {

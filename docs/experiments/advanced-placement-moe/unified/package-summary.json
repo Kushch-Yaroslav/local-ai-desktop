@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "artifact": "/media/yaroslav/DATA/local-ai-desktop/local-cache/unified-package/local-ai-desktop_0.3.1_amd64.deb",
+  "commit": "5047748f114564fcf271e6a648f60e2d2eae6264",
+  "tests": [
+    "Fresh install runtime discovery, no manual executable setup",
+    [
+      "packagedDense"
+    ]
+  ],
+  "memory": {
+    "before": {
+      "availableMiB": 53573.1875,
+      "out": 0
+    },
+    "newSwapOutPages": 0,
+    "after": {
+      "availableMiB": 54325,
+      "out": 0
+    }
+  },
+  "scope": "Extracted payload, actual Electron/Dense GPU manual placement; no install or large Qwen retry"
+}

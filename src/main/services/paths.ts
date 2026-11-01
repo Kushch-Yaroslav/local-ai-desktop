@@ -41,3 +41,10 @@ export function ensureAppDirectories(): void {
   [paths.dataRoot, paths.userData, paths.configDirectory, paths.cache, paths.logs, paths.attachments, paths.models, join(paths.dataRoot, 'sqlite')]
     .forEach((directory) => mkdirSync(directory, { recursive: true, mode: 0o700 }));
 }
+
+/** Single bundled runtime; never depends on the research checkout. */
+export function bundledLlamaPath():string|undefined {
+ const resources=(process as NodeJS.Process & {resourcesPath?:string}).resourcesPath;
+ const candidates=[...(resources?[join(resources,'llama/llama-server')]:[]),join(root,'../llama/llama-server'),join(root,'runtime/llama/llama-server')];
+ return candidates.find(p=>existsSync(p));
+}

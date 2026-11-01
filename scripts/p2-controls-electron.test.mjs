@@ -9,7 +9,7 @@ try{
  app=await electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:[resolve('test-fixtures/live-browser/electron-main.cjs')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root}});
  const page=await app.firstWindow();const errors=[];page.on('pageerror',error=>errors.push(String(error)));page.setDefaultTimeout(15000);await page.locator('.conversation').waitFor();await page.locator('.chat-select').filter({hasText:'Live Browser workspace'}).click();if(await page.locator('.panel-mode-toggle').getAttribute('aria-expanded')==='false')await page.locator('.panel-mode-toggle').click();
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,1000));
- assert.equal(await page.locator('.control-group').count(),4);
+ assert.equal(await page.locator('.control-group').count(),5);
  const help=page.getByRole('button',{name:'Help for Model & context',exact:true});await help.focus();await page.getByRole('tooltip').waitFor();assert.match(await page.getByRole('tooltip').innerText(),/checkpoint/);await page.keyboard.press('Escape');assert.equal(await page.getByRole('tooltip').count(),0);
  const mtp=page.getByRole('combobox',{name:'MTP'});await mtp.focus();await mtp.selectOption('off');const dialog=page.getByRole('dialog',{name:'Apply MTP'});await dialog.waitFor();
  for(let i=0;i<9;i++){await page.keyboard.press('Tab');assert(await page.evaluate(()=>!!document.activeElement.closest('dialog')),'native modal traps keyboard focus');}

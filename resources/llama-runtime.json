@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp",
+  "commit": "5047748f114564fcf271e6a648f60e2d2eae6264",
+  "cudaArchitectures": "86",
+  "integration": "unified-runtime-v1",
+  "minimumDriverCUDA": "12.6",
+  "scope": "Linux x86_64 / CUDA sm_86; NVIDIA driver required; CPU/GPU offload; official upstream MoE cache, no local scheduler patches"
+}

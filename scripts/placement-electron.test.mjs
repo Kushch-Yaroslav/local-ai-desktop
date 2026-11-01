@@ -6,12 +6,12 @@ import {createServer} from 'node:net';
 import {execFileSync} from 'node:child_process';
 import {_electron} from 'playwright-core';
 const root=await mkdtemp('/tmp/lad-placement-electron-');await mkdir(join(root,'app-data'));
-const output=resolve('docs/experiments/advanced-placement-moe/integration');await mkdir(output,{recursive:true});
-const standard=resolve('../llama.cpp/build-cuda/bin/llama-server'),experimental=resolve('runtime/experimental-llama-moe/build/bin/llama-server');
+const output=resolve('docs/experiments/advanced-placement-moe/unified/placement');await mkdir(output,{recursive:true});
+const standard=resolve('runtime/llama/llama-server'),experimental=standard;
 const qid='custom:123e4567-e89b-42d3-a456-426614174080',did='custom:123e4567-e89b-42d3-a456-426614174081';
 const socket=createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
 const common={mmprojPath:'',gpuLayers:48,builtin:false,supportsTools:true,toolCallingMode:'auto',speculative:'none',mtpMode:'off',family:'auto',defaults:{contextWindow:4096,kvCacheType:'q8_0',kvOffload:true}};
-const profiles=[{...common,id:qid,displayName:'Qwen placement integration',modelPath:'/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf',advanced:{mode:'gpu-layers',cpuMoe:'all',threads:8,threadsBatch:8,batchSize:512,ubatchSize:128,loadMode:'mmap',experimentalRuntimePath:experimental}}, {...common,id:did,displayName:'Dense placement fixture',modelPath:'/tmp/placement-dense.gguf',advanced:{mode:'gpu-layers',experimentalRuntimePath:experimental}}];
+const profiles=[{...common,id:qid,displayName:'Qwen placement integration',modelPath:'/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Qwen3-Coder-Next-80B-Q4/Qwen_Qwen3-Coder-Next-Q4_K_M.gguf',advanced:{mode:'gpu-layers',cpuMoe:'all',threads:8,threadsBatch:8,batchSize:512,ubatchSize:128,loadMode:'mmap'}}, {...common,id:did,displayName:'Dense placement fixture',modelPath:'/tmp/placement-dense.gguf',advanced:{mode:'gpu-layers'}}];
 await writeFile(join(root,'app-data/runtime-settings.json'),JSON.stringify({schemaVersion:2,llamaServerPath:standard,modelsPath:'/tmp',gpuLayers:999,setupDismissed:true,language:'en',models:profiles}));
 let app,page,watchdog;let safetyFailure='';const result={root,port,steps:[],scope:'Real Electron, isolated profiles/SQLite/launcher. Dense synthetic4-block GGUF; Qwen real GGUF only in explicit GPU mode.'};
 async function launch(){app=await _electron.launch({executablePath:resolve('scripts/electron-unconfined-fixture.sh'),args:['--disable-gpu',resolve('dist/main/index.js')],env:{...process.env,LOCAL_AI_RUNTIME_ROOT:root,LOCAL_AI_LLAMA_PORT:String(port)}});page=await app.firstWindow();page.setDefaultTimeout(30000);await page.locator('.runtime-setup-action:not([disabled])').waitFor();}
@@ -40,7 +40,7 @@ try{
  const denseLog=await readFile(join(root,'logs/llama-cpp-mtp-server.log'),'utf8');result.denseTensorEvidence=denseLog.split('\n').filter(l=>/blk\.[0123]\.(attn_q|ffn_up)\.weight/.test(l)&&/CUDA|CPU/.test(l)).slice(-16);
  assert(result.denseTensorEvidence.some(l=>/blk\.0\..*CUDA/.test(l)));assert(result.denseTensorEvidence.some(l=>/blk\.1\..*(?:CPU|CUDA_Host)/.test(l)));assert(result.denseTensorEvidence.some(l=>/blk\.2\..*CUDA/.test(l)));
  const events=await streamChat(did);assert(events.some(e=>e.type==='token'&&e.content));assert(!events.some(e=>e.type==='error'),JSON.stringify(events.filter(e=>e.type==='error')));result.steps.push({denseStreaming:true});
- await assert.rejects(()=>update(did,{advanced:{experimentalRuntimePath:'/missing/llama-server',gpuLayerIds:[0]}}));assert.equal((await get()).llamaRuntime.serverPid,state.serverPid);result.steps.push({unsupportedPreflightPreservesOwnedServer:true});
+ await assert.rejects(()=>page.evaluate(async()=>{const s=await window.localAi.settings.get();await window.localAi.settings.save({...s.setup.config,llamaServerPath:'/missing/llama-server',llamaServerInput:'/missing/llama-server'});} ));assert.equal((await get()).llamaRuntime.serverPid,state.serverPid);result.steps.push({unsupportedPreflightPreservesOwnedServer:true});
  await update(did,{advanced:{gpuLayerIds:undefined,moeAcceleration:'automatic'}});state=await load(did);assert.equal(state.launchArguments[0],standard);assert(!state.launchArguments.includes('--moe-cache-mib'));result.steps.push({denseStandardFallback:true});
 
  await page.evaluate(chat=>window.localAi.runtime.control({action:'unload',conversationId:chat}),chat);

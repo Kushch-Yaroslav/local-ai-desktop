@@ -1,0 +1,42 @@
+{
+  "rows": [
+    {
+      "context": 4096,
+      "mode": "manual",
+      "expertCacheMiB": 16381.03,
+      "GPUKV_MiB": 51,
+      "peakGPUUsedMiB": 20075,
+      "peakRSSMiB": 46855.75390625,
+      "processSwapMiB": 0
+    },
+    {
+      "context": 65536,
+      "mode": "manual",
+      "expertCacheMiB": 16381.03,
+      "GPUKV_MiB": 816,
+      "peakGPUUsedMiB": 20923,
+      "peakRSSMiB": 47452.7109375,
+      "processSwapMiB": 0
+    },
+    {
+      "context": 65536,
+      "mode": "disabled",
+      "expertCacheMiB": 0,
+      "GPUKV_MiB": 816,
+      "peakGPUUsedMiB": 4460,
+      "peakRSSMiB": 46646.58203125,
+      "processSwapMiB": 0
+    }
+  ],
+  "memory": {
+    "before": {
+      "availableMiB": 55129.515625,
+      "swapOutPages": 107242,
+      "pressureAvg10": 0
+    },
+    "minAvailableMiB": 53497.28515625,
+    "newSwapOutPages": 0,
+    "peakPressureAvg10": 0
+  },
+  "note": "Sampled device-wide GPU memory includes desktop/driver; RSS includes file-backed GGUF mappings. Not a throughput benchmark."
+}

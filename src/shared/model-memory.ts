@@ -6,7 +6,7 @@ export function parseLayerRanges(text:string,count:number):number[]{
  return [...ids].sort((a,b)=>a-b);
 }
 export const experimentalPlacement=(p?:AdvancedModelParameters)=>p?.gpuLayerIds!==undefined||Boolean(p?.moeAcceleration&&p.moeAcceleration!=='disabled');
-export const profileRuntimePath=(p:AdvancedModelParameters|undefined,standard:string|null)=>experimentalPlacement(p)&&p?.experimentalRuntimePath?p.experimentalRuntimePath:standard;
+export const profileRuntimePath=(p:AdvancedModelParameters|undefined,standard:string|null)=>(void p,standard);
 export function estimateModelMemory(inspection:ModelInspection,p:AdvancedModelParameters|undefined,gpuLayers:number,defaults:ModelProfileDefaults,availableMiB:number|null,totalMiB:number|null):ModelMemoryEstimate{
  const s=inspection.structure,count=inspection.layers??0,cacheActive=Boolean(p?.moeAcceleration&&p.moeAcceleration!=='disabled'),ids=p?.gpuLayerIds?new Set(p.gpuLayerIds):undefined;
  let gpu=0;for(const t of s?.tensors??[]){let on=t.block===undefined?gpuLayers>=count&&/^output/.test(t.name):ids?ids.has(t.block):t.block>=Math.max(0,count-Math.min(count,gpuLayers));

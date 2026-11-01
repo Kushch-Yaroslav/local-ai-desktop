@@ -2,7 +2,7 @@ import { accessSync, constants, copyFileSync, existsSync, mkdirSync, readFileSyn
 import { dirname, join, resolve } from 'node:path';
 import type { RuntimeConfiguration, RuntimeModelConfiguration, RuntimeDraftAvailability } from '../../shared/types';
 import { searchPreference } from '../../shared/search-settings';
-import { expandPath, paths } from './paths';
+import { bundledLlamaPath, expandPath, paths } from './paths';
 import { builtinModelCatalog } from '../models/model-catalog';
 import { inspectModel } from '../models/gguf-profile';
 import { modelFamilies } from '../../shared/model-profiles';
@@ -121,13 +121,16 @@ export function normalizeConfiguration(raw: unknown): RuntimeConfiguration {
 
 export function loadRuntimeConfiguration(file = settingsFile): RuntimeConfiguration {
   const legacyServer = resolve(paths.root, '../llama.cpp/build-cuda/bin/llama-server');
-  const defaults = { llamaServerPath: process.env.LOCAL_AI_LLAMA_SERVER_PATH ?? (existsSync(legacyServer) ? legacyServer : null),
+  const defaults = { llamaServerPath: process.env.LOCAL_AI_LLAMA_SERVER_PATH ?? bundledLlamaPath() ?? (existsSync(legacyServer) ? legacyServer : null),
     modelsPath: paths.models, gpuLayers: 999, setupDismissed: false, models: [] };
   if (!existsSync(file)) return normalizeConfiguration({ ...defaults, schemaVersion: 2, imageProcessingDevice: 'cpu' });
   try {
     const saved: unknown = JSON.parse(readFileSync(file, 'utf8'));
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('ожидается объект настроек');
-    const value = saved as Record<string, unknown>;
+    const value = {...saved as Record<string, unknown>};
+    // Read-only migration of our former default/research paths; preserve explicit custom backends.
+    const bundled=bundledLlamaPath();
+    if(bundled&&!process.env.LOCAL_AI_LLAMA_SERVER_PATH&&(typeof value.llamaServerPath==='string'&&/\/(?:llama\.cpp\/build-cuda\/bin|runtime\/experimental-llama-moe\/build\/bin)\/llama-server$/.test(value.llamaServerPath))){value.llamaServerPath=bundled;if(value.llamaServerInput!==undefined)value.llamaServerInput=bundled;}
     if (Array.isArray(value.models)) return normalizeConfiguration({ ...defaults, ...value });
     return normalizeConfiguration({ ...defaults, ...value, models: { ...(value.models as object ?? {}) } });
   } catch (error) { throw new Error(`Не удалось прочитать ${file}: ${error instanceof Error ? error.message : String(error)}. Исправьте файл или переименуйте его, чтобы открыть настройку заново.`); }

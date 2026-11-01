@@ -29,3 +29,10 @@ Local AI Desktop is an independent project and is not affiliated with or endorse
 ## Other components
 
 See also [asset attribution](assets/ATTRIBUTION.md) and the license notices accompanying bundled dependencies and Electron. This file supplements those notices and does not replace them.
+
+
+## Bundled llama.cpp and NVIDIA CUDA runtime
+
+The application runtime is built from the official ggml-org/llama.cpp revision pinned in `resources/llama-runtime.json` (MIT). The complete upstream license ships as `resources/llama/LICENSE.llama.cpp` beside the runtime in packaged applications.
+
+Linux CUDA packages include CUDA Runtime and cuBLAS redistributable libraries from the build toolkit. The toolkit EULA ships as `resources/llama/EULA.CUDA.txt`; those libraries retain NVIDIA terms rather than the application MIT license. The NVIDIA driver (`libcuda.so.1`) is provided by the host and is not redistributed. This build targets CUDA sm_86 and requires a compatible NVIDIA driver.

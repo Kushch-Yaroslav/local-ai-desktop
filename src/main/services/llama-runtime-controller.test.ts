@@ -17,13 +17,14 @@ async function fixture(timeoutMs = 5_000) {
   await writeFile(files.launcherPidFile, '4242\n');
   const signals: number[] = [];
   let clock = 0;
+  let delivery:Promise<unknown>=Promise.resolve();
   return { files, signals, dir, make: (onSignal: (request: Record<string, string>) => Promise<void>, extra: {ensureLauncher?:()=>Promise<void>;readText?:(path:string)=>Promise<string>}={}) => new LlamaRuntimeController(files, timeoutMs, {
     readText: async (path) => path === '/proc/4242/cmdline' ? '/bin/bash\0/media/yaroslav/DATA/local-ai-desktop/run-local-ai-desktop-llama-cpp-mtp.sh' : path === '/proc/1/cmdline' ? ['/test/custom-server', '--port', '8081', '--ctx-size', '65536'].join('\0') : readFile(path, 'utf8'),
     signal: (pid) => {
       signals.push(pid);
-      void readFile(files.requestFile, 'utf8').then((text) => onSignal(Object.fromEntries(text.trim().split('\n').map((line) => line.split('=') as [string, string]))));
+      delivery=readFile(files.requestFile, 'utf8').then((text) => onSignal(Object.fromEntries(text.trim().split('\n').map((line) => line.split('=') as [string, string]))));
     },
-    sleep: async () => { clock += 500; await new Promise((resolve) => setTimeout(resolve,5)); },
+    sleep: async () => { await delivery; clock += 500; },
     now: () => clock,
     ...extra,
     capabilityLimit: async (modelId) => modelId === qwen ? 262144 : 131072,
@@ -37,6 +38,23 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
   const config=loadRuntimeConfiguration();
   const missing=builtinModelCatalog.filter(model=>[qwen,secondaryModel].includes(model.id)&&!config.models.some(entry=>entry.id===model.id));
   if(missing.length)saveRuntimeConfiguration({...config,models:[...config.models,...missing.map(model=>({id:model.id,displayName:model.displayName,modelPath:join(paths.models,model.modelPath),mmprojPath:'',gpuLayers:null,supportsTools:true,speculative:'mtp' as const,builtin:true}))]});
+  {
+    const {files,make}=await fixture();
+    const controller=make(async request=>{await writeFile(files.stateFile,state({requestId:request.REQUEST_ID,modelId:qwen,contextWindow:4096,kvCacheType:'q8_0',projectorDevice:''}));});
+    assert.equal((await controller.switchTo(qwen,4096,'q8_0',true,'cpu')).ok,true,'Fresh-install CPU image preference must not reject a text model without a projector');
+  }
+  {
+    const {files,make,dir}=await fixture();
+    const saved=loadRuntimeConfiguration();const projector=join(dir,'projector.gguf');await writeFile(projector,'GGUF');
+    const settings=join(paths.configDirectory,'runtime-settings.json');
+    try {
+      await writeFile(settings,JSON.stringify({...saved,models:saved.models.map(m=>m.id===qwen?{...m,mmprojPath:projector}:m)}));
+      let observed='cpu';
+      const controller=make(async request=>{await writeFile(files.stateFile,state({requestId:request.REQUEST_ID,modelId:qwen,contextWindow:4096,projectorDevice:observed}));});
+      assert.equal((await controller.switchTo(qwen,4096,'f16',true,'gpu')).ok,false,'A configured projector must still reject the wrong device');
+      observed='gpu';assert.equal((await controller.switchTo(qwen,4096,'f16',true,'gpu')).ok,true);
+    } finally {await writeFile(settings,JSON.stringify(saved));}
+  }
   {
     const { files, make } = await fixture();
     const controller = make(async request => {
@@ -53,7 +71,7 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
     const control=make(async request=>{await writeFile(files.stateFile,state({requestId:request.REQUEST_ID,modelId:qwen,contextWindow:Number(request.CONTEXT),kvCacheType:request.KV_TYPE}));},
       {ensureLauncher:async()=>{starts++;await writeFile(files.launcherPidFile,'4242');await writeFile(files.stateFile,state({status:'idle',serverPid:0}));}});
     const results=await Promise.all([control.switchTo(qwen,4096),control.switchTo(qwen,8192)]);
-    assert(results.every(r=>r.ok));assert.equal(starts,1);assert.equal(signals.length,2);assert.equal((await control.state()).contextWindow,8192);
+    assert(results.every(r=>r.ok),JSON.stringify(results));assert.equal(starts,1);assert.equal(signals.length,2);assert.equal((await control.state()).contextWindow,8192);
     await writeFile(files.stateFile,state({serverPid:999999}));assert.equal((await control.state()).status,'offline');
     assert((await control.switchTo(qwen,4096)).ok,'Crash recovery keeps the live supervisor');assert.equal(starts,1);
   }
@@ -188,3 +206,5 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
 }
 
 if (require.main === module) void runLlamaRuntimeControllerRegression().then(() => console.log('llama runtime controller regression passed'), (error: unknown) => { console.error(error); process.exitCode = 1; });
+
+assert.equal(parseLlamaRuntimeState(JSON.stringify({status:"idle",placementNote:"Standard: insufficient safe cache budget"}))?.placementNote,"Standard: insufficient safe cache budget");

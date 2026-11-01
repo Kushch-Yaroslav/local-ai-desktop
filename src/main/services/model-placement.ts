@@ -1,5 +1,3 @@
-import {existsSync} from 'node:fs';
-import {resolve} from 'node:path';
 import {readFile} from 'node:fs/promises';
 import {inspectModel} from '../models/gguf-profile';
 import {probeBackendFeatures} from './backend-capabilities';
@@ -9,11 +7,10 @@ import type {AdvancedModelParameters,ModelProfileDefaults,PlacementPreview} from
 import {estimateModelMemory,experimentalPlacement,placementSupport,profileRuntimePath,verifiedMoe} from '../../shared/model-memory';
 import {advancedPlacementArguments} from '../models/advanced-placement';
 export async function placementPreview(model:RuntimeModelConfiguration,standard:string|null,ownedPid?:number):Promise<PlacementPreview>{
- const candidate=resolve(__dirname,'../../../runtime/experimental-llama-moe/build/bin/llama-server');
- const path=model.advanced?.experimentalRuntimePath||profileRuntimePath(model.advanced,standard),inspection=inspectModel(model.modelPath,model.family),features=await probeBackendFeatures(path),hardware=await getHardwareStats();
+ const path=profileRuntimePath(model.advanced,standard),inspection=inspectModel(model.modelPath,model.family),features=await probeBackendFeatures(path),hardware=await getHardwareStats();
  let available=hardware.vramAvailableBytes,ram=hardware.ramTotalBytes-hardware.ramUsedBytes;
  if(ownedPid&&ownedPid>0){try{const owned=await getOwnedServerVramBudget(ownedPid);available=owned.freeBytes+owned.llmBytes;const status=await readFile(`/proc/${ownedPid}/status`,'utf8');ram+=Number(/^RssAnon:\s+(\d+)/m.exec(status)?.[1]??0)*1024;}catch{/* No reclaim credit without owned-process accounting. */}}
- return {inspection,features,backendPath:path,experimentalCandidatePath:existsSync(candidate)?candidate:undefined,availableMiB:available===null?null:available/1024**2,totalMiB:hardware.vramTotalBytes===null?null:hardware.vramTotalBytes/1024**2,availableRamMiB:ram/1024**2};
+ return {inspection,features,backendPath:path,availableMiB:available===null?null:available/1024**2,totalMiB:hardware.vramTotalBytes===null?null:hardware.vramTotalBytes/1024**2,availableRamMiB:ram/1024**2};
 }
 export function resolvePlacement(model:RuntimeModelConfiguration,preview:PlacementPreview,gpuLayers:number,defaults:ModelProfileDefaults=model.defaults??{}){
  const original=model.advanced;let p:AdvancedModelParameters|undefined=original?{...original}:undefined,note='';

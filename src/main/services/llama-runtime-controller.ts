@@ -25,6 +25,7 @@ export type LlamaRuntimeState = {
   kvOffload?: boolean;
   mtpMode?: MtpMode;
   mtpFallbackReason?: string;
+  placementNote?: string;
   speculativeMode?: 'mtp' | 'eagle3' | 'none';
   projectorDevice?: 'cpu' | 'gpu';
   pendingProjectorDevice?: 'cpu' | 'gpu';
@@ -84,6 +85,7 @@ export function parseLlamaRuntimeState(raw: string): LlamaRuntimeState | null {
       ...(typeof value.profileFingerprint==='string'&&/^[a-f0-9]{64}$/.test(value.profileFingerprint)?{profileFingerprint:value.profileFingerprint}:{}),
       ...(()=>{try{const profile=JSON.parse(Buffer.from(String(value.profileConfiguration??''),'base64').toString('utf8'));return profile&&typeof profile==='object'&&typeof profile.modelPath==='string'&&profile.id===modelId?{profileConfiguration:profile as RuntimeModelConfiguration}:{};}catch{return {};}})(),
       ...(['auto', 'on', 'off'].includes(String(value.mtpMode)) ? { mtpMode: value.mtpMode as MtpMode } : {}),
+      ...(typeof value.placementNote==='string'&&value.placementNote?{placementNote:value.placementNote}:{}),
       ...(typeof value.mtpFallbackReason === 'string' && value.mtpFallbackReason ? { mtpFallbackReason: value.mtpFallbackReason } : {}),
       ...(value.kvCacheType === 'f16' || value.kvCacheType === 'q8_0' ? { kvCacheType: value.kvCacheType } : {}),
       ...(typeof value.kvOffload === 'boolean' ? { kvOffload: value.kvOffload } : {}),
@@ -203,7 +205,7 @@ export class LlamaRuntimeController {
     while (this.deps.now() < deadline) {
       const state = await this.state();
       if (state.requestId === requestId && (state.status === 'ready' || state.status === 'offline')) {
-        if (state.status === 'ready' && (state.profileFingerprint?state.profileFingerprint===runtimeProfileFingerprint(modelId):!force&&!profile.advanced) && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || state.projectorDevice === projectorDevice) && (!mtpMode || state.mtpMode === mtpMode && (mtpMode !== 'on' || state.speculativeMode === 'mtp') && (mtpMode !== 'off' || state.speculativeMode === 'none'))) return { ok: true, state };
+        if (state.status === 'ready' && (state.profileFingerprint?state.profileFingerprint===runtimeProfileFingerprint(modelId):!force&&!profile.advanced) && !state.error && state.modelId === modelId && state.contextWindow === contextWindow && state.kvCacheType === kvCacheType && state.kvOffload === kvOffload && (!projectorDevice || !profile.mmprojPath || state.projectorDevice === projectorDevice) && (!mtpMode || state.mtpMode === mtpMode && (mtpMode !== 'on' || state.speculativeMode === 'mtp') && (mtpMode !== 'off' || state.speculativeMode === 'none'))) return { ok: true, state };
         return { ok: false, state, error: state.error ?? `llama.cpp не подтвердил запрошенную конфигурацию: ${modelId}, ${contextWindow / 1024}K ${kvCacheType}, KV ${kvOffload ? 'GPU' : 'RAM'}; активно ${state.modelId ?? 'none'}, ${(state.contextWindow ?? 0) / 1024}K ${state.kvCacheType ?? '?'}, KV ${state.kvOffload ? 'GPU' : 'RAM'}.` };
       }
       if(await liveLauncherPid(this.files,this.deps.readText,launcherPid)!==launcherPid)return {ok:false,state,error:'Launcher llama.cpp завершился во время загрузки. Состояние модели не подтверждено; повторите загрузку.'};

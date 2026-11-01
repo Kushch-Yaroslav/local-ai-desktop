@@ -1,3 +1,4 @@
+import {bundledLlamaPath} from '../services/paths';
 import {placementPreview,resolvePlacement} from '../services/model-placement';
 import {experimentalPlacement,profileRuntimePath} from '../../shared/model-memory';
 import { runtimeProfileFingerprint } from '../services/runtime-profile-identity';
@@ -84,8 +85,10 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
   if (profile.speculativeDraftTokens !== undefined && (!Number.isInteger(profile.speculativeDraftTokens) || profile.speculativeDraftTokens < 1)) throw new Error('Некорректное число токенов embedded MTP.');
   const runtimeConfig=effectiveRuntimeConfiguration(),configured=runtimeConfig.models.find(model=>model.id===profile.id);
   const snapshot=configured?{...configured,gpuLayers:profile.gpuLayers??runtimeConfig.gpuLayers,mtpMode:profile.mtpMode??configured.mtpMode,projectorDevice:profile.projectorDevice??configured.projectorDevice}:null;
+  const runtimePath=profileRuntimePath(profile.advanced,runtimeConfig.llamaServerPath);
+  const args=placementArguments(profile,backend);
   const values = {
-    PROFILE_RUNTIME_PATH:profileRuntimePath(profile.advanced,runtimeConfig.llamaServerPath)??'', PROFILE_MEMORY_GUARD:experimentalPlacement(profile.advanced)?'1':'0',
+    PROFILE_RUNTIME_PATH:profileRuntimePath(profile.advanced,runtimeConfig.llamaServerPath)??'', PROFILE_MEMORY_GUARD:(experimentalPlacement(profile.advanced)||runtimePath===bundledLlamaPath()&&(profile.inspection?.structure?.totalBytes??0)>8*1024**3)?'1':'0',
     PROFILE_VISION_REQUIRED: mmproj ? '1' : '0', PROFILE_FINGERPRINT: runtimeProfileFingerprint(profile.id), PROFILE_MODEL_CONFIG: Buffer.from(JSON.stringify(snapshot)).toString('base64'),
     PROJECTOR_PREFERENCE: profile.projectorPreference ?? '', PROJECTOR_DEVICE: profile.projectorDevice ?? 'auto', VARIANT: profile.id, MODEL: profile.modelPath, MMPROJ: mmproj, RUNTIME_MODEL_ID: profile.id,
     RUNTIME_LABEL: getModelProfile(profile.id)?.displayName ?? profile.id, DEFAULT_LLAMA_CONTEXT: String(profile.normalContext?.initialContextWindow ?? 32_768), MAX_LLAMA_CONTEXT: String(profile.maxContext),
@@ -94,7 +97,7 @@ export function launchProfileEnvironment(profile: LlamaRuntimeProfile, enabled?:
     DRAFT_GPU_LAYERS: draft ? 'auto' : '',
     MODEL_GPU_LAYERS: profile.advanced?.mode==='automatic'&&!experimentalPlacement(profile.advanced)?'auto':profile.gpuLayers === null || profile.gpuLayers === undefined ? '' : String(profile.gpuLayers),
   };
-  return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${placementArguments(profile,backend).map(quote).join(' ')})`].join('\n');
+  return [...Object.entries(values).map(([key, value]) => `${key}=${quote(value)}`), `PROFILE_SERVER_ARGS=(${args.map(quote).join(' ')})`].join('\n');
 }
 
 if (require.main === module) {

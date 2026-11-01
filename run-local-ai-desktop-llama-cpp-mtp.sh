@@ -45,7 +45,7 @@ REQUEST_CONTEXT_FOR_ERROR=""
 VARIANT=""; MODEL=""; MMPROJ=""; RUNTIME_MODEL_ID=""; RUNTIME_LABEL=""; DEFAULT_LLAMA_CONTEXT=""; MAX_LLAMA_CONTEXT=""; MODEL_GPU_LAYERS=""
 SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""; DRAFT_GPU_LAYERS="auto"
 PROFILE_SERVER_ARGS=()
-PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0
+PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0; SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""
 PROFILE_VISION_REQUIRED="0"; PROFILE_FINGERPRINT=""; PROFILE_MODEL_CONFIG=""; SELECTED_PROFILE_ENV=""
 ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""; ACTIVE_PROFILE_ENV=""; ACTIVE_RUNTIME_CONFIG=""; SERVER_START_TIME=""
 
@@ -84,9 +84,9 @@ process_start_time() {
 write_state() {
   local status="$1" request_id="${2:-}" error="${3:-}" rolled_back="${4:-false}"
   local tmp="$STATE_FILE.$$.tmp"
-  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","mtpMode":"%s","mtpFallbackReason":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"updatedAt":"%s","serverStartTime":"%s","launcherStartTime":"%s","profileFingerprint":"%s","profileConfiguration":"%s"}\n' \
+  printf '{"status":"%s","requestId":"%s","modelId":"%s","contextWindow":%s,"kvCacheType":"%s","kvOffload":%s,"speculativeMode":"%s","mtpMode":"%s","mtpFallbackReason":"%s","projectorDevice":"%s","serverPid":%s,"launcherPid":%s,"error":"%s","rolledBack":%s,"placementNote":"%s","updatedAt":"%s","serverStartTime":"%s","launcherStartTime":"%s","profileFingerprint":"%s","profileConfiguration":"%s"}\n' \
     "$status" "$(json_escape "$request_id")" "$(json_escape "$ACTIVE_MODEL")" "${ACTIVE_CONTEXT:-0}" "$ACTIVE_KV_TYPE" "$([[ "$ACTIVE_KV_OFFLOAD" == "1" ]] && echo true || echo false)" "$ACTIVE_SPECULATIVE_MODE" "$ACTIVE_MTP_MODE" "$(json_escape "$MTP_FALLBACK_REASON")" "$ACTIVE_PROJECTOR_DEVICE" "${SERVER_PID:-0}" "$$" \
-    "$(json_escape "$error")" "$rolled_back" "$(timestamp)" "$(process_start_time "${SERVER_PID:-0}")" "$(process_start_time "$$")" "$ACTIVE_PROFILE_FINGERPRINT" "$ACTIVE_PROFILE_CONFIG" > "$tmp"
+    "$(json_escape "$error")" "$rolled_back" "$(json_escape "${PROFILE_PLACEMENT_NOTE:-}")" "$(timestamp)" "$(process_start_time "${SERVER_PID:-0}")" "$(process_start_time "$$")" "$ACTIVE_PROFILE_FINGERPRINT" "$ACTIVE_PROFILE_CONFIG" > "$tmp"
   mv -f "$tmp" "$STATE_FILE"
 }
 
@@ -114,6 +114,7 @@ stop_llama_server() {
     kill -KILL "$pid" 2>/dev/null || true
   fi
   wait "$pid" 2>/dev/null || true
+  if [[ -n "$SERVER_SCOPE_PID" ]] && [[ "$(process_start_time "$SERVER_SCOPE_PID")" == "$SERVER_SCOPE_START" ]]; then kill -TERM "$SERVER_SCOPE_PID" 2>/dev/null || true; wait "$SERVER_SCOPE_PID" 2>/dev/null || true; SERVER_SCOPE_PID=""; fi
 }
 
 # Experimental placement guard: only the owned child is stopped; no system policy changes.
@@ -258,9 +259,25 @@ launch_server() {
   printf -v printed_command '%q ' "$LLAMA_BIN" "${server_args[@]}"
   log "llama-server.command=${printed_command% }"
   MODEL_SWAP_BASE="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
-  "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 9>&- &
-  SERVER_PID=$!; SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
-  printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
+  if [[ "$PROFILE_MEMORY_GUARD" == "1" ]]; then
+    local limit_mib scope_wait
+    limit_mib="$(awk '/^MemTotal:/{print int($2/1024)-7168}' /proc/meminfo)"
+    (( limit_mib > 56320 )) && limit_mib=56320
+    if ! command -v systemd-run >/dev/null || (( limit_mib < 8192 )); then LAUNCH_ERROR="Safe model cgroup unavailable (systemd user session required)."; return 1; fi
+    rm -f "$SERVER_PID_FILE"
+    systemd-run --user --quiet --scope --unit="local-ai-model-$$-$RANDOM" -p "MemoryMax=${limit_mib}M" -p MemorySwapMax=0 \
+      /bin/bash -c 'pidfile="$1"; shift; printf "%s\n" "$$" > "$pidfile"; exec "$@"' model-scope "$SERVER_PID_FILE" "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 9>&- &
+    SERVER_SCOPE_PID=$!; SERVER_SCOPE_START="$(process_start_time "$SERVER_SCOPE_PID")"
+    for scope_wait in $(seq 1 100); do [[ -s "$SERVER_PID_FILE" ]] && break; kill -0 "$SERVER_SCOPE_PID" 2>/dev/null || break; sleep 0.1; done
+    if [[ ! -s "$SERVER_PID_FILE" ]]; then LAUNCH_ERROR="Could not establish MemorySwapMax=0 model cgroup: $(tail -n 2 "$SERVER_LOG")"; kill -TERM "$SERVER_SCOPE_PID" 2>/dev/null || true; wait "$SERVER_SCOPE_PID" 2>/dev/null || true; SERVER_SCOPE_PID=""; return 1; fi
+    read -r SERVER_PID < "$SERVER_PID_FILE"
+    [[ "$SERVER_SCOPE_PID" != "$SERVER_PID" ]] || SERVER_SCOPE_PID=""
+    log "placement.cgroup=MemoryMax${limit_mib}MiB/MemorySwapMax0 wrapper=$SERVER_SCOPE_PID"
+  else
+    "$LLAMA_BIN" "${server_args[@]}" >> "$SERVER_LOG" 2>&1 9>&- &
+    SERVER_PID=$!; printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
+  fi
+  SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
   log "llama-server.pid=$SERVER_PID"
   # Publish the new identity before health probing, so the host registry can
   # track starting servers too. Only the caller's ready state confirms success.

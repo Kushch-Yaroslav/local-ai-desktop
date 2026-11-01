@@ -7,7 +7,7 @@ export interface ModelInspection {
   structure?:ModelStructure; layers?:number; experts?:number; activeExperts?:number; sizeLabel?:string; reasoning:ReasoningCapability; toolTemplate:boolean; reason?:string;
 }
 export interface AdvancedModelParameters {
-  inheritPlacement?:boolean; gpuLayerIds?:number[]; moeAcceleration?:'disabled'|'automatic'|'manual'; expertCacheMiB?:number; experimentalRuntimePath?:string;
+  inheritPlacement?:boolean; gpuLayerIds?:number[]; moeAcceleration?:'disabled'|'automatic'|'manual'; expertCacheMiB?:number;
   mode:'automatic'|'gpu-layers'|'moe'; cpuMoe?:'none'|'all'|'first'; cpuMoeLayers?:number; cpuFfnLayers?:number;
   threads?:number; threadsBatch?:number; batchSize?:number; ubatchSize?:number; flashAttention?:'auto'|'on'|'off';
   loadMode?:'auto'|'mmap'|'none'|'dio'; fitTargetMiB?:number; tensorOverrides?:Array<{pattern:string;buffer:string}>;
@@ -18,4 +18,4 @@ export interface BackendFeatureProbe {status:'supported'|'error';path?:string;fl
 export interface ModelTensorLayout {name:string;bytes:number;block?:number;expert:boolean;type:number;}
 export interface ModelStructure {tensors:ModelTensorLayout[];complete:boolean;totalBytes:number;kvHeads?:number;keyLength?:number;valueLength?:number;fullAttentionLayers?:number;recurrentLayers?:number;}
 export interface ModelMemoryEstimate {weightsMiB:number;cpuWeightsMiB:number;kvMiB:number;cpuKvMiB:number;recurrentMiB:number;computeMiB:number;reserveMiB:number;cacheMiB:number;availableMiB:number|null;totalMiB:number|null;requiredMiB:number;safeCacheMiB:number;fits:boolean;known:boolean;notes:string[];}
-export interface PlacementPreview {inspection:ModelInspection;features:BackendFeatureProbe;backendPath:string|null;experimentalCandidatePath?:string;availableMiB:number|null;totalMiB:number|null;availableRamMiB?:number;reason?:string;}
+export interface PlacementPreview {inspection:ModelInspection;features:BackendFeatureProbe;backendPath:string|null;availableMiB:number|null;totalMiB:number|null;availableRamMiB?:number;reason?:string;}
