@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import type { VisionQuestion } from '../../shared/model-features';
 import { loadRuntimeConfiguration } from './runtime-settings';
 import { BrowserVisionProvider } from './browser-vision';
@@ -30,6 +31,12 @@ import { maxOutputTokens } from '../models/model-registry';
 // Optional diagnostics must never interrupt a pending security decision.
 function logApprovalTransport(data: Record<string, unknown>): void {
   try { log('agent.approval.transport', data); } catch { /* permission result still fails closed */ }
+}
+
+export function transportFailureDetail(message:string,runtimeError?:string):string {
+  if(!/upstream closed|Connection reset|connection reset/.test(message))return message;
+  const cause=runtimeError?.startsWith('Memory safety stop:')?`Сервер остановлен защитой памяти: ${runtimeError}`:'Соединение с сервером модели прервано; причина остановки сервера пока не подтверждена.';
+  return `${cause} Выполненные шаги сохранены. Инструменты автоматически не повторяются; проверьте состояние модели и продолжите задачу вручную. (${message})`;
 }
 
 /** Project identity is a transport value, not an orchestration subsystem. */
@@ -76,7 +83,8 @@ export function statusActivity(runId: string, ordinal: number, content: string):
 }
 
 export function runtimeTextEvent(event: Pick<RuntimeEvent, 'type' | 'content'>, runId: string, statusOrdinal: number): StreamEvent | null {
-  if (event.type === 'content_delta' || event.type === 'final_delta') return { type: 'token', content: event.content ?? '' };
+  if(process.env.LOCAL_AI_STREAM_TIMING==='1')log('stream.pipeline',{runId,stage:'main-event',type:event.type,chars:event.content?.length??0});
+  if (event.type === 'content_delta' || event.type === 'final_delta') return { type: 'token', content: event.content ?? '', presentation:'reviewed-ready' };
   if (event.type === 'agent_status') return { type: 'tool', activity: statusActivity(runId, statusOrdinal, event.content ?? '') };
   return null;
 }
@@ -516,7 +524,9 @@ export class RustAgentRuntime {
           // The worker has ended; its protocol supervisor still awaits stdin.
           // End this run's stream now so IPC can release inference ownership.
           if (child.stdin.writable) child.stdin.end();
-          yield { type: 'error', message: 'Rust Agent Runtime V2 error', details: event.message };
+          let runtimeError:string|undefined;
+          try {const state=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));if(Date.now()-Date.parse(state.updatedAt)<10000)runtimeError=state.error;}catch{/* Preserve the transport failure when state is unavailable. */}
+          yield { type: 'error', message: 'Ошибка соединения с моделью', details: transportFailureDetail(event.message??'',runtimeError) };
           break;
         }
         if (event.type === 'final') {

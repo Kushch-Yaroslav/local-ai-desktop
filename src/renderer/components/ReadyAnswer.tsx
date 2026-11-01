@@ -1,7 +1,8 @@
 import {useEffect,useState} from 'react';
 import {Markdown} from './Markdown';
-export function ReadyAnswer({text,readyAt,streaming}:{text:string;readyAt?:number;streaming:boolean}) {
+export function ReadyAnswer({text,readyAt,streaming,traceId}:{text:string;readyAt?:number;streaming:boolean;traceId?:string}) {
  const [clock,setClock]=useState(Date.now());
+ useEffect(()=>{if(traceId&&typeof localStorage!=='undefined'&&localStorage.getItem('local-ai-stream-timing')==='1')performance.mark(`stream.react.${traceId}`,{detail:{chars:text.length}});},[traceId,text]);
  const duration=Math.min(2200,Math.max(400,text.length/8));
  const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
  const fraction=readyAt&&!reduced?Math.min(1,Math.max(0,(clock-readyAt)/duration)):1;

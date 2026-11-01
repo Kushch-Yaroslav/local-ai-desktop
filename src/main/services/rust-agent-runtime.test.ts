@@ -6,7 +6,7 @@ import type { ChatMessage } from '../../shared/types';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RustAgentRuntime, runtimeTextEvent, splitAgentRunHistory, taskVisualRegions, taskPlan } from './rust-agent-runtime';
+import { RustAgentRuntime, transportFailureDetail, runtimeTextEvent, splitAgentRunHistory, taskVisualRegions, taskPlan } from './rust-agent-runtime';
 import { deliverablesChecklist, displayToolResult, toolResultSummary } from '../../renderer/components/AgentTimeline';
 
 const message = (role: ChatMessage['role'], content: string): ChatMessage => ({
@@ -81,6 +81,7 @@ export function runRustAgentRuntimeRegression(): void {
   ];
   assert.deepEqual(statusAndFinal.map((event) => event?.type), ['tool', 'tool', 'token']);
   assert.equal(statusAndFinal.filter((event) => event?.type === 'token').map((event) => event?.type === 'token' ? event.content : '').join(''), 'Accepted final answer');
+  assert.equal(statusAndFinal[2]?.type==='token'&&statusAndFinal[2].presentation,'reviewed-ready');
   assert.equal(statusAndFinal[0]?.type === 'tool' && statusAndFinal[0].activity.kind, 'progress');
   assert.equal(statusAndFinal[1]?.type === 'tool' && statusAndFinal[1].activity.output, 'Continuing source inspection');
   assert.equal(runtimeTextEvent({ type: 'withheld_draft', content: 'Rejected answer' }, 'run', 2), null);
@@ -423,3 +424,6 @@ if (require.main === module) {
   assert.deepEqual(taskVisualRegions([old,{...next,logicalTaskId:'task-b'}],'task-b'),[]);
   assert.deepEqual(taskVisualRegions([old,next]),[]);
 }
+
+assert.match(transportFailureDetail('upstream closed while reading HTTP framing','Memory safety stop: RAM reserve'),/защитой памяти/);
+assert.match(transportFailureDetail('upstream closed inside an HTTP chunk'),/причина.*не подтверждена/);

@@ -2433,6 +2433,7 @@ fn append_final_text(accumulator: &mut String, delta: &str) {
 }
 
 fn emit_accepted_final_content(run_id: &str, content: &str) {
+    stream_timing(run_id,"accepted_final_emit",content.chars().count());
     if !content.is_empty() {
         emit(
             run_id,
@@ -2858,6 +2859,7 @@ fn check_repetition(text: &str, checked: &mut usize, kind: &str) -> Result<(), S
 
 #[derive(Default)]
 struct StreamedTurn {
+    done: bool,
     /// Byte lengths of `content`/`reasoning_raw` at the last repetition check.
     content_repetition_checked: usize,
     reasoning_repetition_checked: usize,
@@ -2974,6 +2976,7 @@ fn markdown_code_is_open(source: &str) -> bool {
 }
 
 fn append_content(turn: &mut StreamedTurn, content: &str, run_id: &str, emit_content: bool) {
+    stream_timing(run_id,"meaningful_delta",content.chars().count());
     let prefix_len = turn.content.len();
     turn.content.push_str(content);
     let visible = turn.content_markup_filter.push(content, false, &turn.content[..prefix_len], &turn.tool_names);
@@ -3131,6 +3134,13 @@ fn connect_with_recovery<T>(
 
 /// Dependency-free OpenAI-compatible SSE transport. Visible content is emitted
 /// at the delta boundary; finalization never becomes the first visible output.
+fn stream_timing(run_id: &str, stage: &str, chars: usize) {
+    if let Ok(path)=std::env::var("LOCAL_AI_STREAM_TIMING_PATH") {
+        let ms=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis();
+        if let Ok(mut f)=OpenOptions::new().create(true).append(true).open(path) {let _=writeln!(f,"{}",json!({"run_id":run_id,"stage":stage,"at_ms":ms,"chars":chars}));}
+    }
+}
+
 fn provider_line(reader: &mut impl BufRead, cancelled: &AtomicBool) -> Result<String, String> {
     let mut line = String::new();
     loop {
@@ -3173,6 +3183,23 @@ fn append_provider_bytes(buffer: &mut String, pending: &mut Vec<u8>, bytes: &[u8
     Ok(())
 }
 
+// Deliver complete SSE events without waiting for the enclosing HTTP chunk.
+fn provider_chunk(reader: &mut impl Read, size: usize, cancelled: &AtomicBool, mut deliver: impl FnMut(&[u8]) -> Result<(), String>) -> Result<(), String> {
+    let mut left = size;
+    let mut bytes = [0u8;8192];
+    while left > 0 {
+        if cancelled.load(Ordering::Relaxed) { return Err("cancelled".into()); }
+        let n = left.min(bytes.len());
+        match reader.read(&mut bytes[..n]) {
+            Ok(0) => return Err("upstream closed inside an HTTP chunk".into()),
+            Ok(count) => { deliver(&bytes[..count])?; left -= count; },
+            Err(e) if matches!(e.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock) => continue,
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    Ok(())
+}
+
 fn stream_call(
     endpoint: &str,
     payload: &Value,
@@ -3184,6 +3211,7 @@ fn stream_call(
     emit_visible: bool,
     emit_content: bool,
 ) -> Result<StreamedTurn, String> {
+    stream_timing(run_id,"request",0);
     let without = endpoint.trim_start_matches("http://");
     let (host_port, path) = without
         .split_once('/')
@@ -3253,7 +3281,8 @@ fn stream_call(
         .set_read_timeout(Some(std::time::Duration::from_millis(100)))
         .map_err(|error| error.to_string())?;
     let mut reader = BufReader::new(stream);
-    let line = provider_line(&mut reader, cancelled)?;
+    let line = provider_line(&mut reader, cancelled).map_err(|e|format!("HTTP status: {e}"))?;
+    stream_timing(run_id,"http_status",line.len());
     if !line.contains(" 200 ") {
         let status = line.trim().to_owned();
         let mut response = String::new();
@@ -3266,11 +3295,8 @@ fn stream_call(
         if line == "\r\n" || line == "\n" {
             break;
         }
-        if line
-            .to_ascii_lowercase()
-            .starts_with("transfer-encoding: chunked")
-        {
-            chunked = true;
+        if let Some((name,value))=line.split_once(':') {
+            if name.eq_ignore_ascii_case("transfer-encoding") && value.split(',').any(|v|v.trim().eq_ignore_ascii_case("chunked")) {chunked=true;}
         }
     }
     let mut turn = StreamedTurn::default();
@@ -3283,20 +3309,21 @@ fn stream_call(
             if cancelled.load(Ordering::Relaxed) {
                 return Err("cancelled".into());
             }
-            let line = provider_line(&mut reader, cancelled)?;
+            if turn.done {break;}
+            let line = provider_line(&mut reader, cancelled).map_err(|e|format!("HTTP chunk header: {e}"))?;
             let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16)
                 .map_err(|error| format!("invalid chunk size: {error}"))?;
             if size == 0 {
                 break;
             }
             if size > 16 * 1024 * 1024 { return Err("provider HTTP chunk exceeds 16 MiB".into()); }
-            let mut bytes = vec![0; size];
-            provider_exact(&mut reader, &mut bytes, cancelled)?;
+            provider_chunk(&mut reader, size, cancelled, |bytes| {
+                append_provider_bytes(&mut buffer, &mut utf8_pending, bytes)?;
+                consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)
+            })?;
             let mut crlf = [0; 2];
             provider_exact(&mut reader, &mut crlf, cancelled)?;
             if crlf != *b"\r\n" { return Err("invalid HTTP chunk terminator".into()); }
-            append_provider_bytes(&mut buffer, &mut utf8_pending, &bytes)?;
-            consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)?;
         }
     } else {
         let mut bytes = [0_u8; 8192];
@@ -3321,6 +3348,7 @@ fn stream_call(
             }
             append_provider_bytes(&mut buffer, &mut utf8_pending, &bytes[..count])?;
             consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)?;
+            if turn.done {break;}
         }
     }
     if !utf8_pending.is_empty() { return Err("upstream closed inside a UTF-8 character".into()); }
@@ -3336,6 +3364,7 @@ fn stream_call(
         }
         consume_sse(&mut buffer, &mut turn, run_id, emit_visible, emit_content)?;
     }
+    if turn.finish_reason.is_empty() && !turn.done { return Err("upstream closed before a terminal SSE finish_reason; incomplete turn was not executed".into()); }
     flush_reasoning(&mut turn, run_id, emit_visible);
     flush_content(&mut turn, run_id, emit_content);
     trace_forensics(
@@ -3372,6 +3401,7 @@ fn consume_sse(
             .filter_map(|line| line.strip_prefix("data:").map(str::trim_start))
         {
             if line == "[DONE]" {
+                turn.done = true;
                 continue;
             }
             // This trace is explicitly opt-in. Keep the exact frame: lengths
@@ -6894,6 +6924,28 @@ mod tests {
         flush_content(&mut turn, "fixture", false);
         assert_eq!(turn.content, "Привет");
         assert!(frame.is_empty());
+    }
+
+    #[test]
+    fn transport_eof_cancel_and_reset_do_not_become_success() {
+        let no=AtomicBool::new(false);
+        assert!(provider_line(&mut std::io::Cursor::new(Vec::<u8>::new()),&no).unwrap_err().contains("HTTP framing"));
+        let yes=AtomicBool::new(true);let mut input=std::io::Cursor::new(b"untouched".to_vec());
+        assert_eq!(provider_chunk(&mut input,9,&yes,|_|panic!("no callback after cancellation")).unwrap_err(),"cancelled");
+        assert_eq!(input.position(),0);
+        struct Reset;impl Read for Reset {fn read(&mut self,_b:&mut [u8])->std::io::Result<usize>{Err(std::io::Error::new(std::io::ErrorKind::ConnectionReset,"fixture reset"))}}
+        assert!(provider_chunk(&mut Reset,10,&no,|_|Ok(())).unwrap_err().contains("fixture reset"));
+        let mut turn=StreamedTurn::default();let mut frame="data: [DONE]\n\n".to_owned();
+        consume_sse(&mut frame,&mut turn,"fixture",false,false).unwrap();assert!(turn.done);
+    }
+
+    #[test]
+    fn partial_http_chunk_is_delivered_before_eof_and_never_accepted_as_complete() {
+        let mut input = std::io::Cursor::new(b"first delta".to_vec());
+        let mut delivered=Vec::new();
+        let error=provider_chunk(&mut input,100,&AtomicBool::new(false),|b|{delivered.extend_from_slice(b);Ok(())}).unwrap_err();
+        assert_eq!(delivered,b"first delta");
+        assert!(error.contains("inside an HTTP chunk"));
     }
 
     #[test]

@@ -125,7 +125,7 @@ placement_memory_ok() {
   out="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
   page_size="$(getconf PAGESIZE)"
   if [[ -z "$available" || -z "$out" ]] || (( available < 7*1024*1024 || (out-MODEL_SWAP_BASE)*page_size > 32*1024*1024 )); then
-    LAUNCH_ERROR="Memory safety stop: RAM reserve below7GiB or aggregate swap-out above32MiB. Only the owned model was stopped."
+    LAUNCH_ERROR="Memory safety stop: RAM reserve below7GiB or aggregate swap-out above32MiB. MemAvailableKiB=${available:-unknown}; swapOutDeltaPages=$((out-MODEL_SWAP_BASE)); pageSize=$page_size. Only the owned model was stopped."
     return 1
   fi
 }

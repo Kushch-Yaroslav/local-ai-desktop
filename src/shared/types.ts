@@ -208,7 +208,7 @@ export type ProjectSuggestion = ProjectReference;
 
 export interface ChatMessage {
   /** Renderer-only hint; never persisted. */
-  readyDisplayAt?: number;
+  readyDisplayAt?: number; readyGenerationId?:string;
   logicalTaskId?: string;
   /** Previous generation retained for immutable task history, excluded from provider context. */
   archivedAttempt?: boolean;
