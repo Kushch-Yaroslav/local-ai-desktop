@@ -1,0 +1,2704 @@
+[
+  {
+    "runtime": "old",
+    "args": [
+      "/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server",
+      "-m",
+      "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Artemis-31B-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "43547",
+      "--ctx-size",
+      "4096",
+      "--gpu-layers",
+      "32",
+      "--flash-attn",
+      "on",
+      "--cache-type-k",
+      "q8_0",
+      "--cache-type-v",
+      "q8_0",
+      "--kv-offload",
+      "--parallel",
+      "1",
+      "--jinja",
+      "--fit",
+      "off",
+      "--threads",
+      "8",
+      "--threads-batch",
+      "8",
+      "--batch-size",
+      "512",
+      "--ubatch-size",
+      "128",
+      "--load-mode",
+      "mmap",
+      "--no-warmup",
+      "--spec-type",
+      "none"
+    ],
+    "version": "version: 0.4.1-dev (build 1, commit d1d3c33)\nbuilt with GNU 13.3.0 for Linux x86_64",
+    "beforeMemory": {
+      "MemTotal": 65743976,
+      "MemFree": 42965808,
+      "MemAvailable": 56865972,
+      "Buffers": 859068,
+      "Cached": 12640308,
+      "SwapCached": 0,
+      "Active": 11585596,
+      "Inactive": 8563896,
+      "Active(anon)": 6730956,
+      "Inactive(anon)": 0,
+      "Active(file)": 4854640,
+      "Inactive(file)": 8563896,
+      "Unevictable": 64,
+      "Mlocked": 64,
+      "SwapTotal": 8388604,
+      "SwapFree": 8388604,
+      "Zswap": 0,
+      "Zswapped": 0,
+      "Dirty": 3744,
+      "Writeback": 0,
+      "AnonPages": 6650244,
+      "Mapped": 3574372,
+      "Shmem": 80796,
+      "KReclaimable": 1184412,
+      "Slab": 1647960,
+      "SReclaimable": 1184412,
+      "SUnreclaim": 463548,
+      "KernelStack": 31520,
+      "PageTables": 91276,
+      "SecPageTables": 5752,
+      "NFS_Unstable": 0,
+      "Bounce": 0,
+      "WritebackTmp": 0,
+      "CommitLimit": 41260592,
+      "Committed_AS": 33396224,
+      "VmallocTotal": 34359738367,
+      "VmallocUsed": 243568,
+      "VmallocChunk": 0,
+      "Percpu": 21056,
+      "HardwareCorrupted": 0,
+      "AnonHugePages": 0,
+      "ShmemHugePages": 0,
+      "ShmemPmdMapped": 0,
+      "FileHugePages": 237568,
+      "FilePmdMapped": 0,
+      "CmaTotal": 0,
+      "CmaFree": 5462016,
+      "Unaccepted": 0,
+      "Balloon": 0,
+      "GPUActive": 0,
+      "GPUReclaim": 0,
+      "HugePages_Total": 0,
+      "HugePages_Free": 0,
+      "HugePages_Rsvd": 0,
+      "HugePages_Surp": 0,
+      "Hugepagesize": 2048,
+      "Hugetlb": 0,
+      "DirectMap4k": 1802440,
+      "DirectMap2M": 25366528,
+      "DirectMap1G": 39845888
+    },
+    "samples": [
+      {
+        "seconds": 0.0,
+        "mem": {
+          "MemAvailable": 56785048,
+          "MemFree": 42869184,
+          "Cached": 12640324,
+          "SReclaimable": 1200044,
+          "AnonPages": 6650284,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 852,
+          "RssAnon": 84,
+          "RssFile": 768,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "30330880",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 10477568,
+          "file": 4096
+        }
+      },
+      {
+        "seconds": 0.27,
+        "mem": {
+          "MemAvailable": 56698148,
+          "MemFree": 42781840,
+          "Cached": 12640780,
+          "SReclaimable": 1200044,
+          "AnonPages": 6741488,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 159652,
+          "RssAnon": 89568,
+          "RssFile": 70084,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "125259776",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 103239680,
+          "file": 462848
+        }
+      },
+      {
+        "seconds": 0.52,
+        "mem": {
+          "MemAvailable": 56646408,
+          "MemFree": 42729784,
+          "Cached": 12641084,
+          "SReclaimable": 1200044,
+          "AnonPages": 6778704,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 249104,
+          "RssAnon": 126700,
+          "RssFile": 122404,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "164339712",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 141250560,
+          "file": 782336
+        }
+      },
+      {
+        "seconds": 0.77,
+        "mem": {
+          "MemAvailable": 56542820,
+          "MemFree": 42625708,
+          "Cached": 12649748,
+          "SReclaimable": 1200044,
+          "AnonPages": 6866084,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 361492,
+          "RssAnon": 213512,
+          "RssFile": 139788,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "262586368",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 230146048,
+          "file": 9793536
+        }
+      },
+      {
+        "seconds": 1.03,
+        "mem": {
+          "MemAvailable": 56535024,
+          "MemFree": 42617644,
+          "Cached": 12650016,
+          "SReclaimable": 1200044,
+          "AnonPages": 6875992,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 370964,
+          "RssAnon": 222688,
+          "RssFile": 140084,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "272019456",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239550464,
+          "file": 9928704
+        }
+      },
+      {
+        "seconds": 1.28,
+        "mem": {
+          "MemAvailable": 56516616,
+          "MemFree": 42456628,
+          "Cached": 12792352,
+          "SReclaimable": 1200332,
+          "AnonPages": 6876312,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 528976,
+          "RssAnon": 223004,
+          "RssFile": 297780,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "419344384",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239874048,
+          "file": 155942912
+        }
+      },
+      {
+        "seconds": 1.53,
+        "mem": {
+          "MemAvailable": 56514296,
+          "MemFree": 42052856,
+          "Cached": 13192908,
+          "SReclaimable": 1201228,
+          "AnonPages": 6876312,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 929644,
+          "RssAnon": 223032,
+          "RssFile": 698420,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "831434752",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239902720,
+          "file": 566198272
+        }
+      },
+      {
+        "seconds": 1.78,
+        "mem": {
+          "MemAvailable": 56441196,
+          "MemFree": 41580656,
+          "Cached": 13591212,
+          "SReclaimable": 1202028,
+          "AnonPages": 6899180,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 1328520,
+          "RssAnon": 223060,
+          "RssFile": 1097268,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "1241784320",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239935488,
+          "file": 974880768
+        }
+      },
+      {
+        "seconds": 2.03,
+        "mem": {
+          "MemAvailable": 56442628,
+          "MemFree": 41182928,
+          "Cached": 13989876,
+          "SReclaimable": 1203020,
+          "AnonPages": 6899408,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 1726296,
+          "RssAnon": 223088,
+          "RssFile": 1495016,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "1650204672",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239964160,
+          "file": 1382051840
+        }
+      },
+      {
+        "seconds": 2.28,
+        "mem": {
+          "MemAvailable": 56438772,
+          "MemFree": 40778516,
+          "Cached": 14389496,
+          "SReclaimable": 1203948,
+          "AnonPages": 6899780,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 2126016,
+          "RssAnon": 223116,
+          "RssFile": 1894708,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "2061508608",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 239992832,
+          "file": 1791266816
+        }
+      },
+      {
+        "seconds": 2.53,
+        "mem": {
+          "MemAvailable": 56437048,
+          "MemFree": 40373968,
+          "Cached": 14791324,
+          "SReclaimable": 1204876,
+          "AnonPages": 6900168,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 2527964,
+          "RssAnon": 223144,
+          "RssFile": 2296628,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "2474909696",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240021504,
+          "file": 2202763264
+        }
+      },
+      {
+        "seconds": 2.79,
+        "mem": {
+          "MemAvailable": 56439376,
+          "MemFree": 39970180,
+          "Cached": 15196576,
+          "SReclaimable": 1205740,
+          "AnonPages": 6900140,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 2933496,
+          "RssAnon": 223172,
+          "RssFile": 2702132,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "2891980800",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240054272,
+          "file": 2617999360
+        }
+      },
+      {
+        "seconds": 3.04,
+        "mem": {
+          "MemAvailable": 56431228,
+          "MemFree": 39558192,
+          "Cached": 15599448,
+          "SReclaimable": 1206716,
+          "AnonPages": 6900216,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 3335956,
+          "RssAnon": 223200,
+          "RssFile": 3104564,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "3306168320",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240082944,
+          "file": 3030155264
+        }
+      },
+      {
+        "seconds": 3.29,
+        "mem": {
+          "MemAvailable": 56459892,
+          "MemFree": 39187036,
+          "Cached": 15998396,
+          "SReclaimable": 1207596,
+          "AnonPages": 6901276,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 3735088,
+          "RssAnon": 223228,
+          "RssFile": 3503668,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "3716423680",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240115712,
+          "file": 3438800896
+        }
+      },
+      {
+        "seconds": 3.54,
+        "mem": {
+          "MemAvailable": 56442872,
+          "MemFree": 38769592,
+          "Cached": 16397972,
+          "SReclaimable": 1208508,
+          "AnonPages": 6901308,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 4134732,
+          "RssAnon": 223256,
+          "RssFile": 3903284,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "4127485952",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240144384,
+          "file": 3848105984
+        }
+      },
+      {
+        "seconds": 3.79,
+        "mem": {
+          "MemAvailable": 56448772,
+          "MemFree": 38373708,
+          "Cached": 16798884,
+          "SReclaimable": 1209388,
+          "AnonPages": 6901336,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 4535656,
+          "RssAnon": 223284,
+          "RssFile": 4304180,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "4539314176",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240173056,
+          "file": 4258496512
+        }
+      },
+      {
+        "seconds": 4.04,
+        "mem": {
+          "MemAvailable": 56446716,
+          "MemFree": 37969332,
+          "Cached": 17200176,
+          "SReclaimable": 1210348,
+          "AnonPages": 6901396,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 4936580,
+          "RssAnon": 223312,
+          "RssFile": 4705076,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "4951666688",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240201728,
+          "file": 4669276160
+        }
+      },
+      {
+        "seconds": 4.29,
+        "mem": {
+          "MemAvailable": 56444472,
+          "MemFree": 37565172,
+          "Cached": 17601180,
+          "SReclaimable": 1211260,
+          "AnonPages": 6901400,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 5337732,
+          "RssAnon": 223312,
+          "RssFile": 5106228,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "5364277248",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240205824,
+          "file": 5080055808
+        }
+      },
+      {
+        "seconds": 4.55,
+        "mem": {
+          "MemAvailable": 56443480,
+          "MemFree": 37161012,
+          "Cached": 18003436,
+          "SReclaimable": 1212172,
+          "AnonPages": 6901404,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 5740164,
+          "RssAnon": 223312,
+          "RssFile": 5508660,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "5778202624",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240209920,
+          "file": 5492146176
+        }
+      },
+      {
+        "seconds": 4.8,
+        "mem": {
+          "MemAvailable": 56444880,
+          "MemFree": 36756844,
+          "Cached": 18408092,
+          "SReclaimable": 1213084,
+          "AnonPages": 6901404,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 6144644,
+          "RssAnon": 223312,
+          "RssFile": 5913140,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "6193958912",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240214016,
+          "file": 5906333696
+        }
+      },
+      {
+        "seconds": 5.05,
+        "mem": {
+          "MemAvailable": 56437032,
+          "MemFree": 36344620,
+          "Cached": 18811548,
+          "SReclaimable": 1213996,
+          "AnonPages": 6901428,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 6548100,
+          "RssAnon": 223312,
+          "RssFile": 6316596,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "6608932864",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240214016,
+          "file": 6319472640
+        }
+      },
+      {
+        "seconds": 5.3,
+        "mem": {
+          "MemAvailable": 56434936,
+          "MemFree": 35940460,
+          "Cached": 19212700,
+          "SReclaimable": 1214908,
+          "AnonPages": 6901428,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 6949368,
+          "RssAnon": 223312,
+          "RssFile": 6717864,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "7021547520",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240218112,
+          "file": 6730268672
+        }
+      },
+      {
+        "seconds": 5.55,
+        "mem": {
+          "MemAvailable": 56432968,
+          "MemFree": 35536052,
+          "Cached": 19614228,
+          "SReclaimable": 1215820,
+          "AnonPages": 6901432,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 7351172,
+          "RssAnon": 223312,
+          "RssFile": 7119668,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "7434948608",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240218112,
+          "file": 7141556224
+        }
+      },
+      {
+        "seconds": 5.8,
+        "mem": {
+          "MemAvailable": 56435004,
+          "MemFree": 35134516,
+          "Cached": 20016956,
+          "SReclaimable": 1216732,
+          "AnonPages": 6901496,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 7754116,
+          "RssAnon": 223312,
+          "RssFile": 7522612,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "7849271296",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240218112,
+          "file": 7554170880
+        }
+      },
+      {
+        "seconds": 6.05,
+        "mem": {
+          "MemAvailable": 56433100,
+          "MemFree": 34730608,
+          "Cached": 20417988,
+          "SReclaimable": 1217644,
+          "AnonPages": 6900608,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 8154500,
+          "RssAnon": 223312,
+          "RssFile": 7922996,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "8261357568",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240222208,
+          "file": 7964426240
+        }
+      },
+      {
+        "seconds": 6.3,
+        "mem": {
+          "MemAvailable": 56436712,
+          "MemFree": 34334248,
+          "Cached": 20817500,
+          "SReclaimable": 1218508,
+          "AnonPages": 6900632,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 8554104,
+          "RssAnon": 223312,
+          "RssFile": 8322600,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "8671875072",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240222208,
+          "file": 8373370880
+        }
+      },
+      {
+        "seconds": 6.56,
+        "mem": {
+          "MemAvailable": 56432388,
+          "MemFree": 33929392,
+          "Cached": 21216692,
+          "SReclaimable": 1219436,
+          "AnonPages": 6898200,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 8953476,
+          "RssAnon": 223312,
+          "RssFile": 8721972,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "9082654720",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240222208,
+          "file": 8782577664
+        }
+      },
+      {
+        "seconds": 6.81,
+        "mem": {
+          "MemAvailable": 56430708,
+          "MemFree": 33525728,
+          "Cached": 21617776,
+          "SReclaimable": 1220348,
+          "AnonPages": 6898180,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 9354116,
+          "RssAnon": 223312,
+          "RssFile": 9122612,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "9495003136",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240222208,
+          "file": 9192845312
+        }
+      },
+      {
+        "seconds": 7.06,
+        "mem": {
+          "MemAvailable": 56436204,
+          "MemFree": 33130528,
+          "Cached": 22017692,
+          "SReclaimable": 1221260,
+          "AnonPages": 6898204,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 9754500,
+          "RssAnon": 223312,
+          "RssFile": 9522996,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "9906040832",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240226304,
+          "file": 9602564096
+        }
+      },
+      {
+        "seconds": 7.31,
+        "mem": {
+          "MemAvailable": 56432560,
+          "MemFree": 32727892,
+          "Cached": 22415772,
+          "SReclaimable": 1222172,
+          "AnonPages": 6898212,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 10152324,
+          "RssAnon": 223312,
+          "RssFile": 9920820,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "10315771904",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240238592,
+          "file": 10010198016
+        }
+      },
+      {
+        "seconds": 7.56,
+        "mem": {
+          "MemAvailable": 56430612,
+          "MemFree": 32323732,
+          "Cached": 22817072,
+          "SReclaimable": 1223084,
+          "AnonPages": 6898228,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 10553732,
+          "RssAnon": 223312,
+          "RssFile": 10322228,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "10728386560",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240242688,
+          "file": 10421194752
+        }
+      },
+      {
+        "seconds": 7.81,
+        "mem": {
+          "MemAvailable": 56430776,
+          "MemFree": 31919576,
+          "Cached": 23220784,
+          "SReclaimable": 1223980,
+          "AnonPages": 6898228,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 10957444,
+          "RssAnon": 223312,
+          "RssFile": 10725940,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "11143622656",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240242688,
+          "file": 10834378752
+        }
+      },
+      {
+        "seconds": 8.06,
+        "mem": {
+          "MemAvailable": 56432892,
+          "MemFree": 31516328,
+          "Cached": 23624832,
+          "SReclaimable": 1224892,
+          "AnonPages": 6898240,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11361336,
+          "RssAnon": 223312,
+          "RssFile": 11129832,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "11559383040",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240242688,
+          "file": 11248152576
+        }
+      },
+      {
+        "seconds": 8.31,
+        "mem": {
+          "MemAvailable": 56433900,
+          "MemFree": 31113948,
+          "Cached": 24027264,
+          "SReclaimable": 1225804,
+          "AnonPages": 6898244,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11764360,
+          "RssAnon": 223316,
+          "RssFile": 11532852,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "11974094848",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240246784,
+          "file": 11660918784
+        }
+      },
+      {
+        "seconds": 8.57,
+        "mem": {
+          "MemAvailable": 56445468,
+          "MemFree": 30719908,
+          "Cached": 24432024,
+          "SReclaimable": 1226652,
+          "AnonPages": 6898244,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 12168840,
+          "RssAnon": 223316,
+          "RssFile": 11937332,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "12389855232",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240246784,
+          "file": 12075094016
+        }
+      },
+      {
+        "seconds": 8.82,
+        "mem": {
+          "MemAvailable": 56440592,
+          "MemFree": 30309008,
+          "Cached": 24837060,
+          "SReclaimable": 1227644,
+          "AnonPages": 6898244,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 12573832,
+          "RssAnon": 223316,
+          "RssFile": 12342324,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "12806402048",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240246784,
+          "file": 12489818112
+        }
+      },
+      {
+        "seconds": 9.07,
+        "mem": {
+          "MemAvailable": 56440816,
+          "MemFree": 29908336,
+          "Cached": 25237148,
+          "SReclaimable": 1228572,
+          "AnonPages": 6897980,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 12973704,
+          "RssAnon": 223316,
+          "RssFile": 12742196,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "13216657408",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240250880,
+          "file": 12899287040
+        }
+      },
+      {
+        "seconds": 9.32,
+        "mem": {
+          "MemAvailable": 56436656,
+          "MemFree": 29505132,
+          "Cached": 25635268,
+          "SReclaimable": 1229468,
+          "AnonPages": 6897984,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 13372040,
+          "RssAnon": 223316,
+          "RssFile": 13140532,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "13626650624",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240259072,
+          "file": 13307064320
+        }
+      },
+      {
+        "seconds": 9.57,
+        "mem": {
+          "MemAvailable": 56433712,
+          "MemFree": 29103568,
+          "Cached": 26033096,
+          "SReclaimable": 1230268,
+          "AnonPages": 6897996,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 13770120,
+          "RssAnon": 223316,
+          "RssFile": 13538612,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "14035681280",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240259072,
+          "file": 13714735104
+        }
+      },
+      {
+        "seconds": 9.82,
+        "mem": {
+          "MemAvailable": 56427420,
+          "MemFree": 28691248,
+          "Cached": 26438308,
+          "SReclaimable": 1231084,
+          "AnonPages": 6897996,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 14175112,
+          "RssAnon": 223316,
+          "RssFile": 13943604,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "14451965952",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240259072,
+          "file": 14129266688
+        }
+      },
+      {
+        "seconds": 10.07,
+        "mem": {
+          "MemAvailable": 56420560,
+          "MemFree": 28280564,
+          "Cached": 26841184,
+          "SReclaimable": 1232156,
+          "AnonPages": 6898036,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 14578056,
+          "RssAnon": 223316,
+          "RssFile": 14346548,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "14866677760",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240263168,
+          "file": 14541881344
+        }
+      },
+      {
+        "seconds": 10.33,
+        "mem": {
+          "MemAvailable": 56427672,
+          "MemFree": 27883844,
+          "Cached": 27244104,
+          "SReclaimable": 1233068,
+          "AnonPages": 6898040,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 14981000,
+          "RssAnon": 223316,
+          "RssFile": 14749492,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "15281127424",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240263168,
+          "file": 14954729472
+        }
+      },
+      {
+        "seconds": 10.58,
+        "mem": {
+          "MemAvailable": 56424980,
+          "MemFree": 27480444,
+          "Cached": 27643844,
+          "SReclaimable": 1233980,
+          "AnonPages": 6898184,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 15380872,
+          "RssAnon": 223316,
+          "RssFile": 15149364,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "15692693504",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240263168,
+          "file": 15363964928
+        }
+      },
+      {
+        "seconds": 10.83,
+        "mem": {
+          "MemAvailable": 56422972,
+          "MemFree": 27078956,
+          "Cached": 28041708,
+          "SReclaimable": 1235452,
+          "AnonPages": 6899244,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 15778300,
+          "RssAnon": 223316,
+          "RssFile": 15546792,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "16101113856",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240267264,
+          "file": 15771095040
+        }
+      },
+      {
+        "seconds": 11.08,
+        "mem": {
+          "MemAvailable": 56415440,
+          "MemFree": 26670200,
+          "Cached": 28442072,
+          "SReclaimable": 1236308,
+          "AnonPages": 6897540,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 16179080,
+          "RssAnon": 223316,
+          "RssFile": 15947572,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "16512835584",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240267264,
+          "file": 16181329920
+        }
+      },
+      {
+        "seconds": 11.33,
+        "mem": {
+          "MemAvailable": 56414480,
+          "MemFree": 26265668,
+          "Cached": 28844700,
+          "SReclaimable": 1237252,
+          "AnonPages": 6897540,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 16581512,
+          "RssAnon": 223316,
+          "RssFile": 16350004,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "16926748672",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240271360,
+          "file": 16593420288
+        }
+      },
+      {
+        "seconds": 11.58,
+        "mem": {
+          "MemAvailable": 56408004,
+          "MemFree": 25854512,
+          "Cached": 29248564,
+          "SReclaimable": 1238068,
+          "AnonPages": 6897544,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 16984968,
+          "RssAnon": 223316,
+          "RssFile": 16753460,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "17341976576",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240271360,
+          "file": 17006747648
+        }
+      },
+      {
+        "seconds": 11.83,
+        "mem": {
+          "MemAvailable": 56414312,
+          "MemFree": 25465392,
+          "Cached": 29643164,
+          "SReclaimable": 1239044,
+          "AnonPages": 6896636,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 17379720,
+          "RssAnon": 223316,
+          "RssFile": 17148212,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "17747509248",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240271360,
+          "file": 17411010560
+        }
+      },
+      {
+        "seconds": 12.09,
+        "mem": {
+          "MemAvailable": 56408908,
+          "MemFree": 25062168,
+          "Cached": 30040112,
+          "SReclaimable": 1239956,
+          "AnonPages": 6895648,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 17777032,
+          "RssAnon": 223316,
+          "RssFile": 17545524,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "18155667456",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240271360,
+          "file": 17817632768
+        }
+      },
+      {
+        "seconds": 12.34,
+        "mem": {
+          "MemAvailable": 56407892,
+          "MemFree": 24658380,
+          "Cached": 30441944,
+          "SReclaimable": 1240836,
+          "AnonPages": 6896968,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 18178696,
+          "RssAnon": 223316,
+          "RssFile": 17947188,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "18568544256",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240271360,
+          "file": 18229198848
+        }
+      },
+      {
+        "seconds": 12.59,
+        "mem": {
+          "MemAvailable": 56403856,
+          "MemFree": 24253988,
+          "Cached": 30841388,
+          "SReclaimable": 1241748,
+          "AnonPages": 6896972,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 18578312,
+          "RssAnon": 223316,
+          "RssFile": 18346804,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "18979323904",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240279552,
+          "file": 18638143488
+        }
+      },
+      {
+        "seconds": 12.84,
+        "mem": {
+          "MemAvailable": 56411412,
+          "MemFree": 23857744,
+          "Cached": 31244188,
+          "SReclaimable": 1242676,
+          "AnonPages": 6898400,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 18980744,
+          "RssAnon": 223316,
+          "RssFile": 18749236,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19393511424",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240283648,
+          "file": 19050409984
+        }
+      },
+      {
+        "seconds": 13.09,
+        "mem": {
+          "MemAvailable": 56405384,
+          "MemFree": 23451680,
+          "Cached": 31643768,
+          "SReclaimable": 1243604,
+          "AnonPages": 6902744,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19380616,
+          "RssAnon": 223316,
+          "RssFile": 19149108,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19805274112",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240283648,
+          "file": 19459702784
+        }
+      },
+      {
+        "seconds": 13.34,
+        "mem": {
+          "MemAvailable": 56407152,
+          "MemFree": 23401380,
+          "Cached": 31695216,
+          "SReclaimable": 1243716,
+          "AnonPages": 6903000,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19432084,
+          "RssAnon": 223320,
+          "RssFile": 19200572,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19857158144",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240291840,
+          "file": 19511836672
+        }
+      },
+      {
+        "seconds": 13.59,
+        "mem": {
+          "MemAvailable": 56407004,
+          "MemFree": 23401132,
+          "Cached": 31695220,
+          "SReclaimable": 1243716,
+          "AnonPages": 6903256,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19432084,
+          "RssAnon": 223320,
+          "RssFile": 19200572,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19857154048",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240291840,
+          "file": 19511836672
+        }
+      },
+      {
+        "seconds": 13.85,
+        "mem": {
+          "MemAvailable": 56407004,
+          "MemFree": 23401132,
+          "Cached": 31695220,
+          "SReclaimable": 1243716,
+          "AnonPages": 6903256,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19432084,
+          "RssAnon": 223320,
+          "RssFile": 19200572,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19857154048",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240291840,
+          "file": 19511836672
+        }
+      },
+      {
+        "seconds": 14.1,
+        "mem": {
+          "MemAvailable": 56407736,
+          "MemFree": 23401864,
+          "Cached": 31695236,
+          "SReclaimable": 1243716,
+          "AnonPages": 6901656,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 14494224,
+          "RssAnon": 223320,
+          "RssFile": 14262712,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19857154048",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 240295936,
+          "file": 19511836672
+        }
+      },
+      {
+        "seconds": 14.35,
+        "mem": {
+          "MemAvailable": 56200080,
+          "MemFree": 23193804,
+          "Cached": 31697660,
+          "SReclaimable": 1243716,
+          "AnonPages": 7106504,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 10919240,
+          "RssAnon": 428620,
+          "RssFile": 10480380,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20053757952",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 450805760,
+          "file": 19514392576
+        }
+      },
+      {
+        "seconds": 14.6,
+        "mem": {
+          "MemAvailable": 56078104,
+          "MemFree": 23069140,
+          "Cached": 31709948,
+          "SReclaimable": 1243748,
+          "AnonPages": 7235168,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11059924,
+          "RssAnon": 556900,
+          "RssFile": 10483336,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20197089280",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 581885952,
+          "file": 19526914048
+        }
+      },
+      {
+        "seconds": 14.85,
+        "mem": {
+          "MemAvailable": 56044288,
+          "MemFree": 23019016,
+          "Cached": 31728244,
+          "SReclaimable": 1243796,
+          "AnonPages": 7269504,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11112028,
+          "RssAnon": 591148,
+          "RssFile": 10499144,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20251168768",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 616955904,
+          "file": 19545636864
+        }
+      }
+    ],
+    "loadSeconds": 14.855,
+    "stop": "ready",
+    "completion": {
+      "index": 0,
+      "content": " 2 + 2 = 2",
+      "tokens": [],
+      "id_slot": 0,
+      "stop": true,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Artemis-31B-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf",
+      "tokens_predicted": 8,
+      "tokens_evaluated": 6,
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 64,
+        "top_p": 0.949999988079071,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 8,
+        "n_predict": 8,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": false,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<bos>2 + 2 =",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 13,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 6,
+        "prompt_ms": 553.196,
+        "prompt_per_token_ms": 92.19933333333334,
+        "prompt_per_second": 10.846065409005126,
+        "predicted_n": 8,
+        "predicted_ms": 1829.931,
+        "predicted_per_token_ms": 261.4187142857143,
+        "predicted_per_second": 3.8252808439225303
+      }
+    },
+    "swapGrowthProcesses": [],
+    "finalPswpoutDelta": 0,
+    "allocationAndWarnings": []
+  },
+  {
+    "runtime": "new",
+    "args": [
+      "/media/yaroslav/DATA/local-ai-desktop/runtime/llama/llama-server",
+      "-m",
+      "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Artemis-31B-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "47883",
+      "--ctx-size",
+      "4096",
+      "--gpu-layers",
+      "32",
+      "--flash-attn",
+      "on",
+      "--cache-type-k",
+      "q8_0",
+      "--cache-type-v",
+      "q8_0",
+      "--kv-offload",
+      "--parallel",
+      "1",
+      "--jinja",
+      "--fit",
+      "off",
+      "--threads",
+      "8",
+      "--threads-batch",
+      "8",
+      "--batch-size",
+      "512",
+      "--ubatch-size",
+      "128",
+      "--load-mode",
+      "mmap",
+      "--no-warmup",
+      "--spec-type",
+      "none"
+    ],
+    "version": "version: 0.8.0-dev (build 0, commit 5047748)\nbuilt with GNU 13.3.0 for Linux x86_64",
+    "beforeMemory": {
+      "MemTotal": 65743976,
+      "MemFree": 23328832,
+      "MemAvailable": 56358664,
+      "Buffers": 859172,
+      "Cached": 31711000,
+      "SwapCached": 0,
+      "Active": 30684548,
+      "Inactive": 8564112,
+      "Active(anon)": 6759856,
+      "Inactive(anon)": 0,
+      "Active(file)": 23924692,
+      "Inactive(file)": 8564112,
+      "Unevictable": 64,
+      "Mlocked": 64,
+      "SwapTotal": 8388604,
+      "SwapFree": 8388604,
+      "Zswap": 0,
+      "Zswapped": 0,
+      "Dirty": 66596,
+      "Writeback": 104,
+      "AnonPages": 6678940,
+      "Mapped": 3575052,
+      "Shmem": 81192,
+      "KReclaimable": 1243812,
+      "Slab": 1710592,
+      "SReclaimable": 1243812,
+      "SUnreclaim": 466780,
+      "KernelStack": 31920,
+      "PageTables": 92176,
+      "SecPageTables": 5868,
+      "NFS_Unstable": 0,
+      "Bounce": 0,
+      "WritebackTmp": 0,
+      "CommitLimit": 41260592,
+      "Committed_AS": 34077592,
+      "VmallocTotal": 34359738367,
+      "VmallocUsed": 244120,
+      "VmallocChunk": 0,
+      "Percpu": 21056,
+      "HardwareCorrupted": 0,
+      "AnonHugePages": 0,
+      "ShmemHugePages": 0,
+      "ShmemPmdMapped": 0,
+      "FileHugePages": 237568,
+      "FilePmdMapped": 0,
+      "CmaTotal": 0,
+      "CmaFree": 5462016,
+      "Unaccepted": 0,
+      "Balloon": 0,
+      "GPUActive": 0,
+      "GPUReclaim": 0,
+      "HugePages_Total": 0,
+      "HugePages_Free": 0,
+      "HugePages_Rsvd": 0,
+      "HugePages_Surp": 0,
+      "Hugepagesize": 2048,
+      "Hugetlb": 0,
+      "DirectMap4k": 1802440,
+      "DirectMap2M": 25366528,
+      "DirectMap1G": 39845888
+    },
+    "samples": [
+      {
+        "seconds": 0.0,
+        "mem": {
+          "MemAvailable": 56272124,
+          "MemFree": 23242288,
+          "Cached": 31711000,
+          "SReclaimable": 1243812,
+          "AnonPages": 6679168,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 928,
+          "RssAnon": 84,
+          "RssFile": 844,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19606560768",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 12152832,
+          "file": 19527979008
+        }
+      },
+      {
+        "seconds": 0.25,
+        "mem": {
+          "MemAvailable": 56211124,
+          "MemFree": 23181288,
+          "Cached": 31711000,
+          "SReclaimable": 1243812,
+          "AnonPages": 6791492,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 239156,
+          "RssAnon": 112876,
+          "RssFile": 126280,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19722412032",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 127631360,
+          "file": 19527983104
+        }
+      },
+      {
+        "seconds": 0.5,
+        "mem": {
+          "MemAvailable": 56109212,
+          "MemFree": 23079372,
+          "Cached": 31719080,
+          "SReclaimable": 1243812,
+          "AnonPages": 6886900,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 360424,
+          "RssAnon": 208508,
+          "RssFile": 143724,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19829870592",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 225894400,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 0.76,
+        "mem": {
+          "MemAvailable": 56101132,
+          "MemFree": 23071292,
+          "Cached": 31719080,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895788,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 369608,
+          "RssAnon": 217244,
+          "RssFile": 144172,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19837997056",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234504192,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 1.01,
+        "mem": {
+          "MemAvailable": 56108220,
+          "MemFree": 23078376,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6896524,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 2107888,
+          "RssAnon": 217552,
+          "RssFile": 1882144,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19841929216",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234819584,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 1.46,
+        "mem": {
+          "MemAvailable": 56093876,
+          "MemFree": 23064032,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895536,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 8642800,
+          "RssAnon": 217552,
+          "RssFile": 8417056,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19854774272",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234819584,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 1.91,
+        "mem": {
+          "MemAvailable": 56085532,
+          "MemFree": 23055688,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895536,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 15169968,
+          "RssAnon": 217552,
+          "RssFile": 14944224,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19867881472",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234819584,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 2.36,
+        "mem": {
+          "MemAvailable": 56085404,
+          "MemFree": 23055556,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895536,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19430508,
+          "RssAnon": 217612,
+          "RssFile": 19204704,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19876532224",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234881024,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 2.61,
+        "mem": {
+          "MemAvailable": 56085404,
+          "MemFree": 23055556,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895564,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19430536,
+          "RssAnon": 217640,
+          "RssFile": 19204704,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19876794368",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234881024,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 2.86,
+        "mem": {
+          "MemAvailable": 56085156,
+          "MemFree": 23055308,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6895564,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 19430564,
+          "RssAnon": 217668,
+          "RssFile": 19204704,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19876794368",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234938368,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 3.12,
+        "mem": {
+          "MemAvailable": 56099872,
+          "MemFree": 23070024,
+          "Cached": 31719196,
+          "SReclaimable": 1243812,
+          "AnonPages": 6891984,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 14269500,
+          "RssAnon": 217696,
+          "RssFile": 14043612,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "19876794368",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 234967040,
+          "file": 19536371712
+        }
+      },
+      {
+        "seconds": 3.48,
+        "mem": {
+          "MemAvailable": 55740144,
+          "MemFree": 22710196,
+          "Cached": 31735392,
+          "SReclaimable": 1243812,
+          "AnonPages": 7248112,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11085392,
+          "RssAnon": 568640,
+          "RssFile": 10492360,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20236648448",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 594550784,
+          "file": 19552960512
+        }
+      },
+      {
+        "seconds": 3.73,
+        "mem": {
+          "MemAvailable": 55730364,
+          "MemFree": 22699616,
+          "Cached": 31736176,
+          "SReclaimable": 1243828,
+          "AnonPages": 7262460,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11104600,
+          "RssAnon": 580680,
+          "RssFile": 10499528,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20248518656",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 606670848,
+          "file": 19552960512
+        }
+      },
+      {
+        "seconds": 3.99,
+        "mem": {
+          "MemAvailable": 55707764,
+          "MemFree": 22676524,
+          "Cached": 31736448,
+          "SReclaimable": 1244040,
+          "AnonPages": 7285376,
+          "Mlocked": 64,
+          "Unevictable": 64,
+          "SwapFree": 8388604
+        },
+        "process": {
+          "VmRSS": 11136896,
+          "RssAnon": 603628,
+          "RssFile": 10508876,
+          "VmSwap": 0,
+          "VmPin": 0,
+          "VmLck": 0
+        },
+        "pswpoutDelta": 0,
+        "pswpinDelta": 0,
+        "psi": "some avg10=0.00 avg60=0.00 avg300=0.00 total=79\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=72",
+        "cgroup": {
+          "current": "20272111616",
+          "swap": "0",
+          "events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "anon": 630161408,
+          "file": 19552960512
+        }
+      }
+    ],
+    "loadSeconds": 3.988,
+    "stop": "ready",
+    "completion": {
+      "index": 0,
+      "content": " 2 + 2 = 2",
+      "tokens": [],
+      "id_slot": 0,
+      "stop": true,
+      "model": "/media/yaroslav/01D9B3596C5596B0/LINUX-LLM/Artemis-31B-v1.2/TheDrummer_Artemis-31B-v1.2-Q4_K_M.gguf",
+      "tokens_predicted": 8,
+      "tokens_evaluated": 6,
+      "generation_settings": {
+        "seed": 42,
+        "temperature": 0.0,
+        "dynatemp_range": 0.0,
+        "dynatemp_exponent": 1.0,
+        "top_k": 64,
+        "top_p": 0.949999988079071,
+        "min_p": 0.05000000074505806,
+        "top_n_sigma": -1.0,
+        "xtc_probability": 0.0,
+        "xtc_threshold": 0.10000000149011612,
+        "typical_p": 1.0,
+        "repeat_last_n": 64,
+        "repeat_penalty": 1.0,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "dry_multiplier": 0.0,
+        "dry_base": 1.75,
+        "dry_allowed_length": 2,
+        "dry_penalty_last_n": 64,
+        "dry_sequence_breakers": [
+          "\n",
+          ":",
+          "\"",
+          "*"
+        ],
+        "mirostat": 0,
+        "mirostat_tau": 5.0,
+        "mirostat_eta": 0.10000000149011612,
+        "adaptive_target": -1.0,
+        "adaptive_decay": 0.8999999761581421,
+        "stop": [],
+        "max_tokens": 8,
+        "n_predict": 8,
+        "n_keep": 0,
+        "n_discard": 0,
+        "ignore_eos": false,
+        "stream": false,
+        "logit_bias": [],
+        "n_probs": 0,
+        "min_keep": 0,
+        "grammar": "",
+        "grammar_lazy": false,
+        "grammar_triggers": [],
+        "preserved_tokens": [],
+        "chat_format": "Content-only",
+        "reasoning_format": "deepseek",
+        "reasoning_in_content": false,
+        "generation_prompt": "",
+        "samplers": [
+          "penalties",
+          "dry",
+          "top_n_sigma",
+          "top_k",
+          "typ_p",
+          "top_p",
+          "min_p",
+          "xtc",
+          "temperature"
+        ],
+        "speculative.types": "none,none",
+        "timings_per_token": false,
+        "post_sampling_probs": false,
+        "backend_sampling": false,
+        "lora": []
+      },
+      "prompt": "<bos>2 + 2 =",
+      "has_new_line": false,
+      "truncated": false,
+      "stop_type": "limit",
+      "stopping_word": "",
+      "tokens_cached": 13,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 6,
+        "prompt_ms": 557.924,
+        "prompt_per_token_ms": 92.98733333333332,
+        "prompt_per_second": 10.754152895376432,
+        "predicted_n": 8,
+        "predicted_ms": 1941.608,
+        "predicted_per_token_ms": 277.3725714285714,
+        "predicted_per_second": 3.6052591460274166
+      }
+    },
+    "swapGrowthProcesses": [],
+    "finalPswpoutDelta": 0,
+    "allocationAndWarnings": []
+  }
+]
