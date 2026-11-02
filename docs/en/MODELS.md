@@ -2,11 +2,11 @@
 
 [English](MODELS.md) · [Русский](../ru/MODELS.md) · [Home](../../README.md)
 
-Local AI Desktop runs local GGUF model files through an external `llama-server`. The app does not include or download models. Compatibility depends on the model architecture, the server build, your hardware and the task.
+Local AI Desktop runs local GGUF model files through the app's main bundled `llama.cpp` runtime. The app does not include or download model weights. Compatibility depends on the model architecture, the server build, your hardware and the task.
 
 ## Choose and configure a model
 
-Install a compatible `llama-server`, then select its executable and your GGUF file in **Settings → Models and runtime**. Some vision models also need a projector file. Tool use, reasoning controls, image input and speculative decoding (MTP) depend on support in both the model and server.
+Select your GGUF file in **Settings → Models and runtime**. The bundled runtime is managed by the app; backend capabilities are detected from that build. Some vision models also need a projector file. Tool use, reasoning controls, image input and speculative decoding (MTP) depend on support in both the model and server.
 
 The built-in catalog provides starting profiles for selected Qwen models. A profile is not a copy of the model and does not certify compatibility. You can configure other GGUF files if your server supports them.
 
@@ -48,7 +48,7 @@ Memory use depends on model weights, context size, KV precision, GPU offload and
 
 Model catalog entries and old speed reports are not compatibility ratings or benchmarks. Start with a moderate context and reasoning setting, try a representative prompt, and increase settings only while the system remains responsive. Vision needs a compatible model and projector; image support does not move the entire model to a different device.
 
-For installation steps, see [Getting started](GETTING_STARTED.md). For broader feature boundaries, see [Features](FEATURES.md).
+For experimental cache, layer placement and memory limits, see [Model acceleration](MODEL_ACCELERATION.md). For installation steps, see [Getting started](GETTING_STARTED.md). For broader feature boundaries, see [Features](FEATURES.md).
 
 
 ## Author hardware and historical observations

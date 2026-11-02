@@ -1,5 +1,5 @@
-// Snapshot the working tree, never the index. Builds cannot replace live source
-// executables, and user runtime state/model files never enter the source archive.
+// Snapshot tracked source at the release commit. Local runtime state, generated
+// diagnostics and user model files are never collected from untracked paths.
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, copyFile, lstat, chmod } from 'node:fs/promises';
@@ -9,12 +9,12 @@ const snapshotOnly=process.argv.includes('--snapshot-only');
 const candidate=process.argv.find(arg=>arg.startsWith('--candidate='))?.slice('--candidate='.length);
 if(candidate && !/^RC[1-9][0-9]*$/.test(candidate))throw Error('Candidate must be RC followed by a positive integer');
 const metadata=JSON.parse(await readFile(join(root,'package.json'),'utf8'));
-if(!snapshotOnly && metadata.version!=='0.3.1')throw Error('RC build requires reviewed 0.3.1 metadata');
+if(!/^\d+\.\d+\.\d+$/.test(metadata.version))throw Error(`Package version must be three-part SemVer for npm/Electron/Debian tooling: ${metadata.version}`);
 const directory=join(root,'release',`${candidate?.toLowerCase() ?? 'rc'}-v${metadata.version}-${new Date().toISOString().replace(/[:.]/g,'-')}`);
 const source=join(directory,'source');await mkdir(source,{recursive:true});
 const git=(...args)=>execFileSync('git',args,{cwd:root});
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-const entries=[...new Set(git('ls-files','-z','--cached','--others','--exclude-standard').toString().split('\0').filter(Boolean))].sort();
+const entries=[...new Set(git('ls-files','-z','--cached').toString().split('\0').filter(Boolean))].sort();
 const files=[],excluded=[],deleted=[];
 for(const name of entries){
   if(name.startsWith('runtime/') || /\.(?:gguf|db|db-wal|db-shm)$/i.test(name)){excluded.push(name);continue;}

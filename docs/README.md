@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the guides for your language. The v0.3.0 Experimental Alpha release notes describe the current version; the user guides explain controls and workflows.
+Start with the guides for your language. The v0.3.2.0 Experimental Alpha release notes describe the current version; the user guides explain controls and workflows.
 
 ## User documentation
 
@@ -8,9 +8,11 @@ Start with the guides for your language. The v0.3.0 Experimental Alpha release n
 - [English user guide](en/USER_GUIDE.md) · [Russian: руководство пользователя](ru/USER_GUIDE.md)
 - [English features](en/FEATURES.md) · [Russian: возможности](ru/FEATURES.md)
 - [English model guide](en/MODELS.md) · [Russian: модели](ru/MODELS.md)
+- [Experimental model acceleration and memory (EN)](en/MODEL_ACCELERATION.md) · [ускорение и память (RU)](ru/MODEL_ACCELERATION.md)
 - [HyperNova 60B tuning notes (RU)](ru/HYPERNOVA_60B_TUNING.md) · [Comet 60B compatibility report (RU)](ru/COMET_60B_TUNING.md)
 - [Browser QA, responsive and visual layout checks (EN)](en/BROWSER_QA.md) · [Браузерная QA, адаптивность и визуальные проверки (RU)](ru/BROWSER_QA.md)
 - [English roadmap](en/ROADMAP.md) · [Russian: планы развития](ru/ROADMAP.md)
+- [v0.3.2.0 release notes (EN)](releases/v0.3.2.0.md) · [RU](releases/v0.3.2.0.ru.md) · [GitHub Pre-release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.2.0)
 - [v0.3.0 release notes (EN)](releases/v0.3.0.md) · [примечания v0.3.0 (RU)](releases/v0.3.0.ru.md) · [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0)
 - [v0.2.1 release notes (EN)](releases/v0.2.1.md) · [примечания v0.2.1 (RU)](releases/v0.2.1.ru.md)
 - [v0.2.0 release notes (EN)](releases/v0.2.0.md) · [примечания v0.2.0 (RU)](releases/v0.2.0.ru.md)
@@ -53,6 +55,4 @@ These documents cover security boundaries, privileged setup and implementation e
 
 ## Release status
 
-v0.3.0 is an Experimental Alpha pre-release for Linux x86_64. Download the package and checksum from the [GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.0). The English and Russian [release notes](releases/v0.3.0.md) include a clickable demo preview; the MP4 is a release asset. Earlier [v0.2.1](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.1) and [v0.2.0](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.2.0) releases remain available.
-
-- [v0.3.1 release notes (EN)](releases/v0.3.1.md) · [RU](releases/v0.3.1.ru.md)
+`v0.3.2.0` is the final planned Experimental Alpha release on this architecture, distributed as a GitHub pre-release for Linux x86_64. The project is in Maintenance Mode; see the [English](../README.md#development-status--maintenance-mode) and [Russian](../README.ru.md#статус-разработки--режим-сопровождения) announcements. Historical [v0.3.1](releases/v0.3.1.md), [v0.3.0](releases/v0.3.0.md), [v0.2.1](releases/v0.2.1.md) and [v0.2.0](releases/v0.2.0.md) notes remain available.

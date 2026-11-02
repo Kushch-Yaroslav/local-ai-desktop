@@ -1,6 +1,6 @@
 {
   "name": "local-ai-desktop",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "license": "MIT AND Apache-2.0",
   "private": true,
   "description": "Локальный AI-клиент для Linux",
@@ -160,6 +160,7 @@
       "assets/ATTRIBUTION.md",
       "docs/**",
       "!docs/img/releases/v0.3.0/**",
+      "!docs/experiments/**",
       "CHANGELOG.md",
       "assets/apparmor/**",
       "BUILD_INFO.json"

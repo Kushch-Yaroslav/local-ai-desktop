@@ -2,6 +2,32 @@
 
 User instructions are in the [English](docs/en/USER_GUIDE.md) and [Russian](docs/ru/USER_GUIDE.md) guides. This file summarizes changes; it does not replace the guides.
 
+## v0.3.2.0 — 2026-11-02 — Experimental Alpha (pre-release; Final Legacy Release)
+
+Public version/tag: `v0.3.2.0`. The npm/Electron and Debian package version is `0.3.2` to comply with the supported version format.
+
+- Consolidated the validated MoE expert cache, CPU/GPU tensor placement, model memory estimates and launcher protections in the app's main llama.cpp runtime.
+- Added model-specific MoE modes and advanced layer placement where GGUF metadata and backend capabilities permit them.
+- Improved mmap-aware RAM preflight and retained cgroup, RAM reserve, VRAM preflight and memory-pressure diagnostics. Global swap-out is diagnostic, not an independent stop condition.
+- Improved incremental HTTP/SSE handling and reviewed-answer display; review may still delay final Agent text.
+- Historical Qwen 80B A/B measurements and limitations are documented in the [release notes](docs/releases/v0.3.2.0.md) and [acceleration guide](docs/en/MODEL_ACCELERATION.md).
+- Active development of the current architecture is paused. See the [Maintenance Mode announcement](README.md#development-status--maintenance-mode).
+
+[Release notes EN](docs/releases/v0.3.2.0.md) · [RU](docs/releases/v0.3.2.0.ru.md).
+
+### v0.3.2.0 — 2026-11-02 — Experimental Alpha (предварительный выпуск; Final Legacy Release)
+
+Публичная версия и тег: `v0.3.2.0`. npm/Electron и Debian-пакет используют `0.3.2`, совместимую с форматом версий этих инструментов.
+
+- Проверенные MoE expert cache, CPU/GPU tensor placement, оценка памяти и защиты launcher объединены в основном llama.cpp runtime приложения.
+- Добавлены модельные режимы MoE и расширенное размещение слоёв при наличии метаданных GGUF и поддержки backend.
+- RAM preflight учитывает mmap отдельно; сохранены cgroup, резерв RAM, VRAM preflight и диагностика memory pressure. Общесистемный swap-out — диагностический показатель, не самостоятельная причина остановки.
+- Улучшены последовательная передача HTTP/SSE и отображение проверенного ответа; review всё ещё может задержать финальный текст Agent.
+- Исторические измерения Qwen и ограничения описаны в [примечаниях](docs/releases/v0.3.2.0.ru.md) и [руководстве по ускорению](docs/ru/MODEL_ACCELERATION.md).
+- Активная разработка текущей архитектуры приостановлена; см. объявление [режима сопровождения](README.ru.md#статус-разработки--режим-сопровождения).
+
+[Примечания EN](docs/releases/v0.3.2.0.md) · [RU](docs/releases/v0.3.2.0.ru.md).
+
 ## v0.3.1 — 2026-10-30 — Experimental Alpha (pre-release)
 
 - Fixed launcher cleanup ownership races and offline model loading/recovery; added serialized supervisor bootstrap and stale-state checks.

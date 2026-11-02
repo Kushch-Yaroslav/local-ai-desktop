@@ -2,12 +2,8 @@
 
 [English](ROADMAP.md) · [Русский](../ru/ROADMAP.md) · [Home](../../README.md)
 
-These are areas the project may explore. They have no promised delivery dates; plans can change.
+## Development status — Maintenance Mode
 
-- Connect external tool providers with clear permission and lifecycle controls.
-- Make it easier to review agent edits and recover earlier file versions.
-- Study whether multiple agents can coordinate without confusing ownership or permissions.
-- Improve compatibility testing across Linux systems, models, hardware and larger conversations.
-- Explore a way to use Local AI Desktop chat from a phone.
+`v0.3.2.0` is the final planned functional release on the current architecture. Active development of this core is paused. The author plans to continue experiments on a new architectural foundation using a fork of another open-source project; the new app and upstream have not been announced. This repository remains available as an experimental project and technical archive. Targeted fixes may be made, but regular updates are not promised.
 
-Task continuation and task-specific memory already exist. See [current features](FEATURES.md) for what is available today.
+No future feature dates or compatibility guarantees are planned for this codebase. The current [feature guide](FEATURES.md) and [release limitations](../releases/v0.3.2.0.md) describe the supported and experimental behavior.

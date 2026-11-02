@@ -38,6 +38,8 @@ export async function runLlamaRuntimeControllerRegression(): Promise<void> {
   const config=loadRuntimeConfiguration();
   const missing=builtinModelCatalog.filter(model=>[qwen,secondaryModel].includes(model.id)&&!config.models.some(entry=>entry.id===model.id));
   if(missing.length)saveRuntimeConfiguration({...config,models:[...config.models,...missing.map(model=>({id:model.id,displayName:model.displayName,modelPath:join(paths.models,model.modelPath),mmprojPath:'',gpuLayers:null,supportsTools:true,speculative:'mtp' as const,builtin:true}))]});
+  // This case models a text-only profile; the catalog's default Qwen profile includes a projector.
+  const textOnly=loadRuntimeConfiguration();saveRuntimeConfiguration({...textOnly,models:textOnly.models.map(model=>model.id===qwen?{...model,mmprojPath:''}:model)});
   {
     const {files,make}=await fixture();
     const controller=make(async request=>{await writeFile(files.stateFile,state({requestId:request.REQUEST_ID,modelId:qwen,contextWindow:4096,kvCacheType:'q8_0',projectorDevice:''}));});

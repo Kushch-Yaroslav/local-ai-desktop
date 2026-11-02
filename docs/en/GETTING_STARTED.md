@@ -4,17 +4,17 @@
 
 ## Before you begin
 
-The v0.3.1 Experimental Alpha package targets Linux x86_64. Ubuntu 24.04 is the primary tested environment. The amd64 Debian package requires Bubblewrap 0.9.0 or later and AppArmor 4.0.0 or later; `apt` installs these system dependencies when compatible versions are available. The package includes the desktop app and Agent runtime, but not `llama.cpp` or model weights. Install a compatible `llama-server` and obtain a GGUF model separately. Other Linux distributions, ARM devices, GPUs, drivers and desktop environments need their own validation.
+The v0.3.2.0 Experimental Alpha package targets Linux x86_64. Ubuntu 24.04 is the primary tested environment. The amd64 Debian package requires Bubblewrap 0.9.0 or later and AppArmor 4.0.0 or later; `apt` installs these system dependencies when compatible versions are available. The package includes the desktop app, Agent runtime and its tested main `llama.cpp` runtime, but not model weights or optional projector files. Obtain a compatible GGUF model separately. Other Linux distributions, ARM devices, GPUs, drivers and desktop environments need their own validation.
 
 Agent terminal commands require Bubblewrap, Linux user namespaces and AppArmor enforcement. Do not disable AppArmor or user-namespace restrictions to make the terminal start. If required isolation is unavailable, terminal commands remain blocked. You can still use chat and supported file features.
 
-## Install or update to v0.3.1
+## Install or update to v0.3.2.0
 
-Download `local-ai-desktop_0.3.1_amd64.deb` and `SHA256SUMS` from the [v0.3.1 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1). In the download directory, verify the package and install it:
+Download `local-ai-desktop_0.3.2_amd64.deb` and `SHA256SUMS` from the [v0.3.2.0 GitHub Pre-release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.2.0). In the download directory, verify the package and install it:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.2_amd64.deb
 ```
 
 This privileged command installs the package and its system dependencies and configures the managed Agent helper and AppArmor profiles. Review the package source and allow the package manager to make these system changes. Never run Local AI Desktop itself as root.
@@ -55,8 +55,8 @@ Both `local_ai_desktop_bwrap (enforce)` and `local_ai_desktop_bwrap_child (enfor
 
 ## Set up a model
 
-1. Install or build a `llama-server` version compatible with your GGUF model and hardware. The app does not download the server, weights or projectors.
-2. Open **Settings → Models and runtime** and set **Path to llama-server or its folder**.
+1. Obtain a GGUF model compatible with the bundled runtime and your hardware. The app does not download model weights or optional projector files.
+2. Open **Settings → Models and runtime**. The packaged main runtime is selected automatically; change its path only if you deliberately use another compatible build.
 3. Choose the model directory and the actual GGUF file. Choose a projector only for a model that needs one.
 4. Select the model from the toolbar. Choose a context size and FP16 or Q8 KV cache, then explicitly load the selected configuration.
 5. Wait until the runtime reports ready, then send a short Chat message.

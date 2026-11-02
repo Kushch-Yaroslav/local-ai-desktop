@@ -8,7 +8,7 @@ See [Browser QA](BROWSER_QA.md) for scenario verification, responsive viewport c
 
 ## Select a model and context
 
-Configure local GGUF and `llama-server` paths in Settings, then select the model in the toolbar. Opening a saved chat does not itself load or restart its model. Use the explicit load action and wait for the ready status.
+Select a local GGUF in Settings → Models and runtime, then choose it in the toolbar. The app launches models through its main bundled `llama.cpp` runtime. Opening a saved chat does not itself load or restart its model. Use the explicit load action and wait for the ready status.
 
 The context menu has FP16 and Q8 columns. Standard sizes are 16K, 32K, 64K, 128K and 256K, bounded by model/backend support; exact discovery values are inserted without duplicates. A previously selected supported configuration is retained. Arrow keys navigate, Enter selects, Escape closes; the list scrolls.
 
@@ -30,6 +30,10 @@ The **Maximum Context** popover shows a short FP16/Q8 explanation, separate disc
 Total/used/free VRAM is a current shared summary, not a separate measurement for each cache type. See the [v0.2.0 context screenshots](../archive/releases/v0.2.0-validation-history.md#context-screenshots-and-discovery) for an illustrative selector and popover; their values are not defaults.
 
 Larger contexts consume more memory and may slow prompt processing. CPU/RAM offload occurs only with a supported, configured backend layout; memory exhaustion may instead fail loading. KV precision is separate from model weight quantization.
+
+## Model memory and acceleration
+
+Use **Model Settings** to configure ordinary GPU layers, context size, KV precision/location and, for detected MoE models, Standard, Automatic or Manual expert caching. Manual layer placement and cache controls appear only when the inspected model and backend support them. Estimates are approximate; actual load logs determine what was allocated. mmap can reduce mandatory anonymous RAM use, but accessed file pages still need physical memory and may be reclaimed. Review the [model acceleration and memory guide](MODEL_ACCELERATION.md) before selecting experimental cache or placement options.
 
 ## Chat, Agent and projects
 

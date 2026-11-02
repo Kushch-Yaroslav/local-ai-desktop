@@ -4,9 +4,13 @@
 
 Local AI Desktop is an experimental Linux app for chatting with local language models and asking an AI agent to work on your code. Your model runs on your computer through `llama.cpp`; the Agent can work with a selected project and report the checks it ran.
 
-**v0.3.1 Experimental Alpha** — more reliable model loading, improved long-document efficiency and recovery, and progressive display of reviewed answers.
+**v0.3.2.0 Experimental Alpha — Final Legacy Release**. The Git tag and release identifier is `v0.3.2.0`; npm/Electron and Debian use the compatible package version `0.3.2`.
 
-[Release notes](docs/releases/v0.3.1.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Documentation](docs/README.md)
+[Release notes](docs/releases/v0.3.2.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Model acceleration](docs/en/MODEL_ACCELERATION.md) · [Documentation](docs/README.md)
+
+## Development status — Maintenance Mode
+
+v0.3.2.0 is the final planned functional release on the current architecture. Active development of this core is paused. The author plans to continue experiments on a new architectural foundation using a fork of another open-source project; neither the new app nor its upstream has been announced. This repository remains available as an experimental project and technical archive. Targeted fixes may be made, but regular updates are not promised.
 
 ## Watch the demo
 
@@ -34,13 +38,13 @@ Select a part of a page, then describe the change you want. A text-only model do
 
 ## Install
 
-Download `local-ai-desktop_0.3.1_amd64.deb` and `SHA256SUMS` from the [v0.3.1 GitHub Release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.1), verify the checksum, then install:
+Download `local-ai-desktop_0.3.2_amd64.deb` and `SHA256SUMS` from the [v0.3.2.0 GitHub Pre-release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.2.0), verify the checksum, then install:
 
 ```sh
-sudo apt install ./local-ai-desktop_0.3.1_amd64.deb
+sudo apt install ./local-ai-desktop_0.3.2_amd64.deb
 ```
 
-The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. You need a compatible `llama-server` and local GGUF model files; they are not included. Agent terminal use requires administrator-authorized Bubblewrap and enforcing AppArmor setup. Never launch the app with `sudo`.
+The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. The package bundles the tested `llama.cpp` runtime; local GGUF model weights and optional projectors are not included. Agent terminal use requires administrator-authorized Bubblewrap and enforcing AppArmor setup. Never launch the app with `sudo`.
 
 ## Current limitations
 

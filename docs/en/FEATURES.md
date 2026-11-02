@@ -6,7 +6,7 @@ Local AI Desktop combines a local-model chat with an agent that can work in a se
 
 ## Chat and answers
 
-- Run compatible GGUF models through an external `llama-server`. Choose model files and runtime settings in the app.
+- Run compatible GGUF models through the app's main bundled `llama.cpp` runtime. Choose local model files and runtime settings in the app.
 - Stream answers, stop generation, edit a prompt and regenerate a response. Some reasoning controls depend on the model.
 - Attach supported documents and code. Images require a model and projector that support vision. The app extracts supported document formats locally; it does not perform OCR or calculate spreadsheet formulas.
 - View rich answers with cards, tables, charts, diagrams and image galleries. These formats help present information; they do not guarantee that a model's claims are correct.
@@ -38,6 +38,16 @@ The Agent reports checks it actually ran, such as tests or builds. A passing che
 Choose FP16 or Q8 KV-cache precision and a context size supported by your model and runtime. FP16 uses more memory; Q8 can reduce memory use with a possible precision tradeoff. Context discovery tries configurations and records which ones loaded under the measured conditions. It is a practical guide, not a guarantee that the same settings will fit after hardware, model or runtime conditions change.
 
 Task Memory keeps useful notes for the same task. It is not shared learning across unrelated tasks. Context compaction can omit details from older conversation history.
+
+## Experimental model placement and acceleration
+
+Model Settings can expose GPU layer placement, dynamic MoE expert caching and GPU KV-cache controls when GGUF metadata and the bundled backend support them. Standard MoE mode does not use the dynamic cache; Automatic is an explicit opt-in with bounded model/backend detection; Manual offers supported cache budgets. Larger caches can improve, leave unchanged or reduce speed. See the [model acceleration and memory guide](MODEL_ACCELERATION.md) for measured Qwen results, mmap accounting, VRAM/RAM limits and known compatibility boundaries.
+
+Advanced Layer Placement reads the GGUF block count and tensor names, then lets you choose actual block IDs or ranges for GPU buffers. CPU-resident MoE experts are configured separately and can remain in RAM even when ordinary tensors in the same block are placed on GPU. Tensor overrides depend on the architecture and buffers supported by the bundled backend; the grid does not imply semantic specialization of layers.
+
+## Agent output and streaming
+
+Chat and Agent use incremental HTTP/SSE transport and can display text as events arrive. Agent final responses that require review may be withheld until the review step completes; this is not a promise that every final answer appears token-by-token. On transport failure, completed tool work is retained in the task history and tools are not automatically replayed.
 
 ## Browser Workspace and Visual Regions
 

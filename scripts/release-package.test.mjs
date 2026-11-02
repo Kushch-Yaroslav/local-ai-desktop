@@ -7,7 +7,7 @@ import { builtinModules } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
-const version='0.3.1';
+const version=JSON.parse(readFileSync(resolve('package.json'),'utf8')).version;
 const artifact=resolve(process.argv[2] ?? `release/local-ai-desktop_${version}_amd64.deb`);
 const root=await mkdtemp(join(tmpdir(),'lad-rc-inspect-'));
 const run=(program,args,options={})=>execFileSync(program,args,{encoding:'utf8',maxBuffer:32*1024*1024,timeout:30000,...options});
@@ -55,6 +55,14 @@ try {
   inspectDependencies(dependencyTree,app);
   assert.deepEqual(missingRuntimeDependencies,[],'packaged production dependency graph has no missing required runtime packages');
   const info=JSON.parse(await readFile(join(app,'BUILD_INFO.json'),'utf8'));assert.equal(info.version,version);
+  const bundledRuntime=join(root,'opt/local-ai-desktop/resources/llama');
+  const server=join(bundledRuntime,'llama-server');
+  const runtimeManifest=JSON.parse(await readFile(join(bundledRuntime,'runtime-manifest.json'),'utf8'));
+  assert.equal(createHash('sha256').update(await readFile(server)).digest('hex'),runtimeManifest.files['llama-server'],'bundled llama-server matches its runtime manifest');
+  const runtimeEnv={...process.env,LD_LIBRARY_PATH:bundledRuntime};
+  assert.match(run(server,['--help'],{env:runtimeEnv}),/--moe-cache-mib/,'the packaged primary runtime advertises MoE cache support');
+  const runtimeLibraries=run('ldd',[server],{env:runtimeEnv});assert(!runtimeLibraries.includes('not found'),'bundled llama-server dependencies resolve in the package');
+  for(const name of ['libcudart.so.12','libcublas.so.12','libcublasLt.so.12','libmtmd.so.0.8.0','LICENSE.llama.cpp','EULA.CUDA.txt'])await readFile(join(bundledRuntime,name));
   const manifest=JSON.parse(await readFile(resolve(dirname(artifact),'../../source-manifest.json'),'utf8'));
   const files=manifest.files;const identity={...manifest};delete identity.files;delete identity.excluded;delete identity.deleted;
   assert.deepEqual(info,identity,'packaged BUILD_INFO must match the complete frozen build identity');
@@ -64,7 +72,7 @@ try {
     assert.equal(createHash('sha256').update(bytes).digest('hex'),file.sha256,'frozen source changed: '+file.path);
   }
   for(const name of ['src/renderer/components/Toolbar.tsx','src/renderer/components/AgentTimeline.tsx','packaging/sandbox-lifecycle.sh','rust-agent/src/process/runner.rs'])assert(files.some(file=>file.path===name),'RC fixes must be part of the frozen identity: '+name);
-  for(const name of ['src/renderer/components/ContextUsage.tsx','src/main/services/chat-readonly-tools.ts','src/main/services/attachment-service.ts','docs/releases/v0.3.1.md','docs/releases/v0.3.1.ru.md'])assert(files.some(file=>file.path===name),'v0.3.0 release content must be in the frozen identity: '+name);
+  for(const name of ['src/renderer/components/ContextUsage.tsx','src/main/services/chat-readonly-tools.ts','src/main/services/attachment-service.ts','docs/releases/v0.3.2.0.md','docs/releases/v0.3.2.0.ru.md','docs/en/MODEL_ACCELERATION.md','docs/ru/MODEL_ACCELERATION.md'])assert(files.some(file=>file.path===name),'release content must be in the frozen identity: '+name);
   assert(manifest.files.some(file=>file.path==='src/main/services/context-discovery-conditions.ts'),'GPU-fit fix is in the source identity');
   const binary=join(root,'opt/local-ai-desktop/resources/agent/local-ai-agent-runtime');
   assert.equal(run(binary,['--version']).trim(),`local-ai-agent-runtime ${version}`);
@@ -148,7 +156,7 @@ app.whenReady().then(async () => {
   const fatalStartupResult=JSON.parse(String(fatalStartupSmoke.stdout).trim().split('\n').at(-1));
   assert.equal(fatalStartupResult.processType,'browser');assert.equal(fatalStartupResult.errorBoxShown,true);assert.equal(fatalStartupResult.exitCode,1);
   assert.match(await readFile(join(root,'control/triggers'),'utf8'),/interest(?:-noawait)? \/usr\/bin\/bwrap/);
-  for(const name of ['LICENSE','THIRD_PARTY_NOTICES.md','licenses/Jan-LICENSE.txt','CHANGELOG.md','docs/README.md','docs/releases/v0.3.1.md','docs/releases/v0.3.1.ru.md','docs/releases/v0.3.0.md','docs/releases/v0.3.0.ru.md','docs/releases/v0.2.1.md','docs/releases/v0.2.1.ru.md','docs/releases/v0.2.0.md','docs/releases/v0.2.0.ru.md','docs/archive/releases/v0.2.0-checklist.md','docs/bwrap-installation-acceptance.md','docs/archive/noop-loader-validation-2026-10-13.md'])await readFile(join(app,name));
+  for(const name of ['LICENSE','THIRD_PARTY_NOTICES.md','licenses/Jan-LICENSE.txt','CHANGELOG.md','docs/README.md','docs/releases/v0.3.2.0.md','docs/releases/v0.3.2.0.ru.md','docs/releases/v0.3.1.md','docs/releases/v0.3.1.ru.md','docs/releases/v0.3.0.md','docs/releases/v0.3.0.ru.md','docs/releases/v0.2.1.md','docs/releases/v0.2.1.ru.md','docs/releases/v0.2.0.md','docs/releases/v0.2.0.ru.md','docs/en/MODEL_ACCELERATION.md','docs/ru/MODEL_ACCELERATION.md','docs/archive/releases/v0.2.0-checklist.md','docs/bwrap-installation-acceptance.md','docs/archive/noop-loader-validation-2026-10-13.md'])await readFile(join(app,name));
   const screenshots=await readdir(join(app,'docs/img/releases/v0.2.0'));assert.deepEqual(screenshots.filter(name=>name.endsWith('.png')).sort(),['ask.png','big-thinking2.png','context-info.png','context.png','continue.png','select-autonomy.png']);
   let localLinks=0;
   const check=async file=>{
