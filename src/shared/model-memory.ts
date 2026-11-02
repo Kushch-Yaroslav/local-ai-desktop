@@ -28,3 +28,34 @@ export function placementSupport(i:ModelInspection,features?:BackendFeatureProbe
 export function verifiedMoe(i:ModelInspection){return i.architecture==='qwen3next'&&/qwen3[ _-]*coder[ _-]*next/i.test(i.modelName??'')&&i.layers===48&&i.experts===512&&i.fileType===15;}
 
 export function formatLayerRanges(ids:number[]):string{const sorted=[...new Set(ids)].sort((a,b)=>a-b),parts:string[]=[];for(let i=0;i<sorted.length;i++){let end=sorted[i];const start=end;while(sorted[i+1]===end+1){end=sorted[++i];}parts.push(start===end?String(start):`${start}-${end}`);}return parts.join(', ');}
+
+/** Same limit as the launcher's model scope; the OS reserve lives outside it. */
+export function modelCgroupLimitMiB(totalRamMiB:number):number {return Math.min(56320,Math.floor(totalRamMiB)-7168);}
+export interface HostMemoryBudget {
+ fileBackedWeightsMiB:number;anonymousWeightsMiB:number;cpuKvMiB:number;stateMiB:number;overheadMiB:number;
+ reserveMiB:number;mandatoryMiB:number;requiredMiB:number;fullWorkingSetMiB:number;
+ availableMiB:number|null;cgroupMaxMiB:number|null;fits:boolean;workingSetFits:boolean;
+}
+/** mmap weights consume physical pages on access, but are reclaimable file
+ * pages, not mandatory anonymous allocations. Keep the full working-set target
+ * visible; its shortfall warns about paging instead of falsely certifying OOM.
+ * No cache discount: dynamic GPU copies do not remove CPU expert weights. */
+export function estimateHostMemory(memory:ModelMemoryEstimate,p:AdvancedModelParameters|undefined,availableMiB:number|null,cgroupMaxMiB:number|null):HostMemoryBudget {
+ // Bounded placement emits --no-repack and --no-host. Without that guarantee,
+ // mmap may be repacked into anonymous buffers: keep the conservative check.
+ const cache=Boolean(p?.moeAcceleration&&p.moeAcceleration!=='disabled');
+ const loadMode=p?.loadMode??(cache?'mmap':undefined);
+ const mapped=loadMode==='mmap'&&experimentalPlacement(p),fileBackedWeightsMiB=mapped?memory.cpuWeightsMiB:0,anonymousWeightsMiB=mapped?0:memory.cpuWeightsMiB;
+ const cpuKvMiB=memory.cpuKvMiB,stateMiB=memory.recurrentMiB,overheadMiB=2048,reserveMiB=7168;
+ // The full recurrent estimate is deliberately counted on the host as an upper bound.
+ const mandatoryMiB=anonymousWeightsMiB+cpuKvMiB+stateMiB+overheadMiB,requiredMiB=mandatoryMiB+reserveMiB;
+ const fullWorkingSetMiB=mandatoryMiB+fileBackedWeightsMiB;
+ const valid=availableMiB!==null&&Number.isFinite(availableMiB)&&availableMiB>=0;
+ return {fileBackedWeightsMiB,anonymousWeightsMiB,cpuKvMiB,stateMiB,overheadMiB,reserveMiB,mandatoryMiB,requiredMiB,fullWorkingSetMiB,availableMiB,cgroupMaxMiB,
+ fits:valid&&requiredMiB<=availableMiB&&(cgroupMaxMiB===null||mandatoryMiB<=cgroupMaxMiB),
+ workingSetFits:valid&&fullWorkingSetMiB+reserveMiB<=availableMiB&&(cgroupMaxMiB===null||fullWorkingSetMiB<=cgroupMaxMiB)};
+}
+export function hostMemoryBreakdown(b:HostMemoryBudget):string {
+ const n=(x:number|null)=>x===null?'unknown':`${x.toFixed(2)} MiB (${(x/1024).toFixed(2)} GiB)`;
+ return `RAM available=${n(b.availableMiB)}; mandatory allocations=${n(b.mandatoryMiB)} (anonymous weights=${n(b.anonymousWeightsMiB)}, CPU KV=${n(b.cpuKvMiB)}, state upper bound=${n(b.stateMiB)}, runtime headroom=${n(b.overheadMiB)}); OS reserve=${n(b.reserveMiB)}; required=${n(b.requiredMiB)}; file-backed mmap weights=${n(b.fileBackedWeightsMiB)}; full resident working set=${n(b.fullWorkingSetMiB)}; model cgroup MemoryMax=${n(b.cgroupMaxMiB)}.`;
+}

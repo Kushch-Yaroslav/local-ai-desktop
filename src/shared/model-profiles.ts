@@ -18,4 +18,4 @@ export interface BackendFeatureProbe {status:'supported'|'error';path?:string;fl
 export interface ModelTensorLayout {name:string;bytes:number;block?:number;expert:boolean;type:number;}
 export interface ModelStructure {tensors:ModelTensorLayout[];complete:boolean;totalBytes:number;kvHeads?:number;keyLength?:number;valueLength?:number;fullAttentionLayers?:number;recurrentLayers?:number;}
 export interface ModelMemoryEstimate {weightsMiB:number;cpuWeightsMiB:number;kvMiB:number;cpuKvMiB:number;recurrentMiB:number;computeMiB:number;reserveMiB:number;cacheMiB:number;availableMiB:number|null;totalMiB:number|null;requiredMiB:number;safeCacheMiB:number;fits:boolean;known:boolean;notes:string[];}
-export interface PlacementPreview {inspection:ModelInspection;features:BackendFeatureProbe;backendPath:string|null;availableMiB:number|null;totalMiB:number|null;availableRamMiB?:number;reason?:string;}
+export interface PlacementPreview {inspection:ModelInspection;features:BackendFeatureProbe;backendPath:string|null;availableMiB:number|null;totalMiB:number|null;availableRamMiB?:number;totalRamMiB?:number;modelCgroupMaxMiB?:number;reason?:string;}

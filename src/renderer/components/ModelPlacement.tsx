@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {RuntimeModelConfiguration} from '../../shared/types';
 import type {AdvancedModelParameters,PlacementPreview} from '../../shared/model-profiles';
-import {estimateModelMemory,formatLayerRanges,parseLayerRanges,placementSupport,verifiedMoe} from '../../shared/model-memory';
+import {estimateHostMemory,hostMemoryBreakdown,estimateModelMemory,formatLayerRanges,parseLayerRanges,placementSupport,verifiedMoe} from '../../shared/model-memory';
 import {useLocale} from '../use-locale';
 import {useAppStore} from '../store/app-store';
 export function ModelPlacement({profile,onChange,advancedMode,standardRuntimePath,gpuLayers}:{profile:RuntimeModelConfiguration;onChange(patch:Partial<RuntimeModelConfiguration>):void;advancedMode:boolean;standardRuntimePath?:string|null;gpuLayers:number}){
@@ -21,10 +21,16 @@ export function ModelPlacement({profile,onChange,advancedMode,standardRuntimePat
  const autoFallback=p?.moeAcceleration==='automatic'&&(!cacheSupported||!preview?.features.version?.includes('5047748'));
  const effective=autoFallback?{...p!,moeAcceleration:'disabled' as const}:p;
  const memory=inspection?estimateModelMemory(inspection,effective,manual?999:gpuLayers,d,preview?.availableMiB??null,preview?.totalMiB??null):undefined;
+ const hostMemory=memory?.known&&preview?estimateHostMemory(memory,effective,preview.availableRamMiB??null,preview.modelCgroupMaxMiB??null):undefined;
  const select=(chosen:number[])=>{rangeElement.current?.setCustomValidity('');setRange(formatLayerRanges(chosen));setRangeError('');set({gpuLayerIds:chosen});};
  const blocks=[{name:l('Веса','Weights'),value:memory?.weightsMiB??0,color:'#3b9b6b'},{name:l('Ускорение','Expert cache'),value:memory?.cacheMiB??0,color:'#8b70cf'},{name:l('Контекст / KV / state','Context / KV / state'),value:(memory?.kvMiB??0)+(memory?.recurrentMiB??0),color:'#399bc6'},{name:l('Вычисления','Compute'),value:memory?.computeMiB??0,color:'#ce9c44'},{name:l('Резерв','Reserve'),value:memory?.reserveMiB??0,color:'#697785'},{name:l('Другие приложения / драйвер','Other apps / driver'),value:Math.max(0,(memory?.totalMiB??0)-(memory?.availableMiB??0)),color:'#62616c'},{name:l('Свободный запас','Free headroom'),value:Math.max(0,(memory?.availableMiB??0)-(memory?.requiredMiB??0)),color:'#283c34'}];
  return <section className="profile-memory-manager" aria-label={l('Размещение и видеопамять','Placement and GPU memory')}>
   <p role="status">{preview?`${inspection?.architecture??'GGUF'} · ${count??l('число слоёв неизвестно','block count unknown')} ${l('блоков','blocks')} · ${inspection?.quantization??'—'} · ${inspection?.experts?`${inspection.experts} experts`:inspection?.status==='inspected'?'Dense':l('структура неизвестна','structure unknown')}`:l('Чтение структуры GGUF…','Reading GGUF structure…')}{error&&<span role="alert">{error}</span>}{inspection?.status!=='inspected'&&inspection?.reason&&<small>{inspection.reason}</small>}</p>
+  {hostMemory&&<div className="host-memory-budget" role="status" title={hostMemoryBreakdown(hostMemory)}>
+   <small>{l('RAM: обязательная память (оценка)','RAM: estimated required resident memory')} {(hostMemory.mandatoryMiB/1024).toFixed(2)} GiB · {l('Резерв системы','OS reserve')} 7 GiB · {l('Доступно','Available')} {hostMemory.availableMiB===null?'—':(hostMemory.availableMiB/1024).toFixed(2)+' GiB'} · {l('Веса mmap (file-backed)','mmap weights (file-backed)')} {(hostMemory.fileBackedWeightsMiB/1024).toFixed(2)} GiB</small>
+   {!hostMemory.fits&&<p role="alert">{l('Недостаточно RAM или лимита cgroup для обязательной памяти.','Insufficient RAM or cgroup capacity for mandatory memory.')} {hostMemoryBreakdown(hostMemory)}</p>}
+   {hostMemory.fits&&!hostMemory.workingSetFits&&<p>{l('Полный рабочий набор mmap-весов с резервом не помещается. Страницы требуют физической RAM при обращении; их вытеснение может замедлить модель.','The full mmap working set plus reserve does not fit. Accessed pages need physical RAM; page eviction may slow the model.')}</p>}
+  </div>}
   <div className="profile-fields">
    <label>{l('Контекст профиля','Profile context')}<input aria-label={l('Контекст профиля','Profile context')} type="number" min="4096" step="4096" max={inspection?.trainedContext} value={d.contextWindow??''} placeholder="32768" onChange={e=>defaults({contextWindow:e.target.value?Number(e.target.value):undefined})}/></label>
    <label>{l('KV-кэш профиля','Profile KV cache')}<select aria-label={l('KV-кэш профиля','Profile KV cache')} value={d.kvCacheType??''} onChange={e=>defaults({kvCacheType:e.target.value?e.target.value as 'f16'|'q8_0':undefined})}><option value="">{l('Из чата','Conversation')}</option><option value="f16">FP16</option><option value="q8_0">Q8</option></select></label>

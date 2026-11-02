@@ -4,13 +4,13 @@ import {probeBackendFeatures} from './backend-capabilities';
 import {getHardwareStats,getOwnedServerVramBudget} from './hardware';
 import type {RuntimeModelConfiguration} from '../../shared/types';
 import type {AdvancedModelParameters,ModelProfileDefaults,PlacementPreview} from '../../shared/model-profiles';
-import {estimateModelMemory,experimentalPlacement,placementSupport,profileRuntimePath,verifiedMoe} from '../../shared/model-memory';
+import {estimateHostMemory,hostMemoryBreakdown,modelCgroupLimitMiB,estimateModelMemory,experimentalPlacement,placementSupport,profileRuntimePath,verifiedMoe} from '../../shared/model-memory';
 import {advancedPlacementArguments} from '../models/advanced-placement';
 export async function placementPreview(model:RuntimeModelConfiguration,standard:string|null,ownedPid?:number):Promise<PlacementPreview>{
  const path=profileRuntimePath(model.advanced,standard),inspection=inspectModel(model.modelPath,model.family),features=await probeBackendFeatures(path),hardware=await getHardwareStats();
  let available=hardware.vramAvailableBytes,ram=hardware.ramTotalBytes-hardware.ramUsedBytes;
  if(ownedPid&&ownedPid>0){try{const owned=await getOwnedServerVramBudget(ownedPid);available=owned.freeBytes+owned.llmBytes;const status=await readFile(`/proc/${ownedPid}/status`,'utf8');ram+=Number(/^RssAnon:\s+(\d+)/m.exec(status)?.[1]??0)*1024;}catch{/* No reclaim credit without owned-process accounting. */}}
- return {inspection,features,backendPath:path,availableMiB:available===null?null:available/1024**2,totalMiB:hardware.vramTotalBytes===null?null:hardware.vramTotalBytes/1024**2,availableRamMiB:ram/1024**2};
+ return {inspection,features,backendPath:path,availableMiB:available===null?null:available/1024**2,totalMiB:hardware.vramTotalBytes===null?null:hardware.vramTotalBytes/1024**2,availableRamMiB:ram/1024**2,totalRamMiB:hardware.ramTotalBytes/1024**2,modelCgroupMaxMiB:modelCgroupLimitMiB(hardware.ramTotalBytes/1024**2)};
 }
 export function resolvePlacement(model:RuntimeModelConfiguration,preview:PlacementPreview,gpuLayers:number,defaults:ModelProfileDefaults=model.defaults??{}){
  const original=model.advanced;let p:AdvancedModelParameters|undefined=original?{...original}:undefined,note='';
@@ -31,7 +31,9 @@ export function resolvePlacement(model:RuntimeModelConfiguration,preview:Placeme
   if(model.mmprojPath)throw Error('Experimental placement memory budgeting does not yet include vision projectors; remove the projector or use Standard.');
   if(!effective.known||preview.availableMiB===null)throw Error('GPU telemetry or tensor metadata unavailable; safe memory budget cannot be checked.');
   if(!effective.fits)throw Error('Выбранные настройки могут превысить доступную видеопамять. Уменьшите кэш экспертов или количество слоёв на GPU.');
-  if(preview.availableRamMiB!==undefined&&effective.cpuWeightsMiB+effective.cpuKvMiB+9216>preview.availableRamMiB)throw Error('CPU weights and runtime reserve exceed available RAM. Unload the active model or reduce CPU placement.');
+  const host=estimateHostMemory(effective,p,preview.availableRamMiB??null,preview.modelCgroupMaxMiB??null);
+  if(preview.availableRamMiB!==undefined&&!host.fits)throw Error(`Недостаточно RAM или лимита cgroup для обязательных allocations. ${hostMemoryBreakdown(host)}`);
+  if(host.fits&&!host.workingSetFits)note+=(note?' ':'')+'Полный рабочий набор весов mmap с резервом не помещается: возможны вытеснение страниц и замедление. '+hostMemoryBreakdown(host);
  }
  const args=p?advancedPlacementArguments(p,preview.inspection,preview.features):[];
  return {advanced:p,estimate:effective,args,note,backendPath:preview.backendPath};

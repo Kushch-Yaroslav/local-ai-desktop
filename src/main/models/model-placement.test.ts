@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {parseLlamaPlacement} from '../services/llama-placement';
 import {normalizeAdvanced} from '../../shared/model-configuration';
-import {estimateModelMemory,parseLayerRanges,formatLayerRanges,profileRuntimePath} from '../../shared/model-memory';
+import {estimateHostMemory,modelCgroupLimitMiB,estimateModelMemory,parseLayerRanges,formatLayerRanges,profileRuntimePath} from '../../shared/model-memory';
 import {resolvePlacement} from '../services/model-placement';
 import {advancedPlacementArguments} from './advanced-placement';
 import {placementArguments} from './llama-launch-config';
@@ -30,3 +30,38 @@ console.log('PASS placement ranges, exact tensor rules, joint hybrid KV/cache bu
 assert.equal(parseLlamaPlacement('I CPU_Mapped model buffer size = 288.00 MiB\nI CPU_Mapped model buffer size = 288.00 MiB')?.modelMiB.CPU_Mapped,576);
 
 assert.equal('experimentalRuntimePath' in normalizeAdvanced({mode:'gpu-layers',experimentalRuntimePath:'/old/server',threads:8})!,false);
+
+// Offline Qwen-like CPU experts, 16GiB GPU cache, 64K Q8 GPU KV.
+const hostPreview={inspection:info,features,backendPath:'/bundled',availableMiB:23000,totalMiB:24576,availableRamMiB:56464150528/1024**2,totalRamMiB:67321835520/1024**2,modelCgroupMaxMiB:56320};
+const mmapPlan=resolvePlacement(model,hostPreview,48,{contextWindow:65536,kvCacheType:'q8_0',kvOffload:true});
+assert(mmapPlan.note.includes('mmap'));assert(mmapPlan.args.includes('16384'));assert(mmapPlan.args.includes('mmap'));assert(mmapPlan.args.includes('--no-repack'));
+const host=estimateHostMemory(mmapPlan.estimate,mmapPlan.advanced,hostPreview.availableRamMiB,56320);
+assert.equal(host.fileBackedWeightsMiB,mmapPlan.estimate.cpuWeightsMiB);
+assert.equal(host.anonymousWeightsMiB,0);assert(host.fits);assert(!host.workingSetFits);
+assert.equal(host.reserveMiB,7168);assert.equal(host.overheadMiB,2048);
+assert.equal(host.requiredMiB,host.mandatoryMiB+7168);
+assert.equal(host.cpuKvMiB,0);assert.equal(host.cgroupMaxMiB,56320);
+// No GB/GiB confusion: the byte boundary is exact, not decimal GB interpreted as GiB.
+assert.equal(hostPreview.availableRamMiB*1024**2,56464150528);
+assert.equal(55.6e9/1024**3,51.781535148620605);
+assert.equal(modelCgroupLimitMiB(hostPreview.totalRamMiB),56320);
+assert.equal(modelCgroupLimitMiB(16384),9216);
+// Anonymous loads must still fit in RAM, even if an identical mmap load can page.
+const anon={...model,advanced:{...model.advanced!,loadMode:'none' as const}};
+assert.throws(()=>resolvePlacement(anon,hostPreview,48,{contextWindow:65536,kvCacheType:'q8_0'}),/anonymous weights=.*GiB.*MemoryMax=/);
+assert.throws(()=>resolvePlacement(model,{...hostPreview,availableRamMiB:8000},48),/required=.*file-backed mmap weights=/);
+assert.throws(()=>resolvePlacement(model,{...hostPreview,modelCgroupMaxMiB:1024},48),/MemoryMax=1024/);
+const largeKv={...mmapPlan.estimate,cpuKvMiB:60000};
+assert(!estimateHostMemory(largeKv,model.advanced,hostPreview.availableRamMiB,56320).fits);
+assert(!estimateHostMemory(mmapPlan.estimate,model.advanced,null,56320).fits);
+// mmap with potential repacking must not be advertised as fully file-backed.
+assert.equal(estimateHostMemory(mmapPlan.estimate,{mode:'gpu-layers',loadMode:'mmap'},hostPreview.availableRamMiB,56320).fileBackedWeightsMiB,0);
+// Unload/retry always uses fresh available RAM, never cached rejection state.
+assert.throws(()=>resolvePlacement(model,{...hostPreview,availableRamMiB:1000},48));
+assert(resolvePlacement(model,hostPreview,48,{contextWindow:65536,kvCacheType:'q8_0'}).args.includes('16384'));
+console.log('PASS host RAM: mmap vs anonymous, GPU cache/KV, GB/GiB, reserve, cgroup, unload/retry');
+
+// The OS reserve is outside MemoryMax; do not subtract it a second time there.
+assert(estimateHostMemory(mmapPlan.estimate,model.advanced,hostPreview.availableRamMiB,host.mandatoryMiB).fits);
+assert(!estimateHostMemory(mmapPlan.estimate,model.advanced,hostPreview.availableRamMiB,host.mandatoryMiB-1).fits);
+assert.equal(estimateHostMemory(mmapPlan.estimate,{...model.advanced!,loadMode:'auto'},hostPreview.availableRamMiB,56320).fileBackedWeightsMiB,0);
