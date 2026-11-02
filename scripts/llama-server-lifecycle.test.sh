@@ -20,6 +20,7 @@ STATE_FILE="$fixture/state.json"; LOG_FILE="$fixture/launcher.log"
 SERVER_LOG="$fixture/server.log"; SERVER_PID_FILE="$fixture/server.pid"
 ACTIVE_MODEL="test-model"; ACTIVE_CONTEXT=110592; ACTIVE_KV_TYPE=q8_0
 ACTIVE_KV_OFFLOAD=1; ACTIVE_SPECULATIVE_MODE=mtp; ACTIVE_PROJECTOR_DEVICE=gpu
+ACTIVE_MTP_MODE=on; MTP_FALLBACK_REASON=""; ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""
 printf 'fixture server diagnostic\n' > "$SERVER_LOG"
 bash -c 'exit 17' &
 SERVER_PID=$!

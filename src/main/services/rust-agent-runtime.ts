@@ -33,6 +33,17 @@ function logApprovalTransport(data: Record<string, unknown>): void {
   try { log('agent.approval.transport', data); } catch { /* permission result still fails closed */ }
 }
 
+type LauncherFailureState = {status?:string; updatedAt?:string; error?:string; launcherPid?:number; serverPid?:number; serverStartTime?:string};
+/** Match the run's owned launcher/server, not an arbitrary ten-second window.
+ * A graceful stop can take longer than ten seconds before HTTP EOF arrives. */
+export function memoryStopForRun(state:LauncherFailureState,since:number,identity?:LauncherFailureState):string|undefined {
+  const at=Date.parse(state.updatedAt??'');
+  if(state.status!=='offline'||!state.error?.startsWith('Memory safety stop:')||!Number.isFinite(at)||at<since-1000)return;
+  if(!identity?.launcherPid||!identity.serverPid||!['ready','starting'].includes(identity.status??'')||identity.launcherPid!==state.launcherPid)return;
+  if(state.serverPid && (state.serverPid!==identity.serverPid||state.serverStartTime!==identity.serverStartTime))return;
+  return state.error;
+}
+
 export function transportFailureDetail(message:string,runtimeError?:string):string {
   if(!/upstream closed|Connection reset|connection reset/.test(message))return message;
   const cause=runtimeError?.startsWith('Memory safety stop:')?`Сервер остановлен защитой памяти: ${runtimeError}`:'Соединение с сервером модели прервано; причина остановки сервера пока не подтверждена.';
@@ -223,6 +234,9 @@ export class RustAgentRuntime {
     if (!existsSync(this.binary)) throw new Error(`Rust Agent Runtime V2 не собран: ${this.binary}. Выполните cargo build в rust-agent.`);
     // Preparation can fail (invalid history/settings). Validate before owning
     // a worker or registering controls that would otherwise escape cleanup.
+    const failureSince=Date.now();
+    let launcherIdentity:LauncherFailureState|undefined;
+    try {launcherIdentity=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));}catch{/* External endpoints may have no owned launcher. */}
     const current = splitAgentRunHistory(history,persistedTaskMemory);
     const attachmentTool = attachmentDataTool(history.flatMap((message) => message.attachments ?? []));
     const browserConfig = loadRuntimeConfiguration();
@@ -525,7 +539,7 @@ export class RustAgentRuntime {
           // End this run's stream now so IPC can release inference ownership.
           if (child.stdin.writable) child.stdin.end();
           let runtimeError:string|undefined;
-          try {const state=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));if(Date.now()-Date.parse(state.updatedAt)<10000)runtimeError=state.error;}catch{/* Preserve the transport failure when state is unavailable. */}
+          try {const state=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));runtimeError=memoryStopForRun(state,failureSince,launcherIdentity);}catch{/* Preserve the transport failure when state is unavailable. */}
           yield { type: 'error', message: 'Ошибка соединения с моделью', details: transportFailureDetail(event.message??'',runtimeError) };
           break;
         }

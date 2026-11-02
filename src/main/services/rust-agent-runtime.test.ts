@@ -6,7 +6,7 @@ import type { ChatMessage } from '../../shared/types';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RustAgentRuntime, transportFailureDetail, runtimeTextEvent, splitAgentRunHistory, taskVisualRegions, taskPlan } from './rust-agent-runtime';
+import { RustAgentRuntime, memoryStopForRun, transportFailureDetail, runtimeTextEvent, splitAgentRunHistory, taskVisualRegions, taskPlan } from './rust-agent-runtime';
 import { deliverablesChecklist, displayToolResult, toolResultSummary } from '../../renderer/components/AgentTimeline';
 
 const message = (role: ChatMessage['role'], content: string): ChatMessage => ({
@@ -427,3 +427,16 @@ if (require.main === module) {
 
 assert.match(transportFailureDetail('upstream closed while reading HTTP framing','Memory safety stop: RAM reserve'),/защитой памяти/);
 assert.match(transportFailureDetail('upstream closed inside an HTTP chunk'),/причина.*не подтверждена/);
+
+// A stop published before SIGTERM remains attributable after the 10s grace.
+const stopIdentity={status:'ready',launcherPid:5412,serverPid:6113,serverStartTime:'1234'};
+const stopState={...stopIdentity,status:'offline',updatedAt:'2026-11-02T14:19:31Z',error:'Memory safety stop: criterion=global_swap_out'};
+const runSince=Date.parse('2026-11-02T14:10:58Z');
+assert.equal(memoryStopForRun(stopState,runSince,stopIdentity),stopState.error);
+assert.equal(memoryStopForRun({...stopState,serverPid:0},runSince,stopIdentity),stopState.error);
+assert.equal(memoryStopForRun({...stopState,status:'ready'},runSince,stopIdentity),undefined);
+assert.equal(memoryStopForRun(stopState,Date.parse('2026-11-02T14:20:00Z'),stopIdentity),undefined);
+assert.equal(memoryStopForRun(stopState,runSince,{...stopIdentity,launcherPid:999}),undefined);
+assert.equal(memoryStopForRun(stopState,runSince,{...stopIdentity,serverStartTime:'reused'}),undefined);
+assert.equal(memoryStopForRun(stopState,runSince),undefined);
+assert.equal(memoryStopForRun(stopState,runSince,{...stopIdentity,status:'offline'}),undefined);

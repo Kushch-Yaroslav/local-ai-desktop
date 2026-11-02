@@ -45,7 +45,7 @@ REQUEST_CONTEXT_FOR_ERROR=""
 VARIANT=""; MODEL=""; MMPROJ=""; RUNTIME_MODEL_ID=""; RUNTIME_LABEL=""; DEFAULT_LLAMA_CONTEXT=""; MAX_LLAMA_CONTEXT=""; MODEL_GPU_LAYERS=""
 SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""; DRAFT_GPU_LAYERS="auto"
 PROFILE_SERVER_ARGS=()
-PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0; SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""
+PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0; MEMORY_SAMPLE_AT=0; SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""
 PROFILE_VISION_REQUIRED="0"; PROFILE_FINGERPRINT=""; PROFILE_MODEL_CONFIG=""; SELECTED_PROFILE_ENV=""
 ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""; ACTIVE_PROFILE_ENV=""; ACTIVE_RUNTIME_CONFIG=""; SERVER_START_TIME=""
 
@@ -113,21 +113,82 @@ stop_llama_server() {
     log "llama-server.stop pid=$pid signal=KILL"
     kill -KILL "$pid" 2>/dev/null || true
   fi
-  wait "$pid" 2>/dev/null || true
+  local wait_status=0
+  wait "$pid" 2>/dev/null || wait_status=$?
+  log "llama-server.stop pid=$pid waitStatus=$wait_status requested=true"
   if [[ -n "$SERVER_SCOPE_PID" ]] && [[ "$(process_start_time "$SERVER_SCOPE_PID")" == "$SERVER_SCOPE_START" ]]; then kill -TERM "$SERVER_SCOPE_PID" 2>/dev/null || true; wait "$SERVER_SCOPE_PID" 2>/dev/null || true; SERVER_SCOPE_PID=""; fi
 }
 
-# Experimental placement guard: only the owned child is stopped; no system policy changes.
+# Metadata only: never log command lines, prompts, environment or file bodies.
+# Capture while the owned PID/cgroup still exists, not after wait/cleanup.
+memory_snapshot() {
+  local phase="$1" relative="" file values pid children=""
+  log "memory.snapshot phase=$phase serverPid=${SERVER_PID:-0} electronPid=${ELECTRON_PID:-0}"
+  if [[ -r "/proc/${ELECTRON_PID:-0}/task/${ELECTRON_PID:-0}/children" ]]; then
+    children="$(awk '{for(i=1;i<=NF && i<=32;i++)printf "%s ",$i}' "/proc/$ELECTRON_PID/task/$ELECTRON_PID/children" 2>/dev/null || true)"
+  fi
+  # Include direct Electron children (Rust worker), with a bounded PID list.
+  for pid in "${SERVER_PID:-0}" "${ELECTRON_PID:-0}" $children; do
+    [[ -r "/proc/$pid/status" ]] || continue
+    values="$(awk '/^(VmRSS|VmSwap|VmLck|VmPin|RssAnon|RssFile|RssShmem|Threads):/{printf "%s%s%s;",$1,$2,$3}' "/proc/$pid/status" 2>/dev/null || true)"
+    log "memory.process pid=$pid $values"
+  done
+  values="$(awk '/^(MemAvailable|MemFree|Cached|AnonPages|Mlocked|Unevictable|SwapFree|SwapTotal|SReclaimable|Dirty|Writeback):/{printf "%s%s%s;",$1,$2,$3}' /proc/meminfo)"
+  log "memory.system $values"
+  values="$(awk '/^(pswpin|pswpout|pgmajfault|allocstall.*) /{printf "%s=%s;",$1,$2}' /proc/vmstat)"
+  log "memory.vmstat swapBasePages=$MODEL_SWAP_BASE $values"
+  # Current readable VmSwap is not a per-process swap-out delta. Repeated
+  # snapshots allow attribution without dumping process command lines.
+  values="$(awk '/^VmSwap:/ && $2>0 {split(FILENAME,p,"/"); print p[3],$2}' /proc/[0-9]*/status 2>/dev/null | sort -k2,2nr | head -n 24 | tr '\n' ';' || true)"
+  log "memory.processSwapKiB pid_value=$values"
+  [[ ! -r /proc/pressure/memory ]] || log "memory.psi $(tr '\n' ';' < /proc/pressure/memory)"
+  if [[ -r "/proc/${SERVER_PID:-0}/cgroup" ]]; then
+    relative="$(awk -F: '$1=="0"{print $3}' "/proc/$SERVER_PID/cgroup")"
+    if [[ "$relative" == /* && "$relative" != *..* ]]; then
+      for file in memory.current memory.peak memory.swap.current memory.max memory.swap.max memory.events memory.stat memory.pressure; do
+        [[ -r "/sys/fs/cgroup$relative/$file" ]] || continue
+        # These kernel files have bounded counters; no application content.
+        log "memory.cgroup file=$file $(tr '\n' ';' < "/sys/fs/cgroup$relative/$file")"
+      done
+    fi
+  fi
+}
+
+# Only the owned child is stopped; no system policy or threshold changes.
 placement_memory_ok() {
   [[ "${PROFILE_MEMORY_GUARD:-0}" == "1" ]] || return 0
-  local available out page_size
+  local available out page_size criterion="" delta="unknown"
   available="$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)"
   out="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
   page_size="$(getconf PAGESIZE)"
-  if [[ -z "$available" || -z "$out" ]] || (( available < 7*1024*1024 || (out-MODEL_SWAP_BASE)*page_size > 32*1024*1024 )); then
-    LAUNCH_ERROR="Memory safety stop: RAM reserve below7GiB or aggregate swap-out above32MiB. MemAvailableKiB=${available:-unknown}; swapOutDeltaPages=$((out-MODEL_SWAP_BASE)); pageSize=$page_size. Only the owned model was stopped."
+  if [[ "$out" =~ ^[0-9]+$ ]]; then delta=$((out-MODEL_SWAP_BASE)); fi
+  if [[ ! "$available" =~ ^[0-9]+$ || ! "$out" =~ ^[0-9]+$ ]]; then criterion="telemetry_unavailable"
+  else
+    (( available >= 7*1024*1024 )) || criterion="ram_reserve"
+    if (( (out-MODEL_SWAP_BASE)*page_size > 32*1024*1024 )); then criterion="${criterion:+$criterion,}global_swap_out"; fi
+  fi
+  if [[ -n "$criterion" ]]; then
+    LAUNCH_ERROR="Memory safety stop: criterion=$criterion; MemAvailableKiB=${available:-unknown}; swapOutDeltaPages=$delta; pageSize=$page_size; RAM reserve=7GiB; global swap-out limit=32MiB. Only the owned model was stopped."
     return 1
   fi
+  if (( SECONDS >= MEMORY_SAMPLE_AT )); then
+    memory_snapshot periodic
+    MEMORY_SAMPLE_AT=$((SECONDS+30))
+  fi
+}
+
+# Publish the initiating cause before signals can close in-flight HTTP requests.
+# Otherwise Rust can observe EOF during the 10-second termination grace period
+# while the state still says ready (the repeated real incident).
+stop_for_memory_safety() {
+  local reason="$LAUNCH_ERROR"
+  write_state offline "" "$reason"
+  log "$reason"
+  memory_snapshot stopping
+  stop_llama_server "$SERVER_PID"
+  SERVER_PID=""; ACTIVE_MODEL=""; ACTIVE_CONTEXT=0
+  rm -f "$SERVER_PID_FILE"
+  write_state offline "" "$reason"
 }
 
 # Record unexpected server death while retaining the launcher for explicit
@@ -136,9 +197,7 @@ check_server_lifecycle() {
   [[ -n "$SERVER_PID" ]] || return 0
   if kill -0 "$SERVER_PID" 2>/dev/null; then
     if ! placement_memory_ok; then
-      local reason="$LAUNCH_ERROR"
-      stop_llama_server "$SERVER_PID"; SERVER_PID=""; ACTIVE_MODEL=""; ACTIVE_CONTEXT=0
-      rm -f "$SERVER_PID_FILE"; write_state offline "" "$reason"; log "$reason"
+      stop_for_memory_safety
     fi
     return 0
   fi
@@ -259,6 +318,7 @@ launch_server() {
   printf -v printed_command '%q ' "$LLAMA_BIN" "${server_args[@]}"
   log "llama-server.command=${printed_command% }"
   MODEL_SWAP_BASE="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
+  MEMORY_SAMPLE_AT=0
   if [[ "$PROFILE_MEMORY_GUARD" == "1" ]]; then
     local limit_mib scope_wait
     limit_mib="$(awk '/^MemTotal:/{print int($2/1024)-7168}' /proc/meminfo)"
@@ -291,7 +351,7 @@ launch_server() {
       SERVER_PID=""; rm -f "$SERVER_PID_FILE"
       return 1
     fi
-    if ! placement_memory_ok; then stop_llama_server "$SERVER_PID"; SERVER_PID=""; rm -f "$SERVER_PID_FILE"; return 1; fi
+    if ! placement_memory_ok; then stop_for_memory_safety; return 1; fi
     if curl --silent --fail "$URL/health" >/dev/null 2>&1; then healthy=1; break; fi
     sleep 1; waited=$((waited + 1))
   done
