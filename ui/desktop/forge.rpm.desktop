@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Local AI Desktop
+Exec=/usr/bin/local-ai-desktop %U
+Icon=local-ai-desktop
+Terminal=false
+Type=Application
+Categories=Development;
+MimeType=x-scheme-handler/local-ai-desktop;

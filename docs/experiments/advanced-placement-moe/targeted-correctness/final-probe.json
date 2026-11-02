@@ -1,5 +1,0 @@
-{
-  "status": "request-timeout",
-  "transfer_line": "LAD_TRANSFER_CHECK uploads=27072 blocks=270 errors=0 pending=0",
-  "limits": "A partial GPU-only probe run. Not a completed free/teacher comparison. Earlier saved aggregate logits were calculated from the preceding completed diagnostic run."
-}
