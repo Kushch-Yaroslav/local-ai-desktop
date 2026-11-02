@@ -8,7 +8,7 @@ trap 'rm -r -- "$fixture"' EXIT
 python3 - "$root/run-local-ai-desktop-llama-cpp-mtp.sh" "$fixture/functions.sh" <<'PY'
 import re,sys
 source=open(sys.argv[1]).read()
-names=['timestamp','log','json_escape','process_start_time','write_state','check_server_lifecycle']
+names=['timestamp','log','json_escape','process_start_time','write_state','server_cgroup_events','check_server_lifecycle','stop_llama_server']
 with open(sys.argv[2],'w') as out:
  for name in names:
   match=re.search(r'^'+name+r'\(\) \{.*?(?:^\}|\}\s*$)',source,re.M|re.S)
@@ -16,6 +16,8 @@ with open(sys.argv[2],'w') as out:
   out.write(match.group()+'\n')
 PY
 source "$fixture/functions.sh"
+# Lifecycle tests isolate exits from live host RAM/swap counters.
+placement_memory_ok() { return 0; }
 STATE_FILE="$fixture/state.json"; LOG_FILE="$fixture/launcher.log"
 SERVER_LOG="$fixture/server.log"; SERVER_PID_FILE="$fixture/server.pid"
 ACTIVE_MODEL="test-model"; ACTIVE_CONTEXT=110592; ACTIVE_KV_TYPE=q8_0
@@ -48,3 +50,28 @@ cp "$STATE_FILE" "$fixture/before.json"
 check_server_lifecycle
 cmp "$STATE_FILE" "$fixture/before.json"
 echo 'llama-server unexpected exit is recorded; runtime becomes offline and retains explicit reload'
+
+# Mock a kernel/cgroup OOM-killed child without allocating memory or swapping.
+SERVER_CGROUP_DIR="$fixture/cgroup"; mkdir "$SERVER_CGROUP_DIR"
+printf 'low 0\nhigh 0\nmax 3\noom 1\noom_kill 1\n' > "$SERVER_CGROUP_DIR/memory.events"
+bash -c 'exit 137' &
+SERVER_PID=$!; ACTIVE_MODEL=fixture; ACTIVE_CONTEXT=65536
+for _ in {1..100}; do
+ check_server_lifecycle
+ [[ -z "$SERVER_PID" ]] && break
+ sleep 0.01
+done
+node - "$STATE_FILE" <<'JS'
+const assert=require('node:assert/strict');
+const s=JSON.parse(require('node:fs').readFileSync(process.argv[2],'utf8'));
+assert.equal(s.status,'offline');assert.equal(s.serverPid,0);
+assert.match(s.error,/status=137/);assert.match(s.error,/oom_kill=1/);
+JS
+# Ordinary stop still terminates only the fixture-owned process.
+bash -c 'exec sleep 60' &
+SERVER_PID=$!; SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
+SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""
+stop_llama_server "$SERVER_PID"
+! kill -0 "$SERVER_PID" 2>/dev/null
+ grep -q 'requested=true' "$LOG_FILE"
+echo 'PASS cgroup OOM exit evidence and ordinary owned-process stop'

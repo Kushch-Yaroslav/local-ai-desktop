@@ -36,31 +36,36 @@ stop_llama_server() {
  node - "$STATE_FILE" <<'JS'
 const assert=require('node:assert/strict');
 const s=JSON.parse(require('node:fs').readFileSync(process.argv[2],'utf8'));
-assert.equal(s.status,'offline');assert.match(s.error,/criterion=global_swap_out/);
+assert.equal(s.status,'offline');assert.match(s.error,/criterion=ram_reserve/);
 assert.equal(s.serverPid,process.ppid,'Cause must be published before first signal');
 JS
  log 'fixture.signal TERM';
 }
-if placement_memory_ok; then echo 'Missed swap threshold' >&2; exit 1; fi
-[[ "$LAUNCH_ERROR" == *'criterion=global_swap_out;'* ]]
+# Swap growth alone never stops a healthy owned model, including the incident.
+for mib in 32 64 256; do
+ fixture_swap=$((MODEL_SWAP_BASE+mib*1024*1024/$(getconf PAGESIZE)))
+ placement_memory_ok
+ [[ "$SERVER_PID" == "$$" && ! -f "$STATE_FILE" ]]
+done
+fixture_swap=14072
+placement_memory_ok
+# Loss of the existing RAM reserve still publishes the cause before signals.
+fixture_available=6000000
+if placement_memory_ok; then echo 'Missed RAM reserve threshold' >&2; exit 1; fi
+[[ "$LAUNCH_ERROR" == *'criterion=ram_reserve;'* ]]
 stop_for_memory_safety
 [[ -z "$SERVER_PID" ]]
 node - "$LOG_FILE" "$STATE_FILE" <<'JS'
 const fs=require('node:fs'),assert=require('node:assert/strict');const l=fs.readFileSync(process.argv[2],'utf8');
 assert(l.indexOf('Memory safety stop:')<l.indexOf('fixture.signal TERM'));
-assert.match(fs.readFileSync(process.argv[3],'utf8'),/global_swap_out/);
+assert.match(fs.readFileSync(process.argv[3],'utf8'),/ram_reserve/);
 JS
-fixture_swap=100; fixture_available=6000000
-if placement_memory_ok; then exit 1; fi
-[[ "$LAUNCH_ERROR" == *'criterion=ram_reserve;'* ]]
-fixture_available=51527096
+fixture_available=$((7*1024*1024))
 placement_memory_ok
-# Equality is allowed; strict >32MiB retained.
-fixture_swap=$((MODEL_SWAP_BASE+32*1024*1024/$(getconf PAGESIZE)))
+# Missing swap telemetry is not a safety trigger either.
+fixture_swap=''
 placement_memory_ok
-fixture_swap=$((fixture_swap+1))
-if placement_memory_ok; then exit 1; fi
-fixture_available=''; fixture_swap=''
+fixture_available=''
 if placement_memory_ok; then exit 1; fi
 [[ "$LAUNCH_ERROR" == *'criterion=telemetry_unavailable;'* ]]
-printf 'PASS memory thresholds and stop cause published before HTTP disconnect\n'
+printf 'PASS swap 32/64/256MiB is diagnostic only; RAM reserve and pre-signal cause preserved\n'

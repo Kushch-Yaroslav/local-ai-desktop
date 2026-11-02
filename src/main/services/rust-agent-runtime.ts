@@ -36,9 +36,9 @@ function logApprovalTransport(data: Record<string, unknown>): void {
 type LauncherFailureState = {status?:string; updatedAt?:string; error?:string; launcherPid?:number; serverPid?:number; serverStartTime?:string};
 /** Match the run's owned launcher/server, not an arbitrary ten-second window.
  * A graceful stop can take longer than ten seconds before HTTP EOF arrives. */
-export function memoryStopForRun(state:LauncherFailureState,since:number,identity?:LauncherFailureState):string|undefined {
+export function launcherFailureForRun(state:LauncherFailureState,since:number,identity?:LauncherFailureState):string|undefined {
   const at=Date.parse(state.updatedAt??'');
-  if(state.status!=='offline'||!state.error?.startsWith('Memory safety stop:')||!Number.isFinite(at)||at<since-1000)return;
+  if(state.status!=='offline'||!state.error?.match(/^(Memory safety stop:|llama-server exited)/)||!Number.isFinite(at)||at<since-1000)return;
   if(!identity?.launcherPid||!identity.serverPid||!['ready','starting'].includes(identity.status??'')||identity.launcherPid!==state.launcherPid)return;
   if(state.serverPid && (state.serverPid!==identity.serverPid||state.serverStartTime!==identity.serverStartTime))return;
   return state.error;
@@ -46,7 +46,7 @@ export function memoryStopForRun(state:LauncherFailureState,since:number,identit
 
 export function transportFailureDetail(message:string,runtimeError?:string):string {
   if(!/upstream closed|Connection reset|connection reset/.test(message))return message;
-  const cause=runtimeError?.startsWith('Memory safety stop:')?`Сервер остановлен защитой памяти: ${runtimeError}`:'Соединение с сервером модели прервано; причина остановки сервера пока не подтверждена.';
+  const cause=runtimeError?.startsWith('Memory safety stop:')?`Сервер остановлен защитой памяти: ${runtimeError}`:runtimeError?.startsWith('llama-server exited')?`Сервер модели завершился: ${runtimeError}`:'Соединение с сервером модели прервано; причина остановки сервера пока не подтверждена.';
   return `${cause} Выполненные шаги сохранены. Инструменты автоматически не повторяются; проверьте состояние модели и продолжите задачу вручную. (${message})`;
 }
 
@@ -539,7 +539,7 @@ export class RustAgentRuntime {
           // End this run's stream now so IPC can release inference ownership.
           if (child.stdin.writable) child.stdin.end();
           let runtimeError:string|undefined;
-          try {const state=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));runtimeError=memoryStopForRun(state,failureSince,launcherIdentity);}catch{/* Preserve the transport failure when state is unavailable. */}
+          try {const state=JSON.parse(await readFile(join(paths.dataRoot,'llama-cpp-runtime-state.json'),'utf8'));runtimeError=launcherFailureForRun(state,failureSince,launcherIdentity);}catch{/* Preserve the transport failure when state is unavailable. */}
           yield { type: 'error', message: 'Ошибка соединения с моделью', details: transportFailureDetail(event.message??'',runtimeError) };
           break;
         }

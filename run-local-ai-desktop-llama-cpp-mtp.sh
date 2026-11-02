@@ -45,7 +45,7 @@ REQUEST_CONTEXT_FOR_ERROR=""
 VARIANT=""; MODEL=""; MMPROJ=""; RUNTIME_MODEL_ID=""; RUNTIME_LABEL=""; DEFAULT_LLAMA_CONTEXT=""; MAX_LLAMA_CONTEXT=""; MODEL_GPU_LAYERS=""
 SPECULATIVE_MODE="none"; DRAFT_MODEL=""; DRAFT_KV_SHARED="0"; DRAFT_N_MAX=""; DRAFT_GPU_LAYERS="auto"
 PROFILE_SERVER_ARGS=()
-PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0; MEMORY_SAMPLE_AT=0; SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""
+PROFILE_MEMORY_GUARD="0"; MODEL_SWAP_BASE=0; MEMORY_SAMPLE_AT=0; SERVER_SCOPE_PID=""; SERVER_SCOPE_START=""; SERVER_CGROUP_DIR=""
 PROFILE_VISION_REQUIRED="0"; PROFILE_FINGERPRINT=""; PROFILE_MODEL_CONFIG=""; SELECTED_PROFILE_ENV=""
 ACTIVE_PROFILE_FINGERPRINT=""; ACTIVE_PROFILE_CONFIG=""; ACTIVE_PROFILE_ENV=""; ACTIVE_RUNTIME_CONFIG=""; SERVER_START_TIME=""
 
@@ -154,7 +154,8 @@ memory_snapshot() {
   fi
 }
 
-# Only the owned child is stopped; no system policy or threshold changes.
+# Only the owned child is stopped for RAM reserve loss or missing RAM telemetry.
+# Global swap-out is diagnostic only: it may belong to unrelated processes.
 placement_memory_ok() {
   [[ "${PROFILE_MEMORY_GUARD:-0}" == "1" ]] || return 0
   local available out page_size criterion="" delta="unknown"
@@ -162,13 +163,12 @@ placement_memory_ok() {
   out="$(awk '/^pswpout /{print $2}' /proc/vmstat)"
   page_size="$(getconf PAGESIZE)"
   if [[ "$out" =~ ^[0-9]+$ ]]; then delta=$((out-MODEL_SWAP_BASE)); fi
-  if [[ ! "$available" =~ ^[0-9]+$ || ! "$out" =~ ^[0-9]+$ ]]; then criterion="telemetry_unavailable"
+  if [[ ! "$available" =~ ^[0-9]+$ ]]; then criterion="telemetry_unavailable"
   else
     (( available >= 7*1024*1024 )) || criterion="ram_reserve"
-    if (( (out-MODEL_SWAP_BASE)*page_size > 32*1024*1024 )); then criterion="${criterion:+$criterion,}global_swap_out"; fi
   fi
   if [[ -n "$criterion" ]]; then
-    LAUNCH_ERROR="Memory safety stop: criterion=$criterion; MemAvailableKiB=${available:-unknown}; swapOutDeltaPages=$delta; pageSize=$page_size; RAM reserve=7GiB; global swap-out limit=32MiB. Only the owned model was stopped."
+    LAUNCH_ERROR="Memory safety stop: criterion=$criterion; MemAvailableKiB=${available:-unknown}; swapOutDeltaPages=$delta; pageSize=$page_size; RAM reserve=7GiB; global swap-out is diagnostic only. Only the owned model was stopped."
     return 1
   fi
   if (( SECONDS >= MEMORY_SAMPLE_AT )); then
@@ -191,6 +191,13 @@ stop_for_memory_safety() {
   write_state offline "" "$reason"
 }
 
+# Keep the owned scope path: /proc/PID disappears on exit. The scope itself
+# may already be removed by systemd too; never infer OOM from SIGKILL alone.
+server_cgroup_events() {
+  [[ -n "${SERVER_CGROUP_DIR:-}" && -r "$SERVER_CGROUP_DIR/memory.events" ]] || return 0
+  awk '{printf "%s=%s;",$1,$2}' "$SERVER_CGROUP_DIR/memory.events" 2>/dev/null || true
+}
+
 # Record unexpected server death while retaining the launcher for explicit
 # reload. Never allocate a model automatically after a crash or user stop.
 check_server_lifecycle() {
@@ -203,11 +210,13 @@ check_server_lifecycle() {
   fi
   local dead_pid="$SERVER_PID" server_status=0
   wait "$dead_pid" 2>/dev/null || server_status=$?
-  log "llama-server.exit pid=$dead_pid status=$server_status unexpected=true"
+  local events
+  events="$(server_cgroup_events)"
+  log "llama-server.exit pid=$dead_pid status=$server_status unexpected=true cgroupEvents=${events:-unavailable}"
   tail -n 40 "$SERVER_LOG" >> "$LOG_FILE" || true
   SERVER_PID=""; ACTIVE_MODEL=""; ACTIVE_CONTEXT=0; ACTIVE_SPECULATIVE_MODE="none"
   rm -f "$SERVER_PID_FILE"
-  write_state offline "" "llama-server exited (pid=$dead_pid, status=$server_status). Reload the model to continue."
+  write_state offline "" "llama-server exited (pid=$dead_pid, status=$server_status). Cgroup memory.events: ${events:-unavailable}. Reload the model to continue."
 }
 
 # A new model must not be loaded while the previous process's VRAM is still
@@ -338,6 +347,10 @@ launch_server() {
     SERVER_PID=$!; printf '%s\n' "$SERVER_PID" > "$SERVER_PID_FILE"
   fi
   SERVER_START_TIME="$(process_start_time "$SERVER_PID")"
+  SERVER_CGROUP_DIR=""
+  local cgroup_relative
+  cgroup_relative="$(awk -F: '$1=="0"{print $3}' "/proc/$SERVER_PID/cgroup" 2>/dev/null || true)"
+  if [[ "$cgroup_relative" == /* && "$cgroup_relative" != *..* ]]; then SERVER_CGROUP_DIR="/sys/fs/cgroup$cgroup_relative"; fi
   log "llama-server.pid=$SERVER_PID"
   # Publish the new identity before health probing, so the host registry can
   # track starting servers too. Only the caller's ready state confirms success.
