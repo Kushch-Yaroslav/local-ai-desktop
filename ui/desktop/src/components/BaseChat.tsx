@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: expose managed-runtime memory state in chat.
 import { AppEvents } from '../constants/events';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { defineMessages, useIntl } from '../i18n';
@@ -7,6 +8,7 @@ import LoadingGoose from './LoadingGoose';
 import MessageList from './MessageList';
 import { MainPanelLayout } from './Layout/MainPanelLayout';
 import ChatInput from './ChatInput';
+import MemoryMonitor from './settings/localInference/MemoryMonitor';
 import { ChatInputCard } from './ChatInputCard';
 import { SubagentSessionNotice } from './SubagentSessionNotice';
 import { Button } from './ui/button';
@@ -30,8 +32,6 @@ import {
   type UserInput,
 } from '../types/message';
 import { useAutoSubmit } from '../hooks/useAutoSubmit';
-import { Goose } from './icons';
-import EnvironmentBadge from './GooseSidebar/EnvironmentBadge';
 import SessionActionsHeader from './SessionActionsHeader';
 import { isAcpRecovering, subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { LiveVoiceAvailabilityResponse_unstable } from '@aaif/goose-acp-client';
@@ -457,26 +457,13 @@ export default function BaseChat({
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0 relative">
+      <div className="absolute right-24 top-3 z-10 max-w-[calc(100%-7rem)] pointer-events-none">
+        <MemoryMonitor />
+      </div>
       <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
         {/* Chat container with sticky recipe header */}
         <div className="flex flex-col flex-1 min-h-0 relative">
-          {/* Goose watermark - top right */}
-          <div className="absolute top-[14px] right-4 z-[60] flex flex-row items-center gap-1">
-            <a
-              href="https://goose-docs.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="no-drag flex flex-row items-center gap-1 hover:opacity-80 transition-opacity"
-            >
-              <Goose className="size-5 goose-icon-animation" />
-              <span className="text-sm leading-none text-text-secondary -translate-y-px">
-                goose
-              </span>
-            </a>
-            <EnvironmentBadge className="translate-y-px" />
-          </div>
-
           <SessionActionsHeader session={session} onSessionChange={updateSession} />
 
           <ScrollArea

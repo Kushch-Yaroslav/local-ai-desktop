@@ -301,7 +301,7 @@ pub(super) fn build_config_options(
         .collect();
     let (thinking_effort_options, current_thinking_effort) =
         build_thinking_effort_choices(model_config, effort_support);
-    vec![
+    let mut options = vec![
         SessionConfigOption::select(
             "provider",
             "Provider",
@@ -330,7 +330,26 @@ pub(super) fn build_config_options(
         )
         .description("Controls reasoning effort for models that support extended thinking.")
         .category(SessionConfigOptionCategory::ThoughtLevel),
-    ]
+    ];
+    // Local AI Desktop: keep numeric budget separate from native template effort.
+    if matches!(effort_support, ThinkingEffortSupport::Options(cap) if cap.option_id == "managed_qwen_thinking")
+    {
+        options.push(SessionConfigOption::select(
+            "thinking_budget",
+            "Thinking token budget",
+            model_config
+                .request_param::<i64>("reasoning_budget_tokens")
+                .unwrap_or(-1)
+                .to_string(),
+            vec![
+                SessionConfigSelectOption::new("-1", "Default"),
+                SessionConfigSelectOption::new("128", "128"),
+                SessionConfigSelectOption::new("512", "512"),
+                SessionConfigSelectOption::new("2048", "2048"),
+            ],
+        ));
+    }
+    options
 }
 
 /// A provider that manages its own reasoning decides the menu: it mirrors the
@@ -351,7 +370,13 @@ fn build_thinking_effort_choices(
                     SessionConfigSelectOption::new(option.value.clone(), option.label.clone())
                 })
                 .collect(),
-            capability_thinking_effort_value(capability, model_config),
+            if capability.option_id == "managed_qwen_thinking"
+                && model_config.thinking_effort() == Some(ThinkingEffort::Max)
+            {
+                "high".to_string()
+            } else {
+                capability_thinking_effort_value(capability, model_config)
+            },
         ),
         ThinkingEffortSupport::Unsupported => {
             let off = ThinkingEffort::Off.to_string();

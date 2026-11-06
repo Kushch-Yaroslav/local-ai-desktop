@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: integrate Local AI Desktop settings sections.
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { View, ViewOptions } from '../../utils/navigationUtils';
@@ -41,7 +42,7 @@ const i18n = defineMessages({
   },
   tabLocalInference: {
     id: 'settingsView.tabLocalInference',
-    defaultMessage: 'Local Inference',
+    defaultMessage: 'Local Models',
   },
   tabChat: {
     id: 'settingsView.tabChat',

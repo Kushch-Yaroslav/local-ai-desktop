@@ -1,6 +1,8 @@
-# Third-party notices
+# Historical third-party notices for Local AI Desktop v0.3.2.0 and earlier
 
-Original Local AI Desktop code is licensed under the [MIT License](LICENSE), copyright (c) 2026 Yaroslav Kushch. The Jan-derived portions identified below remain subject to the applicable Apache-2.0 terms. The root MIT license does not replace those terms.
+This file records provenance for the pre-v0.4.0 Local AI Desktop release line and is retained for its source history. It does not describe the current Goose-based v0.4.0 architecture; see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for current v0.4.0 attributions.
+
+Original Local AI Desktop code in that release line is licensed under the [MIT License](licenses/LICENSE.local-ai-desktop-MIT.txt), copyright (c) 2026 Yaroslav Kushch. The Jan-derived portions identified below remain subject to the applicable Apache-2.0 terms. The MIT license does not replace those terms.
 
 ## Jan — adapted transcript and context-compaction portions
 
@@ -33,6 +35,6 @@ See also [asset attribution](assets/ATTRIBUTION.md) and the license notices acco
 
 ## Bundled llama.cpp and NVIDIA CUDA runtime
 
-The application runtime is built from the official ggml-org/llama.cpp revision pinned in `resources/llama-runtime.json` (MIT). The complete upstream license ships as `resources/llama/LICENSE.llama.cpp` beside the runtime in packaged applications.
+The application runtime is built from the official ggml-org/llama.cpp revision `5047748f114564fcf271e6a648f60e2d2eae6264` (MIT). The complete upstream license ships as `runtime/llama/LICENSE.llama.cpp` beside the runtime in packaged applications.
 
-Linux CUDA packages include CUDA Runtime and cuBLAS redistributable libraries from the build toolkit. The toolkit EULA ships as `resources/llama/EULA.CUDA.txt`; those libraries retain NVIDIA terms rather than the application MIT license. The NVIDIA driver (`libcuda.so.1`) is provided by the host and is not redistributed. This build targets CUDA sm_86 and requires a compatible NVIDIA driver.
+Linux CUDA packages include CUDA Runtime and cuBLAS redistributable libraries from the build toolkit. The toolkit EULA ships as `runtime/llama/EULA.CUDA.txt`; those libraries retain NVIDIA terms rather than the application MIT license. The NVIDIA driver (`libcuda.so.1`) is provided by the host and is not redistributed. This build targets CUDA sm_86 and requires a compatible NVIDIA driver.

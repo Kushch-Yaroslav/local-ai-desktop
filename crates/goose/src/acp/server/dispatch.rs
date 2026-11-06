@@ -185,6 +185,13 @@ impl HandleDispatchFrom<Client> for AcpConnectionHandler {
                                         Err(e) => { responder.respond_with_error(e)?; return Ok(()); }
                                     }
                                 }
+                                // Local AI Desktop: capability-scoped, per-request budget.
+                                "thinking_budget" => {
+                                    match connection.on_set_thinking_budget(&session_id.0, &value_id.0).await {
+                                        Ok(_) => {}
+                                        Err(e) => { responder.respond_with_error(e)?; return Ok(()); }
+                                    }
+                                }
                                 "thinking_effort" => {
                                     match connection.on_set_thinking_effort(&session_id.0, &value_id.0).await {
                                         Ok(_) => {}

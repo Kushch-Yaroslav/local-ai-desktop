@@ -1,3 +1,6 @@
+import { sampleMemory } from './memoryTelemetry';
+// Modified for Local AI Desktop: isolated dev storage and managed GGUF inference.
+import { registerManagedGguf } from './managedGguf';
 import type { IpcMainInvokeEvent, OpenDialogOptions, OpenDialogReturnValue } from 'electron';
 import {
   app,
@@ -179,6 +182,30 @@ function translateMenuLabels(items: MenuItem[]): void {
     }
   }
 }
+
+if (process.env.LOCAL_AI_DESKTOP_DEV_ROOT) {
+  const root = process.env.LOCAL_AI_DESKTOP_DEV_ROOT;
+  if (!path.isAbsolute(root)) throw new Error('Development data root must be absolute');
+  app.setPath('userData', path.join(root, 'electron'));
+  if (process.platform === 'linux') {
+    app.setDesktopName('local-ai-desktop-goose-dev.desktop');
+    app.commandLine.appendSwitch('class', 'local-ai-desktop-goose-dev');
+  }
+  process.env.GOOSE_PATH_ROOT = path.join(root, 'goose-backend');
+}
+registerManagedGguf();
+// On-demand, globally serialized telemetry; no background timer in main.
+let memoryFlight: { owner: number; controller: AbortController; promise: ReturnType<typeof sampleMemory> } | undefined;
+ipcMain.handle('memory-sample', (event) => {
+  if (memoryFlight) return memoryFlight.promise;
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  event.sender.once('destroyed', cancel);
+  const promise = sampleMemory(controller.signal).finally(() => { event.sender.removeListener('destroyed', cancel); memoryFlight = undefined; });
+  memoryFlight = { owner: event.sender.id, controller, promise };
+  return promise;
+});
+ipcMain.on('memory-cancel', event => { if (memoryFlight?.owner === event.sender.id) memoryFlight.controller.abort(); });
 
 // Settings management
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
@@ -425,10 +452,14 @@ if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   if (process.platform === 'darwin') {
     try {
       // Reset the default handler to ensure dev version takes precedence
-      spawn('open', ['-a', process.execPath, '--args', '--reset-protocol-handler', 'local-ai-desktop'], {
-        detached: true,
-        stdio: 'ignore',
-      });
+      spawn(
+        'open',
+        ['-a', process.execPath, '--args', '--reset-protocol-handler', 'local-ai-desktop'],
+        {
+          detached: true,
+          stdio: 'ignore',
+        }
+      );
     } catch {
       console.warn('[Main] Could not reset protocol handler');
     }
@@ -935,7 +966,8 @@ let appConfig = {
   GOOSE_DEFAULT_PROVIDER: defaultProvider,
   GOOSE_DEFAULT_MODEL: defaultModel,
   GOOSE_PREDEFINED_MODELS: predefinedModels,
-  GOOSE_PATH_ROOT: sanitizeGoosePathRoot(process.env) ?? path.join(app.getPath('userData'), 'goose-backend'),
+  GOOSE_PATH_ROOT:
+    sanitizeGoosePathRoot(process.env) ?? path.join(app.getPath('userData'), 'goose-backend'),
   GOOSE_WORKING_DIR: '',
   // Whether the window is bound to an external backend (fixed at window
   // creation via gooseServeLeases) and which URL it is bound to.
@@ -1939,6 +1971,7 @@ const validSettingKeys: Set<string> = new Set([
   'disableAutoDownload',
   'recentModels',
   'showThinking',
+  'memoryMonitoring',
 ]);
 
 ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
@@ -1948,6 +1981,7 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
     return;
   }
 
+  if (key === 'memoryMonitoring' && typeof value !== 'boolean') throw new Error('Invalid memory monitoring preference');
   if (key === 'language' && !isValidLanguageSetting(value)) {
     console.error(`Invalid language setting rejected: ${String(value)}`);
     return;
@@ -1960,6 +1994,7 @@ ipcMain.handle('set-setting', (_event, key: SettingKey, value: unknown) => {
 
   if (key === 'language') {
     appConfig.GOOSE_LOCALE = getConfiguredGooseLocale();
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('app-locale-changed');
   }
 
   // Re-register shortcuts if keyboard shortcuts changed
@@ -3075,6 +3110,7 @@ async function appMain() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform !== 'darwin' && !gotTheLock) return;
   try {
     await appMain();
   } catch (error) {
@@ -3114,7 +3150,7 @@ app.on('will-quit', async () => {
   }
   windowPowerSaveBlockers.clear();
 
-  globalShortcut.unregisterAll();
+  if (app.isReady()) globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {

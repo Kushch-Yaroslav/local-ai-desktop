@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: add product navigation entries and labels.
 import {
   AppWindow,
   Clock,
@@ -21,7 +22,7 @@ export interface NavItem {
 /** Top-level nav items (excluding Settings which is pinned to the bottom). */
 export const NAV_ITEMS: NavItem[] = [
   { id: 'home', path: '/', label: 'New Chat', icon: MessageSquarePlus },
-  { id: 'recipes', path: '/recipes', label: 'Recipes', icon: FileText },
+  { id: 'recipes', path: '/recipes', label: 'Task scenarios', icon: FileText },
   { id: 'skills', path: '/skills', label: 'Skills', icon: Zap },
   { id: 'apps', path: '/apps', label: 'Apps', icon: AppWindow },
   { id: 'scheduler', path: '/schedules', label: 'Scheduler', icon: Clock },
@@ -46,7 +47,7 @@ const navItemMessages = defineMessages({
   },
   recipes: {
     id: 'navigation.itemRecipes',
-    defaultMessage: 'Recipes',
+    defaultMessage: 'Task scenarios',
   },
   skills: {
     id: 'navigation.itemSkills',

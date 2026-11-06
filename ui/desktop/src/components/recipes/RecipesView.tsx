@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: describe Goose recipes as reusable task scenarios.
 import { useState, useEffect, useMemo } from 'react';
 import {
   convertToLocaleDateString,
@@ -66,7 +67,7 @@ import { defineMessages, useIntl } from '../../i18n';
 const i18n = defineMessages({
   deleteRecipeTitle: {
     id: 'recipesView.deleteRecipeTitle',
-    defaultMessage: 'Delete Recipe',
+    defaultMessage: 'Delete task scenario',
   },
   deleteRecipeConfirm: {
     id: 'recipesView.deleteRecipeConfirm',
@@ -74,11 +75,11 @@ const i18n = defineMessages({
   },
   deleteRecipeDetail: {
     id: 'recipesView.deleteRecipeDetail',
-    defaultMessage: 'Recipe file will be deleted.',
+    defaultMessage: 'The task scenario file will be deleted.',
   },
   recipeDeletedSuccess: {
     id: 'recipesView.recipeDeletedSuccess',
-    defaultMessage: 'Recipe deleted successfully',
+    defaultMessage: 'Task scenario deleted successfully',
   },
   deeplinkCopiedTitle: {
     id: 'recipesView.deeplinkCopiedTitle',
@@ -86,7 +87,7 @@ const i18n = defineMessages({
   },
   deeplinkCopiedMsg: {
     id: 'recipesView.deeplinkCopiedMsg',
-    defaultMessage: 'Recipe deeplink has been copied to clipboard',
+    defaultMessage: 'Task scenario link copied to clipboard',
   },
   copyFailedTitle: {
     id: 'recipesView.copyFailedTitle',
@@ -102,15 +103,15 @@ const i18n = defineMessages({
   },
   yamlCopiedMsg: {
     id: 'recipesView.yamlCopiedMsg',
-    defaultMessage: 'Recipe YAML has been copied to clipboard',
+    defaultMessage: 'Task scenario YAML copied to clipboard',
   },
   copyYamlFailedMsg: {
     id: 'recipesView.copyYamlFailedMsg',
-    defaultMessage: 'Failed to copy recipe YAML to clipboard',
+    defaultMessage: 'Could not copy task scenario YAML to clipboard',
   },
   exportRecipeDialogTitle: {
     id: 'recipesView.exportRecipeDialogTitle',
-    defaultMessage: 'Export Recipe',
+    defaultMessage: 'Export task scenario',
   },
   yamlFiles: {
     id: 'recipesView.yamlFiles',
@@ -122,11 +123,11 @@ const i18n = defineMessages({
   },
   recipeExportedTitle: {
     id: 'recipesView.recipeExportedTitle',
-    defaultMessage: 'Recipe exported',
+    defaultMessage: 'Task scenario exported',
   },
   recipeExportedMsg: {
     id: 'recipesView.recipeExportedMsg',
-    defaultMessage: 'Recipe saved to {filePath}',
+    defaultMessage: 'Task scenario saved to {filePath}',
   },
   exportFailedTitle: {
     id: 'recipesView.exportFailedTitle',
@@ -134,7 +135,7 @@ const i18n = defineMessages({
   },
   exportFailedMsg: {
     id: 'recipesView.exportFailedMsg',
-    defaultMessage: 'Failed to export recipe to file',
+    defaultMessage: 'Could not export task scenario to a file',
   },
   scheduleSavedTitle: {
     id: 'recipesView.scheduleSavedTitle',
@@ -142,7 +143,7 @@ const i18n = defineMessages({
   },
   scheduleSavedMsg: {
     id: 'recipesView.scheduleSavedMsg',
-    defaultMessage: 'Recipe will run {schedule}',
+    defaultMessage: 'Task scenario will run {schedule}',
   },
   scheduleRemovedTitle: {
     id: 'recipesView.scheduleRemovedTitle',
@@ -150,7 +151,7 @@ const i18n = defineMessages({
   },
   scheduleRemovedMsg: {
     id: 'recipesView.scheduleRemovedMsg',
-    defaultMessage: 'Recipe will no longer run automatically',
+    defaultMessage: 'Task scenario will no longer run automatically',
   },
   slashCommandSavedTitle: {
     id: 'recipesView.slashCommandSavedTitle',
@@ -158,7 +159,7 @@ const i18n = defineMessages({
   },
   slashCommandSavedMsg: {
     id: 'recipesView.slashCommandSavedMsg',
-    defaultMessage: 'Use /{command} to run this recipe',
+    defaultMessage: 'Use /{command} to run this task scenario',
   },
   slashCommandRemovedTitle: {
     id: 'recipesView.slashCommandRemovedTitle',
@@ -166,7 +167,7 @@ const i18n = defineMessages({
   },
   slashCommandRemovedMsg: {
     id: 'recipesView.slashCommandRemovedMsg',
-    defaultMessage: 'Recipe slash command has been removed',
+    defaultMessage: 'Task scenario shortcut has been removed',
   },
   runs: {
     id: 'recipesView.runs',
@@ -182,7 +183,7 @@ const i18n = defineMessages({
   },
   useRecipe: {
     id: 'recipesView.useRecipe',
-    defaultMessage: 'Use recipe',
+    defaultMessage: 'Use scenario',
   },
   openInNewWindow: {
     id: 'recipesView.openInNewWindow',
@@ -190,11 +191,11 @@ const i18n = defineMessages({
   },
   editRecipe: {
     id: 'recipesView.editRecipe',
-    defaultMessage: 'Edit recipe',
+    defaultMessage: 'Edit scenario',
   },
   shareRecipe: {
     id: 'recipesView.shareRecipe',
-    defaultMessage: 'Share recipe',
+    defaultMessage: 'Share scenario',
   },
   copyDeeplink: {
     id: 'recipesView.copyDeeplink',
@@ -218,11 +219,11 @@ const i18n = defineMessages({
   },
   deleteRecipe: {
     id: 'recipesView.deleteRecipe',
-    defaultMessage: 'Delete recipe',
+    defaultMessage: 'Delete scenario',
   },
   errorLoadingRecipes: {
     id: 'recipesView.errorLoadingRecipes',
-    defaultMessage: 'Error Loading Recipes',
+    defaultMessage: 'Could not load task scenarios',
   },
   tryAgain: {
     id: 'recipesView.tryAgain',
@@ -230,15 +231,15 @@ const i18n = defineMessages({
   },
   noSavedRecipes: {
     id: 'recipesView.noSavedRecipes',
-    defaultMessage: 'No saved recipes',
+    defaultMessage: 'No saved scenarios',
   },
   noSavedRecipesDescription: {
     id: 'recipesView.noSavedRecipesDescription',
-    defaultMessage: 'Saved recipes will show up here.',
+    defaultMessage: 'Saved task scenarios will show up here.',
   },
   noMatchingRecipes: {
     id: 'recipesView.noMatchingRecipes',
-    defaultMessage: 'No matching recipes found',
+    defaultMessage: 'No matching task scenarios found',
   },
   adjustSearchTerms: {
     id: 'recipesView.adjustSearchTerms',
@@ -246,20 +247,20 @@ const i18n = defineMessages({
   },
   recipesTitle: {
     id: 'recipesView.recipesTitle',
-    defaultMessage: 'Recipes',
+    defaultMessage: 'Task scenarios',
   },
   createRecipe: {
     id: 'recipesView.createRecipe',
-    defaultMessage: 'Create Recipe',
+    defaultMessage: 'Create scenario',
   },
   recipesDescription: {
     id: 'recipesView.recipesDescription',
     defaultMessage:
-      'View and manage your saved recipes to quickly start new sessions with predefined configurations. {shortcut} to search.',
+      'Manage reusable task scenarios to start sessions with predefined instructions and settings. {shortcut} to search.',
   },
   searchRecipesPlaceholder: {
     id: 'recipesView.searchRecipesPlaceholder',
-    defaultMessage: 'Search recipes...',
+    defaultMessage: 'Search task scenarios...',
   },
   scheduleDialogTitle: {
     id: 'recipesView.scheduleDialogTitle',
@@ -283,7 +284,7 @@ const i18n = defineMessages({
   },
   slashCommandDescription: {
     id: 'recipesView.slashCommandDescription',
-    defaultMessage: 'Set a slash command to quickly run this recipe from any chat',
+    defaultMessage: 'Set a slash command to run this task scenario from any chat',
   },
   slashCommandPlaceholder: {
     id: 'recipesView.slashCommandPlaceholder',
@@ -291,7 +292,7 @@ const i18n = defineMessages({
   },
   slashCommandUsageHint: {
     id: 'recipesView.slashCommandUsageHint',
-    defaultMessage: 'Use /{command} in any chat to run this recipe',
+    defaultMessage: 'Use /{command} in any chat to run this task scenario',
   },
   remove: {
     id: 'recipesView.remove',

@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: manage application-owned GGUF profiles and runtime settings.
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Trash2, X, Settings2, Eye, RefreshCw, Cpu, PowerOff } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -23,12 +24,12 @@ import { acpSaveDefaults } from '../../../acp/providers';
 const i18n = defineMessages({
   title: {
     id: 'localInferenceSettings.title',
-    defaultMessage: 'Local Inference Models',
+    defaultMessage: 'Local Models',
   },
   description: {
     id: 'localInferenceSettings.description',
     defaultMessage:
-      'Download and manage local LLM models for inference without API keys. Search Hugging Face for GGUF or MLX models.',
+      'Download and manage local AI models. Search Hugging Face for GGUF or MLX models.',
   },
   downloading: {
     id: 'localInferenceSettings.downloading',

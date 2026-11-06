@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: identify the downstream product in update requests.
 import { app } from 'electron';
 import { compareVersions } from 'compare-versions';
 import { z } from 'zod';
@@ -493,7 +494,7 @@ export class GitHubUpdater {
       const response = await fetch(this.apiUrl, {
         headers: {
           Accept: 'application/vnd.github.v3+json',
-          'User-Agent': `Goose-Desktop/${app.getVersion()}`,
+          'User-Agent': `Local-AI-Desktop/${app.getVersion()}`,
         },
         signal: controller.signal,
       });

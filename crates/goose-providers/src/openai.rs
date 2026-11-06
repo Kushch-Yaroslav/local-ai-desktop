@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: explicit managed-Qwen transport capabilities; agent loop unchanged.
 use super::api_client::ApiClient;
 use super::base::{
     find_declared_model, known_models_from_registry, ConfigKey, ModelInfo, Provider,
@@ -25,7 +26,9 @@ use crate::openai_compatible::{
     stream_responses_compat,
 };
 use crate::request_log::{start_log, LoggerHandleExt};
-use crate::thinking::ThinkingEffort;
+use crate::thinking::{
+    ThinkingEffort, ThinkingEffortCapability, ThinkingEffortOption, ThinkingEffortSupport,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use reqwest::StatusCode;
@@ -535,7 +538,29 @@ impl OpenAiProvider {
         find_declared_model(self.custom_models.as_deref()?, model_name)
     }
 
+    fn managed_qwen(&self) -> bool {
+        self.custom_headers
+            .as_ref()
+            .and_then(|h| h.get("X-Local-AI-Managed-Qwen"))
+            .is_some_and(|v| matches!(v.as_str(), "qwen35-v1" | "qwen35-toggle-v1"))
+    }
+
+    fn managed_qwen_native_effort(&self) -> bool {
+        self.custom_headers
+            .as_ref()
+            .and_then(|h| h.get("X-Local-AI-Managed-Qwen"))
+            .is_some_and(|v| v == "qwen35-v1")
+    }
+
     fn vision_support(&self, model_config: &ModelConfig) -> Option<bool> {
+        if self.managed_qwen() {
+            return Some(
+                self.custom_headers
+                    .as_ref()
+                    .and_then(|h| h.get("X-Local-AI-Vision"))
+                    .is_some_and(|v| v == "1"),
+            );
+        }
         self.declared_model(&model_config.model_name)
             .and_then(|model| model.supports_vision)
             .or(model_config.supports_vision)
@@ -546,6 +571,26 @@ impl OpenAiProvider {
         mut payload: serde_json::Value,
         model_config: &ModelConfig,
     ) -> serde_json::Value {
+        if self.managed_qwen() && model_config.model_name == "local-gguf" {
+            // Map only the Qwen template's native levels; numeric budget remains separate.
+            {
+                let effort = model_config
+                    .thinking_effort()
+                    .unwrap_or(ThinkingEffort::High);
+                payload["chat_template_kwargs"]["enable_thinking"] =
+                    json!(effort != ThinkingEffort::Off);
+                if self.managed_qwen_native_effort() {
+                    payload["chat_template_kwargs"]["reasoning_effort"] = json!(match effort {
+                        ThinkingEffort::Low => "low",
+                        ThinkingEffort::Medium => "medium",
+                        _ => "xhigh",
+                    });
+                }
+            }
+            if let Some(obj) = payload.as_object_mut() {
+                obj.remove("reasoning_effort");
+            }
+        }
         if let Some(obj) = payload.as_object_mut() {
             if Self::PROVIDERS_NEEDING_TOOL_STREAM.contains(&self.name.as_str())
                 && obj.get("stream") == Some(&json!(true))
@@ -761,6 +806,66 @@ impl ProviderDescriptor for OpenAiProvider {
 
 #[async_trait]
 impl Provider for OpenAiProvider {
+    fn thinking_effort_support(&self) -> ThinkingEffortSupport {
+        if !self.managed_qwen() {
+            return ThinkingEffortSupport::Unspecified;
+        }
+        let mut values = vec![
+            ThinkingEffortOption {
+                value: "off".into(),
+                label: "Off".into(),
+            },
+            ThinkingEffortOption {
+                value: "high".into(),
+                label: if self.managed_qwen_native_effort() {
+                    "XHigh"
+                } else {
+                    "On"
+                }
+                .into(),
+            },
+        ];
+        if self.managed_qwen_native_effort() {
+            values.splice(
+                1..1,
+                [
+                    ThinkingEffortOption {
+                        value: "low".into(),
+                        label: "Low".into(),
+                    },
+                    ThinkingEffortOption {
+                        value: "medium".into(),
+                        label: "Medium".into(),
+                    },
+                ],
+            );
+        }
+        ThinkingEffortSupport::Options(ThinkingEffortCapability {
+            option_id: "managed_qwen_thinking".into(),
+            values,
+            current: Some("high".into()),
+        })
+    }
+
+    async fn set_thinking_effort(
+        &self,
+        _session_id: &str,
+        value: &str,
+    ) -> Result<bool, ProviderError> {
+        if self.managed_qwen()
+            && !if self.managed_qwen_native_effort() {
+                ["off", "low", "medium", "high", "max"].contains(&value)
+            } else {
+                ["off", "high"].contains(&value)
+            }
+        {
+            return Err(ProviderError::InvalidValue(
+                "Unsupported thinking selection for this GGUF template".into(),
+            ));
+        }
+        Ok(false)
+    }
+
     fn get_name(&self) -> &str {
         &self.name
     }
@@ -1094,6 +1199,49 @@ mod tests {
     use super::*;
     use crate::api_client::AuthMethod;
     use serde_json::json;
+
+    #[test]
+    fn managed_qwen_transport_preserves_vision_and_maps_real_thinking_controls() {
+        let mut provider = make_provider("custom-managed");
+        provider.custom_headers = Some(HashMap::from([
+            ("X-Local-AI-Managed-Qwen".into(), "qwen35-v1".into()),
+            ("X-Local-AI-Vision".into(), "1".into()),
+        ]));
+        assert_eq!(
+            provider.vision_support(&ModelConfig::new("local-gguf")),
+            Some(true)
+        );
+        for (effort, enabled, native_effort) in [
+            (ThinkingEffort::Off, false, "xhigh"),
+            (ThinkingEffort::High, true, "xhigh"),
+            (ThinkingEffort::Low, true, "low"),
+            (ThinkingEffort::Medium, true, "medium"),
+            (ThinkingEffort::Max, true, "xhigh"),
+        ] {
+            let payload = provider.sanitize_request_for_compat(
+                json!({"messages":[],"tools":[{"type":"function"}]}),
+                &ModelConfig::new("local-gguf").with_thinking_effort(effort),
+            );
+            assert_eq!(
+                payload["chat_template_kwargs"]["enable_thinking"],
+                json!(enabled)
+            );
+            assert!(payload.get("reasoning_budget_tokens").is_none());
+            assert_eq!(
+                payload["chat_template_kwargs"]["reasoning_effort"],
+                json!(native_effort)
+            );
+            assert_eq!(payload["tools"].as_array().unwrap().len(), 1);
+        }
+        assert!(matches!(
+            provider.thinking_effort_support(),
+            ThinkingEffortSupport::Options(_)
+        ));
+        assert!(matches!(
+            make_provider("cloud").thinking_effort_support(),
+            ThinkingEffortSupport::Unspecified
+        ));
+    }
 
     fn make_provider(name: &str) -> OpenAiProvider {
         OpenAiProvider {

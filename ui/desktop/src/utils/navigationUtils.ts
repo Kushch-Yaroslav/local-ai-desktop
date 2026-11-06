@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: local model settings deep links.
 import type { NavigateFunction } from 'react-router';
 import type { Recipe } from '../recipe';
 import { UserInput } from '../types/message';
@@ -20,6 +21,8 @@ export type View =
   | 'permission';
 
 export type ViewOptions = {
+  section?: string;
+  ggufProfileId?: string;
   showEnvVars?: boolean;
   deepLinkConfig?: unknown;
   error?: string;

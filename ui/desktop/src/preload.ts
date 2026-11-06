@@ -1,3 +1,16 @@
+import type { MemorySnapshot } from './memoryTelemetryTypes';
+import type { ProtocolSummary } from './ggufProtocolAudit';
+// Modified for Local AI Desktop: managed GGUF IPC.
+import type {
+  GgufProfile,
+  GgufEndpoint,
+  RuntimeProbe,
+  RuntimeState,
+  ProfileEntry,
+  GgufDiscoveryProgress,
+} from './ggufTypes';
+import type { ContextDiscoveryOption } from './contextDiscovery/contextEstimator';
+import type { ManagedDiscoveryResult } from './managedGguf';
 import Electron, { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Recipe } from './recipe';
 import type { GooseApp } from './types/apps';
@@ -111,6 +124,34 @@ type ElectronAPI = {
   showSaveDialog: (options: SaveDialogOptions) => Promise<SaveDialogResponse>;
   reloadApp: () => void;
   checkForOllama: () => Promise<boolean>;
+  ggufList: () => Promise<ProfileEntry[]>;
+  ggufSave: (profile: GgufProfile) => Promise<GgufProfile>;
+  ggufDelete: (id: string) => Promise<void>;
+  ggufValidate: (profile: GgufProfile) => Promise<{ placementConfirmationRequired: boolean }>;
+  memorySample: () => Promise<MemorySnapshot>;
+  memoryCancel: () => void;
+  ggufDiagnostics: (id: string) => Promise<{ args?: string[]; accepted?: number; proposed?: number }>;
+  ggufSetVision: (id:string, enabled:boolean) => Promise<GgufProfile>;
+  ggufSetMtp: (id:string, enabled:boolean) => Promise<GgufProfile>;
+  ggufReloadProfile: (id:string, token:string) => Promise<GgufEndpoint>;
+  ggufCapabilities: (id: string) => Promise<{ visionSupported?: boolean; visionError?: string; embeddedMtp?: boolean; thinking: boolean; nativeEfforts?: boolean; reasoning?: import('./ggufReasoningCapabilities').ManagedReasoningCapabilities; vision: boolean }>;
+  ggufRuntime: () => Promise<string>;
+  ggufPlacement: (profile: GgufProfile) => Promise<Awaited<ReturnType<typeof import('./moe/placement').placementPreview>>>;
+  ggufProbe: (executable: string) => Promise<RuntimeProbe>;
+  ggufPrepare: (id: string) => Promise<GgufEndpoint>;
+  ggufStart: (id: string) => Promise<GgufEndpoint>;
+  ggufProtocolAudit: (enabled?: boolean) => Promise<ProtocolSummary[]>;
+  ggufState: () => Promise<RuntimeState>;
+  ggufOnState: (callback: (state: RuntimeState) => void) => () => void;
+  ggufStop: () => Promise<void>;
+  ggufDiscoveryCatalog: (id: string) => Promise<{ modelId: string; hardLimit: number; identityKey: string; selectedContext: number; selectedKv: 'f16' | 'q8_0' | 'custom'; supportedKv: Array<'f16' | 'q8_0'>; options: ContextDiscoveryOption[]; previous: ContextDiscoveryOption[] }>;
+  ggufDiscoveryAcquire: () => Promise<string>;
+  ggufDiscoveryRelease: (token: string) => Promise<void>;
+  ggufDiscoveryCancel: (token: string) => Promise<void>;
+  ggufDiscoveryRun: (id: string, token: string) => Promise<ManagedDiscoveryResult>;
+  ggufDiscoveryStatus: () => Promise<GgufDiscoveryProgress>;
+  ggufApplyContext: (id: string, context: number, kv: 'f16' | 'q8_0' | 'custom', token: string) => Promise<{ applied: boolean; loaded: boolean; context: number; kv: 'f16' | 'q8_0' | 'custom' }>;
+  ggufOnDiscoveryProgress: (callback: (state: GgufDiscoveryProgress) => void) => () => void;
   selectFileOrDirectory: (defaultPath?: string) => Promise<string | null>;
   selectImportSessionFile: () => Promise<{
     filePath: string;
@@ -213,6 +254,44 @@ const electronAPI: ElectronAPI = {
   reloadApp: () => ipcRenderer.send('reload-app'),
   checkForOllama: () => ipcRenderer.invoke('check-ollama'),
 
+  ggufList: () => ipcRenderer.invoke('gguf-list'),
+  ggufSave: (profile: GgufProfile) => ipcRenderer.invoke('gguf-save', profile),
+  ggufDelete: (id: string) => ipcRenderer.invoke('gguf-delete', id),
+  ggufValidate: (profile: GgufProfile) => ipcRenderer.invoke('gguf-validate', profile),
+  memorySample: () => ipcRenderer.invoke('memory-sample'),
+  memoryCancel: () => ipcRenderer.send('memory-cancel'),
+  ggufDiagnostics: (id: string) => ipcRenderer.invoke('gguf-diagnostics', id),
+  ggufSetVision: (id:string, enabled:boolean) => ipcRenderer.invoke('gguf-set-vision',id,enabled),
+  ggufSetMtp: (id:string, enabled:boolean) => ipcRenderer.invoke('gguf-set-mtp',id,enabled),
+  ggufReloadProfile: (id:string, token:string) => ipcRenderer.invoke('gguf-reload-profile',id,token),
+  ggufCapabilities: (id: string) => ipcRenderer.invoke('gguf-capabilities', id),
+  ggufRuntime: () => ipcRenderer.invoke('gguf-runtime'),
+  ggufPlacement: (profile: GgufProfile) => ipcRenderer.invoke('gguf-placement', profile),
+  ggufProbe: (executable: string) => ipcRenderer.invoke('gguf-probe', executable),
+  ggufPrepare: (id: string) => ipcRenderer.invoke('gguf-prepare', id),
+  ggufStart: (id: string) => ipcRenderer.invoke('gguf-start', id),
+  ggufProtocolAudit: (enabled?: boolean) => ipcRenderer.invoke('gguf-protocol-audit', enabled),
+  ggufState: () => ipcRenderer.invoke('gguf-state'),
+  ggufOnState: (callback: (state: RuntimeState) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: RuntimeState) => callback(state);
+    ipcRenderer.on('gguf-state', listener);
+    return () => {
+      ipcRenderer.removeListener('gguf-state', listener);
+    };
+  },
+  ggufStop: () => ipcRenderer.invoke('gguf-stop'),
+  ggufDiscoveryCatalog: (id: string) => ipcRenderer.invoke('gguf-discovery-catalog', id),
+  ggufDiscoveryAcquire: () => ipcRenderer.invoke('gguf-discovery-acquire'),
+  ggufDiscoveryRelease: (token: string) => ipcRenderer.invoke('gguf-discovery-release', token),
+  ggufDiscoveryCancel: (token: string) => ipcRenderer.invoke('gguf-discovery-cancel', token),
+  ggufDiscoveryRun: (id: string, token: string) => ipcRenderer.invoke('gguf-discovery-run', id, token),
+  ggufDiscoveryStatus: () => ipcRenderer.invoke('gguf-discovery-status'),
+  ggufApplyContext: (id: string, context: number, kv: 'f16' | 'q8_0' | 'custom', token: string) => ipcRenderer.invoke('gguf-apply-context', id, context, kv, token),
+  ggufOnDiscoveryProgress: (callback: (state: GgufDiscoveryProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: GgufDiscoveryProgress) => callback(state);
+    ipcRenderer.on('gguf-discovery-progress', listener);
+    return () => ipcRenderer.removeListener('gguf-discovery-progress', listener);
+  },
   selectFileOrDirectory: (defaultPath?: string) =>
     ipcRenderer.invoke('select-file-or-directory', defaultPath),
   selectImportSessionFile: () => ipcRenderer.invoke('select-import-session-file'),

@@ -2449,6 +2449,22 @@ impl AcpConnection {
         Ok(SetSessionModeResponse::new())
     }
 
+    // Local AI Desktop: validated managed-provider request budget.
+    async fn on_set_thinking_budget(
+        &self,
+        session_id: &str,
+        value: &str,
+    ) -> Result<(), agent_client_protocol::Error> {
+        self.open_session(session_id).await?;
+        let budget = value
+            .parse::<i64>()
+            .map_err(|_| agent_client_protocol::Error::invalid_params())?;
+        self.services
+            .update_managed_thinking_budget(session_id, budget)
+            .await
+            .map_err(thinking_effort_error)
+    }
+
     async fn on_set_thinking_effort(
         &self,
         session_id: &str,

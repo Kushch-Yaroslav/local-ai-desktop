@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: restore profile endpoints without loading weights.
+import { synchronizeLocalProfiles } from '../acp/managedLocalProfiles';
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { toastError, toastSuccess } from '../toasts';
 import Model, { getProviderMetadata } from './settings/models/modelInterface';
@@ -217,6 +219,9 @@ export const ModelAndProviderProvider: React.FC<ModelAndProviderProviderProps> =
 
   const refreshCurrentModelAndProvider = useCallback(async () => {
     try {
+      await synchronizeLocalProfiles().catch((error) =>
+        console.warn('Local profiles unavailable; retaining other Goose providers', String(error))
+      );
       const { model, provider } = await getCurrentModelAndProvider();
       setCurrentModel(model);
       setCurrentProvider(provider);

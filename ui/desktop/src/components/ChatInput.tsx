@@ -1,8 +1,10 @@
+// Modified for Local AI Desktop: unified model access and session controls; Goose submission remains intact.
+import SessionSettingsPopover, { type NewChatSettings } from './SessionSettingsPopover';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, Bug } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/Tooltip';
 import { Button } from './ui/button';
-import type { View } from '../utils/navigationUtils';
+import type { View, ViewOptions } from '../utils/navigationUtils';
 import Stop from './ui/Stop';
 import { Attach, Close, Microphone } from './icons';
 import { ChatState } from '../types/chatState';
@@ -71,10 +73,7 @@ interface PastedImage {
   error?: string;
 }
 
-type ChatInputLiveVoice = Pick<
-  LiveVoiceController,
-  'phase' | 'muted' | 'stop' | 'toggleMute'
-> & {
+type ChatInputLiveVoice = Pick<LiveVoiceController, 'phase' | 'muted' | 'stop' | 'toggleMute'> & {
   availability: LiveVoiceAvailabilityResponse_unstable | null;
   activeInAnotherSession: boolean;
   start: () => Promise<void>;
@@ -177,7 +176,7 @@ interface ChatInputProps {
   draftRef?: React.RefObject<string>;
   droppedFiles?: DroppedFile[];
   onFilesProcessed?: () => void;
-  setView: (view: View) => void;
+  setView: (view: View, options?: ViewOptions) => void;
   totalTokens?: number;
   contextLimit?: number;
   accumulatedInputTokens?: number;
@@ -196,6 +195,8 @@ interface ChatInputProps {
   sessionLoaded?: boolean;
   workingDir?: string | null;
   latestInference?: Message['metadata']['inference'] | null;
+  newChatSettings?: NewChatSettings;
+  onNewChatSettingsChange?: (settings: NewChatSettings) => void;
   nextChatExtensionDraft?: NextChatExtensionDraft;
   onNextChatExtensionDraftChange?: (draft: NextChatExtensionDraft) => void;
   liveVoice?: ChatInputLiveVoice;
@@ -236,6 +237,8 @@ export default function ChatInput({
   sessionLoaded,
   workingDir,
   latestInference,
+  newChatSettings,
+  onNewChatSettingsChange,
   nextChatExtensionDraft,
   onNextChatExtensionDraftChange,
   liveVoice,
@@ -343,6 +346,27 @@ export default function ChatInput({
       setModelOverride(null);
     }
   }, [sessionModel, sessionProvider, configModel, configProvider, sessionId, modelOverride]);
+  const [managedContextLimit, setManagedContextLimit] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      const [profiles, runtime] = await Promise.all([window.electron.ggufList(), window.electron.ggufState()]);
+      const selected = profiles.find((entry) => entry.profile.providerId === effectiveProvider && entry.profile.backend !== 'native');
+      let limit: number | null = null;
+      if (selected) {
+        if (runtime.phase === 'ready' && runtime.profileId === selected.profile.id) {
+          const index = runtime.args?.indexOf('--ctx-size') ?? -1;
+          limit = index >= 0 ? Number(runtime.args![index + 1]) : selected.profile.context;
+        } else {
+          limit = (await window.electron.ggufDiscoveryCatalog(selected.profile.id!)).selectedContext;
+        }
+      }
+      if (alive) setManagedContextLimit(limit);
+    };
+    void refresh().catch(() => { if (alive) setManagedContextLimit(null); });
+    const off = window.electron.ggufOnState(() => { void refresh().catch(() => {}); });
+    return () => { alive = false; off(); };
+  }, [effectiveProvider]);
   const [tokenLimit, setTokenLimit] = useState<number>(TOKEN_LIMIT_DEFAULT);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [contextXrayOpen, setContextXrayOpen] = useState(false);
@@ -639,6 +663,18 @@ export default function ChatInput({
         provider = configModelAndProvider.provider;
       }
       if (!model || !provider) {
+        return;
+      }
+
+      // Managed profile context is known before weights load; do not display a cloud default.
+      const managedProfiles = await window.electron.ggufList();
+      const managedProfile = managedProfiles.find(
+        (entry) =>
+          entry.profile.providerId === provider &&
+          (entry.profile.backend !== 'native' || entry.profile.model === model)
+      );
+      if (managedProfile) {
+        setTokenLimit(managedProfile.profile.context);
         return;
       }
 
@@ -1687,6 +1723,7 @@ export default function ChatInput({
         </Tooltip>
 
         {/* Left: working directory (leaf folder name only) */}
+        {isBottomBarNarrow && <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />}
         {!isBottomBarNarrow && (
           <DirSwitcher
             className=""
@@ -1706,6 +1743,7 @@ export default function ChatInput({
         {/* Spacer */}
         <div className="flex-1" />
 
+        {isBottomBarNarrow && <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />}
         {!isBottomBarNarrow && (
           <>
             {/* Right: cost tracker (when enabled) */}
@@ -1719,10 +1757,12 @@ export default function ChatInput({
               />
             )}
 
+            <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />
+
             {/* Right: context window indicator */}
             <ContextWindowIndicator
               totalTokens={totalTokens || 0}
-              tokenLimit={tokenLimit}
+              tokenLimit={managedContextLimit ?? tokenLimit}
               onOpen={sessionId ? () => setContextXrayOpen(true) : undefined}
             />
 

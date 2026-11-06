@@ -5,6 +5,7 @@
  * a large time + greeting above a centered, narrower ChatInput. Submitting
  * creates a session and navigates to /pair so the rest of the chat lifecycle
  * lives there.
+ * Modified for Local AI Desktop: apply per-chat controls before first submission.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
@@ -12,6 +13,9 @@ import { useLocation } from 'react-router';
 import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
 import ChatInput from './ChatInput';
+import MemoryMonitor from './settings/localInference/MemoryMonitor';
+import type { NewChatSettings } from './SessionSettingsPopover';
+import { configureNewChatSession } from '../acp/newChatSettings';
 import { ChatInputCard } from './ChatInputCard';
 import { ChatState } from '../types/chatState';
 import 'react-toastify/dist/ReactToastify.css';
@@ -39,6 +43,8 @@ const i18n = defineMessages({
   goodAfternoon: { id: 'hub.goodAfternoon', defaultMessage: 'Good afternoon' },
   goodEvening: { id: 'hub.goodEvening', defaultMessage: 'Good evening' },
 });
+
+const settingsDrafts = new WeakMap<object, NewChatSettings>();
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -71,6 +77,13 @@ export default function Hub({
     useState<LiveVoiceAvailabilityResponse_unstable | null>(null);
   const [nextChatExtensionDraft, setNextChatExtensionDraft] =
     useState<NextChatExtensionDraft | null>(null);
+  const [newChatSettings, setNewChatSettings] = useState<NewChatSettings>(
+    () => settingsDrafts.get(draftRef) ?? {}
+  );
+  const changeNewChatSettings = (value: NewChatSettings) => {
+    settingsDrafts.set(draftRef, value);
+    setNewChatSettings(value);
+  };
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { time, meridiem, hour } = useClock();
 
@@ -143,8 +156,11 @@ export default function Hub({
     setWorkingDir(dir);
   }, []);
 
+  const preparedSession = useRef<Awaited<ReturnType<typeof createSession>> | null>(null);
+  const creatingSessionRef = useRef(false);
   const createHubSession = async () => {
-    if (isCreatingSession) return null;
+    if (creatingSessionRef.current) return null;
+    creatingSessionRef.current = true;
     setIsCreatingSession(true);
 
     try {
@@ -161,12 +177,17 @@ export default function Hub({
       const dir = userSelectedWorkingDirRef.current
         ? workingDir
         : await getEffectiveWorkingDir(initialWorkingDir);
-      const session = await createSession(dir, sessionOptions);
+      const session = preparedSession.current ?? (await createSession(dir, sessionOptions));
+      preparedSession.current = session;
+      const configuredSession = await configureNewChatSession(session, newChatSettings);
+      preparedSession.current = null;
+      settingsDrafts.delete(draftRef);
       setNextChatExtensionDraft(null);
-      return session;
+      return configuredSession;
     } catch (error) {
       console.error('Failed to create session:', error);
       toastError({ title: "Couldn't start chat", msg: formatAcpError(error) });
+      creatingSessionRef.current = false;
       setIsCreatingSession(false);
       return null;
     }
@@ -224,6 +245,9 @@ export default function Hub({
 
   return (
     <div className="flex flex-col h-full min-h-0 items-center justify-center px-6 relative">
+      <div className="absolute right-4 top-3 z-10 max-w-[calc(100%-2rem)]">
+        <MemoryMonitor />
+      </div>
       <div className="w-full max-w-3xl">
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-6xl font-light text-text-primary tracking-tight tabular-nums">
@@ -238,6 +262,8 @@ export default function Hub({
         <ChatInputCard>
           <ChatInput
             sessionId={null}
+            newChatSettings={newChatSettings}
+            onNewChatSettingsChange={changeNewChatSettings}
             draftRef={draftRef}
             handleSubmit={handleSubmit}
             chatState={isCreatingSession ? ChatState.LoadingConversation : ChatState.Idle}

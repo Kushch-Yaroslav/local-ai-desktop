@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: retain session configuration across provider/model notifications.
+import { rememberSessionConfiguration } from './sessionConfiguration';
 import type {
   GooseSessionNotification_unstable,
   ProviderDeviceCodeNotification_unstable,
@@ -16,6 +18,8 @@ export function handleAcpSessionNotification(notification: SessionNotification):
     notification.update.sessionUpdate === 'session_info_update'
       ? notification.update.title
       : undefined;
+  if (notification.update.sessionUpdate === 'current_mode_update') rememberSessionConfiguration(notification.sessionId, { modes: { currentModeId: notification.update.currentModeId } });
+  if (notification.update.sessionUpdate === 'config_option_update') rememberSessionConfiguration(notification.sessionId, notification.update);
   acpChatSessionActions.applyAcpSessionNotification(notification);
   maybeHandleLivePlatformEvent(notification);
 

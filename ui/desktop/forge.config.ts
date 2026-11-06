@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: repair packaging configuration syntax.
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const { resolve } = require('path');
@@ -6,7 +7,19 @@ const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 
 let cfg = {
   asar: true,
-  extraResource: ['src/bin', 'src/images'],
+  executableName: 'local-ai-desktop',
+  // Allow offline packaging from a verified local Electron ZIP when supplied.
+  electronZipDir: process.env.ELECTRON_PACKAGER_ELECTRON_ZIP_DIR || undefined,
+  extraResource: [
+    'src/bin',
+    'src/images',
+    resolve(__dirname, '../../runtime/llama'),
+    resolve(__dirname, '../../LICENSE'),
+    resolve(__dirname, '../../THIRD_PARTY_NOTICES.md'),
+    resolve(__dirname, '../../THIRD_PARTY_NOTICES.local-ai-desktop.md'),
+    resolve(__dirname, '../../licenses'),
+    resolve(__dirname, '../../assets/ATTRIBUTION.md'),
+  ],
   icon: 'src/images/icon',
   // Windows specific configuration
   win32: {
@@ -58,6 +71,8 @@ if (process.env.APPLE_TEAM_ID) {
 }
 
 module.exports = {
+  // Preserve the dev launcher output unless a release build explicitly selects another directory.
+  outDir: process.env.LOCAL_AI_DESKTOP_FORGE_OUT_DIR || 'out',
   packagerConfig: cfg,
   rebuildConfig: {},
   makers: [
@@ -107,7 +122,7 @@ module.exports = {
       name: '@electron-forge/maker-flatpak',
       config: {
         options: {
-          id: 'io.github.Kushch-Yaroslav.local-ai-desktop'
+          id: 'io.github.Kushch-Yaroslav.local-ai-desktop',
           categories: ['Development'],
           mimeType: ['x-scheme-handler/local-ai-desktop'],
           icon: {

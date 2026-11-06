@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: persist the selected managed local model.
 export type RecentModel = {
   provider: string;
   model: string;
@@ -55,6 +56,7 @@ export interface Settings {
   language: LanguageSetting;
   responseStyle: string;
   showPricing: boolean;
+  memoryMonitoring: boolean;
   seenAnnouncementIds: string[];
   recentModels: RecentModel[];
   showThinking: ShowThinking;
@@ -97,6 +99,7 @@ export const defaultSettings: Settings = {
   language: 'system',
   responseStyle: 'concise',
   showPricing: true,
+  memoryMonitoring: false,
   seenAnnouncementIds: [],
   recentModels: [],
   showThinking: 'collapsed',

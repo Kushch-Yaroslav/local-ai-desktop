@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: adapt the Goose skills view to the product UI.
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Zap, AlertCircle, Plus } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
@@ -48,7 +49,7 @@ const i18n = defineMessages({
   },
   skillsDescription: {
     id: 'skillsView.skillsDescription',
-    defaultMessage: 'View installed skills that extend Goose capabilities. {shortcut} to search.',
+    defaultMessage: 'View installed skills that extend your assistant. {shortcut} to search.',
   },
   searchSkillsPlaceholder: {
     id: 'skillsView.searchSkillsPlaceholder',

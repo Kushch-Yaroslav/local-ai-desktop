@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: restore managed GGUF configuration on session operations.
+import { rememberSessionConfiguration } from './sessionConfiguration';
 import {
   methods,
   type ForkSessionRequest,
@@ -213,6 +215,7 @@ async function loadAcpSession(sessionId: string): Promise<AcpLoadSessionResult> 
     cwd: initialSessionInfo.cwd,
     mcpServers: [],
   });
+  rememberSessionConfiguration(sessionId, response);
   // Loading can populate missing provider/model metadata.
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 
@@ -261,6 +264,7 @@ export async function acpNewSession(
   const request: NewSessionRequest = { cwd, mcpServers: [], _meta: meta };
   const response = await client.connection.agent.request(methods.agent.session.new, request);
   const sessionId = String(response.sessionId);
+  rememberSessionConfiguration(sessionId, response);
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 
   return {

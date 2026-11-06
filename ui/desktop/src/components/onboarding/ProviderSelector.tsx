@@ -1,3 +1,6 @@
+import { ggufMessages } from '../../ggufMessages';
+// Modified for Local AI Desktop: third inference onboarding option.
+import AdvancedLocalInference from './AdvancedLocalInference';
 import { useState, useEffect, useMemo } from 'react';
 import {
   acpCreateCustomProviderFromRequest,
@@ -47,7 +50,7 @@ const i18n = defineMessages({
 const LOCAL_MODEL = 'local-model' as const;
 const OWN_PROVIDER = 'own-provider' as const;
 
-type SelectedPath = typeof LOCAL_MODEL | typeof OWN_PROVIDER | null;
+type SelectedPath = typeof LOCAL_MODEL | typeof OWN_PROVIDER | 'advanced-local' | null;
 
 interface ProviderOption {
   value: string;
@@ -133,39 +136,57 @@ export default function ProviderSelector({
 
   return (
     <div>
-      <div className={`grid ${localInference ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-6`}>
+      <div
+        className={`grid ${localInference ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'} gap-3 mb-6`}
+      >
         {localInference && (
           <div
             onClick={handleLocalModelClick}
             className={`p-4 border rounded-xl transition-all duration-200 cursor-pointer group ${
               selectedPath === LOCAL_MODEL
-                ? 'border-blue-400 bg-background-muted'
-                : 'border-border-default bg-background-muted hover:border-blue-400'
+                ? 'border-blue-400 bg-background-secondary'
+                : 'border-border-primary bg-background-secondary hover:border-blue-400'
             }`}
           >
-            <HardDrive size={20} className="text-text-muted mb-2" />
-            <span className="font-medium text-text-default text-base block">
+            <HardDrive size={20} className="text-text-secondary mb-2" />
+            <span className="font-medium text-text-primary text-base block">
               {intl.formatMessage(i18n.useLocalModel)}
             </span>
-            <p className="text-text-muted text-sm mt-1">
+            <p className="text-text-secondary text-sm mt-1">
               {intl.formatMessage(i18n.localModelDescription)}
             </p>
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedPath('advanced-local');
+            onFirstSelection?.();
+          }}
+          className={`p-4 text-left border rounded-xl bg-background-secondary ${selectedPath === 'advanced-local' ? 'border-blue-400' : 'border-border-primary hover:border-blue-400'}`}
+        >
+          <HardDrive size={20} className="text-text-secondary mb-2" />
+          <span className="font-medium text-text-primary text-base block">
+            {intl.formatMessage(ggufMessages.title)}
+          </span>
+          <p className="text-text-secondary text-sm mt-1">
+            {intl.formatMessage(ggufMessages.advancedCard)}
+          </p>
+        </button>
         <div
           onClick={handleOwnProviderClick}
           className={`p-4 border rounded-xl transition-all duration-200 cursor-pointer group ${
             selectedPath === OWN_PROVIDER
-              ? 'border-blue-400 bg-background-muted'
-              : 'border-border-default bg-background-muted hover:border-blue-400'
+              ? 'border-blue-400 bg-background-secondary'
+              : 'border-border-primary bg-background-secondary hover:border-blue-400'
           }`}
         >
-          <Key size={20} className="text-text-muted mb-2" />
-          <span className="font-medium text-text-default text-base block">
+          <Key size={20} className="text-text-secondary mb-2" />
+          <span className="font-medium text-text-primary text-base block">
             {intl.formatMessage(i18n.connectProvider)}
           </span>
-          <p className="text-text-muted text-sm mt-1">
+          <p className="text-text-secondary text-sm mt-1">
             {intl.formatMessage(i18n.connectProviderDescription)}
           </p>
         </div>
@@ -177,6 +198,7 @@ export default function ProviderSelector({
         </div>
       )}
 
+      {selectedPath === 'advanced-local' && <AdvancedLocalInference onConfigured={onConfigured} />}
       {selectedPath === OWN_PROVIDER && (
         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="mb-4">
@@ -194,7 +216,7 @@ export default function ProviderSelector({
 
           <button
             onClick={() => setShowCustomModal(true)}
-            className="flex items-center gap-1 text-sm text-text-muted hover:text-text-default transition-colors mb-6"
+            className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6"
           >
             <Plus size={14} />
             <span>{intl.formatMessage(i18n.addCustomProvider)}</span>

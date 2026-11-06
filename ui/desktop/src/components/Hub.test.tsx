@@ -1,5 +1,6 @@
 /**
  * @vitest-environment jsdom
+ * Modified for Local AI Desktop: cover settings applied before a new chat starts.
  */
 import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,6 +14,7 @@ import { subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { LiveVoiceController } from '../liveVoice/useLiveVoice';
 
 type ChatInputCapture = {
+  onNewChatSettingsChange?: (settings: { mode?: 'approve'; effort?: 'low' }) => void;
   draftRef?: { current: string };
   handleSubmit: (input: UserInput) => void;
   workingDir: string;
@@ -37,6 +39,7 @@ const liveVoice: LiveVoiceController = {
 };
 
 const captured = vi.hoisted(() => ({ chatInput: null as ChatInputCapture | null }));
+const { configureRequest } = vi.hoisted(() => ({ configureRequest: vi.fn() }));
 
 vi.mock('./ChatInput', () => ({
   default: (props: ChatInputCapture) => {
@@ -70,7 +73,7 @@ vi.mock('../toasts', () => ({ toastError: vi.fn() }));
 
 vi.mock('../acp/liveVoice', () => ({ acpGetLiveVoiceAvailability: vi.fn() }));
 
-vi.mock('../acp/acpConnection', () => ({ subscribeToAcpRecovery: vi.fn() }));
+vi.mock('../acp/acpConnection', () => ({ subscribeToAcpRecovery: vi.fn(), getAcpClient: async () => ({ connection: { agent: { request: configureRequest } } }) }));
 
 const DRAFT = 'a half-written thought';
 const TYPED_WHILE_STARTING = 'and one more thought';
@@ -113,6 +116,25 @@ describe('Hub', () => {
     captured.chatInput = null;
     vi.mocked(acpGetLiveVoiceAvailability).mockRejectedValue(new Error('ACP unavailable'));
     vi.mocked(subscribeToAcpRecovery).mockReturnValue(() => undefined);
+  });
+
+  it('holds the initial-message event until draft mode and effort are acknowledged', async () => {
+    vi.mocked(createSession).mockResolvedValue({ id: 'draft-config-session' } as Session);
+    let acknowledge!: () => void;
+    configureRequest.mockImplementationOnce(() => new Promise<void>((resolve) => { acknowledge = resolve; })).mockResolvedValueOnce(undefined);
+    const sent = vi.fn();
+    window.addEventListener('add-active-session', sent);
+    renderHub({ current: DRAFT });
+    await act(async () => captured.chatInput?.onNewChatSettingsChange?.({ mode: 'approve', effort: 'low' }));
+    await submit();
+    await waitFor(() => expect(configureRequest).toHaveBeenCalledTimes(1));
+    expect(sent).not.toHaveBeenCalled();
+    await act(async () => acknowledge());
+    await waitFor(() => expect(configureRequest).toHaveBeenCalledTimes(2));
+    expect(configureRequest).toHaveBeenNthCalledWith(1, 'session/set_mode', { sessionId: 'draft-config-session', modeId: 'approve' });
+    expect(configureRequest).toHaveBeenNthCalledWith(2, 'session/set_config_option', { sessionId: 'draft-config-session', configId: 'thinking_effort', value: 'low' });
+    await waitFor(() => expect(sent).toHaveBeenCalledTimes(1));
+    window.removeEventListener('add-active-session', sent);
   });
 
   it.each([undefined, '/projects/payments'])(

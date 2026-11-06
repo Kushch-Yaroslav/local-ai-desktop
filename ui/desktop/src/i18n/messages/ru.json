@@ -1782,7 +1782,7 @@
     "defaultMessage": "Удалить эту модель? Позже ее можно скачать снова."
   },
   "localInferenceSettings.description": {
-    "defaultMessage": "Скачивайте и управляйте локальными LLM-моделями для инференса без API-ключей. Ищите модели GGUF или MLX на Hugging Face."
+    "defaultMessage": "Скачивайте и настраивайте локальные модели ИИ. Ищите модели GGUF или MLX на Hugging Face."
   },
   "localInferenceSettings.dismiss": {
     "defaultMessage": "Скрыть"
@@ -1803,13 +1803,13 @@
     "defaultMessage": "Скачивание"
   },
   "localInferenceSettings.evictFromMemory": {
-    "defaultMessage": "Evict from memory"
+    "defaultMessage": "Выгрузить из памяти"
   },
   "localInferenceSettings.huggingFaceSignInNote": {
     "defaultMessage": "Войдите, чтобы увеличить лимиты запросов при поиске и загрузке моделей, а также получить доступ к приватным или ограниченным репозиториям Hugging Face."
   },
   "localInferenceSettings.loadedInMemory": {
-    "defaultMessage": "Loaded in memory"
+    "defaultMessage": "Загружена в память"
   },
   "localInferenceSettings.modelSettings": {
     "defaultMessage": "Настройки модели"
@@ -1830,7 +1830,7 @@
     "defaultMessage": "Повторить"
   },
   "localInferenceSettings.title": {
-    "defaultMessage": "Локальные модели инференса"
+    "defaultMessage": "Локальные модели"
   },
   "localInferenceSettings.vision": {
     "defaultMessage": "Зрение"
@@ -2361,7 +2361,7 @@
     "defaultMessage": "Новый чат"
   },
   "navigation.itemRecipes": {
-    "defaultMessage": "Рецепты"
+    "defaultMessage": "Сценарии задач"
   },
   "navigation.itemScheduler": {
     "defaultMessage": "Планировщик"
@@ -3132,79 +3132,79 @@
     "defaultMessage": "Копировать YAML"
   },
   "recipesView.copyYamlFailedMsg": {
-    "defaultMessage": "Не удалось скопировать YAML рецепта в буфер обмена"
+    "defaultMessage": "Не удалось скопировать YAML сценария задачи в буфер обмена"
   },
   "recipesView.createRecipe": {
-    "defaultMessage": "Создать рецепт"
+    "defaultMessage": "Создать сценарий"
   },
   "recipesView.deeplinkCopiedMsg": {
-    "defaultMessage": "Диплинк рецепта скопирован в буфер обмена"
+    "defaultMessage": "Ссылка на сценарий скопирована в буфер обмена"
   },
   "recipesView.deeplinkCopiedTitle": {
     "defaultMessage": "Диплинк скопирован"
   },
   "recipesView.deleteRecipe": {
-    "defaultMessage": "Удалить рецепт"
+    "defaultMessage": "Удалить сценарий"
   },
   "recipesView.deleteRecipeConfirm": {
     "defaultMessage": "Удалить «{title}»?"
   },
   "recipesView.deleteRecipeDetail": {
-    "defaultMessage": "Файл рецепта будет удален."
+    "defaultMessage": "Файл сценария задачи будет удалён."
   },
   "recipesView.deleteRecipeTitle": {
-    "defaultMessage": "Удалить рецепт"
+    "defaultMessage": "Удалить сценарий задачи"
   },
   "recipesView.editRecipe": {
-    "defaultMessage": "Изменить рецепт"
+    "defaultMessage": "Изменить сценарий"
   },
   "recipesView.editSchedule": {
     "defaultMessage": "Изменить расписание"
   },
   "recipesView.editSlashCommand": {
-    "defaultMessage": "Изменить slash-команду"
+    "defaultMessage": "Изменить команду быстрого запуска"
   },
   "recipesView.errorLoadingRecipes": {
-    "defaultMessage": "Ошибка загрузки рецептов"
+    "defaultMessage": "Не удалось загрузить сценарии задач"
   },
   "recipesView.exportFailedMsg": {
-    "defaultMessage": "Не удалось экспортировать рецепт в файл"
+    "defaultMessage": "Не удалось экспортировать сценарий задачи в файл"
   },
   "recipesView.exportFailedTitle": {
     "defaultMessage": "Экспорт не удался"
   },
   "recipesView.exportRecipeDialogTitle": {
-    "defaultMessage": "Экспортировать рецепт"
+    "defaultMessage": "Экспортировать сценарий задачи"
   },
   "recipesView.exportToFile": {
     "defaultMessage": "Экспортировать в файл"
   },
   "recipesView.noMatchingRecipes": {
-    "defaultMessage": "Подходящие рецепты не найдены"
+    "defaultMessage": "Подходящие сценарии задач не найдены"
   },
   "recipesView.noSavedRecipes": {
-    "defaultMessage": "Нет сохраненных рецептов"
+    "defaultMessage": "Нет сохранённых сценариев задач"
   },
   "recipesView.noSavedRecipesDescription": {
-    "defaultMessage": "Сохраненные рецепты появятся здесь."
+    "defaultMessage": "Сохранённые сценарии задач появятся здесь."
   },
   "recipesView.openInNewWindow": {
     "defaultMessage": "Открыть в новом окне"
   },
   "recipesView.recipeDeletedSuccess": {
-    "defaultMessage": "Рецепт успешно удален"
+    "defaultMessage": "Сценарий задачи удалён"
   },
   "recipesView.recipeExportedMsg": {
-    "defaultMessage": "Рецепт сохранен в {filePath}"
+    "defaultMessage": "Сценарий задачи сохранён в {filePath}"
   },
   "recipesView.recipeExportedTitle": {
-    "defaultMessage": "Рецепт экспортирован"
+    "defaultMessage": "Сценарий задачи экспортирован"
   },
   "recipesView.recipesDescription": {
-    "defaultMessage": "Просматривайте и управляйте сохраненными рецептами, чтобы быстро запускать новые сеансы с предустановленными конфигурациями. {shortcut} для поиска."
+    "defaultMessage": "Управляйте сценариями задач и запускайте сеансы с заранее заданными инструкциями и настройками. {shortcut} — поиск."
   },
   "recipesView.recipesTitle": {
-    "defaultMessage": "Рецепты"
+    "defaultMessage": "Сценарии задач"
   },
   "recipesView.remove": {
     "defaultMessage": "Удалить"
@@ -3222,13 +3222,13 @@
     "defaultMessage": "{action} расписание"
   },
   "recipesView.scheduleRemovedMsg": {
-    "defaultMessage": "Рецепт больше не будет запускаться автоматически"
+    "defaultMessage": "Сценарий задачи больше не будет запускаться автоматически"
   },
   "recipesView.scheduleRemovedTitle": {
     "defaultMessage": "Расписание удалено"
   },
   "recipesView.scheduleSavedMsg": {
-    "defaultMessage": "Рецепт будет запускаться {schedule}"
+    "defaultMessage": "Сценарий задачи будет запускаться {schedule}"
   },
   "recipesView.scheduleSavedTitle": {
     "defaultMessage": "Расписание сохранено"
@@ -3237,37 +3237,37 @@
     "defaultMessage": "Поиск рецептов..."
   },
   "recipesView.shareRecipe": {
-    "defaultMessage": "Поделиться рецептом"
+    "defaultMessage": "Поделиться сценарием"
   },
   "recipesView.slashCommandDescription": {
-    "defaultMessage": "Задайте slash-команду, чтобы быстро запускать этот рецепт из любого чата"
+    "defaultMessage": "Задайте команду быстрого запуска для этого сценария в любом чате"
   },
   "recipesView.slashCommandPlaceholder": {
     "defaultMessage": "command-name"
   },
   "recipesView.slashCommandRemovedMsg": {
-    "defaultMessage": "Slash-команда рецепта удалена"
+    "defaultMessage": "Команда для сценария удалена"
   },
   "recipesView.slashCommandRemovedTitle": {
-    "defaultMessage": "Slash-команда удалена"
+    "defaultMessage": "Команда быстрого запуска удалена"
   },
   "recipesView.slashCommandSavedMsg": {
-    "defaultMessage": "Используйте /{command}, чтобы запустить этот рецепт"
+    "defaultMessage": "Используйте /{command}, чтобы запустить этот сценарий"
   },
   "recipesView.slashCommandSavedTitle": {
-    "defaultMessage": "Slash-команда сохранена"
+    "defaultMessage": "Команда быстрого запуска сохранена"
   },
   "recipesView.slashCommandTitle": {
-    "defaultMessage": "Slash-команда"
+    "defaultMessage": "Команда быстрого запуска"
   },
   "recipesView.slashCommandUsageHint": {
-    "defaultMessage": "Используйте /{command} в любом чате, чтобы запустить этот рецепт"
+    "defaultMessage": "Используйте /{command} в любом чате, чтобы запустить этот сценарий"
   },
   "recipesView.tryAgain": {
     "defaultMessage": "Повторить попытку"
   },
   "recipesView.useRecipe": {
-    "defaultMessage": "Использовать рецепт"
+    "defaultMessage": "Использовать сценарий"
   },
   "recipesView.yamlCopiedMsg": {
     "defaultMessage": "YAML рецепта скопирован в буфер обмена"
@@ -4104,7 +4104,7 @@
     "defaultMessage": "Клавиатура"
   },
   "settingsView.tabLocalInference": {
-    "defaultMessage": "Локальный инференс"
+    "defaultMessage": "Локальные модели"
   },
   "settingsView.tabModels": {
     "defaultMessage": "Модели"
@@ -4170,7 +4170,7 @@
     "defaultMessage": "Поиск навыков..."
   },
   "skillsView.skillsDescription": {
-    "defaultMessage": "Просматривайте установленные навыки, расширяющие возможности Goose. {shortcut} для поиска."
+    "defaultMessage": "Просматривайте навыки, которые расширяют возможности ассистента. {shortcut} — поиск."
   },
   "skillsView.skillsTitle": {
     "defaultMessage": "Навыки"
@@ -4834,5 +4834,722 @@
   },
   "contextXray.autoCompactionPending": {
     "defaultMessage": "Превышен порог автокомпактизации: разговор будет сжат перед отправкой следующего запроса."
+  },
+  "gguf.absolutePath": {
+    "defaultMessage": "Необходим абсолютный путь к файлу."
+  },
+  "gguf.add": {
+    "defaultMessage": "Добавить модель"
+  },
+  "gguf.advanced": {
+    "defaultMessage": "Расширенный режим"
+  },
+  "gguf.advancedCard": {
+    "defaultMessage": "Используйте профили GGUF со встроенным Goose или управляемым llama-server."
+  },
+  "gguf.auto": {
+    "defaultMessage": "Авто"
+  },
+  "gguf.available": {
+    "defaultMessage": "Доступна"
+  },
+  "gguf.backend": {
+    "defaultMessage": "Backend инференса"
+  },
+  "gguf.backendUnsupported": {
+    "defaultMessage": "Этот runtime не поддерживает обнаружение устройств. Выберите CUDA runtime или задайте 0 слоёв GPU."
+  },
+  "gguf.batch": {
+    "defaultMessage": "Размер пакета"
+  },
+  "gguf.browse": {
+    "defaultMessage": "Обзор"
+  },
+  "gguf.cacheK": {
+    "defaultMessage": "KV-кэш K"
+  },
+  "gguf.cacheRequirements": {
+    "defaultMessage": "Кэш экспертов требует GPU-offload, всех экспертов на CPU и отсутствия произвольных размещений тензоров."
+  },
+  "gguf.cacheV": {
+    "defaultMessage": "KV-кэш V"
+  },
+  "gguf.cancelLoad": {
+    "defaultMessage": "Отменить загрузку"
+  },
+  "gguf.chatTemplate": {
+    "defaultMessage": "Имя встроенного шаблона чата"
+  },
+  "gguf.clearUnsupported": {
+    "defaultMessage": "Очистить неподдерживаемые настройки"
+  },
+  "gguf.confirmDelete": {
+    "defaultMessage": "Удалить профиль «{name}»? Внешние файлы GGUF останутся без изменений."
+  },
+  "gguf.conflictingMoe": {
+    "defaultMessage": "Выберите все эксперты на CPU или первые N слоёв, но не оба варианта."
+  },
+  "gguf.context": {
+    "defaultMessage": "Контекст, токенов"
+  },
+  "gguf.cpu": {
+    "defaultMessage": "Потоки CPU и пакеты"
+  },
+  "gguf.cpuMoe": {
+    "defaultMessage": "Отдельное размещение MoE-экспертов на CPU"
+  },
+  "gguf.cpuMoeHelp": {
+    "defaultMessage": "Это независимая настройка профиля. Пока кэш включён, эксперты для этого запуска временно размещаются на CPU; сохранённая настройка не меняется."
+  },
+  "gguf.default": {
+    "defaultMessage": "По умолчанию backend"
+  },
+  "gguf.delete": {
+    "defaultMessage": "Удалить"
+  },
+  "gguf.description": {
+    "defaultMessage": "Управляйте существующими GGUF. Сохранение не загружает веса. Выберите профиль в списке моделей чата — загрузка начнётся при первом запросе."
+  },
+  "gguf.devicesInaccessible": {
+    "defaultMessage": "Этот runtime не видит GPU. Проверьте библиотеки CUDA, доступ к устройствам и sandbox. Для CPU задайте 0 слоёв GPU."
+  },
+  "gguf.draft": {
+    "defaultMessage": "Draft/MTP требует проверки архитектуры, токенизатора, размерностей и backend. В этой версии не включён."
+  },
+  "gguf.draftCompatibility": {
+    "defaultMessage": "Совместимость draft/MTP не проверена; удалите настройку draft для продолжения."
+  },
+  "gguf.duplicate": {
+    "defaultMessage": "Дублировать"
+  },
+  "gguf.edit": {
+    "defaultMessage": "Изменить"
+  },
+  "gguf.error": {
+    "defaultMessage": "Ошибка локального runtime"
+  },
+  "gguf.executable": {
+    "defaultMessage": "Исполняемый файл llama-server"
+  },
+  "gguf.experimental": {
+    "defaultMessage": "Экспериментальное размещение MoE — ускорение не подтверждено"
+  },
+  "gguf.external": {
+    "defaultMessage": "Управляемый llama-server"
+  },
+  "gguf.failed": {
+    "defaultMessage": "Ошибка"
+  },
+  "gguf.flashAttention": {
+    "defaultMessage": "Flash attention"
+  },
+  "gguf.gpuLayersHelp": {
+    "defaultMessage": "0 — CPU · 999 — все доступные слои на GPU"
+  },
+  "gguf.gpuLayers": {
+    "defaultMessage": "Слоёв на GPU"
+  },
+  "gguf.gpuVisible": {
+    "defaultMessage": "GPU обнаружен выбранным runtime"
+  },
+  "gguf.idle": {
+    "defaultMessage": "Выгружена"
+  },
+  "gguf.invalidValue": {
+    "defaultMessage": "Недопустимое значение настройки."
+  },
+  "gguf.jinja": {
+    "defaultMessage": "Включить шаблон Jinja для инструментов"
+  },
+  "gguf.language": {
+    "defaultMessage": "Язык интерфейса"
+  },
+  "gguf.load": {
+    "defaultMessage": "Загрузить модель"
+  },
+  "gguf.memory": {
+    "defaultMessage": "Контекст, KV-кэш и память"
+  },
+  "gguf.missing": {
+    "defaultMessage": "Файлы недоступны"
+  },
+  "gguf.missingFile": {
+    "defaultMessage": "Файл не найден или недоступен. Подключите диск или исправьте путь."
+  },
+  "gguf.model": {
+    "defaultMessage": "Путь к основной GGUF"
+  },
+  "gguf.moeCacheMiB": {
+    "defaultMessage": "Патченный кэш экспертов, МиБ (без бенчмарка)"
+  },
+  "gguf.moeMetadata": {
+    "defaultMessage": "Метаданные GGUF не подтверждают MoE-экспертов. Очистите настройки MoE."
+  },
+  "gguf.moeNote": {
+    "defaultMessage": "GPU Layers задаёт размещение обычных слоёв, а CPU MoE — весов экспертов. Кэш GPU хранит выбранные эксперты с CPU в видеопамяти; скорость зависит от модели и нагрузки."
+  },
+  "gguf.nCpuMoe": {
+    "defaultMessage": "Первые N слоёв MoE на CPU"
+  },
+  "gguf.name": {
+    "defaultMessage": "Название профиля"
+  },
+  "gguf.nameRequired": {
+    "defaultMessage": "Введите название профиля (до 120 символов)."
+  },
+  "gguf.native": {
+    "defaultMessage": "Встроенный инференс Goose"
+  },
+  "gguf.nativeNote": {
+    "defaultMessage": "Загрузкой и выгрузкой управляет Goose. Настройки внешнего runtime не применяются."
+  },
+  "gguf.nativeUnsupported": {
+    "defaultMessage": "Эта настройка не поддерживается адаптером встроенных профилей. Используйте настройки Goose или внешний runtime."
+  },
+  "gguf.notGguf": {
+    "defaultMessage": "Выбранный файл не является GGUF."
+  },
+  "gguf.off": {
+    "defaultMessage": "Выкл."
+  },
+  "gguf.on": {
+    "defaultMessage": "Вкл."
+  },
+  "gguf.portConflict": {
+    "defaultMessage": "Порт профиля занят. Другие процессы не завершались."
+  },
+  "gguf.placementIdentity": {
+    "defaultMessage": "Идентичность GGUF для этого размещения не подтверждена. Проверьте модель и подтвердите её в дополнительных настройках."
+  },
+  "gguf.probe": {
+    "defaultMessage": "Проверить выбранный runtime"
+  },
+  "gguf.probeFailed": {
+    "defaultMessage": "Не удалось проверить выбранный исполняемый файл."
+  },
+  "gguf.processExit": {
+    "defaultMessage": "llama-server завершился. Смотрите журнал runtime."
+  },
+  "gguf.profileMissing": {
+    "defaultMessage": "Профиль больше не существует. Выберите другую модель."
+  },
+  "gguf.projector": {
+    "defaultMessage": "GGUF проектора зрения (необязательно)"
+  },
+  "gguf.quantizedCache": {
+    "defaultMessage": "Квантованный V-кэш требует включённого flash attention."
+  },
+  "gguf.ready": {
+    "defaultMessage": "Работает"
+  },
+  "gguf.requestTooLarge": {
+    "defaultMessage": "Локальный запрос слишком велик."
+  },
+  "gguf.runtime": {
+    "defaultMessage": "Runtime и диагностика"
+  },
+  "gguf.runtimeBusy": {
+    "defaultMessage": "Другая модель загружается или обрабатывает запрос. Отмените или завершите его перед переключением."
+  },
+  "gguf.save": {
+    "defaultMessage": "Сохранить профиль"
+  },
+  "gguf.saved": {
+    "defaultMessage": "Профиль сохранён. Веса модели не загружены."
+  },
+  "gguf.select": {
+    "defaultMessage": "Выбрать для чата"
+  },
+  "gguf.simple": {
+    "defaultMessage": "Простой режим"
+  },
+  "gguf.speculation": {
+    "defaultMessage": "Ускорение генерации"
+  },
+  "gguf.starting": {
+    "defaultMessage": "Загрузка модели…"
+  },
+  "gguf.stopHelp": {
+    "defaultMessage": "Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет."
+  },
+  "gguf.stopping": {
+    "defaultMessage": "Выгрузка…"
+  },
+  "gguf.system": {
+    "defaultMessage": "Системный"
+  },
+  "gguf.tensorOverride": {
+    "defaultMessage": "Размещение тензоров (шаблон=буфер)"
+  },
+  "gguf.threads": {
+    "defaultMessage": "Потоки CPU"
+  },
+  "gguf.timeout": {
+    "defaultMessage": "Истекло время ожидания загрузки модели. Смотрите журнал runtime."
+  },
+  "gguf.title": {
+    "defaultMessage": "Расширенный локальный запуск"
+  },
+  "gguf.tools": {
+    "defaultMessage": "Вызовы инструментов / шаблоны"
+  },
+  "gguf.ubatch": {
+    "defaultMessage": "Размер микропакета"
+  },
+  "gguf.unload": {
+    "defaultMessage": "Выгрузить модель"
+  },
+  "gguf.unsupported": {
+    "defaultMessage": "Недоступно для выбранного backend. Очистите настройку или выберите совместимый runtime."
+  },
+  "gguf.unsupportedFlag": {
+    "defaultMessage": "Выбранный runtime не объявляет нужный флаг. Очистите настройку или выберите другой runtime."
+  },
+  "gguf.unsupportedSetting": {
+    "defaultMessage": "Неподдерживаемая настройка профиля."
+  },
+  "gguf.valid": {
+    "defaultMessage": "Проверка пройдена. Модель не загружалась."
+  },
+  "gguf.validate": {
+    "defaultMessage": "Проверить пути и runtime"
+  },
+  "gguf.validating": {
+    "defaultMessage": "Проверка"
+  },
+  "gguf.vision": {
+    "defaultMessage": "Зрение / проектор"
+  },
+  "gguf.nativeGpuUnsupported": {
+    "defaultMessage": "Для этой встроенной сборки CUDA-адаптер не проверен. Выберите внешний CUDA runtime или задайте 0 слоёв GPU."
+  },
+  "gguf.credentialUnsupported": {
+    "defaultMessage": "Этот runtime не объявляет поддержку ключа API через окружение. Выберите совместимый llama-server."
+  },
+  "gguf.nativeDuplicatePath": {
+    "defaultMessage": "Настройки встроенного Goose общие для пути модели. Измените существующий встроенный профиль или используйте внешний."
+  },
+  "gguf.compactControls": {
+    "defaultMessage": "Управление моделью: {name}"
+  },
+  "gguf.modelSettings": {
+    "defaultMessage": "Настройки модели"
+  },
+  "gguf.specEnable": {
+    "defaultMessage": "Включить спекулятивное декодирование"
+  },
+  "gguf.specMode": {
+    "defaultMessage": "Режим спекуляции"
+  },
+  "gguf.specEmbedded": {
+    "defaultMessage": "Встроенная MTP-head Qwen"
+  },
+  "gguf.specExternal": {
+    "defaultMessage": "Внешняя MTP GGUF для этой архитектуры"
+  },
+  "gguf.specSimple": {
+    "defaultMessage": "Классическая совместимая draft-модель"
+  },
+  "gguf.draftPath": {
+    "defaultMessage": "Абсолютный путь к draft GGUF"
+  },
+  "gguf.draftTokens": {
+    "defaultMessage": "Максимум draft-токенов (1–16)"
+  },
+  "gguf.draftMinTokens": {
+    "defaultMessage": "Минимум draft-токенов"
+  },
+  "gguf.draftGpuLayers": {
+    "defaultMessage": "Слоёв draft на GPU"
+  },
+  "gguf.specTradeoff": {
+    "defaultMessage": "Спекуляция расходует дополнительную память и вычисления. Acceptance и скорость зависят от моделей и оборудования; успешная загрузка не доказывает ускорение."
+  },
+  "gguf.specTrial": {
+    "defaultMessage": "Проверка метаданных предварительная. Нужны успешная инициализация backend и генерация. Выключенные настройки сохраняются, но не передаются в runtime."
+  },
+  "gguf.specValidate": {
+    "defaultMessage": "Проверить совместимость MTP без загрузки"
+  },
+  "gguf.specMetadata": {
+    "defaultMessage": "Не удалось подтвердить метаданные или тензоры GGUF. Проверьте целостность, поддерживаемое квантование и полноту файлов."
+  },
+  "gguf.specHead": {
+    "defaultMessage": "Не найдена полная совместимая одиночная MTP-head. Выберите совместимые веса MTP."
+  },
+  "gguf.specDimensions": {
+    "defaultMessage": "Размерности target/draft или контекст несовместимы. Уменьшите контекст или выберите подходящую пару моделей."
+  },
+  "gguf.specArchitecture": {
+    "defaultMessage": "Эта архитектура или структура target/draft не проверена. Обычная draft-модель не заменяет специальные веса MTP."
+  },
+  "gguf.specTokenizer": {
+    "defaultMessage": "Метаданные токенизаторов target и draft различаются. Выберите совместимую пару."
+  },
+  "gguf.specBackend": {
+    "defaultMessage": "Выбранный runtime не может безопасно использовать этот режим. В проверенной сборке d1d3c33 ветка внешнего draft загружает target; используйте встроенный MTP или проверенный исправленный runtime."
+  },
+  "gguf.specDraftRequired": {
+    "defaultMessage": "Для этого режима нужна существующая совместимая draft GGUF."
+  },
+  "gguf.specDraftMode": {
+    "defaultMessage": "Перед сохранением пути draft явно выберите режим спекуляции или выключите его."
+  },
+  "gguf.specEmbeddedPath": {
+    "defaultMessage": "Встроенный MTP использует веса target. Очистите путь внешнего draft для этого режима."
+  },
+  "gguf.specSameFile": {
+    "defaultMessage": "Внешний draft должен быть отдельным файлом. Для head внутри target GGUF выберите встроенный MTP."
+  },
+  "gguf.specCacheConflict": {
+    "defaultMessage": "Спекуляцию нельзя совмещать с непроверенным патченным кэшем экспертов. Отключите один из режимов."
+  },
+  "gguf.specDraftGpuEmbedded": {
+    "defaultMessage": "Слои draft на GPU применяются только к внешнему draft. Очистите это значение для встроенного MTP."
+  },
+  "sessionSettings.title": {
+    "defaultMessage": "Настройки сеанса"
+  },
+  "sessionSettings.agentMode": {
+    "defaultMessage": "Режим агента"
+  },
+  "sessionSettings.thinking": {
+    "defaultMessage": "Уровень рассуждений"
+  },
+  "sessionSettings.reasoningUnknown": {
+    "defaultMessage": "Настройки рассуждений для этой модели не подтверждены."
+  },
+  "sessionSettings.autonomous": {
+    "defaultMessage": "Автономный"
+  },
+  "sessionSettings.manual": {
+    "defaultMessage": "Ручной"
+  },
+  "sessionSettings.smart": {
+    "defaultMessage": "Умный"
+  },
+  "sessionSettings.chatOnly": {
+    "defaultMessage": "Только чат"
+  },
+  "sessionSettings.off": {
+    "defaultMessage": "Выкл."
+  },
+  "sessionSettings.low": {
+    "defaultMessage": "Низкий"
+  },
+  "sessionSettings.medium": {
+    "defaultMessage": "Средний"
+  },
+  "sessionSettings.high": {
+    "defaultMessage": "Высокий"
+  },
+  "sessionSettings.max": {
+    "defaultMessage": "Максимальный"
+  },
+  "sessionSettings.unavailable": {
+    "defaultMessage": "Не удалось применить настройку"
+  },
+  "sessionSettings.modeScope": {
+    "defaultMessage": "Применяется к этому сеансу"
+  },
+  "sessionSettings.close": {
+    "defaultMessage": "Закрыть настройки"
+  },
+  "sessionSettings.apply": {
+    "defaultMessage": "Применить"
+  },
+  "sessionSettings.applying": {
+    "defaultMessage": "Применение…"
+  },
+  "sessionSettings.busy": {
+    "defaultMessage": "Локальная модель занята в другом чате."
+  },
+  "sessionSettings.cancelDiscovery": {
+    "defaultMessage": "Отменить поиск"
+  },
+  "sessionSettings.candidate": {
+    "defaultMessage": "Проверка {kv}, {context}K · проба {count}"
+  },
+  "sessionSettings.context": {
+    "defaultMessage": "Контекст"
+  },
+  "sessionSettings.custom": {
+    "defaultMessage": "Свой размер"
+  },
+  "sessionSettings.discover": {
+    "defaultMessage": "Найти максимум"
+  },
+  "sessionSettings.discoveryFailed": {
+    "defaultMessage": "Не удалось найти контекст. Исходная конфигурация runtime восстановлена, если это было возможно."
+  },
+  "sessionSettings.discoveryUnsupportedCache": {
+    "defaultMessage": "Тип кэша {kv} не объявлен выбранным llama-server."
+  },
+  "sessionSettings.discoveryEvidenceMissing": {
+    "defaultMessage": "Для {kv} не хватило измерений памяти или подтверждения работы runtime."
+  },
+  "sessionSettings.discoveryReserve": {
+    "defaultMessage": "Ни один вариант не сохранил требуемый резерв RAM/VRAM."
+  },
+  "sessionSettings.discoveryQ8NoGain": {
+    "defaultMessage": "Результат Q8 отклонён: подтверждённого выигрыша хотя бы в 8K относительно FP16 нет."
+  },
+  "sessionSettings.discoveryMemoryChanged": {
+    "defaultMessage": "Во время измерений память изменилась; безопасный размер не подтверждён."
+  },
+  "sessionSettings.discoveryUnsupportedFlag": {
+    "defaultMessage": "Выбранный llama-server не поддерживает параметр {flag}."
+  },
+  "sessionSettings.fp16": {
+    "defaultMessage": "FP16"
+  },
+  "sessionSettings.kvCache": {
+    "defaultMessage": "Точность контекста (KV)"
+  },
+  "sessionSettings.noResults": {
+    "defaultMessage": "Проверка памяти не подтвердила ни один размер контекста."
+  },
+  "sessionSettings.noRuntime": {
+    "defaultMessage": "Настройки локального runtime недоступны для этого провайдера."
+  },
+  "sessionSettings.q8": {
+    "defaultMessage": "Q8"
+  },
+  "sessionSettings.q8NeedsFlashAttention": {
+    "defaultMessage": "Для кэша Q8 V требуется Flash Attention. Включите его в профиле модели и повторите."
+  },
+  "sessionSettings.runtimeState": {
+    "defaultMessage": "Активно: {context}K · {kv}"
+  },
+  "sessionSettings.searching": {
+    "defaultMessage": "Поиск безопасного размера контекста…"
+  },
+  "sessionSettings.useResult": {
+    "defaultMessage": "Выбрать {kv} · {context}K"
+  },
+  "sessionSettings.warning": {
+    "defaultMessage": "Вручную заданный контекст может превышать доступную память."
+  },
+  "sessionSettings.unsupportedMode": {
+    "defaultMessage": "{kv}: {reason}"
+  },
+  "sessionSettings.unconfirmed": {
+    "defaultMessage": "Сохранённый результат · условия нужно проверить"
+  },
+  "sessionSettings.providerDefault": {
+    "defaultMessage": "По умолчанию у провайдера"
+  },
+  "sessionSettings.sharedRuntime": {
+    "defaultMessage": "Общий локальный runtime"
+  },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Поиск моделей"
+  },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "Модели не найдены"
+  },
+  "modelsBottomBar.selected": {
+    "defaultMessage": "Выбрана для этого чата"
+  },
+  "modelsBottomBar.providers": {
+    "defaultMessage": "Модели и провайдеры"
+  },
+  "modelsBottomBar.category": {
+    "defaultMessage": "Категория моделей"
+  },
+  "modelsBottomBar.local": {
+    "defaultMessage": "Локальные"
+  },
+  "modelsBottomBar.api": {
+    "defaultMessage": "API / Cloud"
+  },
+  "modelsBottomBar.all": {
+    "defaultMessage": "Все"
+  },
+  "sessionSettings.mixedKv": {
+    "defaultMessage": "Смешанная / расширенная"
+  },
+  "sessionSettings.verified": {
+    "defaultMessage": "Проверено"
+  },
+  "sessionSettings.saved": {
+    "defaultMessage": "Сохранено · без повторной проверки"
+  },
+  "sessionSettings.stale": {
+    "defaultMessage": "Конфигурация изменена · нужна проверка"
+  },
+  "sessionSettings.exactContext": {
+    "defaultMessage": "{tokens} токенов · {status}"
+  },
+  "memoryMonitoring.enabled": {
+    "defaultMessage": "Мониторинг потребления памяти"
+  },
+  "memoryMonitoring.usage": {
+    "defaultMessage": "Использование системной памяти"
+  },
+  "memoryMonitoring.unavailable": {
+    "defaultMessage": "Недоступно"
+  },
+  "sessionSettings.thinkingOn": {
+    "defaultMessage": "Вкл."
+  },
+  "sessionSettings.thinkingBudget": {
+    "defaultMessage": "{tokens} токенов размышлений"
+  },
+  "gguf.deviceMemory": {
+    "defaultMessage": "Недостаточно VRAM. Уменьшите контекст/выгрузку на GPU или включите CPU для проектора, затем перезагрузите модель."
+  },
+  "gguf.projectorCpu": {
+    "defaultMessage": "Выполнять проектор изображений на CPU"
+  },
+  "gguf.visionPair": {
+    "defaultMessage": "Архитектура или размер проекции не совместимы с этой моделью Qwen."
+  },
+  "gguf.specSaved": {
+    "defaultMessage": "Сохранённый MTP"
+  },
+  "gguf.specActive": {
+    "defaultMessage": "Активный режим CLI"
+  },
+  "gguf.specAcceptance": {
+    "defaultMessage": "Принято/предложено draft-токенов"
+  },
+  "gguf.reloadRequired": {
+    "defaultMessage": "Для применения изменений требуется перезагрузка модели."
+  },
+  "gguf.runtimeContext": {
+    "defaultMessage": "Переопределённый контекст: {context} токенов. Изменяется в настройках сеанса."
+  },
+  "sessionSettings.budget": {
+    "defaultMessage": "Бюджет размышлений"
+  },
+  "sessionSettings.xhigh": {
+    "defaultMessage": "XHigh"
+  },
+  "gguf.specPending": {
+    "defaultMessage": "Изменения MTP не сохранены."
+  },
+  "sessionSettings.budgetHelp": {
+    "defaultMessage": "Бюджет размышлений backend; токены окончательного ответа считаются отдельно."
+  },
+  "sessionSettings.effortHelp": {
+    "defaultMessage": "Уровень задаётся шаблоном; это не жёсткий лимит токенов."
+  },
+  "memoryMonitoring.location": {
+    "defaultMessage": "Показывать RAM и VRAM в чате и разделе «Локальные модели»"
+  },
+  "sessionSettings.thinkingToggle": {
+    "defaultMessage": "Размышления"
+  },
+  "sessionSettings.budgetReset": {
+    "defaultMessage": "Выбор размышлений или уровня сбрасывает прежний числовой бюджет."
+  },
+  "mtpQuick.on": {
+    "defaultMessage": "MTP: включено (сохранено)"
+  },
+  "mtpQuick.off": {
+    "defaultMessage": "MTP: выключено"
+  },
+  "mtpQuick.pending": {
+    "defaultMessage": "MTP: требуется перезагрузка"
+  },
+  "mtpQuick.reload": {
+    "defaultMessage": "Применить MTP / перезагрузить модель"
+  },
+  "mtpQuick.confirm": {
+    "defaultMessage": "Перезагрузить общую модель сейчас для применения сохранённых настроек MTP?"
+  },
+  "mtpQuick.active": {
+    "defaultMessage": "MTP: активен в runtime"
+  },
+  "visionQuick.active": {
+    "defaultMessage": "Vision: активен в runtime"
+  },
+  "visionQuick.on": {
+    "defaultMessage": "Vision: включено (сохранено)"
+  },
+  "visionQuick.off": {
+    "defaultMessage": "Vision: выключено"
+  },
+  "visionQuick.pending": {
+    "defaultMessage": "Vision: требуется перезагрузка"
+  },
+  "visionQuick.reload": {
+    "defaultMessage": "Применить Vision / перезагрузить модель"
+  },
+  "visionQuick.confirm": {
+    "defaultMessage": "Перезагрузить общую модель для применения сохранённых настроек Vision?"
+  },
+  "visionQuick.invalid": {
+    "defaultMessage": "Vision: проектор недоступен или несовместим"
+  },
+  "placement.cache": {
+    "defaultMessage": "GPU-кэш экспертов"
+  },
+  "placement.cacheCpuPlacement": {
+    "defaultMessage": "При включённом кэше веса экспертов остаются в памяти CPU, а выбранные эксперты кэшируются в VRAM для этого запуска. Отдельная настройка CPU MoE сохраняется."
+  },
+  "placement.cacheCpuConflict": {
+    "defaultMessage": "Перед включением кэша экспертов очистите настройку «Первые N слоёв MoE на CPU»."
+  },
+  "placement.standard": {
+    "defaultMessage": "Стандартный"
+  },
+  "placement.auto": {
+    "defaultMessage": "Автоматический"
+  },
+  "placement.manual": {
+    "defaultMessage": "Ручной"
+  },
+  "placement.blocks": {
+    "defaultMessage": "Блоки CPU / GPU"
+  },
+  "placement.enable": {
+    "defaultMessage": "Выборочное размещение"
+  },
+  "placement.detected": {
+    "defaultMessage": "Обнаружено блоков: {count}"
+  },
+  "placement.confirmIdentity": {
+    "defaultMessage": "Подтвердить этот GGUF для размещения"
+  },
+  "placement.gpu": {
+    "defaultMessage": "Все на GPU"
+  },
+  "placement.cpu": {
+    "defaultMessage": "Все на CPU"
+  },
+  "placement.reset": {
+    "defaultMessage": "Сброс"
+  },
+  "placement.range": {
+    "defaultMessage": "Блоки GPU (диапазоны с 0)"
+  },
+  "placement.priority": {
+    "defaultMessage": "Выбор блоков имеет приоритет над числом слоёв на GPU."
+  },
+  "placement.inspect": {
+    "defaultMessage": "Проверка метаданных и памяти…"
+  },
+  "placement.unavailable": {
+    "defaultMessage": "Недоступно для этой модели/runtime или метаданные неполны."
+  },
+  "placement.pending": {
+    "defaultMessage": "Размещение для этого GGUF не подтверждено. Проверьте обнаруженные блоки и параметры кэша, затем подтвердите."
+  },
+  "placement.budget": {
+    "defaultMessage": "Оценка GPU с резервом: {gpu} GiB · обязательная RAM + резерв: {ram} GiB"
+  },
+  "placement.paging": {
+    "defaultMessage": "Полный рабочий набор mmap может вытесняться при нехватке памяти."
+  },
+  "sessionSettings.reasoningRuntime": {
+    "defaultMessage": "Runtime не сообщает о поддержке управления шаблоном в запросах."
+  },
+  "sessionSettings.reasoningTemplate": {
+    "defaultMessage": "Управление рассуждениями в этом шаблоне чата пока не подтверждено."
+  },
+  "sessionSettings.reasoningMetadata": {
+    "defaultMessage": "Не удалось проверить метаданные управления рассуждениями."
   }
 }

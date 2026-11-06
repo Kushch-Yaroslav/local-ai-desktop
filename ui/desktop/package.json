@@ -2,7 +2,7 @@
   "name": "local-ai-desktop-app",
   "productName": "Local AI Desktop",
   "desktopName": "local-ai-desktop.desktop",
-  "version": "0.4.0-development",
+  "version": "0.4.0-alpha.1",
   "description": "Local AI Desktop \u2014 independent desktop AI agent",
   "engines": {
     "node": "^24.10.0",

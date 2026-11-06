@@ -1,3 +1,5 @@
+import InterfaceLanguage from '../InterfaceLanguage';
+// Modified for Local AI Desktop: use current onboarding surface and text tokens.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useConfig } from '../ConfigContext';
@@ -106,7 +108,12 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   }, []);
 
   useEffect(() => {
-    if (!isCheckingProvider && !hasProvider && !checkProviderError && !hasTrackedOnboardingStart.current) {
+    if (
+      !isCheckingProvider &&
+      !hasProvider &&
+      !checkProviderError &&
+      !hasTrackedOnboardingStart.current
+    ) {
       trackOnboardingStarted();
       hasTrackedOnboardingStart.current = true;
     }
@@ -147,16 +154,18 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
 
   if (checkProviderError) {
     return (
-      <div className="h-screen w-full bg-background-default flex flex-col items-center justify-center">
+      <div className="h-screen w-full bg-background-primary text-text-primary flex flex-col items-center justify-center">
         <div className="text-center max-w-md">
           <div className="mb-4">
             <Goose className="size-8 mx-auto" />
           </div>
-          <h1 className="text-xl font-light mb-3">{intl.formatMessage(i18n.checkProviderErrorTitle)}</h1>
-          <p className="text-text-muted mb-6">{intl.formatMessage(i18n.checkProviderErrorDescription)}</p>
-          <Button onClick={() => checkProvider()}>
-            {intl.formatMessage(i18n.retry)}
-          </Button>
+          <h1 className="text-xl font-light mb-3">
+            {intl.formatMessage(i18n.checkProviderErrorTitle)}
+          </h1>
+          <p className="text-text-secondary mb-6">
+            {intl.formatMessage(i18n.checkProviderErrorDescription)}
+          </p>
+          <Button onClick={() => checkProvider()}>{intl.formatMessage(i18n.retry)}</Button>
         </div>
       </div>
     );
@@ -173,20 +182,25 @@ export default function OnboardingGuard({ children }: OnboardingGuardProps) {
   }
 
   return (
-    <div className="h-screen w-full bg-background-default overflow-hidden">
+    <div className="h-screen w-full bg-background-primary text-text-primary overflow-hidden">
       <div className="h-full overflow-y-auto">
         <div
           className={`flex flex-col items-center p-4 pb-8 transition-all duration-500 ease-in-out ${hasSelection ? 'pt-8' : 'pt-[15vh]'}`}
         >
           <div className="max-w-2xl w-full mx-auto">
+            <div className="flex justify-end mb-4">
+              <InterfaceLanguage />
+            </div>
             <div
               className={`text-left transition-all duration-500 ease-in-out overflow-hidden ${hasSelection ? 'max-h-0 opacity-0 mb-0' : 'max-h-60 opacity-100 mb-8'}`}
             >
               <div className="mb-4">
                 <Goose className="size-8" />
               </div>
-              <h1 className="text-2xl sm:text-4xl font-light mb-3">{intl.formatMessage(i18n.welcomeTitle)}</h1>
-              <p className="text-text-muted text-base sm:text-lg">
+              <h1 className="text-2xl sm:text-4xl font-light mb-3">
+                {intl.formatMessage(i18n.welcomeTitle)}
+              </h1>
+              <p className="text-text-secondary text-base sm:text-lg">
                 {intl.formatMessage(i18n.welcomeDescription)}
               </p>
             </div>

@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: preserve downstream session state handling.
 import { useEffect, useState } from 'react';
 import type { GooseSessionNotification_unstable } from '@aaif/goose-acp-client';
 import type { SessionNotification } from '@agentclientprotocol/sdk';
@@ -23,6 +24,13 @@ export interface AcpChatSessionSnapshot {
   progressMessage: string | undefined;
   chatState: ChatState;
   sessionLoadError: string | undefined;
+  activePromptAttemptId: string | null;
+  activeRunId: string | null;
+  pendingCancelPromptAttemptId: string | null;
+}
+export interface AcpChatSessionActivitySnapshot {
+  session: Session | undefined;
+  chatState: ChatState;
   activePromptAttemptId: string | null;
   activeRunId: string | null;
   pendingCancelPromptAttemptId: string | null;
@@ -57,6 +65,7 @@ const initialTokenState: TokenState = {
 
 export interface AcpChatSessionStore {
   getSnapshot(sessionId: string): AcpChatSessionSnapshot | undefined;
+  getActivitySnapshots(): AcpChatSessionActivitySnapshot[];
 }
 
 export interface AcpChatSessionActions {
@@ -136,6 +145,13 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
     }
     return snapshotFromEntry(entry);
   };
+  const getActivitySnapshots: AcpChatSessionStore['getActivitySnapshots'] = () => [...sessionsById.values()].map((entry) => ({
+    session: entry.session,
+    chatState: entry.chatState,
+    activePromptAttemptId: entry.activePromptAttemptId,
+    activeRunId: entry.activeRunId,
+    pendingCancelPromptAttemptId: entry.pendingCancelPromptAttemptId,
+  }));
 
   const subscribe: AcpChatSessionStoreInternal['subscribe'] = (sessionId, listener) => {
     const listeners = listenersBySessionId.get(sessionId) ?? new Set<SnapshotListener>();
@@ -546,6 +562,7 @@ function createAcpChatSessionStoreInternal(): AcpChatSessionStoreInternal {
 
   return {
     getSnapshot,
+    getActivitySnapshots,
     subscribe,
     deleteSnapshot,
     setSessionMetadata,
@@ -616,6 +633,7 @@ export function useAcpChatSessionSnapshot(sessionId: string): AcpChatSessionSnap
 function storeFromInternal(store: AcpChatSessionStoreInternal): AcpChatSessionStore {
   return {
     getSnapshot: store.getSnapshot,
+    getActivitySnapshots: store.getActivitySnapshots,
   };
 }
 

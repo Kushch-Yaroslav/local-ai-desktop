@@ -1236,6 +1236,29 @@ impl StateMachineServices {
     /// Apply a thinking-effort selection. `effort` is the raw option value: a
     /// provider that manages effort through a harness has its own vocabulary,
     /// which is not always a `ThinkingEffort` member.
+    // Local AI Desktop: session request parameter only; no runtime or agent-loop change.
+    pub async fn update_managed_thinking_budget(
+        &self,
+        session_id: &str,
+        budget: i64,
+    ) -> Result<()> {
+        let provider = self.provider(session_id).await?;
+        if !matches!(provider.thinking_effort_support(), ThinkingEffortSupport::Options(ref cap) if cap.option_id == "managed_qwen_thinking")
+            || ![-1, 128, 512, 2048].contains(&budget)
+        {
+            return Err(anyhow!("Unsupported thinking budget for this provider"));
+        }
+        let config = self
+            .model_config_for_session(session_id)
+            .await?
+            .with_merged_request_params(HashMap::from([(
+                "reasoning_budget_tokens".to_string(),
+                serde_json::json!(budget),
+            )]));
+        self.switch_provider(session_id, provider.get_name(), config)
+            .await
+    }
+
     pub async fn update_thinking_effort(&self, session_id: &str, effort: &str) -> Result<()> {
         let current_provider = self.provider(session_id).await?;
         // Context rather than a formatted string: the caller distinguishes a

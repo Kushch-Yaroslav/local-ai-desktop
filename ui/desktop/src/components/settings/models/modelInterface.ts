@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: include saved direct-path native profiles in Goose model selection.
 import { listLocalModels } from '../../../acp/local-inference';
 import { acpGetProviderDetails, acpListProviderModels } from '../../../acp/providers';
 import type { ProviderDetails, ThinkingEffort } from '../../../types/providers';
@@ -34,10 +35,32 @@ export async function fetchModelsForProviders(
       // For local provider, use listLocalModels and filter to only downloaded models
       if (p.name === 'local') {
         const allModels = await listLocalModels();
+        const savedProfiles = await window.electron.ggufList();
+        const nativeProfiles = savedProfiles
+          .filter((entry) => entry.available && entry.profile.backend === 'native')
+          .map(
+            (entry) =>
+              ({
+                name: entry.profile.model,
+                alias: entry.profile.name,
+                provider: p.name,
+                context_limit: entry.profile.context,
+              }) as Model
+          );
         const downloadedModels = allModels
           .filter((m) => m.status.state === 'Downloaded')
           .map((m) => ({ name: m.id, provider: p.name }) as Model);
-        return { provider: p, models: downloadedModels, error: null, warning: null };
+        return {
+          provider: p,
+          models: [
+            ...nativeProfiles,
+            ...downloadedModels.filter(
+              (model) => !nativeProfiles.some((saved) => saved.name === model.name)
+            ),
+          ],
+          error: null,
+          warning: null,
+        };
       }
 
       const providerModels = await acpListProviderModels(p.name);

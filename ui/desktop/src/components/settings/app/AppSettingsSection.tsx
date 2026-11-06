@@ -1,3 +1,5 @@
+import { memoryMessages, useMemoryMonitoringPreference } from '../localInference/MemoryMonitor';
+// Modified for Local AI Desktop: live persisted UI language selection.
 import { useState, useEffect, useRef } from 'react';
 import { defineMessages, useIntl } from '../../../i18n';
 import { Switch } from '../../ui/switch';
@@ -186,6 +188,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
   const [isMacOS, setIsMacOS] = useState(false);
   const [isDockSwitchDisabled, setIsDockSwitchDisabled] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const memoryMonitoring = useMemoryMonitoringPreference();
   const [showPricing, setShowPricing] = useState(true);
   const [language, setLanguage] = useState<LanguageSetting>('system');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -319,7 +322,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
     setLanguage(nextLanguage);
     try {
       await window.electron.setSetting('language', nextLanguage);
-      window.electron.reloadApp();
+      // The existing IntlProvider updates from app-locale-changed without resetting chat.
     } catch (error) {
       console.error('Failed to update language setting:', error);
       setLanguage(language);
@@ -446,6 +449,10 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
           </div>
 
           {/* Cost Tracking */}
+          <div className="flex items-center justify-between">
+            <div><label htmlFor="memory-monitoring" className="text-xs text-text-primary">{intl.formatMessage(memoryMessages.enabled)}</label><p className="text-xs text-text-secondary">{intl.formatMessage(memoryMessages.location)}</p></div>
+            <Switch id="memory-monitoring" variant="mono" checked={memoryMonitoring} onCheckedChange={async (value) => { await window.electron.setSetting('memoryMonitoring', value); window.dispatchEvent(new Event('memoryMonitoringChanged')); }} />
+          </div>
           {COST_TRACKING_ENABLED && (
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -483,7 +490,10 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
         </CardHeader>
         <CardContent className="pt-4 px-4">
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary">
+            <DropdownMenuTrigger
+              aria-label={intl.formatMessage(i18n.languageTitle)}
+              className="flex w-full max-w-[260px] items-center justify-between gap-2 rounded-md border border-border-primary bg-background-primary px-3 py-2 text-sm text-text-primary transition-colors hover:border-border-primary"
+            >
               <span className="truncate">{intl.formatMessage(i18n[selectedLanguage.message])}</span>
               <ChevronDown className="h-4 w-4 shrink-0" />
             </DropdownMenuTrigger>
