@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/ggml-org/llama.cpp",
+  "declaredCommit": "5047748f114564fcf271e6a648f60e2d2eae6264",
+  "source": "read-only v0.3.2.0 runtime/main-llama/source snapshot",
+  "status": "CUDA/ordinary/Vision/MTP/MCP/MoE host validated; installed as the single app-owned runtime",
+  "sha256": {
+    "LICENSE": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "src/llama-moe-cache.cpp": "2c8dd1c781a7e63c4a0f81547a0ff8f2af427749b59d2c0c8dff19f560446d70",
+    "src/llama-moe-cache.h": "92a8718aec03a556f5bdde7f4f113facef3ab2d095709a946ee090d8fd8e4645",
+    "common/arg.cpp": "83cd576c95940ac4f84059da3c5b34914c15a94a834a608743389f2d43f25ea2",
+    "src/llama-context.cpp": "63645057d8f017d651544499fc1f3bcff5997cf25270b06479558ebfb5f9f3d2",
+    "ggml/src/ggml-cuda/ggml-cuda.cu": "dab2b0ae80d7b952a04e7567abf4f547a21f261760a8f670e920097c2e4ca91a"
+  }
+}

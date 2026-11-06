@@ -1,57 +1,15 @@
 # Local AI Desktop
 
-[English](README.md) · [Русский](README.ru.md)
+**Version checkpoint: v0.4.0-alpha.1 — experimental, not a stable release.**
 
-Local AI Desktop is an experimental Linux app for chatting with local language models and asking an AI agent to work on your code. Your model runs on your computer through `llama.cpp`; the Agent can work with a selected project and report the checks it ran.
+Local AI Desktop is an independently developed desktop AI agent based on the open-source [Goose project](https://github.com/aaif-goose/goose). This checkpoint moves the application to Goose's Rust agent runtime and Electron/React desktop while adding a Local AI Desktop integration for managed `llama.cpp` / `llama-server` GGUF models.
 
-**v0.3.2.0 Experimental Alpha — Final Legacy Release**. The Git tag and release identifier is `v0.3.2.0`; npm/Electron and Debian use the compatible package version `0.3.2`.
+The migration is in progress. Not all features and data compatibility from the previous Local AI Desktop v0.3.2.0 architecture have been carried forward. Live Browser and additional legacy features remain in development. The project's priority is running an AI agent locally on the user's hardware; Goose also supports local model providers, and this downstream project adds its own runtime management and GGUF workflows.
 
-[Release notes](docs/releases/v0.3.2.0.md) · [Getting started](docs/en/GETTING_STARTED.md) · [User guide](docs/en/USER_GUIDE.md) · [Model acceleration](docs/en/MODEL_ACCELERATION.md) · [Documentation](docs/README.md)
+See the complete [v0.4.0-alpha.1 checkpoint notes](docs/releases/v0.4.0-alpha.1.md) in English and Russian. This is an intermediate technical checkpoint, not a completed user release. No GitHub Release is associated with this checkpoint.
 
-## Development status — Maintenance Mode
+Local AI Desktop is independently maintained and is not affiliated with or endorsed by the Goose maintainers. Goose source is licensed under Apache-2.0; see [`LICENSE`](LICENSE), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`PROJECT_UPSTREAM.md`](PROJECT_UPSTREAM.md).
 
-v0.3.2.0 is the final planned functional release on the current architecture. Active development of this core is paused. The author plans to continue experiments on a new architectural foundation using a fork of another open-source project; neither the new app nor its upstream has been announced. This repository remains available as an experimental project and technical archive. Targeted fixes may be made, but regular updates are not promised.
+Product source, issues and future releases: https://github.com/Kushch-Yaroslav/local-ai-desktop
 
-## Watch the demo
-
-https://github.com/user-attachments/assets/57c946f5-5263-4dc0-95b4-0d182d3d36e1
-
-**Scripted demonstration. No live model inference.**
-
-## What you can do
-
-- Chat with a local GGUF model and attach supported files.
-- Ask the Agent to explore a project, make changes, run checks and show its results.
-- Open a running local web project in Browser Workspace, adjust its viewport and select one or more regions to discuss changes.
-- Ask Chat to read a long supported text document progressively, then request a summary or follow-up.
-- Save Agent tasks and continue them later; review plans, progress and verification results.
-
-Select a part of a page, then describe the change you want. A text-only model does not directly see browser pixels: it may use region details, page elements and project sources; image input depends on the selected model and vision settings. Browser Workspace is intended mainly for local projects, not as a secure general-purpose browser. Start the project's dev server yourself if needed.
-
-## Screenshots
-
-![A local web project open beside Chat in Browser Workspace](docs/img/releases/v0.3.0/browser1.png)
-
-![A long TXT document being read with visible progress](docs/img/releases/v0.3.0/book.png)
-
-[More v0.3.0 screenshots and details](docs/releases/v0.3.0.md#browser-workspace).
-
-## Install
-
-Download `local-ai-desktop_0.3.2_amd64.deb` and `SHA256SUMS` from the [v0.3.2.0 GitHub Pre-release](https://github.com/Kushch-Yaroslav/local-ai-desktop/releases/tag/v0.3.2.0), verify the checksum, then install:
-
-```sh
-sudo apt install ./local-ai-desktop_0.3.2_amd64.deb
-```
-
-The supported target is Linux x86_64; Ubuntu 24.04 is the primary tested environment. The package bundles the tested `llama.cpp` runtime; local GGUF model weights and optional projectors are not included. Agent terminal use requires administrator-authorized Bubblewrap and enforcing AppArmor setup. Never launch the app with `sudo`.
-
-## Current limitations
-
-This is an **Experimental Alpha**, not a stable or production-ready release. Model support and results depend on the GGUF, `llama.cpp`, hardware and task. Agent changes affect real project files, so review them and keep backups. Terminal isolation is mandatory, but readable host files and network access are not a privacy boundary. Other Linux distributions, ARM systems, GPUs and drivers have not been broadly validated.
-
-See [Features](docs/en/FEATURES.md), [Getting started](docs/en/GETTING_STARTED.md), [User guide](docs/en/USER_GUIDE.md), and [all documentation](docs/README.md). Русская версия: [описание v0.3.0](docs/releases/v0.3.0.ru.md).
-
-## License
-
-Original code is available under MIT; portions adapted from Jan are under Apache-2.0. See [LICENSE](LICENSE), [third-party notices](THIRD_PARTY_NOTICES.md), and [asset attributions](assets/ATTRIBUTION.md).
+The v0.1–v0.3.2.0 product history, source and tags remain available in this repository. Historical Local AI Desktop and Jan attributions remain preserved for that release line.

@@ -1,7 +1,0 @@
-{
-  "backend_commit": "5047748f114564fcf271e6a648f60e2d2eae6264",
-  "requests": 20000,
-  "selected_expert_identity_checks": 944705,
-  "status": "passed",
-  "limitations": "Host SLRU algorithm only. Does not verify CUDA uploads, synchronization, or model numerical accuracy."
-}

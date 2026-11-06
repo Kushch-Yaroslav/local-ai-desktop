@@ -1,6 +1,0 @@
-[
-  {
-    "id": "explain",
-    "prompt": "Explain why Dijkstra fails with negative edge weights. Give a concrete 3-node example and name an appropriate alternative. Limit to 180 words."
-  }
-]

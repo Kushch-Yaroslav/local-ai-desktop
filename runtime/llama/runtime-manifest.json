@@ -1,0 +1,21 @@
+{
+  "commit": "5047748f114564fcf271e6a648f60e2d2eae6264",
+  "cudaArchitectures": "86",
+  "integration": "one-managed-runtime",
+  "files": {
+    "libllama.so.0.8.0": "db47f212d776b6d8ee474dbeb353268732c8da566ef49b1a0862ed892c6367e9",
+    "libggml-cuda.so.0.28.0": "5b51c1a125e31e0c01729cfed9b69d96ea54247215c0da30590b2b668870c015",
+    "libggml.so.0.28.0": "07f27fef9570b0e6ff8761046000908fb98c37c27c42465d558dad04d2562703",
+    "libggml-cpu.so.0.28.0": "b04d6e65e0d3e42d629c3918e414d9cc089846022f1924c1cc2508a6ccf1f37b",
+    "libcudart.so.12": "095296727cfb5f51e5b3ae69a3cb88cbd7b6592f314ace0fdfc4e1d758c2aa85",
+    "libcublas.so.12": "d9343511e1d2ed51e4d65fa94a25cb8f73b0ebc5ae5487da794e18e6950c98dc",
+    "EULA.CUDA.txt": "e2c71babfd18a8e69542dd7e9ca018f9caa438094001a58e6bc4d8c999bf0d07",
+    "libllama-server-impl.so": "a841ce48dbebc5f98fa12656c4146243c445b95dcee141721f62697efe319469",
+    "libggml-base.so.0.28.0": "f139b7b61d2b403efeefea293888cfe5ab80b44d1a4a04739a391e062d45e762",
+    "libmtmd.so.0.8.0": "8900dd66fb91e6706f4bb483010fffd7f18d72d3e1fac17fc6bdfb3c48139698",
+    "libcublasLt.so.12": "a4ddaed1410acc604815f0e84cdd6c4a70c61cfd2b95dc96360f0799169f0374",
+    "libllama-common.so.0.8.0": "26c96dd06999cca13af9f4d3a6b9169166f4af93d15d4dfdbfd353f1e0402c61",
+    "LICENSE.llama.cpp": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+    "llama-server": "77f54d96774645417affb2b382b574eb1ac1c126a0b9104d00657c2fb61f2691"
+  }
+}
