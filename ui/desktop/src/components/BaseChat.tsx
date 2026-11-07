@@ -1,7 +1,12 @@
 // Modified for Local AI Desktop: expose managed-runtime memory state in chat.
 import { AppEvents } from '../constants/events';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Globe } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
+import { LiveBrowserPanel } from './liveBrowser/LiveBrowserPanel';
+import { peekPendingSelection, onPendingSelectionChange } from './liveBrowser/pendingContext';
+import { i18n as liveBrowserMessages } from './liveBrowser/i18n';
+import { useLiveBrowserWiring } from './liveBrowser/useLiveBrowserWiring';
 import { useLocation, useNavigate } from 'react-router';
 import { SearchView } from './conversation/SearchView';
 import LoadingGoose from './LoadingGoose';
@@ -61,6 +66,52 @@ const i18n = defineMessages({
 
 const isUserMessage = (message: Message) => message.role === 'user';
 
+/**
+ * Live Browser panel UI state (per chat). The browser runtime itself is
+ * global and conversation-scoped on the server side; only the panel layout
+ * state is remembered per conversation, so each chat keeps its own
+ * Split/Expanded choice and panel width.
+ */
+type BrowserMode = 'chatOnly' | 'split' | 'expanded';
+
+interface BrowserUIState {
+  mode: BrowserMode;
+  panelWidth: number;
+}
+
+const BROWSER_DEFAULT_PANEL_WIDTH = 520;
+
+function browserUIStorageKey(sessionId: string): string {
+  return `lad-live-browser-ui-${sessionId}`;
+}
+
+function loadBrowserUIState(sessionId: string): BrowserUIState {
+  try {
+    const raw = window.localStorage.getItem(browserUIStorageKey(sessionId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<BrowserUIState>;
+      const mode: BrowserMode =
+        parsed.mode === 'split' || parsed.mode === 'expanded' ? parsed.mode : 'chatOnly';
+      const panelWidth =
+        typeof parsed.panelWidth === 'number' && Number.isFinite(parsed.panelWidth)
+          ? Math.min(1200, Math.max(360, Math.round(parsed.panelWidth)))
+          : BROWSER_DEFAULT_PANEL_WIDTH;
+      return { mode, panelWidth };
+    }
+  } catch {
+    // corrupted storage — fall through to defaults
+  }
+  return { mode: 'chatOnly', panelWidth: BROWSER_DEFAULT_PANEL_WIDTH };
+}
+
+function saveBrowserUIState(sessionId: string, state: BrowserUIState): void {
+  try {
+    window.localStorage.setItem(browserUIStorageKey(sessionId), JSON.stringify(state));
+  } catch {
+    // storage unavailable — non-fatal
+  }
+}
+
 interface BaseChatProps {
   setChat: (chat: ChatType) => void;
   suppressEmptyState: boolean;
@@ -119,6 +170,33 @@ export default function BaseChat({
   const [pendingQuote, setPendingQuote] = useState<string | null>(null);
   const [quoteButtonPos, setQuoteButtonPos] = useState<{ x: number; y: number } | null>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
+
+  // Live Browser panel: per-chat layout state (Split/Expanded/ChatOnly + width).
+  const [browserMode, setBrowserMode] = useState<BrowserMode>(() =>
+    loadBrowserUIState(sessionId).mode,
+  );
+  const [browserPanelWidth, setBrowserPanelWidth] = useState(() =>
+    loadBrowserUIState(sessionId).panelWidth,
+  );
+  const [pendingSelection, setPendingSelectionState] = useState(() => peekPendingSelection());
+
+  useEffect(() => {
+    setBrowserMode(loadBrowserUIState(sessionId).mode);
+    setBrowserPanelWidth(loadBrowserUIState(sessionId).panelWidth);
+  }, [sessionId]);
+
+  useEffect(() => {
+    saveBrowserUIState(sessionId, { mode: browserMode, panelWidth: browserPanelWidth });
+  }, [sessionId, browserMode, browserPanelWidth]);
+
+  useEffect(
+    () => onPendingSelectionChange(() => setPendingSelectionState(peekPendingSelection())),
+    [],
+  );
+
+  // Start the Live Browser runtime once and register its MCP extension with
+  // Goose so the agent has browser_* tools even when the panel is closed.
+  useLiveBrowserWiring(true);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -461,7 +539,25 @@ export default function BaseChat({
       <div className="absolute right-24 top-3 z-10 max-w-[calc(100%-7rem)] pointer-events-none">
         <MemoryMonitor />
       </div>
-      <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
+      {!isSubagentSession && (
+        <div className="absolute right-3 top-3 z-[100]">
+          <Button
+            variant={browserMode !== 'chatOnly' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="no-drag h-8 w-8 p-0"
+            title={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            aria-label={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            data-testid="browser-toggle"
+            data-mode={browserMode}
+            onClick={() => setBrowserMode((m) => (m === 'chatOnly' ? 'split' : 'chatOnly'))}
+          >
+            <Globe className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1">
+        <div className={cn('flex min-w-0 flex-1 flex-col', browserMode === 'expanded' && 'hidden')}>
+        <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
         {/* Chat container with sticky recipe header */}
         <div className="flex flex-col flex-1 min-h-0 relative">
           <SessionActionsHeader session={session} onSessionChange={updateSession} />
@@ -546,6 +642,20 @@ export default function BaseChat({
           </button>
         )}
 
+        {pendingSelection && !isSubagentSession && (
+          <div
+            className="mx-4 mb-1 flex items-center gap-2 rounded-md border border-border-primary bg-background-secondary px-2 py-1 text-xs text-text-secondary"
+            data-testid="pending-selection-note"
+          >
+            <Globe className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              {intl.formatMessage(liveBrowserMessages.pendingNote, {
+                names: pendingSelection.areaNames.join(', ') || 'Live Browser selection',
+              })}
+            </span>
+          </div>
+        )}
+
         {isSubagentSession ? (
           <SubagentSessionNotice
             refreshing={chatState === ChatState.LoadingConversation}
@@ -612,7 +722,18 @@ export default function BaseChat({
             />
           </ChatInputCard>
         )}
-      </MainPanelLayout>
+        </MainPanelLayout>
+        </div>
+        {browserMode !== 'chatOnly' && !isSubagentSession && (
+          <LiveBrowserPanel
+            sessionId={sessionId}
+            mode={browserMode === 'expanded' ? 'expanded' : 'split'}
+            onModeChange={(m) => setBrowserMode(m)}
+            panelWidth={browserPanelWidth}
+            onPanelWidthChange={(width) => setBrowserPanelWidth(width)}
+          />
+        )}
+      </div>
     </div>
   );
 }

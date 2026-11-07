@@ -1,0 +1,12 @@
+{
+  "name": "@local-ai-desktop/live-browser",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Local AI Desktop — Live Browser runtime (Playwright Page + MCP browser tools + control/SSE API). Built to dist/live-browser.js; see live-browser/README.md.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:smoke": "node tests/smoke.mjs"
+  }
+}

@@ -13,6 +13,11 @@ let cfg = {
   extraResource: [
     'src/bin',
     'src/images',
+    // Live Browser runtime: self-contained Node bundle + playwright-core data files
+    // (resolved at runtime relative to the bundle location).
+    'live-browser/dist/live-browser.js',
+    'live-browser/browsers.json',
+    'live-browser/package.json',
     resolve(__dirname, '../../runtime/llama'),
     resolve(__dirname, '../../LICENSE'),
     resolve(__dirname, '../../THIRD_PARTY_NOTICES.md'),

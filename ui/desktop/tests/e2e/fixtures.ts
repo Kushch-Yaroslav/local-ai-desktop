@@ -1,7 +1,11 @@
 import { test as base, Page, Browser, chromium } from '@playwright/test';
-import { exec, spawn, ChildProcess } from 'child_process';
+import { exec, ChildProcess } from 'child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { promisify } from 'util';
+import { launchApp } from './app-launcher';
+import { discoverLlamaServer, seedGooseBackend } from './goose-seed';
 
 const execAsync = promisify(exec);
 
@@ -41,21 +45,58 @@ export const test = base.extend<GooseTestFixtures>({
       const debugPort = 9222 + (testInfo.parallelIndex * 10);
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
-      // Start the electron-forge process with Playwright remote debugging enabled
-      // Use detached mode on Unix to create a process group we can kill together
-      appProcess = spawn('pnpm', ['run', 'start-gui'], {
-        cwd: join(__dirname, '../..'),
-        stdio: 'pipe',
-        detached: process.platform !== 'win32',
-        env: {
-          ...process.env,
-          ELECTRON_IS_DEV: '1',
-          NODE_ENV: 'development',
-          GOOSE_ALLOWLIST_BYPASS: 'true',
-          ENABLE_PLAYWRIGHT: 'true',
-          PLAYWRIGHT_DEBUG_PORT: debugPort.toString(), // Unique port per test for parallel execution
-          RUST_LOG: 'info', // Enable info-level logging for goosed backend
+      // Isolated app instance (opt-in via LAD_E2E_ISOLATE=1, set by specs
+      // that must not collide with an already-running Local AI Desktop):
+      //   - LOCAL_AI_DESKTOP_DEV_ROOT: unique userData + GOOSE_PATH_ROOT,
+      //     which also bypasses Electron's single-instance lock.
+      //   - GOOSE_DISABLE_KEYRING: goose reads provider secrets from the
+      //     seeded <devRoot>/goose-backend/config/secrets.yaml file.
+      //   - the seeded goose config points at the ALREADY-RUNNING local
+      //     llama-server (no second model load, server lifecycle untouched).
+      const isolate = process.env.LAD_E2E_ISOLATE === '1';
+      let isolatedEnv: Record<string, string> = {};
+      if (isolate) {
+        const devRoot = mkdtempSync(join(tmpdir(), 'lad-e2e-'));
+        // Isolate XDG_CONFIG_HOME so desktopMain.ts's storage-config block
+        // cannot find the global ~/.config/local-ai-desktop-storage.json
+        // (which would otherwise point userData at the REAL app's directory
+        // and clobber LOCAL_AI_DESKTOP_DEV_ROOT, causing the single-instance
+        // lock to be denied by the already-running Local AI Desktop).
+        const xdgHome = mkdtempSync(join(tmpdir(), 'lad-e2e-xdg-'));
+        // Make <devRoot>/electron a non-empty legacy storage root so that
+        // initializeDefaultStorage() (which auto-creates a default storage
+        // config ONLY when no legacy root exists) bails out early and leaves
+        // LOCAL_AI_DESKTOP_DEV_ROOT untouched. The dev-root block then sets
+        // userData to the unique <devRoot>/electron, so the single-instance
+        // lock is acquirable even with the real app running.
+        const electronRoot = join(devRoot, 'electron');
+        mkdirSync(electronRoot, { recursive: true });
+        writeFileSync(join(electronRoot, '.e2e-isolated'), 'isolated E2E instance\n');
+        const llama = discoverLlamaServer();
+        if (llama) {
+          seedGooseBackend(devRoot, llama);
+          console.log(`E2E: seeded isolated goose config -> ${llama.baseUrl} (llama pid ${llama.pid})`);
+        } else {
+          console.log('E2E: llama-server not found; agent-dependent tests will skip');
         }
+        isolatedEnv = {
+          LOCAL_AI_DESKTOP_DEV_ROOT: devRoot,
+          GOOSE_DISABLE_KEYRING: 'true',
+          XDG_CONFIG_HOME: xdgHome,
+          // Explicit goose config root (the dev-root block sets the same value);
+          // kept explicit so the seeded config is always discovered.
+          GOOSE_PATH_ROOT: join(devRoot, 'goose-backend'),
+        };
+      }
+
+      // Start the electron-forge process with Playwright remote debugging enabled
+      // Use detached mode on Unix to create a process group we can kill together.
+      // launchApp() falls back to a direct-node chain when pnpm's engines
+      // check rejects the local pnpm/Node pair (see app-launcher.ts).
+      appProcess = launchApp(join(__dirname, '../..'), {
+        ...process.env,
+        PLAYWRIGHT_DEBUG_PORT: debugPort.toString(), // Unique port per test for parallel execution
+        ...isolatedEnv,
       });
 
       // Log process output for debugging
@@ -72,8 +113,8 @@ export const test = base.extend<GooseTestFixtures>({
       // Wait for the app to start and remote debugging to be available
       // Retry connection until it succeeds (app is ready) or timeout
       console.log(`Waiting for Electron app to start on port ${debugPort}...`);
-      const maxRetries = 100; // 100 retries * 100ms = 10 seconds max
-      const retryDelay = 100; // 100ms between retries
+      const maxRetries = 360; // 360 retries * 500ms = up to 3 minutes (cold start)
+      const retryDelay = 500; // 500ms between retries
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -83,7 +124,12 @@ export const test = base.extend<GooseTestFixtures>({
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (attempt === maxRetries) {
-            throw new Error(`Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`);
+            throw Object.assign(
+              new Error(
+                `Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`,
+              ),
+              { cause: error },
+            );
           }
           // Wait before next retry
           await new Promise(resolve => setTimeout(resolve, retryDelay));

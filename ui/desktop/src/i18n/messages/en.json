@@ -2204,6 +2204,192 @@
   "launcher.placeholder": {
     "defaultMessage": "Ask goose anything..."
   },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "Agent action: {detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "Agent is working"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,=0{no DOM anchors} one{# DOM anchor} other{# DOM anchors}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "Task / description"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "Name"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "Auto"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "Back"
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "Could not capture the region: {error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "Close browser session"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "Hide panel (browser keeps running)"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "Confidence"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "Connecting to the browser runtime…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "Created"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "None"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "Diagnostics"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "Fit"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "Forward"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "Could not save the selection: {error}"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "History"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "Show / hide Live Browser panel"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "Include in next message"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "Last check"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "Re-check binding"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "Mark fixed"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "Mark unresolved"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "Mark verified"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "Chat only"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "Expanded"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "Split"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "New area"
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "No page open yet — enter a URL above."
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser is available in the desktop app."
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "Open"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "Agent control"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "Your control"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "Page zoom"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} will be included in the next message to the agent"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "Preview scale"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "Area saved"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,=0{no selections} one{# selection} other{# selections}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "Reload"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "Remove area"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "Remove selection"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "Retry"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "Browser runtime error: {error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "Scroll"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "All"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "Drag a rectangle over the page to select an area"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "Next message will include: {names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "Browser session closed"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "Binding is stale — original selection data preserved"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "Status"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "Technical data"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL not allowed: {error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "Vision off: the model receives the text context (DOM, geometry, CSS, URL), not the image."
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "Vision on: the model also receives the region screenshot."
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "Zoom"
+  },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
   },

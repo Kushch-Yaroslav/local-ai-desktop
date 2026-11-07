@@ -232,6 +232,36 @@ type ElectronAPI = {
   getGitBranchInfo: (dir: string) => Promise<{ branch: string } | null>;
   listGitBranches: (dir: string) => Promise<string[]>;
   switchGitBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
+  // Live Browser (Goose-based port). The main process spawns the runtime and
+  // hands the loopback endpoint + bearer token to the renderer.
+  liveBrowserStart: () => Promise<{
+    ok: boolean;
+    endpoint?: {
+      url: string;
+      port: number;
+      token: string;
+      dataDir: string;
+      headless: boolean;
+      chrome: string;
+    };
+    error?: string;
+  }>;
+  liveBrowserStatus: () => Promise<{
+    running: boolean;
+    endpoint: {
+      url: string;
+      port: number;
+      token: string;
+      dataDir: string;
+      headless: boolean;
+      chrome: string;
+    } | null;
+    node: string | null;
+    script: string | null;
+    pid: number | null;
+    error: string | null;
+  }>;
+  liveBrowserStop: () => Promise<{ ok: boolean }>;
 };
 
 type AppConfigAPI = {
@@ -439,6 +469,9 @@ const electronAPI: ElectronAPI = {
   listGitBranches: (dir: string) => ipcRenderer.invoke('list-git-branches', dir),
   switchGitBranch: (dir: string, branch: string) =>
     ipcRenderer.invoke('switch-git-branch', dir, branch),
+  liveBrowserStart: () => ipcRenderer.invoke('live-browser:start'),
+  liveBrowserStatus: () => ipcRenderer.invoke('live-browser:status'),
+  liveBrowserStop: () => ipcRenderer.invoke('live-browser:stop'),
 };
 
 function getAppLocale(): unknown {

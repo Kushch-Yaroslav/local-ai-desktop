@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Đã tìm thấy bộ điều hợp ACP"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Không tìm thấy bộ điều hợp ACP"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Đăng nhập qua CLI của nhà cung cấp, sau đó kiểm tra lại."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Kiểm tra lại"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Đang kiểm tra..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Kết nối thành công"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Hãy kiểm tra kết nối tài khoản trước khi tiếp tục."
+  },
   "announcementModal.gotIt": {
     "defaultMessage": "Đã hiểu!"
   },
@@ -307,6 +328,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Đang xử lý..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "Đã dùng {used} trong {limit} token. Xem nội dung cửa sổ ngữ cảnh"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Đã vượt ngưỡng nén tự động: hội thoại sẽ được nén trước khi gửi yêu cầu tiếp theo."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Hướng dẫn & gợi ý"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Tóm tắt nén"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Hướng dẫn của tiện ích mở rộng"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Cuộc trò chuyện"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Prompt hệ thống"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Định nghĩa công cụ"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Ngữ cảnh lượt"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Nén ngay"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Còn trống"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "Không thể tải báo cáo ngữ cảnh."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · cửa sổ ngữ cảnh {limit} token"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} giữ lịch sử hội thoại riêng và chỉ nhận lời nhắc mới nhất từ goose, nên không có yêu cầu nào để phân tích."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Làm mới"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Thử lại"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Cửa sổ ngữ cảnh"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "Số token được ước tính bằng tokenizer o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "trong {limit} token · {percent} cửa sổ ngữ cảnh"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Giới hạn cuộc trò chuyện"
@@ -911,11 +989,11 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
+  },
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Không thể cập nhật thư mục làm việc"
@@ -931,18 +1009,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Thư mục gần đây"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Không thể chuyển sang {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Không tìm thấy nhánh"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Tìm kiếm nhánh…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Bạn có thể có các thay đổi chưa commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Chấp nhận"
@@ -1252,6 +1318,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Không thể chuyển sang {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Không tìm thấy nhánh"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Tìm kiếm nhánh…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Bạn có thể có các thay đổi chưa commit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Đóng"
@@ -1727,6 +1805,192 @@
   "launcher.placeholder": {
     "defaultMessage": "Hỏi goose bất cứ điều gì..."
   },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "Hành động của agent: {detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "Agent đang làm việc"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,other{# neo DOM}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "Nhiệm vụ / mô tả"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "Tên"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "Tự động"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "Quay lại"
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "Không chụp được vùng: {error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "Đóng phiên trình duyệt"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "Ẩn bảng (trình duyệt vẫn chạy)"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "Độ tin cậy"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "Đang kết nối runtime trình duyệt…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "Đã tạo"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "Không có"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "Chẩn đoán"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "Vừa khít"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "Tiếp"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "Không lưu được vùng chọn: {error}"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "Lịch sử"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "Hiện / ẩn bảng Live Browser"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "Bao gồm trong tin nhắn tiếp theo"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "Kiểm tra cuối"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "Kiểm tra lại liên kết"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "Đánh dấu đã sửa"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "Đánh dấu chưa giải quyết"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "Đánh dấu đã xác minh"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "Chỉ trò chuyện"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "Mở rộng"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "Tách"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "Vùng mới"
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "Chưa có trang nào mở — nhập URL phía trên."
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser có sẵn trong ứng dụng desktop."
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "Mở"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "Agent điều khiển"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "Bạn điều khiển"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "Thu phóng trang"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} sẽ được đưa vào tin nhắn tiếp theo gửi cho agent"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "Tỷ lệ xem trước"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "Đã lưu vùng"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,other{# vùng chọn}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "Tải lại"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "Xoá vùng"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "Xoá vùng chọn"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "Thử lại"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "Lỗi runtime trình duyệt: {error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "Cuộn"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "Tất cả"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "Kéo một hình chữ nhật trên trang để chọn vùng"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "Tin nhắn tiếp theo sẽ gồm: {names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "Đã đóng phiên trình duyệt"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "Liên kết đã lỗi thời — dữ liệu chọn ban đầu được giữ"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "Trạng thái"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "Dữ liệu kỹ thuật"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL không được phép: {error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "Cửa sổ hiển thị"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "Vision tắt: model nhận ngữ cảnh văn bản (DOM, hình học, CSS, URL), không nhận ảnh."
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "Vision bật: model cũng nhận ảnh chụp vùng."
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "Thu phóng"
+  },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
   },
@@ -1987,6 +2251,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Sao chép"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, other {# tin nhắn đã bị ẩn}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Mô hình đã thay đổi: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (đã yêu cầu)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Hiển thị tất cả"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Hủy"
@@ -2339,6 +2615,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Cài đặt mô hình cục bộ — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Gần đây"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Mô hình đã phân giải"
   },
@@ -2627,18 +2906,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Những gì chúng tôi thu thập:"
   },
-  "messageList.hiddenMessages": {
-    "defaultMessage": "{count, plural, other {# tin nhắn đã bị ẩn}}"
-  },
-  "messageList.modelChanged": {
-    "defaultMessage": "Mô hình đã thay đổi: {previousModel} → {currentModel}"
-  },
-  "messageList.requestedModel": {
-    "defaultMessage": "{model} (đã yêu cầu)"
-  },
-  "messageList.showAllMessages": {
-    "defaultMessage": "Hiển thị tất cả"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Tất cả lời nhắc đã được đặt lại về mặc định"
   },
@@ -2717,6 +2984,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Bạn có các thay đổi chưa lưu"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Không còn được dùng — hãy sử dụng {replacement}."
+  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Nhà cung cấp không xác định"
   },
@@ -2765,8 +3035,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Tiếp tục"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "và nhập:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Sao chép"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Một cửa sổ trình duyệt sẽ mở ra. Mã xác minh sẽ xuất hiện tại đây để bạn nhập và hoàn tất đăng nhập."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Truy cập"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Bạn chưa có khóa API?"
@@ -2792,6 +3071,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Kiểm tra lại cấu hình của bạn để sử dụng nhà cung cấp này."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Chọn mô hình"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Đóng"
   },
@@ -2804,8 +3086,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Thao tác này sẽ xóa vĩnh viễn cấu hình nhà cung cấp hiện tại."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "và nhập:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Sao chép"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Một cửa sổ trình duyệt sẽ mở ra. Mã xác minh sẽ xuất hiện tại đây để bạn nhập và hoàn tất đăng nhập."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Truy cập"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Đã xảy ra lỗi khi kiểm tra cấu hình nhà cung cấp này."
@@ -3920,6 +4211,96 @@
   "sessions.toast.updated": {
     "defaultMessage": "Đã cập nhật mô tả phiên làm việc thành công"
   },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Tự động"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Đã cấu hình"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "Khóa API TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Nhập khóa API"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Xóa khóa"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Lưu khóa"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Sử dụng Jev để chọn mức suy luận cho từng yêu cầu. Nội dung được gửi đến TypeSafe AI; lệnh gạch chéo kỹ năng và công thức bao gồm hướng dẫn cục bộ đã mở rộng."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Mức suy luận tự động"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Giới hạn chặn"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Tóm tắt lịch sử cuộc trò chuyện trước khi cửa sổ ngữ cảnh đầy."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Nén ngữ cảnh"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Ngưỡng cắt"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Bật {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Thời gian chờ khi lỗi"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Thao tác có thể cấu hình"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Dừng công việc tự động và hỏi người dùng trước khi tiếp tục."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Số lượt tối đa"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Chạy lại kiểm tra công thức khi kiểm tra thành công đã cấu hình thất bại."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Thử lại công thức"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Thời gian chờ thử lại"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Nhận diện các lệnh như /compact, /skills và phím tắt công thức."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Lệnh gạch chéo"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Cho phép hook chặn hoàn tất đồng thời ngăn chu kỳ dừng vô hạn."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hook dừng"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Ngưỡng %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Giới hạn token"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Tóm tắt các yêu cầu và phản hồi công cụ cũ để tiết kiệm ngữ cảnh. Ngưỡng cắt được đặt tự động khi để trống."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Nén cặp công cụ"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Lượt"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Vòng lặp tác nhân"
+  },
   "settings.appearance.description": {
     "defaultMessage": "Định cấu hình cách goose hiển thị trên hệ thống của bạn"
   },
@@ -4192,6 +4573,144 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "Thiếu tham số bắt buộc"
+  },
+  "storage.apply": {
+    "defaultMessage": "Apply location"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Artifacts and backups"
+  },
+  "storage.browse": {
+    "defaultMessage": "Choose folder"
+  },
+  "storage.cache": {
+    "defaultMessage": "Cache"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "storage.checking": {
+    "defaultMessage": "Checking storage…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Choose a dedicated folder for application storage."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Free verified previous transfer copies"
+  },
+  "storage.config": {
+    "defaultMessage": "Configuration"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Move storage and restart?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
+  },
+  "storage.copying": {
+    "defaultMessage": "Copying and verifying files…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Custom location"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
+  },
+  "storage.default": {
+    "defaultMessage": "Use the default location"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "System default location"
+  },
+  "storage.description": {
+    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
+  },
+  "storage.effective": {
+    "defaultMessage": "Current data location"
+  },
+  "storage.error": {
+    "defaultMessage": "Storage could not be changed: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Available space: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "There is not enough free space for a verified copy."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Choose an application storage folder."
+  },
+  "storage.logs": {
+    "defaultMessage": "Logs"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "A storage transfer is already running."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Choose a folder outside the current application storage."
+  },
+  "storage.permission": {
+    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
+  },
+  "storage.recovered": {
+    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
+  },
+  "storage.required": {
+    "defaultMessage": "Space required for a verified copy: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Move and restart"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Restarting with the new storage…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
+  },
+  "storage.retry": {
+    "defaultMessage": "Retry"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Return to previous storage"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
+  },
+  "storage.split": {
+    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Another process is using the storage. Close that app and retry."
+  },
+  "storage.title": {
+    "defaultMessage": "Application Storage"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "This location is already applied."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "A compatible filesystem is required for permanent application data."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Storage migration is currently available on Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Checking database integrity…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "Nhà cung cấp {name} đã được định cấu hình"
@@ -4639,338 +5158,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Xóa hình ảnh khỏi tin nhắn"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Gần đây"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Chọn mô hình"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Không còn được dùng — hãy sử dụng {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Đã tìm thấy bộ điều hợp ACP"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Không tìm thấy bộ điều hợp ACP"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Đăng nhập qua CLI của nhà cung cấp, sau đó kiểm tra lại."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Kiểm tra lại"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Đang kiểm tra..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Kết nối thành công"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Hãy kiểm tra kết nối tài khoản trước khi tiếp tục."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "và nhập:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Sao chép"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Truy cập"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "và nhập:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Sao chép"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Truy cập"
-  },
-  "contextWindowIndicator.open": {
-    "defaultMessage": "Đã dùng {used} trong {limit} token. Xem nội dung cửa sổ ngữ cảnh"
-  },
-  "contextXray.compactNow": {
-    "defaultMessage": "Nén ngay"
-  },
-  "contextXray.free": {
-    "defaultMessage": "Còn trống"
-  },
-  "contextXray.loadError": {
-    "defaultMessage": "Không thể tải báo cáo ngữ cảnh."
-  },
-  "contextXray.modelSummary": {
-    "defaultMessage": "{model} · cửa sổ ngữ cảnh {limit} token"
-  },
-  "contextXray.refresh": {
-    "defaultMessage": "Làm mới"
-  },
-  "contextXray.retry": {
-    "defaultMessage": "Thử lại"
-  },
-  "contextXray.title": {
-    "defaultMessage": "Cửa sổ ngữ cảnh"
-  },
-  "contextXray.tokenizerNote": {
-    "defaultMessage": "Số token được ước tính bằng tokenizer o200k."
-  },
-  "contextXray.usage": {
-    "defaultMessage": "trong {limit} token · {percent} cửa sổ ngữ cảnh"
-  },
-  "contextXray.category.additionalInstructions": {
-    "defaultMessage": "Hướng dẫn & gợi ý"
-  },
-  "contextXray.category.compactionSummary": {
-    "defaultMessage": "Tóm tắt nén"
-  },
-  "contextXray.category.extensionInstructions": {
-    "defaultMessage": "Hướng dẫn của tiện ích mở rộng"
-  },
-  "contextXray.category.messages": {
-    "defaultMessage": "Cuộc trò chuyện"
-  },
-  "contextXray.category.systemPrompt": {
-    "defaultMessage": "Prompt hệ thống"
-  },
-  "contextXray.category.toolDefinitions": {
-    "defaultMessage": "Định nghĩa công cụ"
-  },
-  "contextXray.category.turnContext": {
-    "defaultMessage": "Ngữ cảnh lượt"
-  },
-  "settings.agentLoop.operations.auto.placeholder": {
-    "defaultMessage": "Tự động"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
-    "defaultMessage": "Đã cấu hình"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.label": {
-    "defaultMessage": "Khóa API TypeSafe"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
-    "defaultMessage": "Nhập khóa API"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
-    "defaultMessage": "Xóa khóa"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.save": {
-    "defaultMessage": "Lưu khóa"
-  },
-  "settings.agentLoop.operations.autoEffort.description": {
-    "defaultMessage": "Sử dụng Jev để chọn mức suy luận cho từng yêu cầu. Nội dung được gửi đến TypeSafe AI; lệnh gạch chéo kỹ năng và công thức bao gồm hướng dẫn cục bộ đã mở rộng."
-  },
-  "settings.agentLoop.operations.autoEffort.title": {
-    "defaultMessage": "Mức suy luận tự động"
-  },
-  "settings.agentLoop.operations.blockLimit.label": {
-    "defaultMessage": "Giới hạn chặn"
-  },
-  "settings.agentLoop.operations.contextCompaction.description": {
-    "defaultMessage": "Tóm tắt lịch sử cuộc trò chuyện trước khi cửa sổ ngữ cảnh đầy."
-  },
-  "settings.agentLoop.operations.contextCompaction.title": {
-    "defaultMessage": "Nén ngữ cảnh"
-  },
-  "settings.agentLoop.operations.cutoff.label": {
-    "defaultMessage": "Ngưỡng cắt"
-  },
-  "settings.agentLoop.operations.enable": {
-    "defaultMessage": "Bật {operation}"
-  },
-  "settings.agentLoop.operations.failureTimeout.label": {
-    "defaultMessage": "Thời gian chờ khi lỗi"
-  },
-  "settings.agentLoop.operations.heading": {
-    "defaultMessage": "Thao tác có thể cấu hình"
-  },
-  "settings.agentLoop.operations.maxTurns.description": {
-    "defaultMessage": "Dừng công việc tự động và hỏi người dùng trước khi tiếp tục."
-  },
-  "settings.agentLoop.operations.maxTurns.title": {
-    "defaultMessage": "Số lượt tối đa"
-  },
-  "settings.agentLoop.operations.recipeRetry.description": {
-    "defaultMessage": "Chạy lại kiểm tra công thức khi kiểm tra thành công đã cấu hình thất bại."
-  },
-  "settings.agentLoop.operations.recipeRetry.title": {
-    "defaultMessage": "Thử lại công thức"
-  },
-  "settings.agentLoop.operations.retryTimeout.label": {
-    "defaultMessage": "Thời gian chờ thử lại"
-  },
-  "settings.agentLoop.operations.slashCommands.description": {
-    "defaultMessage": "Nhận diện các lệnh như /compact, /skills và phím tắt công thức."
-  },
-  "settings.agentLoop.operations.slashCommands.title": {
-    "defaultMessage": "Lệnh gạch chéo"
-  },
-  "settings.agentLoop.operations.stopHooks.description": {
-    "defaultMessage": "Cho phép hook chặn hoàn tất đồng thời ngăn chu kỳ dừng vô hạn."
-  },
-  "settings.agentLoop.operations.stopHooks.title": {
-    "defaultMessage": "Hook dừng"
-  },
-  "settings.agentLoop.operations.threshold.label": {
-    "defaultMessage": "Ngưỡng %"
-  },
-  "settings.agentLoop.operations.tokenLimit.label": {
-    "defaultMessage": "Giới hạn token"
-  },
-  "settings.agentLoop.operations.toolPairCompaction.description": {
-    "defaultMessage": "Tóm tắt các yêu cầu và phản hồi công cụ cũ để tiết kiệm ngữ cảnh. Ngưỡng cắt được đặt tự động khi để trống."
-  },
-  "settings.agentLoop.operations.toolPairCompaction.title": {
-    "defaultMessage": "Nén cặp công cụ"
-  },
-  "settings.agentLoop.operations.turns.label": {
-    "defaultMessage": "Lượt"
-  },
-  "settings.agentLoop.title": {
-    "defaultMessage": "Vòng lặp tác nhân"
-  },
-  "contextXray.providerManagesContext": {
-    "defaultMessage": "{provider} giữ lịch sử hội thoại riêng và chỉ nhận lời nhắc mới nhất từ goose, nên không có yêu cầu nào để phân tích."
-  },
-  "contextXray.autoCompactionPending": {
-    "defaultMessage": "Đã vượt ngưỡng nén tự động: hội thoại sẽ được nén trước khi gửi yêu cầu tiếp theo."
-  },
-  "storage.apply": {
-    "defaultMessage": "Apply location"
-  },
-  "storage.artifacts": {
-    "defaultMessage": "Artifacts and backups"
-  },
-  "storage.browse": {
-    "defaultMessage": "Choose folder"
-  },
-  "storage.cache": {
-    "defaultMessage": "Cache"
-  },
-  "storage.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "storage.checking": {
-    "defaultMessage": "Checking storage…"
-  },
-  "storage.chooseAppFolder": {
-    "defaultMessage": "Choose a dedicated folder for application storage."
-  },
-  "storage.cleanup": {
-    "defaultMessage": "Free verified previous transfer copies"
-  },
-  "storage.config": {
-    "defaultMessage": "Configuration"
-  },
-  "storage.confirm": {
-    "defaultMessage": "Move storage and restart?"
-  },
-  "storage.confirmText": {
-    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
-  },
-  "storage.copying": {
-    "defaultMessage": "Copying and verifying files…"
-  },
-  "storage.custom": {
-    "defaultMessage": "Custom location"
-  },
-  "storage.databaseBusyOrInvalid": {
-    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
-  },
-  "storage.default": {
-    "defaultMessage": "Use the default location"
-  },
-  "storage.defaultPath": {
-    "defaultMessage": "System default location"
-  },
-  "storage.description": {
-    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
-  },
-  "storage.destinationConflict": {
-    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
-  },
-  "storage.effective": {
-    "defaultMessage": "Current data location"
-  },
-  "storage.error": {
-    "defaultMessage": "Storage could not be changed: {reason}"
-  },
-  "storage.free": {
-    "defaultMessage": "Available space: {space}"
-  },
-  "storage.insufficientSpace": {
-    "defaultMessage": "There is not enough free space for a verified copy."
-  },
-  "storage.invalidPath": {
-    "defaultMessage": "Choose an application storage folder."
-  },
-  "storage.logs": {
-    "defaultMessage": "Logs"
-  },
-  "storage.migrationBusy": {
-    "defaultMessage": "A storage transfer is already running."
-  },
-  "storage.nestedStorage": {
-    "defaultMessage": "Choose a folder outside the current application storage."
-  },
-  "storage.permission": {
-    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
-  },
-  "storage.recovered": {
-    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
-  },
-  "storage.recoveryRequired": {
-    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
-  },
-  "storage.required": {
-    "defaultMessage": "Space required for a verified copy: {space}"
-  },
-  "storage.restart": {
-    "defaultMessage": "Move and restart"
-  },
-  "storage.restarting": {
-    "defaultMessage": "Restarting with the new storage…"
-  },
-  "storage.retained": {
-    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
-  },
-  "storage.retry": {
-    "defaultMessage": "Retry"
-  },
-  "storage.rollback": {
-    "defaultMessage": "Return to previous storage"
-  },
-  "storage.sourceChanged": {
-    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
-  },
-  "storage.split": {
-    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
-  },
-  "storage.storageInUse": {
-    "defaultMessage": "Another process is using the storage. Close that app and retry."
-  },
-  "storage.title": {
-    "defaultMessage": "Application Storage"
-  },
-  "storage.unavailable": {
-    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
-  },
-  "storage.unchanged": {
-    "defaultMessage": "This location is already applied."
-  },
-  "storage.unidentifiedVolume": {
-    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
-  },
-  "storage.unsafeDefault": {
-    "defaultMessage": "A compatible filesystem is required for permanent application data."
-  },
-  "storage.unsupportedPlatform": {
-    "defaultMessage": "Storage migration is currently available on Linux."
-  },
-  "storage.verifying": {
-    "defaultMessage": "Checking database integrity…"
-  },
-  "storage.weightsInsideStorage": {
-    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   }
 }

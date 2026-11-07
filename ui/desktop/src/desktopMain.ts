@@ -42,6 +42,8 @@ import { GooseServeLeaseRegistry, type GooseServeLease } from './gooseServeLease
 import { normalizeAcpHttpBaseUrl } from './acp/url';
 import { expandTilde, sanitizeGoosePathRoot } from './utils/pathUtils';
 import log from './utils/logger';
+// Modified for Local AI Desktop: Live Browser runtime manager.
+import { LiveBrowserRuntimeManager } from './liveBrowserRuntime';
 import { ensureWinShims } from './utils/winShims';
 import { addRecentDir, loadRecentDirs } from './utils/recentDirs';
 import { formatAppName, errorMessage, formatErrorForLogging } from './utils/conversionUtils';
@@ -251,6 +253,7 @@ if (process.env.LOCAL_AI_DESKTOP_DEV_ROOT) {
     app.commandLine.appendSwitch('class', 'local-ai-desktop-goose-dev');
   }
   process.env.GOOSE_PATH_ROOT = path.join(root, 'goose-backend');
+  console.log(`[Main] dev root active: userData=${app.getPath('userData')}`);
 }
 registerManagedGguf();
 // On-demand, globally serialized telemetry; no background timer in main.
@@ -541,6 +544,9 @@ let gotTheLock: boolean;
 let openUrlHandledLaunch = false;
 if (process.platform !== 'darwin') {
   gotTheLock = app.requestSingleInstanceLock();
+  console.log(
+    `[Main] single-instance lock: ${gotTheLock ? 'ACQUIRED' : 'DENIED (another instance owns this userData)'} (userData=${app.getPath('userData')})`,
+  );
 
   if (!gotTheLock) {
     app.quit();
@@ -1086,6 +1092,11 @@ registerStorageIpc(storageService, async () => {
   await gooseServeLeases.cleanupAll();
   await shutdownManagedGguf();
 });
+
+// Modified for Local AI Desktop: Live Browser runtime (Playwright Page + MCP
+// browser tools + control/SSE API). One manager for the whole app; the
+// renderer talks to it through IPC, the Goose agent talks to it through MCP.
+const liveBrowserRuntime = new LiveBrowserRuntimeManager((message) => log.info(message));
 
 const windowPowerSaveBlockers = new Map<number, number>(); // windowId -> blockerId
 // Track pending initial messages per window
@@ -2099,6 +2110,24 @@ ipcMain.handle('get-acp-url', async (event) => {
     return null;
   }
   return gooseServeLeases.getAcpUrl(windowId) ?? null;
+});
+
+// Modified for Local AI Desktop: Live Browser runtime IPC.
+// The renderer receives the loopback endpoint + bearer token and talks to the
+// runtime's control/SSE API directly. The Goose agent uses the same runtime
+// through its MCP streamable-HTTP extension (registered in the renderer).
+ipcMain.handle('live-browser:start', async () => {
+  try {
+    const endpoint = await liveBrowserRuntime.start();
+    return { ok: true, endpoint };
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) };
+  }
+});
+ipcMain.handle('live-browser:status', () => liveBrowserRuntime.status());
+ipcMain.handle('live-browser:stop', () => {
+  liveBrowserRuntime.stop();
+  return { ok: true };
 });
 
 // Handle menu bar icon visibility
@@ -3185,6 +3214,14 @@ async function appMain() {
       throw error;
     }
   });
+
+  // Modified for Local AI Desktop: start the Live Browser runtime in the
+  // background so the Goose MCP extension is ready by the time the user opens
+  // the panel. Failure is non-fatal: the chat app still works without it, and
+  // the panel will surface the error and let the user retry.
+  void liveBrowserRuntime.start().catch((error) => {
+    log.warn('[live-browser] auto-start failed (panel can retry):', errorMessage(error));
+  });
 }
 
 app.whenReady().then(async () => {
@@ -3207,6 +3244,10 @@ async function getAllowList(): Promise<string[] | null> {
 }
 
 app.on('will-quit', async () => {
+  // Modified for Local AI Desktop: stop the Live Browser runtime (and its
+  // Chromium) before the app exits.
+  liveBrowserRuntime.stop();
+
   const gooseServeLeaseCount = gooseServeLeases.activeLeaseCount();
   if (gooseServeLeaseCount > 0) {
     log.info(`App quitting, cleaning up ${gooseServeLeaseCount} backend lease(s)`);

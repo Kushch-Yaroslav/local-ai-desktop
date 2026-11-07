@@ -25,6 +25,7 @@ import {
 } from '../acp/chatSessionStore';
 import { acpSteerSession } from '../acp/prompt';
 import { isAcpRecovering } from '../acp/acpConnection';
+import { consumePendingSelection, setPendingSelection } from '../components/liveBrowser/pendingContext';
 
 const initialTokenState: TokenState = {
   inputTokens: 0,
@@ -171,6 +172,21 @@ export function useChatSession({
       }
 
       const { msg: userMessage, images } = input;
+
+      // Live Browser: if the user marked areas "include in next message",
+      // attach the bounded structured context (text) + optional crops to this
+      // submission. Consumed exactly once here. The text carries URL,
+      // geometry, viewport/DPR, scroll, DOM anchors, diagnostics and the
+      // Canvas/SVG screenshot-only limits, so the agent understands what
+      // "fix this" refers to even with Vision Off.
+      const pendingSelection = consumePendingSelection();
+      const effectiveMessage = pendingSelection
+        ? `${pendingSelection.text}\n\n${userMessage}`
+        : userMessage;
+      const effectiveImages = pendingSelection
+        ? [...images, ...pendingSelection.images]
+        : images;
+
       const currentSnapshot = getCurrentSnapshot();
 
       if (
@@ -181,12 +197,15 @@ export function useChatSession({
         currentSnapshot.chatState === ChatState.Compacting ||
         currentSnapshot.pendingCancelPromptAttemptId !== null
       ) {
+        // Not a real send: put the pending selection back so the next
+        // successful submission carries it.
+        if (pendingSelection) setPendingSelection(pendingSelection);
         return;
       }
 
       const currentMessages = currentSnapshot.messages;
       const hasExistingMessages = currentMessages.length > 0;
-      const hasNewMessage = userMessage.trim().length > 0 || images.length > 0;
+      const hasNewMessage = effectiveMessage.trim().length > 0 || effectiveImages.length > 0;
       const clearsConversation = hasNewMessage && isClearCommand(userMessage);
 
       if (!hasNewMessage && !hasExistingMessages) {
@@ -205,7 +224,7 @@ export function useChatSession({
         return;
       }
 
-      const newMessage = hasNewMessage ? createUserMessage(userMessage, images) : lastMessage;
+      const newMessage = hasNewMessage ? createUserMessage(effectiveMessage, effectiveImages) : lastMessage;
       const messagesForStore = clearsConversation
         ? []
         : hasNewMessage

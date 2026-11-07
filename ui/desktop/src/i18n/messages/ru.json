@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Адаптер ACP найден"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Адаптер ACP не найден"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Войдите через CLI провайдера, затем повторите проверку."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Проверить снова"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "Проверка..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Подключение выполнено"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Проверьте подключение учетной записи, прежде чем продолжить."
+  },
   "announcementModal.gotIt": {
     "defaultMessage": "Понятно!"
   },
@@ -307,6 +328,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "Обработка..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "Использовано {used} из {limit} токенов. Показать содержимое контекстного окна"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Превышен порог автокомпактизации: разговор будет сжат перед отправкой следующего запроса."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Инструкции и подсказки"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Сводка сжатия"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Инструкции расширений"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Диалог"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Системный промпт"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Определения инструментов"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Контекст хода"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Сжать сейчас"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Свободно"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "Не удалось загрузить отчёт о контексте."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · контекстное окно {limit} токенов"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} хранит собственную историю разговора и получает от goose только последний запрос, поэтому разбирать нечего."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Обновить"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Контекстное окно"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "Число токенов оценивается токенизатором o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "из {limit} токенов · {percent} контекстного окна"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Ограничения разговора"
@@ -911,11 +989,11 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
+  },
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Не удалось обновить рабочий каталог"
@@ -931,18 +1009,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Недавние каталоги"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Не удалось переключиться на {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Ветки не найдены"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Поиск веток…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Возможно, у вас есть незакоммиченные изменения."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Принять"
@@ -1252,6 +1318,417 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gguf.absolutePath": {
+    "defaultMessage": "Необходим абсолютный путь к файлу."
+  },
+  "gguf.add": {
+    "defaultMessage": "Добавить модель"
+  },
+  "gguf.advanced": {
+    "defaultMessage": "Расширенный режим"
+  },
+  "gguf.advancedCard": {
+    "defaultMessage": "Используйте профили GGUF со встроенным Goose или управляемым llama-server."
+  },
+  "gguf.auto": {
+    "defaultMessage": "Авто"
+  },
+  "gguf.available": {
+    "defaultMessage": "Доступна"
+  },
+  "gguf.backend": {
+    "defaultMessage": "Backend инференса"
+  },
+  "gguf.backendUnsupported": {
+    "defaultMessage": "Этот runtime не поддерживает обнаружение устройств. Выберите CUDA runtime или задайте 0 слоёв GPU."
+  },
+  "gguf.batch": {
+    "defaultMessage": "Размер пакета"
+  },
+  "gguf.browse": {
+    "defaultMessage": "Обзор"
+  },
+  "gguf.cacheK": {
+    "defaultMessage": "KV-кэш K"
+  },
+  "gguf.cacheRequirements": {
+    "defaultMessage": "Кэш экспертов требует GPU-offload, всех экспертов на CPU и отсутствия произвольных размещений тензоров."
+  },
+  "gguf.cacheV": {
+    "defaultMessage": "KV-кэш V"
+  },
+  "gguf.cancelLoad": {
+    "defaultMessage": "Отменить загрузку"
+  },
+  "gguf.chatTemplate": {
+    "defaultMessage": "Имя встроенного шаблона чата"
+  },
+  "gguf.clearUnsupported": {
+    "defaultMessage": "Очистить неподдерживаемые настройки"
+  },
+  "gguf.compactControls": {
+    "defaultMessage": "Управление моделью: {name}"
+  },
+  "gguf.confirmDelete": {
+    "defaultMessage": "Удалить профиль «{name}»? Внешние файлы GGUF останутся без изменений."
+  },
+  "gguf.conflictingMoe": {
+    "defaultMessage": "Выберите все эксперты на CPU или первые N слоёв, но не оба варианта."
+  },
+  "gguf.context": {
+    "defaultMessage": "Контекст, токенов"
+  },
+  "gguf.cpu": {
+    "defaultMessage": "Потоки CPU и пакеты"
+  },
+  "gguf.cpuMoe": {
+    "defaultMessage": "Отдельное размещение MoE-экспертов на CPU"
+  },
+  "gguf.cpuMoeHelp": {
+    "defaultMessage": "Это независимая настройка профиля. Пока кэш включён, эксперты для этого запуска временно размещаются на CPU; сохранённая настройка не меняется."
+  },
+  "gguf.credentialUnsupported": {
+    "defaultMessage": "Этот runtime не объявляет поддержку ключа API через окружение. Выберите совместимый llama-server."
+  },
+  "gguf.default": {
+    "defaultMessage": "По умолчанию backend"
+  },
+  "gguf.delete": {
+    "defaultMessage": "Удалить"
+  },
+  "gguf.description": {
+    "defaultMessage": "Управляйте существующими GGUF. Сохранение не загружает веса. Выберите профиль в списке моделей чата — загрузка начнётся при первом запросе."
+  },
+  "gguf.deviceMemory": {
+    "defaultMessage": "Недостаточно VRAM. Уменьшите контекст/выгрузку на GPU или включите CPU для проектора, затем перезагрузите модель."
+  },
+  "gguf.devicesInaccessible": {
+    "defaultMessage": "Этот runtime не видит GPU. Проверьте библиотеки CUDA, доступ к устройствам и sandbox. Для CPU задайте 0 слоёв GPU."
+  },
+  "gguf.draft": {
+    "defaultMessage": "Draft/MTP требует проверки архитектуры, токенизатора, размерностей и backend. В этой версии не включён."
+  },
+  "gguf.draftCompatibility": {
+    "defaultMessage": "Совместимость draft/MTP не проверена; удалите настройку draft для продолжения."
+  },
+  "gguf.draftGpuLayers": {
+    "defaultMessage": "Слоёв draft на GPU"
+  },
+  "gguf.draftMinTokens": {
+    "defaultMessage": "Минимум draft-токенов"
+  },
+  "gguf.draftPath": {
+    "defaultMessage": "Абсолютный путь к draft GGUF"
+  },
+  "gguf.draftTokens": {
+    "defaultMessage": "Максимум draft-токенов (1–16)"
+  },
+  "gguf.duplicate": {
+    "defaultMessage": "Дублировать"
+  },
+  "gguf.edit": {
+    "defaultMessage": "Изменить"
+  },
+  "gguf.error": {
+    "defaultMessage": "Ошибка локального runtime"
+  },
+  "gguf.executable": {
+    "defaultMessage": "Исполняемый файл llama-server"
+  },
+  "gguf.experimental": {
+    "defaultMessage": "Экспериментальное размещение MoE — ускорение не подтверждено"
+  },
+  "gguf.external": {
+    "defaultMessage": "Управляемый llama-server"
+  },
+  "gguf.failed": {
+    "defaultMessage": "Ошибка"
+  },
+  "gguf.flashAttention": {
+    "defaultMessage": "Flash attention"
+  },
+  "gguf.gpuLayers": {
+    "defaultMessage": "Слоёв на GPU"
+  },
+  "gguf.gpuLayersHelp": {
+    "defaultMessage": "0 — CPU · 999 — все доступные слои на GPU"
+  },
+  "gguf.gpuVisible": {
+    "defaultMessage": "GPU обнаружен выбранным runtime"
+  },
+  "gguf.idle": {
+    "defaultMessage": "Выгружена"
+  },
+  "gguf.invalidValue": {
+    "defaultMessage": "Недопустимое значение настройки."
+  },
+  "gguf.jinja": {
+    "defaultMessage": "Включить шаблон Jinja для инструментов"
+  },
+  "gguf.language": {
+    "defaultMessage": "Язык интерфейса"
+  },
+  "gguf.load": {
+    "defaultMessage": "Загрузить модель"
+  },
+  "gguf.memory": {
+    "defaultMessage": "Контекст, KV-кэш и память"
+  },
+  "gguf.missing": {
+    "defaultMessage": "Файлы недоступны"
+  },
+  "gguf.missingFile": {
+    "defaultMessage": "Файл не найден или недоступен. Подключите диск или исправьте путь."
+  },
+  "gguf.model": {
+    "defaultMessage": "Путь к основной GGUF"
+  },
+  "gguf.modelSettings": {
+    "defaultMessage": "Настройки модели"
+  },
+  "gguf.moeCacheMiB": {
+    "defaultMessage": "Патченный кэш экспертов, МиБ (без бенчмарка)"
+  },
+  "gguf.moeMetadata": {
+    "defaultMessage": "Метаданные GGUF не подтверждают MoE-экспертов. Очистите настройки MoE."
+  },
+  "gguf.moeNote": {
+    "defaultMessage": "GPU Layers задаёт размещение обычных слоёв, а CPU MoE — весов экспертов. Кэш GPU хранит выбранные эксперты с CPU в видеопамяти; скорость зависит от модели и нагрузки."
+  },
+  "gguf.nCpuMoe": {
+    "defaultMessage": "Первые N слоёв MoE на CPU"
+  },
+  "gguf.name": {
+    "defaultMessage": "Название профиля"
+  },
+  "gguf.nameRequired": {
+    "defaultMessage": "Введите название профиля (до 120 символов)."
+  },
+  "gguf.native": {
+    "defaultMessage": "Встроенный инференс Goose"
+  },
+  "gguf.nativeDuplicatePath": {
+    "defaultMessage": "Настройки встроенного Goose общие для пути модели. Измените существующий встроенный профиль или используйте внешний."
+  },
+  "gguf.nativeGpuUnsupported": {
+    "defaultMessage": "Для этой встроенной сборки CUDA-адаптер не проверен. Выберите внешний CUDA runtime или задайте 0 слоёв GPU."
+  },
+  "gguf.nativeNote": {
+    "defaultMessage": "Загрузкой и выгрузкой управляет Goose. Настройки внешнего runtime не применяются."
+  },
+  "gguf.nativeUnsupported": {
+    "defaultMessage": "Эта настройка не поддерживается адаптером встроенных профилей. Используйте настройки Goose или внешний runtime."
+  },
+  "gguf.notGguf": {
+    "defaultMessage": "Выбранный файл не является GGUF."
+  },
+  "gguf.off": {
+    "defaultMessage": "Выкл."
+  },
+  "gguf.on": {
+    "defaultMessage": "Вкл."
+  },
+  "gguf.placementIdentity": {
+    "defaultMessage": "Идентичность GGUF для этого размещения не подтверждена. Проверьте модель и подтвердите её в дополнительных настройках."
+  },
+  "gguf.portConflict": {
+    "defaultMessage": "Порт профиля занят. Другие процессы не завершались."
+  },
+  "gguf.probe": {
+    "defaultMessage": "Проверить выбранный runtime"
+  },
+  "gguf.probeFailed": {
+    "defaultMessage": "Не удалось проверить выбранный исполняемый файл."
+  },
+  "gguf.processExit": {
+    "defaultMessage": "llama-server завершился. Смотрите журнал runtime."
+  },
+  "gguf.profileMissing": {
+    "defaultMessage": "Профиль больше не существует. Выберите другую модель."
+  },
+  "gguf.projector": {
+    "defaultMessage": "GGUF проектора зрения (необязательно)"
+  },
+  "gguf.projectorCpu": {
+    "defaultMessage": "Выполнять проектор изображений на CPU"
+  },
+  "gguf.quantizedCache": {
+    "defaultMessage": "Квантованный V-кэш требует включённого flash attention."
+  },
+  "gguf.ready": {
+    "defaultMessage": "Работает"
+  },
+  "gguf.reloadRequired": {
+    "defaultMessage": "Для применения изменений требуется перезагрузка модели."
+  },
+  "gguf.requestTooLarge": {
+    "defaultMessage": "Локальный запрос слишком велик."
+  },
+  "gguf.runtime": {
+    "defaultMessage": "Runtime и диагностика"
+  },
+  "gguf.runtimeBusy": {
+    "defaultMessage": "Другая модель загружается или обрабатывает запрос. Отмените или завершите его перед переключением."
+  },
+  "gguf.runtimeContext": {
+    "defaultMessage": "Переопределённый контекст: {context} токенов. Изменяется в настройках сеанса."
+  },
+  "gguf.save": {
+    "defaultMessage": "Сохранить профиль"
+  },
+  "gguf.saved": {
+    "defaultMessage": "Профиль сохранён. Веса модели не загружены."
+  },
+  "gguf.select": {
+    "defaultMessage": "Выбрать для чата"
+  },
+  "gguf.simple": {
+    "defaultMessage": "Простой режим"
+  },
+  "gguf.specAcceptance": {
+    "defaultMessage": "Принято/предложено draft-токенов"
+  },
+  "gguf.specActive": {
+    "defaultMessage": "Активный режим CLI"
+  },
+  "gguf.specArchitecture": {
+    "defaultMessage": "Эта архитектура или структура target/draft не проверена. Обычная draft-модель не заменяет специальные веса MTP."
+  },
+  "gguf.specBackend": {
+    "defaultMessage": "Выбранный runtime не может безопасно использовать этот режим. В проверенной сборке d1d3c33 ветка внешнего draft загружает target; используйте встроенный MTP или проверенный исправленный runtime."
+  },
+  "gguf.specCacheConflict": {
+    "defaultMessage": "Спекуляцию нельзя совмещать с непроверенным патченным кэшем экспертов. Отключите один из режимов."
+  },
+  "gguf.specDimensions": {
+    "defaultMessage": "Размерности target/draft или контекст несовместимы. Уменьшите контекст или выберите подходящую пару моделей."
+  },
+  "gguf.specDraftGpuEmbedded": {
+    "defaultMessage": "Слои draft на GPU применяются только к внешнему draft. Очистите это значение для встроенного MTP."
+  },
+  "gguf.specDraftMode": {
+    "defaultMessage": "Перед сохранением пути draft явно выберите режим спекуляции или выключите его."
+  },
+  "gguf.specDraftRequired": {
+    "defaultMessage": "Для этого режима нужна существующая совместимая draft GGUF."
+  },
+  "gguf.specEmbedded": {
+    "defaultMessage": "Встроенная MTP-head Qwen"
+  },
+  "gguf.specEmbeddedPath": {
+    "defaultMessage": "Встроенный MTP использует веса target. Очистите путь внешнего draft для этого режима."
+  },
+  "gguf.specEnable": {
+    "defaultMessage": "Включить спекулятивное декодирование"
+  },
+  "gguf.specExternal": {
+    "defaultMessage": "Внешняя MTP GGUF для этой архитектуры"
+  },
+  "gguf.specHead": {
+    "defaultMessage": "Не найдена полная совместимая одиночная MTP-head. Выберите совместимые веса MTP."
+  },
+  "gguf.specMetadata": {
+    "defaultMessage": "Не удалось подтвердить метаданные или тензоры GGUF. Проверьте целостность, поддерживаемое квантование и полноту файлов."
+  },
+  "gguf.specMode": {
+    "defaultMessage": "Режим спекуляции"
+  },
+  "gguf.specPending": {
+    "defaultMessage": "Изменения MTP не сохранены."
+  },
+  "gguf.specSameFile": {
+    "defaultMessage": "Внешний draft должен быть отдельным файлом. Для head внутри target GGUF выберите встроенный MTP."
+  },
+  "gguf.specSaved": {
+    "defaultMessage": "Сохранённый MTP"
+  },
+  "gguf.specSimple": {
+    "defaultMessage": "Классическая совместимая draft-модель"
+  },
+  "gguf.specTokenizer": {
+    "defaultMessage": "Метаданные токенизаторов target и draft различаются. Выберите совместимую пару."
+  },
+  "gguf.specTradeoff": {
+    "defaultMessage": "Спекуляция расходует дополнительную память и вычисления. Acceptance и скорость зависят от моделей и оборудования; успешная загрузка не доказывает ускорение."
+  },
+  "gguf.specTrial": {
+    "defaultMessage": "Проверка метаданных предварительная. Нужны успешная инициализация backend и генерация. Выключенные настройки сохраняются, но не передаются в runtime."
+  },
+  "gguf.specValidate": {
+    "defaultMessage": "Проверить совместимость MTP без загрузки"
+  },
+  "gguf.speculation": {
+    "defaultMessage": "Ускорение генерации"
+  },
+  "gguf.starting": {
+    "defaultMessage": "Загрузка модели…"
+  },
+  "gguf.stopHelp": {
+    "defaultMessage": "Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет."
+  },
+  "gguf.stopping": {
+    "defaultMessage": "Выгрузка…"
+  },
+  "gguf.system": {
+    "defaultMessage": "Системный"
+  },
+  "gguf.tensorOverride": {
+    "defaultMessage": "Размещение тензоров (шаблон=буфер)"
+  },
+  "gguf.threads": {
+    "defaultMessage": "Потоки CPU"
+  },
+  "gguf.timeout": {
+    "defaultMessage": "Истекло время ожидания загрузки модели. Смотрите журнал runtime."
+  },
+  "gguf.title": {
+    "defaultMessage": "Расширенный локальный запуск"
+  },
+  "gguf.tools": {
+    "defaultMessage": "Вызовы инструментов / шаблоны"
+  },
+  "gguf.ubatch": {
+    "defaultMessage": "Размер микропакета"
+  },
+  "gguf.unload": {
+    "defaultMessage": "Выгрузить модель"
+  },
+  "gguf.unsupported": {
+    "defaultMessage": "Недоступно для выбранного backend. Очистите настройку или выберите совместимый runtime."
+  },
+  "gguf.unsupportedFlag": {
+    "defaultMessage": "Выбранный runtime не объявляет нужный флаг. Очистите настройку или выберите другой runtime."
+  },
+  "gguf.unsupportedSetting": {
+    "defaultMessage": "Неподдерживаемая настройка профиля."
+  },
+  "gguf.valid": {
+    "defaultMessage": "Проверка пройдена. Модель не загружалась."
+  },
+  "gguf.validate": {
+    "defaultMessage": "Проверить пути и runtime"
+  },
+  "gguf.validating": {
+    "defaultMessage": "Проверка"
+  },
+  "gguf.vision": {
+    "defaultMessage": "Зрение / проектор"
+  },
+  "gguf.visionPair": {
+    "defaultMessage": "Архитектура или размер проекции не совместимы с этой моделью Qwen."
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Не удалось переключиться на {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Ветки не найдены"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Поиск веток…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Возможно, у вас есть незакоммиченные изменения."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Закрыть"
@@ -1727,6 +2204,192 @@
   "launcher.placeholder": {
     "defaultMessage": "Спросите goose о чем угодно..."
   },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "Действие агента: {detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "Агент работает"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,=0{нет DOM-якорей} one{# DOM-якорь} few{# DOM-якоря} many{# DOM-якорей} other{# DOM-якорей}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "Задача / описание"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "Название"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "Авто"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "Назад"
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "Не удалось захватить область: {error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "Закрыть браузерную сессию"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "Скрыть панель (браузер продолжает работать)"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "Уверенность"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "Подключение к браузерному рантайму…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "Создана"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "Ничего"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "Диагностика"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "Вписать"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "Вперёд"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "Не удалось сохранить выделение: {error}"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "История"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "Показать / скрыть панель Live Browser"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "Включить в следующее сообщение"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "Последняя проверка"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "Проверить связь"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "Отметить исправленной"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "Отметить нерешённой"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "Отметить проверенной"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "Только чат"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "Развёрнутый"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "Разделение"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "Новая область"
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "Страница ещё не открыта — введите URL выше."
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser доступен в настольном приложении."
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "Открыть"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "Управление агентом"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "Ваше управление"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "Масштаб страницы"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} будет включено в следующее сообщение агенту"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "Масштаб предпросмотра"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "Область сохранена"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,=0{нет выделений} one{# выделение} few{# выделений} many{# выделений} other{# выделений}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "Обновить"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "Удалить область"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "Удалить выделение"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "Ошибка браузерного рантайма: {error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "Прокрутка"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "Все"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "Выделите прямоугольник на странице, чтобы выбрать область"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "В следующем сообщении будет включено: {names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "Браузерная сессия закрыта"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "Связка устарела — исходные данные выделения сохранены"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "Статус"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "Технические данные"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL не разрешён: {error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "Вьюпорт"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "Vision выключен: модель получает текстовый контекст (DOM, геометрия, CSS, URL), а не изображение."
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "Vision включён: модель также получает скриншот области."
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "Масштаб"
+  },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
   },
@@ -1967,6 +2630,18 @@
   "mcpAppRenderer.resizePipWindow": {
     "defaultMessage": "Изменить размер окна «картинка в картинке»"
   },
+  "memoryMonitoring.enabled": {
+    "defaultMessage": "Мониторинг потребления памяти"
+  },
+  "memoryMonitoring.location": {
+    "defaultMessage": "Показывать RAM и VRAM в чате и разделе «Локальные модели»"
+  },
+  "memoryMonitoring.unavailable": {
+    "defaultMessage": "Недоступно"
+  },
+  "memoryMonitoring.usage": {
+    "defaultMessage": "Использование системной памяти"
+  },
   "mentionPopover.itemsFound": {
     "defaultMessage": "{count, plural, one {Найден # элемент} few {Найдено # элемента} many {Найдено # элементов} other {Найдено # элемента}}"
   },
@@ -1987,6 +2662,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Копировать"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, one {# сообщение скрыто} few {# сообщения скрыты} many {# сообщений скрыто} other {# сообщений скрыто}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Модель изменена: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (запрошенная)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Показать все"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Отмена"
@@ -2324,14 +3011,29 @@
   "modelSettingsPanel.topP": {
     "defaultMessage": "Top P"
   },
+  "modelsBottomBar.all": {
+    "defaultMessage": "Все"
+  },
+  "modelsBottomBar.api": {
+    "defaultMessage": "API / Cloud"
+  },
+  "modelsBottomBar.category": {
+    "defaultMessage": "Категория моделей"
+  },
   "modelsBottomBar.changeModel": {
     "defaultMessage": "Изменить модель"
   },
   "modelsBottomBar.currentModel": {
     "defaultMessage": "Текущая модель"
   },
+  "modelsBottomBar.empty": {
+    "defaultMessage": "Модели не найдены"
+  },
   "modelsBottomBar.loadingModel": {
     "defaultMessage": "Загрузка модели..."
+  },
+  "modelsBottomBar.local": {
+    "defaultMessage": "Локальные"
   },
   "modelsBottomBar.localModelSettings": {
     "defaultMessage": "Настройки локальной модели"
@@ -2339,17 +3041,47 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Настройки локальной модели — {modelName}"
   },
+  "modelsBottomBar.providers": {
+    "defaultMessage": "Модели и провайдеры"
+  },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Недавние"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Разрешенная модель"
   },
+  "modelsBottomBar.search": {
+    "defaultMessage": "Поиск моделей"
+  },
   "modelsBottomBar.selectModel": {
     "defaultMessage": "Выбрать модель"
+  },
+  "modelsBottomBar.selected": {
+    "defaultMessage": "Выбрана для этого чата"
   },
   "modelsSection.resetDescription": {
     "defaultMessage": "Очистить выбранную модель и настройки провайдера, чтобы начать заново"
   },
   "modelsSection.resetTitle": {
     "defaultMessage": "Сбросить провайдера и модель"
+  },
+  "mtpQuick.active": {
+    "defaultMessage": "MTP: активен в runtime"
+  },
+  "mtpQuick.confirm": {
+    "defaultMessage": "Перезагрузить общую модель сейчас для применения сохранённых настроек MTP?"
+  },
+  "mtpQuick.off": {
+    "defaultMessage": "MTP: выключено"
+  },
+  "mtpQuick.on": {
+    "defaultMessage": "MTP: включено (сохранено)"
+  },
+  "mtpQuick.pending": {
+    "defaultMessage": "MTP: требуется перезагрузка"
+  },
+  "mtpQuick.reload": {
+    "defaultMessage": "Применить MTP / перезагрузить модель"
   },
   "navigation.itemApps": {
     "defaultMessage": "Приложения"
@@ -2597,6 +3329,66 @@
   "permissionSetting.permissionRulesDescription": {
     "defaultMessage": "Скрытые инструкции, которые будут переданы провайдеру, чтобы направлять ответы и добавлять к ним контекст."
   },
+  "placement.auto": {
+    "defaultMessage": "Автоматический"
+  },
+  "placement.blocks": {
+    "defaultMessage": "Блоки CPU / GPU"
+  },
+  "placement.budget": {
+    "defaultMessage": "Оценка GPU с резервом: {gpu} GiB · обязательная RAM + резерв: {ram} GiB"
+  },
+  "placement.cache": {
+    "defaultMessage": "GPU-кэш экспертов"
+  },
+  "placement.cacheCpuConflict": {
+    "defaultMessage": "Перед включением кэша экспертов очистите настройку «Первые N слоёв MoE на CPU»."
+  },
+  "placement.cacheCpuPlacement": {
+    "defaultMessage": "При включённом кэше веса экспертов остаются в памяти CPU, а выбранные эксперты кэшируются в VRAM для этого запуска. Отдельная настройка CPU MoE сохраняется."
+  },
+  "placement.confirmIdentity": {
+    "defaultMessage": "Подтвердить этот GGUF для размещения"
+  },
+  "placement.cpu": {
+    "defaultMessage": "Все на CPU"
+  },
+  "placement.detected": {
+    "defaultMessage": "Обнаружено блоков: {count}"
+  },
+  "placement.enable": {
+    "defaultMessage": "Выборочное размещение"
+  },
+  "placement.gpu": {
+    "defaultMessage": "Все на GPU"
+  },
+  "placement.inspect": {
+    "defaultMessage": "Проверка метаданных и памяти…"
+  },
+  "placement.manual": {
+    "defaultMessage": "Ручной"
+  },
+  "placement.paging": {
+    "defaultMessage": "Полный рабочий набор mmap может вытесняться при нехватке памяти."
+  },
+  "placement.pending": {
+    "defaultMessage": "Размещение для этого GGUF не подтверждено. Проверьте обнаруженные блоки и параметры кэша, затем подтвердите."
+  },
+  "placement.priority": {
+    "defaultMessage": "Выбор блоков имеет приоритет над числом слоёв на GPU."
+  },
+  "placement.range": {
+    "defaultMessage": "Блоки GPU (диапазоны с 0)"
+  },
+  "placement.reset": {
+    "defaultMessage": "Сброс"
+  },
+  "placement.standard": {
+    "defaultMessage": "Стандартный"
+  },
+  "placement.unavailable": {
+    "defaultMessage": "Недоступно для этой модели/runtime или метаданные неполны."
+  },
   "privacyInfoModal.collectErrors": {
     "defaultMessage": "Типы ошибок (например, «rate_limit», «auth» - без подробностей)"
   },
@@ -2626,18 +3418,6 @@
   },
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "Что мы собираем:"
-  },
-  "messageList.hiddenMessages": {
-    "defaultMessage": "{count, plural, one {# сообщение скрыто} few {# сообщения скрыты} many {# сообщений скрыто} other {# сообщений скрыто}}"
-  },
-  "messageList.modelChanged": {
-    "defaultMessage": "Модель изменена: {previousModel} → {currentModel}"
-  },
-  "messageList.requestedModel": {
-    "defaultMessage": "{model} (запрошенная)"
-  },
-  "messageList.showAllMessages": {
-    "defaultMessage": "Показать все"
   },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Все промпты сброшены к значениям по умолчанию"
@@ -2717,6 +3497,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "У вас есть несохраненные изменения"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Устарел — используйте вместо него {replacement}."
+  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Неизвестный провайдер"
   },
@@ -2765,8 +3548,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Продолжить"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "и введите:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Копировать"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Откроется окно браузера. Код подтверждения появится здесь — введите его, чтобы завершить вход."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Перейдите на"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Нет API-ключа?"
@@ -2792,6 +3584,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Проверьте конфигурацию еще раз, чтобы использовать этого провайдера."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Выбрать модель"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Закрыть"
   },
@@ -2804,8 +3599,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Это навсегда удалит текущую конфигурацию провайдера."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "и введите:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Копировать"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Откроется окно браузера. Код подтверждения появится здесь — введите его, чтобы завершить вход."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Перейдите на"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "При проверке конфигурации этого провайдера произошла ошибка."
@@ -3797,6 +4601,189 @@
   "sessionIndicators.streaming": {
     "defaultMessage": "Потоковая передача"
   },
+  "sessionSettings.agentMode": {
+    "defaultMessage": "Режим агента"
+  },
+  "sessionSettings.apply": {
+    "defaultMessage": "Применить"
+  },
+  "sessionSettings.applying": {
+    "defaultMessage": "Применение…"
+  },
+  "sessionSettings.autonomous": {
+    "defaultMessage": "Автономный"
+  },
+  "sessionSettings.budget": {
+    "defaultMessage": "Бюджет размышлений"
+  },
+  "sessionSettings.budgetHelp": {
+    "defaultMessage": "Бюджет размышлений backend; токены окончательного ответа считаются отдельно."
+  },
+  "sessionSettings.budgetReset": {
+    "defaultMessage": "Выбор размышлений или уровня сбрасывает прежний числовой бюджет."
+  },
+  "sessionSettings.busy": {
+    "defaultMessage": "Локальная модель занята в другом чате."
+  },
+  "sessionSettings.cancelDiscovery": {
+    "defaultMessage": "Отменить поиск"
+  },
+  "sessionSettings.candidate": {
+    "defaultMessage": "Проверка {kv}, {context}K · проба {count}"
+  },
+  "sessionSettings.chatOnly": {
+    "defaultMessage": "Только чат"
+  },
+  "sessionSettings.close": {
+    "defaultMessage": "Закрыть настройки"
+  },
+  "sessionSettings.context": {
+    "defaultMessage": "Контекст"
+  },
+  "sessionSettings.custom": {
+    "defaultMessage": "Свой размер"
+  },
+  "sessionSettings.discover": {
+    "defaultMessage": "Найти максимум"
+  },
+  "sessionSettings.discoveryEvidenceMissing": {
+    "defaultMessage": "Для {kv} не хватило измерений памяти или подтверждения работы runtime."
+  },
+  "sessionSettings.discoveryFailed": {
+    "defaultMessage": "Не удалось найти контекст. Исходная конфигурация runtime восстановлена, если это было возможно."
+  },
+  "sessionSettings.discoveryMemoryChanged": {
+    "defaultMessage": "Во время измерений память изменилась; безопасный размер не подтверждён."
+  },
+  "sessionSettings.discoveryQ8NoGain": {
+    "defaultMessage": "Результат Q8 отклонён: подтверждённого выигрыша хотя бы в 8K относительно FP16 нет."
+  },
+  "sessionSettings.discoveryReserve": {
+    "defaultMessage": "Ни один вариант не сохранил требуемый резерв RAM/VRAM."
+  },
+  "sessionSettings.discoveryUnsupportedCache": {
+    "defaultMessage": "Тип кэша {kv} не объявлен выбранным llama-server."
+  },
+  "sessionSettings.discoveryUnsupportedFlag": {
+    "defaultMessage": "Выбранный llama-server не поддерживает параметр {flag}."
+  },
+  "sessionSettings.effortHelp": {
+    "defaultMessage": "Уровень задаётся шаблоном; это не жёсткий лимит токенов."
+  },
+  "sessionSettings.exactContext": {
+    "defaultMessage": "{tokens} токенов · {status}"
+  },
+  "sessionSettings.fp16": {
+    "defaultMessage": "FP16"
+  },
+  "sessionSettings.high": {
+    "defaultMessage": "Высокий"
+  },
+  "sessionSettings.kvCache": {
+    "defaultMessage": "Точность контекста (KV)"
+  },
+  "sessionSettings.low": {
+    "defaultMessage": "Низкий"
+  },
+  "sessionSettings.manual": {
+    "defaultMessage": "Ручной"
+  },
+  "sessionSettings.max": {
+    "defaultMessage": "Максимальный"
+  },
+  "sessionSettings.medium": {
+    "defaultMessage": "Средний"
+  },
+  "sessionSettings.mixedKv": {
+    "defaultMessage": "Смешанная / расширенная"
+  },
+  "sessionSettings.modeScope": {
+    "defaultMessage": "Применяется к этому сеансу"
+  },
+  "sessionSettings.noResults": {
+    "defaultMessage": "Проверка памяти не подтвердила ни один размер контекста."
+  },
+  "sessionSettings.noRuntime": {
+    "defaultMessage": "Настройки локального runtime недоступны для этого провайдера."
+  },
+  "sessionSettings.off": {
+    "defaultMessage": "Выкл."
+  },
+  "sessionSettings.providerDefault": {
+    "defaultMessage": "По умолчанию у провайдера"
+  },
+  "sessionSettings.q8": {
+    "defaultMessage": "Q8"
+  },
+  "sessionSettings.q8NeedsFlashAttention": {
+    "defaultMessage": "Для кэша Q8 V требуется Flash Attention. Включите его в профиле модели и повторите."
+  },
+  "sessionSettings.reasoningMetadata": {
+    "defaultMessage": "Не удалось проверить метаданные управления рассуждениями."
+  },
+  "sessionSettings.reasoningRuntime": {
+    "defaultMessage": "Runtime не сообщает о поддержке управления шаблоном в запросах."
+  },
+  "sessionSettings.reasoningTemplate": {
+    "defaultMessage": "Управление рассуждениями в этом шаблоне чата пока не подтверждено."
+  },
+  "sessionSettings.reasoningUnknown": {
+    "defaultMessage": "Настройки рассуждений для этой модели не подтверждены."
+  },
+  "sessionSettings.runtimeState": {
+    "defaultMessage": "Активно: {context}K · {kv}"
+  },
+  "sessionSettings.saved": {
+    "defaultMessage": "Сохранено · без повторной проверки"
+  },
+  "sessionSettings.searching": {
+    "defaultMessage": "Поиск безопасного размера контекста…"
+  },
+  "sessionSettings.sharedRuntime": {
+    "defaultMessage": "Общий локальный runtime"
+  },
+  "sessionSettings.smart": {
+    "defaultMessage": "Умный"
+  },
+  "sessionSettings.stale": {
+    "defaultMessage": "Конфигурация изменена · нужна проверка"
+  },
+  "sessionSettings.thinking": {
+    "defaultMessage": "Уровень рассуждений"
+  },
+  "sessionSettings.thinkingBudget": {
+    "defaultMessage": "{tokens} токенов размышлений"
+  },
+  "sessionSettings.thinkingOn": {
+    "defaultMessage": "Вкл."
+  },
+  "sessionSettings.thinkingToggle": {
+    "defaultMessage": "Размышления"
+  },
+  "sessionSettings.title": {
+    "defaultMessage": "Настройки сеанса"
+  },
+  "sessionSettings.unavailable": {
+    "defaultMessage": "Не удалось применить настройку"
+  },
+  "sessionSettings.unconfirmed": {
+    "defaultMessage": "Сохранённый результат · условия нужно проверить"
+  },
+  "sessionSettings.unsupportedMode": {
+    "defaultMessage": "{kv}: {reason}"
+  },
+  "sessionSettings.useResult": {
+    "defaultMessage": "Выбрать {kv} · {context}K"
+  },
+  "sessionSettings.verified": {
+    "defaultMessage": "Проверено"
+  },
+  "sessionSettings.warning": {
+    "defaultMessage": "Вручную заданный контекст может превышать доступную память."
+  },
+  "sessionSettings.xhigh": {
+    "defaultMessage": "XHigh"
+  },
   "sessions.acpBadge": {
     "defaultMessage": "ACP"
   },
@@ -3919,6 +4906,96 @@
   },
   "sessions.toast.updated": {
     "defaultMessage": "Описание сеанса успешно обновлено"
+  },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Автоматически"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Настроено"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "API-ключ TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Введите API-ключ"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Удалить ключ"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Сохранить ключ"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Использует Jev для выбора уровня рассуждений для каждого запроса. Текст отправляется в TypeSafe AI; слеш-команды навыков и рецептов включают их развёрнутые локальные инструкции."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Автоматический уровень рассуждений"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Лимит блокировок"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Сводит историю диалога до заполнения контекстного окна."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Сжатие контекста"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Порог отсечения"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Включить {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Тайм-аут ошибки"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Настраиваемые операции"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Останавливает автономную работу и запрашивает подтверждение пользователя перед продолжением."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Максимум ходов"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Повторно запускает проверки рецепта, если настроенная проверка успеха завершается неудачно."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Повтор рецепта"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Тайм-аут повтора"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Распознаёт команды, такие как /compact, /skills и ярлыки рецептов."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Слэш-команды"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Позволяет хукам блокировать завершение, предотвращая бесконечные циклы остановки."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Хуки остановки"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Порог %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Лимит токенов"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Сводит старые запросы и ответы инструментов для экономии контекста. Если поле пусто, порог выбирается автоматически."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Сжатие пар инструментов"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Ходы"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Цикл агента"
   },
   "settings.appearance.description": {
     "defaultMessage": "Настройте, как goose отображается в вашей системе"
@@ -4192,6 +5269,144 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "Отсутствуют обязательные параметры"
+  },
+  "storage.apply": {
+    "defaultMessage": "Применить расположение"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Артефакты и резервные копии"
+  },
+  "storage.browse": {
+    "defaultMessage": "Выбрать папку"
+  },
+  "storage.cache": {
+    "defaultMessage": "Кеш"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "storage.checking": {
+    "defaultMessage": "Проверка хранилища…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Выберите отдельную папку для хранилища приложения."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Освободить проверенные прежние копии переноса"
+  },
+  "storage.config": {
+    "defaultMessage": "Конфигурация"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Перенести хранилище и перезапустить приложение?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Работа в открытых чатах и с моделями будет остановлена. Приложение скопирует и проверит данные, затем перезапустится. Исходные данные сохраняются до проверки нового хранилища."
+  },
+  "storage.copying": {
+    "defaultMessage": "Копирование и сверка файлов…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Своё расположение"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "База данных занята или не прошла проверку целостности. Исходные данные сохранены."
+  },
+  "storage.default": {
+    "defaultMessage": "Использовать расположение по умолчанию"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "Системное расположение по умолчанию"
+  },
+  "storage.description": {
+    "defaultMessage": "Выберите расположение истории чатов, профилей моделей, кеша и журналов. Пути к файлам моделей GGUF сохраняются."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "В папке назначения есть существующие или несовместимые данные. Выберите другую папку."
+  },
+  "storage.effective": {
+    "defaultMessage": "Текущее расположение данных"
+  },
+  "storage.error": {
+    "defaultMessage": "Не удалось изменить хранилище: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Свободное пространство: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "Недостаточно свободного места для проверенной копии."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Выберите папку для хранилища приложения."
+  },
+  "storage.logs": {
+    "defaultMessage": "Журналы"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "Перенос хранилища уже выполняется."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Выберите папку за пределами текущего хранилища приложения."
+  },
+  "storage.permission": {
+    "defaultMessage": "Приложение не может записывать в эту папку. Выберите другую папку или проверьте права доступа."
+  },
+  "storage.recovered": {
+    "defaultMessage": "После прерванного переноса исходные данные сохранены. Операцию можно повторить."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Перезапустите приложение для восстановления прерванного переноса перед повторной попыткой."
+  },
+  "storage.required": {
+    "defaultMessage": "Необходимое место для проверенной копии: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Перенести и перезапустить"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Перезапуск с новым хранилищем…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Прежние данные сохранены для отката. Исходники исторических миграций и резервные архивы сохраняются."
+  },
+  "storage.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Вернуться к прежнему хранилищу"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "При проверке обнаружено изменение исходных данных. Они сохранены; закройте другие экземпляры приложения и повторите попытку."
+  },
+  "storage.split": {
+    "defaultMessage": "Эта файловая система используется для кеша, журналов и артефактов. История чатов и чувствительное состояние остаются на совместимом томе, указанном выше."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Другое приложение использует это хранилище. Закройте его и повторите попытку."
+  },
+  "storage.title": {
+    "defaultMessage": "Хранилище приложения"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "Выбранный диск недоступен. Смонтируйте его и повторите попытку."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "Это расположение уже применяется."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "Не удалось надёжно определить выбранный том. Выберите локальный смонтированный диск."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "Для постоянных данных приложения необходима совместимая файловая система."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Перенос хранилища сейчас доступен в Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Проверка целостности баз данных…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "В хранилище приложения найдены веса GGUF. Перед переносом хранилища разместите модели в отдельной папке."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "Провайдер {name} настроен"
@@ -4640,842 +5855,8 @@
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Удалить изображение из сообщения"
   },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Недавние"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Выбрать модель"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Устарел — используйте вместо него {replacement}."
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Адаптер ACP найден"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Адаптер ACP не найден"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Войдите через CLI провайдера, затем повторите проверку."
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Проверить снова"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "Проверка..."
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Подключение выполнено"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Проверьте подключение учетной записи, прежде чем продолжить."
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "и введите:"
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Копировать"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Перейдите на"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "и введите:"
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Копировать"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Перейдите на"
-  },
-  "contextWindowIndicator.open": {
-    "defaultMessage": "Использовано {used} из {limit} токенов. Показать содержимое контекстного окна"
-  },
-  "contextXray.compactNow": {
-    "defaultMessage": "Сжать сейчас"
-  },
-  "contextXray.free": {
-    "defaultMessage": "Свободно"
-  },
-  "contextXray.loadError": {
-    "defaultMessage": "Не удалось загрузить отчёт о контексте."
-  },
-  "contextXray.modelSummary": {
-    "defaultMessage": "{model} · контекстное окно {limit} токенов"
-  },
-  "contextXray.refresh": {
-    "defaultMessage": "Обновить"
-  },
-  "contextXray.retry": {
-    "defaultMessage": "Повторить"
-  },
-  "contextXray.title": {
-    "defaultMessage": "Контекстное окно"
-  },
-  "contextXray.tokenizerNote": {
-    "defaultMessage": "Число токенов оценивается токенизатором o200k."
-  },
-  "contextXray.usage": {
-    "defaultMessage": "из {limit} токенов · {percent} контекстного окна"
-  },
-  "contextXray.category.additionalInstructions": {
-    "defaultMessage": "Инструкции и подсказки"
-  },
-  "contextXray.category.compactionSummary": {
-    "defaultMessage": "Сводка сжатия"
-  },
-  "contextXray.category.extensionInstructions": {
-    "defaultMessage": "Инструкции расширений"
-  },
-  "contextXray.category.messages": {
-    "defaultMessage": "Диалог"
-  },
-  "contextXray.category.systemPrompt": {
-    "defaultMessage": "Системный промпт"
-  },
-  "contextXray.category.toolDefinitions": {
-    "defaultMessage": "Определения инструментов"
-  },
-  "contextXray.category.turnContext": {
-    "defaultMessage": "Контекст хода"
-  },
-  "settings.agentLoop.operations.auto.placeholder": {
-    "defaultMessage": "Автоматически"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
-    "defaultMessage": "Настроено"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.label": {
-    "defaultMessage": "API-ключ TypeSafe"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
-    "defaultMessage": "Введите API-ключ"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
-    "defaultMessage": "Удалить ключ"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.save": {
-    "defaultMessage": "Сохранить ключ"
-  },
-  "settings.agentLoop.operations.autoEffort.description": {
-    "defaultMessage": "Использует Jev для выбора уровня рассуждений для каждого запроса. Текст отправляется в TypeSafe AI; слеш-команды навыков и рецептов включают их развёрнутые локальные инструкции."
-  },
-  "settings.agentLoop.operations.autoEffort.title": {
-    "defaultMessage": "Автоматический уровень рассуждений"
-  },
-  "settings.agentLoop.operations.blockLimit.label": {
-    "defaultMessage": "Лимит блокировок"
-  },
-  "settings.agentLoop.operations.contextCompaction.description": {
-    "defaultMessage": "Сводит историю диалога до заполнения контекстного окна."
-  },
-  "settings.agentLoop.operations.contextCompaction.title": {
-    "defaultMessage": "Сжатие контекста"
-  },
-  "settings.agentLoop.operations.cutoff.label": {
-    "defaultMessage": "Порог отсечения"
-  },
-  "settings.agentLoop.operations.enable": {
-    "defaultMessage": "Включить {operation}"
-  },
-  "settings.agentLoop.operations.failureTimeout.label": {
-    "defaultMessage": "Тайм-аут ошибки"
-  },
-  "settings.agentLoop.operations.heading": {
-    "defaultMessage": "Настраиваемые операции"
-  },
-  "settings.agentLoop.operations.maxTurns.description": {
-    "defaultMessage": "Останавливает автономную работу и запрашивает подтверждение пользователя перед продолжением."
-  },
-  "settings.agentLoop.operations.maxTurns.title": {
-    "defaultMessage": "Максимум ходов"
-  },
-  "settings.agentLoop.operations.recipeRetry.description": {
-    "defaultMessage": "Повторно запускает проверки рецепта, если настроенная проверка успеха завершается неудачно."
-  },
-  "settings.agentLoop.operations.recipeRetry.title": {
-    "defaultMessage": "Повтор рецепта"
-  },
-  "settings.agentLoop.operations.retryTimeout.label": {
-    "defaultMessage": "Тайм-аут повтора"
-  },
-  "settings.agentLoop.operations.slashCommands.description": {
-    "defaultMessage": "Распознаёт команды, такие как /compact, /skills и ярлыки рецептов."
-  },
-  "settings.agentLoop.operations.slashCommands.title": {
-    "defaultMessage": "Слэш-команды"
-  },
-  "settings.agentLoop.operations.stopHooks.description": {
-    "defaultMessage": "Позволяет хукам блокировать завершение, предотвращая бесконечные циклы остановки."
-  },
-  "settings.agentLoop.operations.stopHooks.title": {
-    "defaultMessage": "Хуки остановки"
-  },
-  "settings.agentLoop.operations.threshold.label": {
-    "defaultMessage": "Порог %"
-  },
-  "settings.agentLoop.operations.tokenLimit.label": {
-    "defaultMessage": "Лимит токенов"
-  },
-  "settings.agentLoop.operations.toolPairCompaction.description": {
-    "defaultMessage": "Сводит старые запросы и ответы инструментов для экономии контекста. Если поле пусто, порог выбирается автоматически."
-  },
-  "settings.agentLoop.operations.toolPairCompaction.title": {
-    "defaultMessage": "Сжатие пар инструментов"
-  },
-  "settings.agentLoop.operations.turns.label": {
-    "defaultMessage": "Ходы"
-  },
-  "settings.agentLoop.title": {
-    "defaultMessage": "Цикл агента"
-  },
-  "contextXray.providerManagesContext": {
-    "defaultMessage": "{provider} хранит собственную историю разговора и получает от goose только последний запрос, поэтому разбирать нечего."
-  },
-  "contextXray.autoCompactionPending": {
-    "defaultMessage": "Превышен порог автокомпактизации: разговор будет сжат перед отправкой следующего запроса."
-  },
-  "gguf.absolutePath": {
-    "defaultMessage": "Необходим абсолютный путь к файлу."
-  },
-  "gguf.add": {
-    "defaultMessage": "Добавить модель"
-  },
-  "gguf.advanced": {
-    "defaultMessage": "Расширенный режим"
-  },
-  "gguf.advancedCard": {
-    "defaultMessage": "Используйте профили GGUF со встроенным Goose или управляемым llama-server."
-  },
-  "gguf.auto": {
-    "defaultMessage": "Авто"
-  },
-  "gguf.available": {
-    "defaultMessage": "Доступна"
-  },
-  "gguf.backend": {
-    "defaultMessage": "Backend инференса"
-  },
-  "gguf.backendUnsupported": {
-    "defaultMessage": "Этот runtime не поддерживает обнаружение устройств. Выберите CUDA runtime или задайте 0 слоёв GPU."
-  },
-  "gguf.batch": {
-    "defaultMessage": "Размер пакета"
-  },
-  "gguf.browse": {
-    "defaultMessage": "Обзор"
-  },
-  "gguf.cacheK": {
-    "defaultMessage": "KV-кэш K"
-  },
-  "gguf.cacheRequirements": {
-    "defaultMessage": "Кэш экспертов требует GPU-offload, всех экспертов на CPU и отсутствия произвольных размещений тензоров."
-  },
-  "gguf.cacheV": {
-    "defaultMessage": "KV-кэш V"
-  },
-  "gguf.cancelLoad": {
-    "defaultMessage": "Отменить загрузку"
-  },
-  "gguf.chatTemplate": {
-    "defaultMessage": "Имя встроенного шаблона чата"
-  },
-  "gguf.clearUnsupported": {
-    "defaultMessage": "Очистить неподдерживаемые настройки"
-  },
-  "gguf.confirmDelete": {
-    "defaultMessage": "Удалить профиль «{name}»? Внешние файлы GGUF останутся без изменений."
-  },
-  "gguf.conflictingMoe": {
-    "defaultMessage": "Выберите все эксперты на CPU или первые N слоёв, но не оба варианта."
-  },
-  "gguf.context": {
-    "defaultMessage": "Контекст, токенов"
-  },
-  "gguf.cpu": {
-    "defaultMessage": "Потоки CPU и пакеты"
-  },
-  "gguf.cpuMoe": {
-    "defaultMessage": "Отдельное размещение MoE-экспертов на CPU"
-  },
-  "gguf.cpuMoeHelp": {
-    "defaultMessage": "Это независимая настройка профиля. Пока кэш включён, эксперты для этого запуска временно размещаются на CPU; сохранённая настройка не меняется."
-  },
-  "gguf.default": {
-    "defaultMessage": "По умолчанию backend"
-  },
-  "gguf.delete": {
-    "defaultMessage": "Удалить"
-  },
-  "gguf.description": {
-    "defaultMessage": "Управляйте существующими GGUF. Сохранение не загружает веса. Выберите профиль в списке моделей чата — загрузка начнётся при первом запросе."
-  },
-  "gguf.devicesInaccessible": {
-    "defaultMessage": "Этот runtime не видит GPU. Проверьте библиотеки CUDA, доступ к устройствам и sandbox. Для CPU задайте 0 слоёв GPU."
-  },
-  "gguf.draft": {
-    "defaultMessage": "Draft/MTP требует проверки архитектуры, токенизатора, размерностей и backend. В этой версии не включён."
-  },
-  "gguf.draftCompatibility": {
-    "defaultMessage": "Совместимость draft/MTP не проверена; удалите настройку draft для продолжения."
-  },
-  "gguf.duplicate": {
-    "defaultMessage": "Дублировать"
-  },
-  "gguf.edit": {
-    "defaultMessage": "Изменить"
-  },
-  "gguf.error": {
-    "defaultMessage": "Ошибка локального runtime"
-  },
-  "gguf.executable": {
-    "defaultMessage": "Исполняемый файл llama-server"
-  },
-  "gguf.experimental": {
-    "defaultMessage": "Экспериментальное размещение MoE — ускорение не подтверждено"
-  },
-  "gguf.external": {
-    "defaultMessage": "Управляемый llama-server"
-  },
-  "gguf.failed": {
-    "defaultMessage": "Ошибка"
-  },
-  "gguf.flashAttention": {
-    "defaultMessage": "Flash attention"
-  },
-  "gguf.gpuLayersHelp": {
-    "defaultMessage": "0 — CPU · 999 — все доступные слои на GPU"
-  },
-  "gguf.gpuLayers": {
-    "defaultMessage": "Слоёв на GPU"
-  },
-  "gguf.gpuVisible": {
-    "defaultMessage": "GPU обнаружен выбранным runtime"
-  },
-  "gguf.idle": {
-    "defaultMessage": "Выгружена"
-  },
-  "gguf.invalidValue": {
-    "defaultMessage": "Недопустимое значение настройки."
-  },
-  "gguf.jinja": {
-    "defaultMessage": "Включить шаблон Jinja для инструментов"
-  },
-  "gguf.language": {
-    "defaultMessage": "Язык интерфейса"
-  },
-  "gguf.load": {
-    "defaultMessage": "Загрузить модель"
-  },
-  "gguf.memory": {
-    "defaultMessage": "Контекст, KV-кэш и память"
-  },
-  "gguf.missing": {
-    "defaultMessage": "Файлы недоступны"
-  },
-  "gguf.missingFile": {
-    "defaultMessage": "Файл не найден или недоступен. Подключите диск или исправьте путь."
-  },
-  "gguf.model": {
-    "defaultMessage": "Путь к основной GGUF"
-  },
-  "gguf.moeCacheMiB": {
-    "defaultMessage": "Патченный кэш экспертов, МиБ (без бенчмарка)"
-  },
-  "gguf.moeMetadata": {
-    "defaultMessage": "Метаданные GGUF не подтверждают MoE-экспертов. Очистите настройки MoE."
-  },
-  "gguf.moeNote": {
-    "defaultMessage": "GPU Layers задаёт размещение обычных слоёв, а CPU MoE — весов экспертов. Кэш GPU хранит выбранные эксперты с CPU в видеопамяти; скорость зависит от модели и нагрузки."
-  },
-  "gguf.nCpuMoe": {
-    "defaultMessage": "Первые N слоёв MoE на CPU"
-  },
-  "gguf.name": {
-    "defaultMessage": "Название профиля"
-  },
-  "gguf.nameRequired": {
-    "defaultMessage": "Введите название профиля (до 120 символов)."
-  },
-  "gguf.native": {
-    "defaultMessage": "Встроенный инференс Goose"
-  },
-  "gguf.nativeNote": {
-    "defaultMessage": "Загрузкой и выгрузкой управляет Goose. Настройки внешнего runtime не применяются."
-  },
-  "gguf.nativeUnsupported": {
-    "defaultMessage": "Эта настройка не поддерживается адаптером встроенных профилей. Используйте настройки Goose или внешний runtime."
-  },
-  "gguf.notGguf": {
-    "defaultMessage": "Выбранный файл не является GGUF."
-  },
-  "gguf.off": {
-    "defaultMessage": "Выкл."
-  },
-  "gguf.on": {
-    "defaultMessage": "Вкл."
-  },
-  "gguf.portConflict": {
-    "defaultMessage": "Порт профиля занят. Другие процессы не завершались."
-  },
-  "gguf.placementIdentity": {
-    "defaultMessage": "Идентичность GGUF для этого размещения не подтверждена. Проверьте модель и подтвердите её в дополнительных настройках."
-  },
-  "gguf.probe": {
-    "defaultMessage": "Проверить выбранный runtime"
-  },
-  "gguf.probeFailed": {
-    "defaultMessage": "Не удалось проверить выбранный исполняемый файл."
-  },
-  "gguf.processExit": {
-    "defaultMessage": "llama-server завершился. Смотрите журнал runtime."
-  },
-  "gguf.profileMissing": {
-    "defaultMessage": "Профиль больше не существует. Выберите другую модель."
-  },
-  "gguf.projector": {
-    "defaultMessage": "GGUF проектора зрения (необязательно)"
-  },
-  "gguf.quantizedCache": {
-    "defaultMessage": "Квантованный V-кэш требует включённого flash attention."
-  },
-  "gguf.ready": {
-    "defaultMessage": "Работает"
-  },
-  "gguf.requestTooLarge": {
-    "defaultMessage": "Локальный запрос слишком велик."
-  },
-  "gguf.runtime": {
-    "defaultMessage": "Runtime и диагностика"
-  },
-  "gguf.runtimeBusy": {
-    "defaultMessage": "Другая модель загружается или обрабатывает запрос. Отмените или завершите его перед переключением."
-  },
-  "gguf.save": {
-    "defaultMessage": "Сохранить профиль"
-  },
-  "gguf.saved": {
-    "defaultMessage": "Профиль сохранён. Веса модели не загружены."
-  },
-  "gguf.select": {
-    "defaultMessage": "Выбрать для чата"
-  },
-  "gguf.simple": {
-    "defaultMessage": "Простой режим"
-  },
-  "gguf.speculation": {
-    "defaultMessage": "Ускорение генерации"
-  },
-  "gguf.starting": {
-    "defaultMessage": "Загрузка модели…"
-  },
-  "gguf.stopHelp": {
-    "defaultMessage": "Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет."
-  },
-  "gguf.stopping": {
-    "defaultMessage": "Выгрузка…"
-  },
-  "gguf.system": {
-    "defaultMessage": "Системный"
-  },
-  "gguf.tensorOverride": {
-    "defaultMessage": "Размещение тензоров (шаблон=буфер)"
-  },
-  "gguf.threads": {
-    "defaultMessage": "Потоки CPU"
-  },
-  "gguf.timeout": {
-    "defaultMessage": "Истекло время ожидания загрузки модели. Смотрите журнал runtime."
-  },
-  "gguf.title": {
-    "defaultMessage": "Расширенный локальный запуск"
-  },
-  "gguf.tools": {
-    "defaultMessage": "Вызовы инструментов / шаблоны"
-  },
-  "gguf.ubatch": {
-    "defaultMessage": "Размер микропакета"
-  },
-  "gguf.unload": {
-    "defaultMessage": "Выгрузить модель"
-  },
-  "gguf.unsupported": {
-    "defaultMessage": "Недоступно для выбранного backend. Очистите настройку или выберите совместимый runtime."
-  },
-  "gguf.unsupportedFlag": {
-    "defaultMessage": "Выбранный runtime не объявляет нужный флаг. Очистите настройку или выберите другой runtime."
-  },
-  "gguf.unsupportedSetting": {
-    "defaultMessage": "Неподдерживаемая настройка профиля."
-  },
-  "gguf.valid": {
-    "defaultMessage": "Проверка пройдена. Модель не загружалась."
-  },
-  "gguf.validate": {
-    "defaultMessage": "Проверить пути и runtime"
-  },
-  "gguf.validating": {
-    "defaultMessage": "Проверка"
-  },
-  "gguf.vision": {
-    "defaultMessage": "Зрение / проектор"
-  },
-  "gguf.nativeGpuUnsupported": {
-    "defaultMessage": "Для этой встроенной сборки CUDA-адаптер не проверен. Выберите внешний CUDA runtime или задайте 0 слоёв GPU."
-  },
-  "gguf.credentialUnsupported": {
-    "defaultMessage": "Этот runtime не объявляет поддержку ключа API через окружение. Выберите совместимый llama-server."
-  },
-  "gguf.nativeDuplicatePath": {
-    "defaultMessage": "Настройки встроенного Goose общие для пути модели. Измените существующий встроенный профиль или используйте внешний."
-  },
-  "gguf.compactControls": {
-    "defaultMessage": "Управление моделью: {name}"
-  },
-  "gguf.modelSettings": {
-    "defaultMessage": "Настройки модели"
-  },
-  "gguf.specEnable": {
-    "defaultMessage": "Включить спекулятивное декодирование"
-  },
-  "gguf.specMode": {
-    "defaultMessage": "Режим спекуляции"
-  },
-  "gguf.specEmbedded": {
-    "defaultMessage": "Встроенная MTP-head Qwen"
-  },
-  "gguf.specExternal": {
-    "defaultMessage": "Внешняя MTP GGUF для этой архитектуры"
-  },
-  "gguf.specSimple": {
-    "defaultMessage": "Классическая совместимая draft-модель"
-  },
-  "gguf.draftPath": {
-    "defaultMessage": "Абсолютный путь к draft GGUF"
-  },
-  "gguf.draftTokens": {
-    "defaultMessage": "Максимум draft-токенов (1–16)"
-  },
-  "gguf.draftMinTokens": {
-    "defaultMessage": "Минимум draft-токенов"
-  },
-  "gguf.draftGpuLayers": {
-    "defaultMessage": "Слоёв draft на GPU"
-  },
-  "gguf.specTradeoff": {
-    "defaultMessage": "Спекуляция расходует дополнительную память и вычисления. Acceptance и скорость зависят от моделей и оборудования; успешная загрузка не доказывает ускорение."
-  },
-  "gguf.specTrial": {
-    "defaultMessage": "Проверка метаданных предварительная. Нужны успешная инициализация backend и генерация. Выключенные настройки сохраняются, но не передаются в runtime."
-  },
-  "gguf.specValidate": {
-    "defaultMessage": "Проверить совместимость MTP без загрузки"
-  },
-  "gguf.specMetadata": {
-    "defaultMessage": "Не удалось подтвердить метаданные или тензоры GGUF. Проверьте целостность, поддерживаемое квантование и полноту файлов."
-  },
-  "gguf.specHead": {
-    "defaultMessage": "Не найдена полная совместимая одиночная MTP-head. Выберите совместимые веса MTP."
-  },
-  "gguf.specDimensions": {
-    "defaultMessage": "Размерности target/draft или контекст несовместимы. Уменьшите контекст или выберите подходящую пару моделей."
-  },
-  "gguf.specArchitecture": {
-    "defaultMessage": "Эта архитектура или структура target/draft не проверена. Обычная draft-модель не заменяет специальные веса MTP."
-  },
-  "gguf.specTokenizer": {
-    "defaultMessage": "Метаданные токенизаторов target и draft различаются. Выберите совместимую пару."
-  },
-  "gguf.specBackend": {
-    "defaultMessage": "Выбранный runtime не может безопасно использовать этот режим. В проверенной сборке d1d3c33 ветка внешнего draft загружает target; используйте встроенный MTP или проверенный исправленный runtime."
-  },
-  "gguf.specDraftRequired": {
-    "defaultMessage": "Для этого режима нужна существующая совместимая draft GGUF."
-  },
-  "gguf.specDraftMode": {
-    "defaultMessage": "Перед сохранением пути draft явно выберите режим спекуляции или выключите его."
-  },
-  "gguf.specEmbeddedPath": {
-    "defaultMessage": "Встроенный MTP использует веса target. Очистите путь внешнего draft для этого режима."
-  },
-  "gguf.specSameFile": {
-    "defaultMessage": "Внешний draft должен быть отдельным файлом. Для head внутри target GGUF выберите встроенный MTP."
-  },
-  "gguf.specCacheConflict": {
-    "defaultMessage": "Спекуляцию нельзя совмещать с непроверенным патченным кэшем экспертов. Отключите один из режимов."
-  },
-  "gguf.specDraftGpuEmbedded": {
-    "defaultMessage": "Слои draft на GPU применяются только к внешнему draft. Очистите это значение для встроенного MTP."
-  },
-  "sessionSettings.title": {
-    "defaultMessage": "Настройки сеанса"
-  },
-  "sessionSettings.agentMode": {
-    "defaultMessage": "Режим агента"
-  },
-  "sessionSettings.thinking": {
-    "defaultMessage": "Уровень рассуждений"
-  },
-  "sessionSettings.reasoningUnknown": {
-    "defaultMessage": "Настройки рассуждений для этой модели не подтверждены."
-  },
-  "sessionSettings.autonomous": {
-    "defaultMessage": "Автономный"
-  },
-  "sessionSettings.manual": {
-    "defaultMessage": "Ручной"
-  },
-  "sessionSettings.smart": {
-    "defaultMessage": "Умный"
-  },
-  "sessionSettings.chatOnly": {
-    "defaultMessage": "Только чат"
-  },
-  "sessionSettings.off": {
-    "defaultMessage": "Выкл."
-  },
-  "sessionSettings.low": {
-    "defaultMessage": "Низкий"
-  },
-  "sessionSettings.medium": {
-    "defaultMessage": "Средний"
-  },
-  "sessionSettings.high": {
-    "defaultMessage": "Высокий"
-  },
-  "sessionSettings.max": {
-    "defaultMessage": "Максимальный"
-  },
-  "sessionSettings.unavailable": {
-    "defaultMessage": "Не удалось применить настройку"
-  },
-  "sessionSettings.modeScope": {
-    "defaultMessage": "Применяется к этому сеансу"
-  },
-  "sessionSettings.close": {
-    "defaultMessage": "Закрыть настройки"
-  },
-  "sessionSettings.apply": {
-    "defaultMessage": "Применить"
-  },
-  "sessionSettings.applying": {
-    "defaultMessage": "Применение…"
-  },
-  "sessionSettings.busy": {
-    "defaultMessage": "Локальная модель занята в другом чате."
-  },
-  "sessionSettings.cancelDiscovery": {
-    "defaultMessage": "Отменить поиск"
-  },
-  "sessionSettings.candidate": {
-    "defaultMessage": "Проверка {kv}, {context}K · проба {count}"
-  },
-  "sessionSettings.context": {
-    "defaultMessage": "Контекст"
-  },
-  "sessionSettings.custom": {
-    "defaultMessage": "Свой размер"
-  },
-  "sessionSettings.discover": {
-    "defaultMessage": "Найти максимум"
-  },
-  "sessionSettings.discoveryFailed": {
-    "defaultMessage": "Не удалось найти контекст. Исходная конфигурация runtime восстановлена, если это было возможно."
-  },
-  "sessionSettings.discoveryUnsupportedCache": {
-    "defaultMessage": "Тип кэша {kv} не объявлен выбранным llama-server."
-  },
-  "sessionSettings.discoveryEvidenceMissing": {
-    "defaultMessage": "Для {kv} не хватило измерений памяти или подтверждения работы runtime."
-  },
-  "sessionSettings.discoveryReserve": {
-    "defaultMessage": "Ни один вариант не сохранил требуемый резерв RAM/VRAM."
-  },
-  "sessionSettings.discoveryQ8NoGain": {
-    "defaultMessage": "Результат Q8 отклонён: подтверждённого выигрыша хотя бы в 8K относительно FP16 нет."
-  },
-  "sessionSettings.discoveryMemoryChanged": {
-    "defaultMessage": "Во время измерений память изменилась; безопасный размер не подтверждён."
-  },
-  "sessionSettings.discoveryUnsupportedFlag": {
-    "defaultMessage": "Выбранный llama-server не поддерживает параметр {flag}."
-  },
-  "sessionSettings.fp16": {
-    "defaultMessage": "FP16"
-  },
-  "sessionSettings.kvCache": {
-    "defaultMessage": "Точность контекста (KV)"
-  },
-  "sessionSettings.noResults": {
-    "defaultMessage": "Проверка памяти не подтвердила ни один размер контекста."
-  },
-  "sessionSettings.noRuntime": {
-    "defaultMessage": "Настройки локального runtime недоступны для этого провайдера."
-  },
-  "sessionSettings.q8": {
-    "defaultMessage": "Q8"
-  },
-  "sessionSettings.q8NeedsFlashAttention": {
-    "defaultMessage": "Для кэша Q8 V требуется Flash Attention. Включите его в профиле модели и повторите."
-  },
-  "sessionSettings.runtimeState": {
-    "defaultMessage": "Активно: {context}K · {kv}"
-  },
-  "sessionSettings.searching": {
-    "defaultMessage": "Поиск безопасного размера контекста…"
-  },
-  "sessionSettings.useResult": {
-    "defaultMessage": "Выбрать {kv} · {context}K"
-  },
-  "sessionSettings.warning": {
-    "defaultMessage": "Вручную заданный контекст может превышать доступную память."
-  },
-  "sessionSettings.unsupportedMode": {
-    "defaultMessage": "{kv}: {reason}"
-  },
-  "sessionSettings.unconfirmed": {
-    "defaultMessage": "Сохранённый результат · условия нужно проверить"
-  },
-  "sessionSettings.providerDefault": {
-    "defaultMessage": "По умолчанию у провайдера"
-  },
-  "sessionSettings.sharedRuntime": {
-    "defaultMessage": "Общий локальный runtime"
-  },
-  "modelsBottomBar.search": {
-    "defaultMessage": "Поиск моделей"
-  },
-  "modelsBottomBar.empty": {
-    "defaultMessage": "Модели не найдены"
-  },
-  "modelsBottomBar.selected": {
-    "defaultMessage": "Выбрана для этого чата"
-  },
-  "modelsBottomBar.providers": {
-    "defaultMessage": "Модели и провайдеры"
-  },
-  "modelsBottomBar.category": {
-    "defaultMessage": "Категория моделей"
-  },
-  "modelsBottomBar.local": {
-    "defaultMessage": "Локальные"
-  },
-  "modelsBottomBar.api": {
-    "defaultMessage": "API / Cloud"
-  },
-  "modelsBottomBar.all": {
-    "defaultMessage": "Все"
-  },
-  "sessionSettings.mixedKv": {
-    "defaultMessage": "Смешанная / расширенная"
-  },
-  "sessionSettings.verified": {
-    "defaultMessage": "Проверено"
-  },
-  "sessionSettings.saved": {
-    "defaultMessage": "Сохранено · без повторной проверки"
-  },
-  "sessionSettings.stale": {
-    "defaultMessage": "Конфигурация изменена · нужна проверка"
-  },
-  "sessionSettings.exactContext": {
-    "defaultMessage": "{tokens} токенов · {status}"
-  },
-  "memoryMonitoring.enabled": {
-    "defaultMessage": "Мониторинг потребления памяти"
-  },
-  "memoryMonitoring.usage": {
-    "defaultMessage": "Использование системной памяти"
-  },
-  "memoryMonitoring.unavailable": {
-    "defaultMessage": "Недоступно"
-  },
-  "sessionSettings.thinkingOn": {
-    "defaultMessage": "Вкл."
-  },
-  "sessionSettings.thinkingBudget": {
-    "defaultMessage": "{tokens} токенов размышлений"
-  },
-  "gguf.deviceMemory": {
-    "defaultMessage": "Недостаточно VRAM. Уменьшите контекст/выгрузку на GPU или включите CPU для проектора, затем перезагрузите модель."
-  },
-  "gguf.projectorCpu": {
-    "defaultMessage": "Выполнять проектор изображений на CPU"
-  },
-  "gguf.visionPair": {
-    "defaultMessage": "Архитектура или размер проекции не совместимы с этой моделью Qwen."
-  },
-  "gguf.specSaved": {
-    "defaultMessage": "Сохранённый MTP"
-  },
-  "gguf.specActive": {
-    "defaultMessage": "Активный режим CLI"
-  },
-  "gguf.specAcceptance": {
-    "defaultMessage": "Принято/предложено draft-токенов"
-  },
-  "gguf.reloadRequired": {
-    "defaultMessage": "Для применения изменений требуется перезагрузка модели."
-  },
-  "gguf.runtimeContext": {
-    "defaultMessage": "Переопределённый контекст: {context} токенов. Изменяется в настройках сеанса."
-  },
-  "sessionSettings.budget": {
-    "defaultMessage": "Бюджет размышлений"
-  },
-  "sessionSettings.xhigh": {
-    "defaultMessage": "XHigh"
-  },
-  "gguf.specPending": {
-    "defaultMessage": "Изменения MTP не сохранены."
-  },
-  "sessionSettings.budgetHelp": {
-    "defaultMessage": "Бюджет размышлений backend; токены окончательного ответа считаются отдельно."
-  },
-  "sessionSettings.effortHelp": {
-    "defaultMessage": "Уровень задаётся шаблоном; это не жёсткий лимит токенов."
-  },
-  "memoryMonitoring.location": {
-    "defaultMessage": "Показывать RAM и VRAM в чате и разделе «Локальные модели»"
-  },
-  "sessionSettings.thinkingToggle": {
-    "defaultMessage": "Размышления"
-  },
-  "sessionSettings.budgetReset": {
-    "defaultMessage": "Выбор размышлений или уровня сбрасывает прежний числовой бюджет."
-  },
-  "mtpQuick.on": {
-    "defaultMessage": "MTP: включено (сохранено)"
-  },
-  "mtpQuick.off": {
-    "defaultMessage": "MTP: выключено"
-  },
-  "mtpQuick.pending": {
-    "defaultMessage": "MTP: требуется перезагрузка"
-  },
-  "mtpQuick.reload": {
-    "defaultMessage": "Применить MTP / перезагрузить модель"
-  },
-  "mtpQuick.confirm": {
-    "defaultMessage": "Перезагрузить общую модель сейчас для применения сохранённых настроек MTP?"
-  },
-  "mtpQuick.active": {
-    "defaultMessage": "MTP: активен в runtime"
-  },
   "visionQuick.active": {
     "defaultMessage": "Vision: активен в runtime"
-  },
-  "visionQuick.on": {
-    "defaultMessage": "Vision: включено (сохранено)"
-  },
-  "visionQuick.off": {
-    "defaultMessage": "Vision: выключено"
-  },
-  "visionQuick.pending": {
-    "defaultMessage": "Vision: требуется перезагрузка"
-  },
-  "visionQuick.reload": {
-    "defaultMessage": "Применить Vision / перезагрузить модель"
   },
   "visionQuick.confirm": {
     "defaultMessage": "Перезагрузить общую модель для применения сохранённых настроек Vision?"
@@ -5483,211 +5864,16 @@
   "visionQuick.invalid": {
     "defaultMessage": "Vision: проектор недоступен или несовместим"
   },
-  "placement.cache": {
-    "defaultMessage": "GPU-кэш экспертов"
+  "visionQuick.off": {
+    "defaultMessage": "Vision: выключено"
   },
-  "placement.cacheCpuPlacement": {
-    "defaultMessage": "При включённом кэше веса экспертов остаются в памяти CPU, а выбранные эксперты кэшируются в VRAM для этого запуска. Отдельная настройка CPU MoE сохраняется."
+  "visionQuick.on": {
+    "defaultMessage": "Vision: включено (сохранено)"
   },
-  "placement.cacheCpuConflict": {
-    "defaultMessage": "Перед включением кэша экспертов очистите настройку «Первые N слоёв MoE на CPU»."
+  "visionQuick.pending": {
+    "defaultMessage": "Vision: требуется перезагрузка"
   },
-  "placement.standard": {
-    "defaultMessage": "Стандартный"
-  },
-  "placement.auto": {
-    "defaultMessage": "Автоматический"
-  },
-  "placement.manual": {
-    "defaultMessage": "Ручной"
-  },
-  "placement.blocks": {
-    "defaultMessage": "Блоки CPU / GPU"
-  },
-  "placement.enable": {
-    "defaultMessage": "Выборочное размещение"
-  },
-  "placement.detected": {
-    "defaultMessage": "Обнаружено блоков: {count}"
-  },
-  "placement.confirmIdentity": {
-    "defaultMessage": "Подтвердить этот GGUF для размещения"
-  },
-  "placement.gpu": {
-    "defaultMessage": "Все на GPU"
-  },
-  "placement.cpu": {
-    "defaultMessage": "Все на CPU"
-  },
-  "placement.reset": {
-    "defaultMessage": "Сброс"
-  },
-  "placement.range": {
-    "defaultMessage": "Блоки GPU (диапазоны с 0)"
-  },
-  "placement.priority": {
-    "defaultMessage": "Выбор блоков имеет приоритет над числом слоёв на GPU."
-  },
-  "placement.inspect": {
-    "defaultMessage": "Проверка метаданных и памяти…"
-  },
-  "placement.unavailable": {
-    "defaultMessage": "Недоступно для этой модели/runtime или метаданные неполны."
-  },
-  "placement.pending": {
-    "defaultMessage": "Размещение для этого GGUF не подтверждено. Проверьте обнаруженные блоки и параметры кэша, затем подтвердите."
-  },
-  "placement.budget": {
-    "defaultMessage": "Оценка GPU с резервом: {gpu} GiB · обязательная RAM + резерв: {ram} GiB"
-  },
-  "placement.paging": {
-    "defaultMessage": "Полный рабочий набор mmap может вытесняться при нехватке памяти."
-  },
-  "sessionSettings.reasoningRuntime": {
-    "defaultMessage": "Runtime не сообщает о поддержке управления шаблоном в запросах."
-  },
-  "sessionSettings.reasoningTemplate": {
-    "defaultMessage": "Управление рассуждениями в этом шаблоне чата пока не подтверждено."
-  },
-  "sessionSettings.reasoningMetadata": {
-    "defaultMessage": "Не удалось проверить метаданные управления рассуждениями."
-  },
-  "storage.apply": {
-    "defaultMessage": "Применить расположение"
-  },
-  "storage.artifacts": {
-    "defaultMessage": "Артефакты и резервные копии"
-  },
-  "storage.browse": {
-    "defaultMessage": "Выбрать папку"
-  },
-  "storage.cache": {
-    "defaultMessage": "Кеш"
-  },
-  "storage.cancel": {
-    "defaultMessage": "Отмена"
-  },
-  "storage.checking": {
-    "defaultMessage": "Проверка хранилища…"
-  },
-  "storage.chooseAppFolder": {
-    "defaultMessage": "Выберите отдельную папку для хранилища приложения."
-  },
-  "storage.cleanup": {
-    "defaultMessage": "Освободить проверенные прежние копии переноса"
-  },
-  "storage.config": {
-    "defaultMessage": "Конфигурация"
-  },
-  "storage.confirm": {
-    "defaultMessage": "Перенести хранилище и перезапустить приложение?"
-  },
-  "storage.confirmText": {
-    "defaultMessage": "Работа в открытых чатах и с моделями будет остановлена. Приложение скопирует и проверит данные, затем перезапустится. Исходные данные сохраняются до проверки нового хранилища."
-  },
-  "storage.copying": {
-    "defaultMessage": "Копирование и сверка файлов…"
-  },
-  "storage.custom": {
-    "defaultMessage": "Своё расположение"
-  },
-  "storage.databaseBusyOrInvalid": {
-    "defaultMessage": "База данных занята или не прошла проверку целостности. Исходные данные сохранены."
-  },
-  "storage.default": {
-    "defaultMessage": "Использовать расположение по умолчанию"
-  },
-  "storage.defaultPath": {
-    "defaultMessage": "Системное расположение по умолчанию"
-  },
-  "storage.description": {
-    "defaultMessage": "Выберите расположение истории чатов, профилей моделей, кеша и журналов. Пути к файлам моделей GGUF сохраняются."
-  },
-  "storage.destinationConflict": {
-    "defaultMessage": "В папке назначения есть существующие или несовместимые данные. Выберите другую папку."
-  },
-  "storage.effective": {
-    "defaultMessage": "Текущее расположение данных"
-  },
-  "storage.error": {
-    "defaultMessage": "Не удалось изменить хранилище: {reason}"
-  },
-  "storage.free": {
-    "defaultMessage": "Свободное пространство: {space}"
-  },
-  "storage.insufficientSpace": {
-    "defaultMessage": "Недостаточно свободного места для проверенной копии."
-  },
-  "storage.invalidPath": {
-    "defaultMessage": "Выберите папку для хранилища приложения."
-  },
-  "storage.logs": {
-    "defaultMessage": "Журналы"
-  },
-  "storage.migrationBusy": {
-    "defaultMessage": "Перенос хранилища уже выполняется."
-  },
-  "storage.nestedStorage": {
-    "defaultMessage": "Выберите папку за пределами текущего хранилища приложения."
-  },
-  "storage.permission": {
-    "defaultMessage": "Приложение не может записывать в эту папку. Выберите другую папку или проверьте права доступа."
-  },
-  "storage.recovered": {
-    "defaultMessage": "После прерванного переноса исходные данные сохранены. Операцию можно повторить."
-  },
-  "storage.recoveryRequired": {
-    "defaultMessage": "Перезапустите приложение для восстановления прерванного переноса перед повторной попыткой."
-  },
-  "storage.required": {
-    "defaultMessage": "Необходимое место для проверенной копии: {space}"
-  },
-  "storage.restart": {
-    "defaultMessage": "Перенести и перезапустить"
-  },
-  "storage.restarting": {
-    "defaultMessage": "Перезапуск с новым хранилищем…"
-  },
-  "storage.retained": {
-    "defaultMessage": "Прежние данные сохранены для отката. Исходники исторических миграций и резервные архивы сохраняются."
-  },
-  "storage.retry": {
-    "defaultMessage": "Повторить"
-  },
-  "storage.rollback": {
-    "defaultMessage": "Вернуться к прежнему хранилищу"
-  },
-  "storage.sourceChanged": {
-    "defaultMessage": "При проверке обнаружено изменение исходных данных. Они сохранены; закройте другие экземпляры приложения и повторите попытку."
-  },
-  "storage.split": {
-    "defaultMessage": "Эта файловая система используется для кеша, журналов и артефактов. История чатов и чувствительное состояние остаются на совместимом томе, указанном выше."
-  },
-  "storage.storageInUse": {
-    "defaultMessage": "Другое приложение использует это хранилище. Закройте его и повторите попытку."
-  },
-  "storage.title": {
-    "defaultMessage": "Хранилище приложения"
-  },
-  "storage.unavailable": {
-    "defaultMessage": "Выбранный диск недоступен. Смонтируйте его и повторите попытку."
-  },
-  "storage.unchanged": {
-    "defaultMessage": "Это расположение уже применяется."
-  },
-  "storage.unidentifiedVolume": {
-    "defaultMessage": "Не удалось надёжно определить выбранный том. Выберите локальный смонтированный диск."
-  },
-  "storage.unsafeDefault": {
-    "defaultMessage": "Для постоянных данных приложения необходима совместимая файловая система."
-  },
-  "storage.unsupportedPlatform": {
-    "defaultMessage": "Перенос хранилища сейчас доступен в Linux."
-  },
-  "storage.verifying": {
-    "defaultMessage": "Проверка целостности баз данных…"
-  },
-  "storage.weightsInsideStorage": {
-    "defaultMessage": "В хранилище приложения найдены веса GGUF. Перед переносом хранилища разместите модели в отдельной папке."
+  "visionQuick.reload": {
+    "defaultMessage": "Применить Vision / перезагрузить модель"
   }
 }

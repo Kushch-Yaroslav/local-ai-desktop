@@ -37,6 +37,19 @@ import { acpGetLiveVoiceAvailability } from '../acp/liveVoice';
 import type { LiveVoiceAvailabilityResponse_unstable } from '@aaif/goose-acp-client';
 import { subscribeToAcpRecovery } from '../acp/acpConnection';
 import type { LiveVoiceController } from '../liveVoice/useLiveVoice';
+import { Globe } from 'lucide-react';
+import { Button } from './ui/button';
+import { cn } from '../utils';
+import { LiveBrowserPanel } from './liveBrowser/LiveBrowserPanel';
+import { useLiveBrowserWiring } from './liveBrowser/useLiveBrowserWiring';
+import { i18n as liveBrowserMessages } from './liveBrowser/i18n';
+import {
+  peekPendingSelection,
+  onPendingSelectionChange,
+  type PendingSelection,
+} from './liveBrowser/pendingContext';
+
+type BrowserMode = 'chatOnly' | 'split' | 'expanded';
 
 const i18n = defineMessages({
   goodMorning: { id: 'hub.goodMorning', defaultMessage: 'Good morning' },
@@ -84,6 +97,26 @@ export default function Hub({
     settingsDrafts.set(draftRef, value);
     setNewChatSettings(value);
   };
+
+  // Live Browser in the empty-chat landing: same runtime + Goose MCP wiring as
+  // BaseChat, so the agent has browser_* tools from the first screen. The
+  // "hub" pseudo-conversation keeps the browser session independent of a
+  // not-yet-created chat; a region marked here is queued as a pending
+  // selection and prepended to the first message of the new session.
+  const [browserMode, setBrowserMode] = useState<BrowserMode>('chatOnly');
+  const [browserPanelWidth, setBrowserPanelWidth] = useState(520);
+  useLiveBrowserWiring(true);
+
+  // The pending selection queue is global: an area sent from the Hub panel is
+  // queued here and consumed by the new session's first auto-submitted message.
+  const [pendingSelection, setPendingSelectionState] = useState<PendingSelection | null>(
+    () => peekPendingSelection(),
+  );
+  useEffect(
+    () => onPendingSelectionChange(() => setPendingSelectionState(peekPendingSelection())),
+    [],
+  );
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { time, meridiem, hour } = useClock();
 
@@ -244,11 +277,31 @@ export default function Hub({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 items-center justify-center px-6 relative">
-      <div className="absolute right-4 top-3 z-10 max-w-[calc(100%-2rem)]">
-        <MemoryMonitor />
-      </div>
-      <div className="w-full max-w-3xl">
+    <div className="flex h-full min-h-0 relative">
+      <div
+        className={cn(
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center px-6',
+          browserMode === 'expanded' && 'hidden',
+        )}
+      >
+        <div className="absolute right-14 top-3 z-10 max-w-[calc(100%-3.5rem)]">
+          <MemoryMonitor />
+        </div>
+        <div className="absolute right-3 top-3 z-[100]">
+          <Button
+            variant={browserMode !== 'chatOnly' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="no-drag h-8 w-8 p-0"
+            title={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            aria-label={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            data-testid="browser-toggle"
+            data-mode={browserMode}
+            onClick={() => setBrowserMode((m) => (m === 'chatOnly' ? 'split' : 'chatOnly'))}
+          >
+            <Globe className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="w-full max-w-3xl">
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-6xl font-light text-text-primary tracking-tight tabular-nums">
             {time}
@@ -258,6 +311,20 @@ export default function Hub({
           ) : null}
         </div>
         <p className="text-xl text-text-secondary mb-6">{greeting}</p>
+
+        {pendingSelection && (
+          <div
+            className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-border-primary bg-background-secondary px-2 py-1 text-xs text-text-secondary"
+            data-testid="pending-selection-note"
+          >
+            <Globe className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              {intl.formatMessage(liveBrowserMessages.pendingNote, {
+                names: pendingSelection.areaNames.join(', ') || 'Live Browser selection',
+              })}
+            </span>
+          </div>
+        )}
 
         <ChatInputCard>
           <ChatInput
@@ -300,6 +367,16 @@ export default function Hub({
         <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
           <LoadingGoose chatState={ChatState.LoadingConversation} />
         </div>
+      )}
+      </div>
+      {browserMode !== 'chatOnly' && (
+        <LiveBrowserPanel
+          sessionId="hub"
+          mode={browserMode === 'expanded' ? 'expanded' : 'split'}
+          onModeChange={(m) => setBrowserMode(m)}
+          panelWidth={browserPanelWidth}
+          onPanelWidthChange={(width) => setBrowserPanelWidth(width)}
+        />
       )}
     </div>
   );

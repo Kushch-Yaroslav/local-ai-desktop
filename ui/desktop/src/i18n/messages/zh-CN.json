@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "已找到 ACP 适配器"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "未找到 ACP 适配器"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "请通过提供商 CLI 登录，然后再次检查。"
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "再次检查"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "正在检查…"
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "连接成功"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "请先检查账户连接，然后再继续。"
+  },
   "announcementModal.gotIt": {
     "defaultMessage": "知道了！"
   },
@@ -307,6 +328,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "处理中…"
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "已使用 {used} / {limit} 个 token。查看上下文窗口内容"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "已超过自动压缩阈值：在发送下一个请求之前会先压缩对话。"
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "指令与提示"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "压缩摘要"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "扩展指令"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "对话"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "系统提示词"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "工具定义"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "回合上下文"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "立即压缩"
+  },
+  "contextXray.free": {
+    "defaultMessage": "空闲"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "无法加载上下文报告。"
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · {limit} token 上下文窗口"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} 自行保存对话历史，只从 goose 接收最新的提示，因此没有可拆解的请求。"
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "刷新"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "重试"
+  },
+  "contextXray.title": {
+    "defaultMessage": "上下文窗口"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "token 数量由 o200k 分词器估算。"
+  },
+  "contextXray.usage": {
+    "defaultMessage": "/ {limit} 个 token · 占上下文窗口的 {percent}"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "对话限制"
@@ -911,11 +989,11 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
+  },
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "更新工作目录失败"
@@ -931,18 +1009,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "最近的目录"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "无法切换到 {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "未找到分支"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "搜索分支…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "你可能有尚未提交的更改。"
   },
   "elicitationRequest.accept": {
     "defaultMessage": "接受"
@@ -1252,6 +1318,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "无法切换到 {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "未找到分支"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "搜索分支…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "你可能有尚未提交的更改。"
   },
   "goosehintsModal.close": {
     "defaultMessage": "关闭"
@@ -1727,6 +1805,192 @@
   "launcher.placeholder": {
     "defaultMessage": "问 goose 任何问题…"
   },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "代理操作：{detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "代理正在工作"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,other{# 个 DOM 锚点}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "任务 / 描述"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "名称"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "自动"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "后退"
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "无法捕获区域：{error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "关闭浏览器会话"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "隐藏面板（浏览器继续运行）"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "置信度"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "正在连接浏览器运行时…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "创建时间"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "取消全部"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "诊断"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "适配"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "前进"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "无法保存选择：{error}"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "历史"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "显示 / 隐藏 Live Browser 面板"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "包含在下一条消息中"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "最近检查"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "重新检查绑定"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "标记为已修复"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "标记为未解决"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "标记为已验证"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "仅聊天"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "展开"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "分屏"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "新区域"
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "尚未打开页面 — 在上方输入 URL。"
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser 可在桌面应用中使用。"
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "打开"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "代理控制"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "您控制"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "页面缩放"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} 将包含在下一条发给代理的消息中"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "预览缩放"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "区域已保存"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,other{# 个选择}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "重新加载"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "删除区域"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "删除选择"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "重试"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "浏览器运行时错误：{error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "滚动"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "全部"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "在页面上拖选一个矩形以选择区域"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "下一条消息将包含：{names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "浏览器会话已关闭"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "绑定已失效 — 原始选择数据已保留"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "状态"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "技术数据"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL 不被允许：{error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "视口"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "视觉识别关闭：模型接收文本上下文（DOM、几何信息、CSS、URL），而非图像。"
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "视觉识别开启：模型还将接收区域截图。"
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "缩放"
+  },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
   },
@@ -1987,6 +2251,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "复制"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "已隐藏 {count, plural, other {# 条消息}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "模型已更改：{previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model}（已请求）"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "全部显示"
   },
   "messageQueue.cancel": {
     "defaultMessage": "取消"
@@ -2339,6 +2615,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "本地模型设置 — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "最近"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "解析后的模型"
   },
@@ -2627,18 +2906,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "我们采集的内容："
   },
-  "messageList.hiddenMessages": {
-    "defaultMessage": "已隐藏 {count, plural, other {# 条消息}}"
-  },
-  "messageList.modelChanged": {
-    "defaultMessage": "模型已更改：{previousModel} → {currentModel}"
-  },
-  "messageList.requestedModel": {
-    "defaultMessage": "{model}（已请求）"
-  },
-  "messageList.showAllMessages": {
-    "defaultMessage": "全部显示"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "所有提示词已重置为默认"
   },
@@ -2717,6 +2984,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "你有未保存的更改"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "已弃用 — 请改用 {replacement}。"
+  },
   "providerCard.unknownProvider": {
     "defaultMessage": "未知提供商"
   },
@@ -2765,8 +3035,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "继续"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "并输入："
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "复制"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "将打开浏览器窗口。验证码会显示在此处，输入验证码即可完成登录。"
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "访问"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "没有 API 密钥？"
@@ -2792,6 +3071,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "再次检查你的配置以使用此提供商。"
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "选择模型"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "关闭"
   },
@@ -2804,8 +3086,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "这将永久删除当前的提供商配置。"
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "并输入："
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "复制"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "将打开浏览器窗口。验证码会显示在此处，输入验证码即可完成登录。"
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "访问"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "检查此提供商配置时出错。"
@@ -3920,6 +4211,96 @@
   "sessions.toast.updated": {
     "defaultMessage": "会话描述更新成功"
   },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "自动"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "已配置"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "TypeSafe API 密钥"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "输入 API 密钥"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "移除密钥"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "保存密钥"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "使用 Jev 为每个请求选择思考级别。请求文本会发送给 TypeSafe AI；技能和配方斜杠命令会包含展开后的本地指令。"
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "自动思考级别"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "阻止上限"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "在上下文窗口填满前汇总对话历史。"
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "上下文压缩"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "截断值"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "启用{operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "失败超时"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "可配置操作"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "停止自主工作，并在继续前询问用户。"
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "最大轮次"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "当配置的成功检查失败时，重新运行配方检查。"
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "重试配方"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "重试超时"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "识别 /compact、/skills 和配方快捷方式等命令。"
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "斜杠命令"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "允许钩子阻止完成，同时防止无限停止循环。"
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "停止钩子"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "阈值 %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "词元上限"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "汇总较早的工具请求和响应以节省上下文。留空时自动设置截断值。"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "工具对压缩"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "轮次"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "代理循环"
+  },
   "settings.appearance.description": {
     "defaultMessage": "配置 goose 在你系统中的外观"
   },
@@ -4192,6 +4573,144 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "缺少必需参数"
+  },
+  "storage.apply": {
+    "defaultMessage": "Apply location"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Artifacts and backups"
+  },
+  "storage.browse": {
+    "defaultMessage": "Choose folder"
+  },
+  "storage.cache": {
+    "defaultMessage": "Cache"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "storage.checking": {
+    "defaultMessage": "Checking storage…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Choose a dedicated folder for application storage."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Free verified previous transfer copies"
+  },
+  "storage.config": {
+    "defaultMessage": "Configuration"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Move storage and restart?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
+  },
+  "storage.copying": {
+    "defaultMessage": "Copying and verifying files…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Custom location"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
+  },
+  "storage.default": {
+    "defaultMessage": "Use the default location"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "System default location"
+  },
+  "storage.description": {
+    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
+  },
+  "storage.effective": {
+    "defaultMessage": "Current data location"
+  },
+  "storage.error": {
+    "defaultMessage": "Storage could not be changed: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Available space: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "There is not enough free space for a verified copy."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Choose an application storage folder."
+  },
+  "storage.logs": {
+    "defaultMessage": "Logs"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "A storage transfer is already running."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Choose a folder outside the current application storage."
+  },
+  "storage.permission": {
+    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
+  },
+  "storage.recovered": {
+    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
+  },
+  "storage.required": {
+    "defaultMessage": "Space required for a verified copy: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Move and restart"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Restarting with the new storage…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
+  },
+  "storage.retry": {
+    "defaultMessage": "Retry"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Return to previous storage"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
+  },
+  "storage.split": {
+    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Another process is using the storage. Close that app and retry."
+  },
+  "storage.title": {
+    "defaultMessage": "Application Storage"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "This location is already applied."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "A compatible filesystem is required for permanent application data."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Storage migration is currently available on Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Checking database integrity…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "{name} 提供商已配置"
@@ -4639,338 +5158,5 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "从消息中移除图片"
-  },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "最近"
-  },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "选择模型"
-  },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "已弃用 — 请改用 {replacement}。"
-  },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "已找到 ACP 适配器"
-  },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "未找到 ACP 适配器"
-  },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "请通过提供商 CLI 登录，然后再次检查。"
-  },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "再次检查"
-  },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "正在检查…"
-  },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "连接成功"
-  },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "请先检查账户连接，然后再继续。"
-  },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "并输入："
-  },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "复制"
-  },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "访问"
-  },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "并输入："
-  },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "复制"
-  },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "访问"
-  },
-  "contextWindowIndicator.open": {
-    "defaultMessage": "已使用 {used} / {limit} 个 token。查看上下文窗口内容"
-  },
-  "contextXray.compactNow": {
-    "defaultMessage": "立即压缩"
-  },
-  "contextXray.free": {
-    "defaultMessage": "空闲"
-  },
-  "contextXray.loadError": {
-    "defaultMessage": "无法加载上下文报告。"
-  },
-  "contextXray.modelSummary": {
-    "defaultMessage": "{model} · {limit} token 上下文窗口"
-  },
-  "contextXray.refresh": {
-    "defaultMessage": "刷新"
-  },
-  "contextXray.retry": {
-    "defaultMessage": "重试"
-  },
-  "contextXray.title": {
-    "defaultMessage": "上下文窗口"
-  },
-  "contextXray.tokenizerNote": {
-    "defaultMessage": "token 数量由 o200k 分词器估算。"
-  },
-  "contextXray.usage": {
-    "defaultMessage": "/ {limit} 个 token · 占上下文窗口的 {percent}"
-  },
-  "contextXray.category.additionalInstructions": {
-    "defaultMessage": "指令与提示"
-  },
-  "contextXray.category.compactionSummary": {
-    "defaultMessage": "压缩摘要"
-  },
-  "contextXray.category.extensionInstructions": {
-    "defaultMessage": "扩展指令"
-  },
-  "contextXray.category.messages": {
-    "defaultMessage": "对话"
-  },
-  "contextXray.category.systemPrompt": {
-    "defaultMessage": "系统提示词"
-  },
-  "contextXray.category.toolDefinitions": {
-    "defaultMessage": "工具定义"
-  },
-  "contextXray.category.turnContext": {
-    "defaultMessage": "回合上下文"
-  },
-  "settings.agentLoop.operations.auto.placeholder": {
-    "defaultMessage": "自动"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
-    "defaultMessage": "已配置"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.label": {
-    "defaultMessage": "TypeSafe API 密钥"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
-    "defaultMessage": "输入 API 密钥"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
-    "defaultMessage": "移除密钥"
-  },
-  "settings.agentLoop.operations.autoEffort.apiKey.save": {
-    "defaultMessage": "保存密钥"
-  },
-  "settings.agentLoop.operations.autoEffort.description": {
-    "defaultMessage": "使用 Jev 为每个请求选择思考级别。请求文本会发送给 TypeSafe AI；技能和配方斜杠命令会包含展开后的本地指令。"
-  },
-  "settings.agentLoop.operations.autoEffort.title": {
-    "defaultMessage": "自动思考级别"
-  },
-  "settings.agentLoop.operations.blockLimit.label": {
-    "defaultMessage": "阻止上限"
-  },
-  "settings.agentLoop.operations.contextCompaction.description": {
-    "defaultMessage": "在上下文窗口填满前汇总对话历史。"
-  },
-  "settings.agentLoop.operations.contextCompaction.title": {
-    "defaultMessage": "上下文压缩"
-  },
-  "settings.agentLoop.operations.cutoff.label": {
-    "defaultMessage": "截断值"
-  },
-  "settings.agentLoop.operations.enable": {
-    "defaultMessage": "启用{operation}"
-  },
-  "settings.agentLoop.operations.failureTimeout.label": {
-    "defaultMessage": "失败超时"
-  },
-  "settings.agentLoop.operations.heading": {
-    "defaultMessage": "可配置操作"
-  },
-  "settings.agentLoop.operations.maxTurns.description": {
-    "defaultMessage": "停止自主工作，并在继续前询问用户。"
-  },
-  "settings.agentLoop.operations.maxTurns.title": {
-    "defaultMessage": "最大轮次"
-  },
-  "settings.agentLoop.operations.recipeRetry.description": {
-    "defaultMessage": "当配置的成功检查失败时，重新运行配方检查。"
-  },
-  "settings.agentLoop.operations.recipeRetry.title": {
-    "defaultMessage": "重试配方"
-  },
-  "settings.agentLoop.operations.retryTimeout.label": {
-    "defaultMessage": "重试超时"
-  },
-  "settings.agentLoop.operations.slashCommands.description": {
-    "defaultMessage": "识别 /compact、/skills 和配方快捷方式等命令。"
-  },
-  "settings.agentLoop.operations.slashCommands.title": {
-    "defaultMessage": "斜杠命令"
-  },
-  "settings.agentLoop.operations.stopHooks.description": {
-    "defaultMessage": "允许钩子阻止完成，同时防止无限停止循环。"
-  },
-  "settings.agentLoop.operations.stopHooks.title": {
-    "defaultMessage": "停止钩子"
-  },
-  "settings.agentLoop.operations.threshold.label": {
-    "defaultMessage": "阈值 %"
-  },
-  "settings.agentLoop.operations.tokenLimit.label": {
-    "defaultMessage": "词元上限"
-  },
-  "settings.agentLoop.operations.toolPairCompaction.description": {
-    "defaultMessage": "汇总较早的工具请求和响应以节省上下文。留空时自动设置截断值。"
-  },
-  "settings.agentLoop.operations.toolPairCompaction.title": {
-    "defaultMessage": "工具对压缩"
-  },
-  "settings.agentLoop.operations.turns.label": {
-    "defaultMessage": "轮次"
-  },
-  "settings.agentLoop.title": {
-    "defaultMessage": "代理循环"
-  },
-  "contextXray.providerManagesContext": {
-    "defaultMessage": "{provider} 自行保存对话历史，只从 goose 接收最新的提示，因此没有可拆解的请求。"
-  },
-  "contextXray.autoCompactionPending": {
-    "defaultMessage": "已超过自动压缩阈值：在发送下一个请求之前会先压缩对话。"
-  },
-  "storage.apply": {
-    "defaultMessage": "Apply location"
-  },
-  "storage.artifacts": {
-    "defaultMessage": "Artifacts and backups"
-  },
-  "storage.browse": {
-    "defaultMessage": "Choose folder"
-  },
-  "storage.cache": {
-    "defaultMessage": "Cache"
-  },
-  "storage.cancel": {
-    "defaultMessage": "Cancel"
-  },
-  "storage.checking": {
-    "defaultMessage": "Checking storage…"
-  },
-  "storage.chooseAppFolder": {
-    "defaultMessage": "Choose a dedicated folder for application storage."
-  },
-  "storage.cleanup": {
-    "defaultMessage": "Free verified previous transfer copies"
-  },
-  "storage.config": {
-    "defaultMessage": "Configuration"
-  },
-  "storage.confirm": {
-    "defaultMessage": "Move storage and restart?"
-  },
-  "storage.confirmText": {
-    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
-  },
-  "storage.copying": {
-    "defaultMessage": "Copying and verifying files…"
-  },
-  "storage.custom": {
-    "defaultMessage": "Custom location"
-  },
-  "storage.databaseBusyOrInvalid": {
-    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
-  },
-  "storage.default": {
-    "defaultMessage": "Use the default location"
-  },
-  "storage.defaultPath": {
-    "defaultMessage": "System default location"
-  },
-  "storage.description": {
-    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
-  },
-  "storage.destinationConflict": {
-    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
-  },
-  "storage.effective": {
-    "defaultMessage": "Current data location"
-  },
-  "storage.error": {
-    "defaultMessage": "Storage could not be changed: {reason}"
-  },
-  "storage.free": {
-    "defaultMessage": "Available space: {space}"
-  },
-  "storage.insufficientSpace": {
-    "defaultMessage": "There is not enough free space for a verified copy."
-  },
-  "storage.invalidPath": {
-    "defaultMessage": "Choose an application storage folder."
-  },
-  "storage.logs": {
-    "defaultMessage": "Logs"
-  },
-  "storage.migrationBusy": {
-    "defaultMessage": "A storage transfer is already running."
-  },
-  "storage.nestedStorage": {
-    "defaultMessage": "Choose a folder outside the current application storage."
-  },
-  "storage.permission": {
-    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
-  },
-  "storage.recovered": {
-    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
-  },
-  "storage.recoveryRequired": {
-    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
-  },
-  "storage.required": {
-    "defaultMessage": "Space required for a verified copy: {space}"
-  },
-  "storage.restart": {
-    "defaultMessage": "Move and restart"
-  },
-  "storage.restarting": {
-    "defaultMessage": "Restarting with the new storage…"
-  },
-  "storage.retained": {
-    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
-  },
-  "storage.retry": {
-    "defaultMessage": "Retry"
-  },
-  "storage.rollback": {
-    "defaultMessage": "Return to previous storage"
-  },
-  "storage.sourceChanged": {
-    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
-  },
-  "storage.split": {
-    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
-  },
-  "storage.storageInUse": {
-    "defaultMessage": "Another process is using the storage. Close that app and retry."
-  },
-  "storage.title": {
-    "defaultMessage": "Application Storage"
-  },
-  "storage.unavailable": {
-    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
-  },
-  "storage.unchanged": {
-    "defaultMessage": "This location is already applied."
-  },
-  "storage.unidentifiedVolume": {
-    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
-  },
-  "storage.unsafeDefault": {
-    "defaultMessage": "A compatible filesystem is required for permanent application data."
-  },
-  "storage.unsupportedPlatform": {
-    "defaultMessage": "Storage migration is currently available on Linux."
-  },
-  "storage.verifying": {
-    "defaultMessage": "Checking database integrity…"
-  },
-  "storage.weightsInsideStorage": {
-    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   }
 }
