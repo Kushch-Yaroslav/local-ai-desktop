@@ -1,0 +1,10 @@
+crw-rw-rw- 1 root root 195, 254 Nov  3 16:23 /dev/nvidia-modeset
+crw-rw-rw- 1 root root 510,   0 Nov  3 16:23 /dev/nvidia-uvm
+crw-rw-rw- 1 root root 510,   1 Nov  3 16:23 /dev/nvidia-uvm-tools
+crw-rw-rw- 1 root root 195,   0 Nov  3 16:23 /dev/nvidia0
+crw-rw-rw- 1 root root 195, 255 Nov  3 16:23 /dev/nvidiactl
+
+/dev/nvidia-caps:
+total 0
+cr-------- 1 root root 235, 1 Nov  3 16:23 nvidia-cap1
+cr--r--r-- 1 root root 235, 2 Nov  3 16:23 nvidia-cap2

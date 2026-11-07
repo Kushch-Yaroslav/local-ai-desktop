@@ -7,7 +7,7 @@ import type { ThinkingEffort } from '../types/providers';
 import { acpChatSessionActions } from './chatSessionStore';
 export interface NewChatSettings { mode?: GooseMode; effort?: ThinkingEffort; budget?: number }
 export async function configureNewChatSession(session: Session, settings: NewChatSettings): Promise<Session> {
-  if (!settings.mode && !settings.effort && settings.budget === undefined) return session;
+  if (!settings.mode && !settings.effort && settings.budget === undefined) return { ...session, goose_mode: getSessionConfiguration(session.id)?.mode ?? session.goose_mode };
   const advertised = getSessionConfiguration(session.id)?.efforts;
   if (settings.effort && advertised && !advertised.includes(settings.effort)) throw new Error(`Unsupported thinking effort: ${settings.effort}`);
   // A local-only default reset must not leak into a cloud session after changing models.
@@ -22,7 +22,7 @@ export async function configureNewChatSession(session: Session, settings: NewCha
   if (budget !== undefined) {
     rememberSessionConfiguration(session.id, await client.connection.agent.request(methods.agent.session.setConfigOption, {sessionId: session.id, configId: 'thinking_budget', value: String(budget)}));
   }
-  const configured = { ...session, ...(settings.mode ? { goose_mode: settings.mode } : {}),
+  const configured = { ...session, goose_mode: settings.mode ?? getSessionConfiguration(session.id)?.mode ?? session.goose_mode,
     model_config: session.model_config && settings.effort ? { ...session.model_config, request_params: { ...session.model_config.request_params, thinking_effort: settings.effort } } : session.model_config };
   if (configured.model_config && budget !== undefined) configured.model_config = {...configured.model_config, request_params:{...configured.model_config.request_params, reasoning_budget_tokens: budget}};
   acpChatSessionActions.setSessionMetadata(session.id, configured);

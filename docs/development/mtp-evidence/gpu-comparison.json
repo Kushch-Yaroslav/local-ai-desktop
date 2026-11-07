@@ -1,0 +1,189 @@
+{
+  "hardware": "NVIDIA GeForce RTX 3090, 580.196.07, 6290 MiB",
+  "version": "version: 0.4.1-dev (build 1, commit d1d3c33)\nbuilt with GNU 13.3.0 for Linux x86_64",
+  "method": "Same target/settings/prompt/seed. One 4-token warmup and two 32-token runs per mode; no output text retained. VRAM is sampled, RAM HWM is process lifetime.",
+  "rows": [
+    {
+      "mode": "off",
+      "args": [
+        "--model",
+        "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "34513",
+        "--gpu-layers",
+        "8",
+        "--ctx-size",
+        "8192",
+        "--alias",
+        "local-gguf",
+        "--cache-type-k",
+        "q8_0",
+        "--cache-type-v",
+        "f16",
+        "--flash-attn",
+        "on",
+        "--threads",
+        "8",
+        "--batch-size",
+        "256",
+        "--ubatch-size",
+        "128"
+      ],
+      "samples": [
+        {
+          "run": 1,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 30,
+            "prompt_ms": 2723.702,
+            "prompt_per_token_ms": 90.79006666666668,
+            "prompt_per_second": 11.01442081402444,
+            "predicted_n": 32,
+            "predicted_ms": 11863.19,
+            "predicted_per_token_ms": 382.6835483870968,
+            "predicted_per_second": 2.6131251375051736
+          },
+          "wallMs": 14615,
+          "rssKiB": 15233648,
+          "peakRssKiB": 16755300,
+          "vramMiB": 2962,
+          "matchesGreedyBaseline": true,
+          "finishReason": "length",
+          "usage": {
+            "completion_tokens": 32,
+            "prompt_tokens": 30,
+            "total_tokens": 62,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "run": 2,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 30,
+            "prompt_ms": 2703.466,
+            "prompt_per_token_ms": 90.11553333333333,
+            "prompt_per_second": 11.096866023097757,
+            "predicted_n": 32,
+            "predicted_ms": 11838.948,
+            "predicted_per_token_ms": 381.9015483870968,
+            "predicted_per_second": 2.618475898365294
+          },
+          "wallMs": 14777,
+          "rssKiB": 15543080,
+          "peakRssKiB": 16755300,
+          "vramMiB": 2962,
+          "matchesGreedyBaseline": true,
+          "finishReason": "length",
+          "usage": {
+            "completion_tokens": 32,
+            "prompt_tokens": 30,
+            "total_tokens": 62,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "mode": "mtp-embedded",
+      "args": [
+        "--model",
+        "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "36593",
+        "--gpu-layers",
+        "8",
+        "--ctx-size",
+        "8192",
+        "--alias",
+        "local-gguf",
+        "--cache-type-k",
+        "q8_0",
+        "--cache-type-v",
+        "f16",
+        "--flash-attn",
+        "on",
+        "--threads",
+        "8",
+        "--batch-size",
+        "256",
+        "--ubatch-size",
+        "128",
+        "--spec-type",
+        "draft-mtp",
+        "--spec-draft-n-max",
+        "2"
+      ],
+      "samples": [
+        {
+          "run": 1,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 30,
+            "prompt_ms": 3240.885,
+            "prompt_per_token_ms": 108.02950000000001,
+            "prompt_per_second": 9.256730800383227,
+            "predicted_n": 32,
+            "predicted_ms": 7110.092,
+            "predicted_per_token_ms": 229.3578064516129,
+            "predicted_per_second": 4.359999842477426,
+            "draft_n": 29,
+            "draft_n_accepted": 15
+          },
+          "wallMs": 10379,
+          "rssKiB": 16468720,
+          "peakRssKiB": 16755400,
+          "vramMiB": 3388,
+          "matchesGreedyBaseline": true,
+          "finishReason": "length",
+          "usage": {
+            "completion_tokens": 32,
+            "prompt_tokens": 30,
+            "total_tokens": 62,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        },
+        {
+          "run": 2,
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 30,
+            "prompt_ms": 2747.182,
+            "prompt_per_token_ms": 91.57273333333333,
+            "prompt_per_second": 10.920281219081954,
+            "predicted_n": 32,
+            "predicted_ms": 6595.646,
+            "predicted_per_token_ms": 212.76277419354838,
+            "predicted_per_second": 4.700070319116581,
+            "draft_n": 29,
+            "draft_n_accepted": 15
+          },
+          "wallMs": 9553,
+          "rssKiB": 16781356,
+          "peakRssKiB": 16781356,
+          "vramMiB": 3388,
+          "matchesGreedyBaseline": true,
+          "finishReason": "length",
+          "usage": {
+            "completion_tokens": 32,
+            "prompt_tokens": 30,
+            "total_tokens": 62,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

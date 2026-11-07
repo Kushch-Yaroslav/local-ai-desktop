@@ -7,7 +7,7 @@ const isLinuxVulkanBuild = process.env.GOOSE_DESKTOP_LINUX_VARIANT === 'vulkan';
 
 let cfg = {
   asar: true,
-  executableName: 'local-ai-desktop',
+  executableName: process.env.LOCAL_AI_DESKTOP_DEV_BUILD === '1' ? 'Local AI Desktop' : 'local-ai-desktop',
   // Allow offline packaging from a verified local Electron ZIP when supplied.
   electronZipDir: process.env.ELECTRON_PACKAGER_ELECTRON_ZIP_DIR || undefined,
   extraResource: [

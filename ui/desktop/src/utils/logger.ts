@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: bound Electron diagnostic rotation.
 import log from 'electron-log';
 import path from 'node:path';
 import { app } from 'electron';
@@ -6,6 +7,7 @@ log.transports.file.resolvePathFn = () => {
   return path.join(app.getPath('userData'), 'logs', 'main.log');
 };
 
+log.transports.file.maxSize = 4 * 1024 * 1024;
 log.transports.file.level = app.isPackaged ? 'info' : 'debug';
 log.transports.console.level = app.isPackaged ? false : 'debug';
 

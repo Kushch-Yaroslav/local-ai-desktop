@@ -1,0 +1,2 @@
+d7061d202c2ee116fa826963d781cef67d2b36b18805c5d81322d11ef9f52e1b  /media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server
+77f54d96774645417affb2b382b574eb1ac1c126a0b9104d00657c2fb61f2691  /media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop/runtime/llama/llama-server

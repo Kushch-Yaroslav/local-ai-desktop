@@ -1,0 +1,7 @@
+# Local AI Desktop Goose Dev: allow Chromium's user namespace sandbox for this
+# exact development executable; retain Ubuntu's global userns restrictions.
+abi <abi/4.0>,
+include <tunables/global>
+profile local-ai-desktop-goose-dev "/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/ui/desktop/out/Local AI Desktop-linux-x64/Local AI Desktop" flags=(unconfined) {
+  userns,
+}

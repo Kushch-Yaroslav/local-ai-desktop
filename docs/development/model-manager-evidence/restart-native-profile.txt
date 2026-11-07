@@ -1,0 +1,31 @@
+Persisted language ru
+Restart state { phase: 'idle' }
+Initial body Новый чат
+Рецепты
+Навыки
+Приложения
+Планировщик
+Расширения
+История сеансов
+ЧАТЫ
+CUDA_GOOSE_OK test
+New Chat
+New Chat
+Настройки
+18:00
+
+Добрый вечер
+
+Qwen CUDA Dev · Выгружена
+Загрузить модель
+
+Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет.
+
+local-gguf
+yaroslav
+$0.00
+0 / 8.2k
+7
+Native saved without load { phase: 'idle' }
+
+Advanced editor validation continued successfully in advanced-save.txt.

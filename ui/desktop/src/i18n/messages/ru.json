@@ -5551,5 +5551,143 @@
   },
   "sessionSettings.reasoningMetadata": {
     "defaultMessage": "Не удалось проверить метаданные управления рассуждениями."
+  },
+  "storage.apply": {
+    "defaultMessage": "Применить расположение"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Артефакты и резервные копии"
+  },
+  "storage.browse": {
+    "defaultMessage": "Выбрать папку"
+  },
+  "storage.cache": {
+    "defaultMessage": "Кеш"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "storage.checking": {
+    "defaultMessage": "Проверка хранилища…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Выберите отдельную папку для хранилища приложения."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Освободить проверенные прежние копии переноса"
+  },
+  "storage.config": {
+    "defaultMessage": "Конфигурация"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Перенести хранилище и перезапустить приложение?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Работа в открытых чатах и с моделями будет остановлена. Приложение скопирует и проверит данные, затем перезапустится. Исходные данные сохраняются до проверки нового хранилища."
+  },
+  "storage.copying": {
+    "defaultMessage": "Копирование и сверка файлов…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Своё расположение"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "База данных занята или не прошла проверку целостности. Исходные данные сохранены."
+  },
+  "storage.default": {
+    "defaultMessage": "Использовать расположение по умолчанию"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "Системное расположение по умолчанию"
+  },
+  "storage.description": {
+    "defaultMessage": "Выберите расположение истории чатов, профилей моделей, кеша и журналов. Пути к файлам моделей GGUF сохраняются."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "В папке назначения есть существующие или несовместимые данные. Выберите другую папку."
+  },
+  "storage.effective": {
+    "defaultMessage": "Текущее расположение данных"
+  },
+  "storage.error": {
+    "defaultMessage": "Не удалось изменить хранилище: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Свободное пространство: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "Недостаточно свободного места для проверенной копии."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Выберите папку для хранилища приложения."
+  },
+  "storage.logs": {
+    "defaultMessage": "Журналы"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "Перенос хранилища уже выполняется."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Выберите папку за пределами текущего хранилища приложения."
+  },
+  "storage.permission": {
+    "defaultMessage": "Приложение не может записывать в эту папку. Выберите другую папку или проверьте права доступа."
+  },
+  "storage.recovered": {
+    "defaultMessage": "После прерванного переноса исходные данные сохранены. Операцию можно повторить."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Перезапустите приложение для восстановления прерванного переноса перед повторной попыткой."
+  },
+  "storage.required": {
+    "defaultMessage": "Необходимое место для проверенной копии: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Перенести и перезапустить"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Перезапуск с новым хранилищем…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Прежние данные сохранены для отката. Исходники исторических миграций и резервные архивы сохраняются."
+  },
+  "storage.retry": {
+    "defaultMessage": "Повторить"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Вернуться к прежнему хранилищу"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "При проверке обнаружено изменение исходных данных. Они сохранены; закройте другие экземпляры приложения и повторите попытку."
+  },
+  "storage.split": {
+    "defaultMessage": "Эта файловая система используется для кеша, журналов и артефактов. История чатов и чувствительное состояние остаются на совместимом томе, указанном выше."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Другое приложение использует это хранилище. Закройте его и повторите попытку."
+  },
+  "storage.title": {
+    "defaultMessage": "Хранилище приложения"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "Выбранный диск недоступен. Смонтируйте его и повторите попытку."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "Это расположение уже применяется."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "Не удалось надёжно определить выбранный том. Выберите локальный смонтированный диск."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "Для постоянных данных приложения необходима совместимая файловая система."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Перенос хранилища сейчас доступен в Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Проверка целостности баз данных…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "В хранилище приложения найдены веса GGUF. Перед переносом хранилища разместите модели в отдельной папке."
   }
 }

@@ -99,3 +99,7 @@ gooseselftest/
 /crates/goose-sdk/examples/uniffi/kotlin/build/
 
 live-in-desktop-design
+
+# Local AI Desktop working dirs (not source)
+.local-work/
+ui/desktop/out-*/

@@ -4,14 +4,20 @@ import type { GooseMode } from '../types/session';
 import type { ThinkingEffort } from '../types/providers';
 interface Configuration { budget?: number; mode?: GooseMode; effort?: ThinkingEffort; efforts?: ThinkingEffort[] }
 const configurations = new Map<string, Configuration>();
+const modeRevisions = new Map<string, number>();
+export function getSessionModeRevision(id: string) { return modeRevisions.get(id) ?? 0; }
 const listeners = new Set<() => void>();
-export function rememberSessionConfiguration(id: string, response: unknown) {
+export function rememberSessionConfiguration(id: string, response: unknown, expectedModeRevision?: number) {
   if (!response) return;
   const data = response as { modes?: { currentModeId?: string }; configOptions?: Array<{ id: string; currentValue?: string; options?: Array<{ value?: string }> }> };
   const previous = configurations.get(id) ?? {};
   const next = { ...previous };
-  const mode = data.modes?.currentModeId ?? data.configOptions?.find((option) => option.id === 'mode')?.currentValue;
-  if (mode && ['auto', 'approve', 'smart_approve', 'chat'].includes(mode)) next.mode = mode as GooseMode;
+  // Model/capability snapshots must not overwrite an established permission mode.
+  const mode = data.modes?.currentModeId ?? (previous.mode ? undefined : data.configOptions?.find((option) => option.id === 'mode')?.currentValue);
+  if (mode && ['auto', 'approve', 'smart_approve', 'chat'].includes(mode) && (expectedModeRevision === undefined || expectedModeRevision === getSessionModeRevision(id))) {
+    next.mode = mode as GooseMode;
+    modeRevisions.set(id, getSessionModeRevision(id) + 1);
+  }
   const effort = data.configOptions?.find((option) => option.id === 'thinking_effort');
   if (effort) {
     const valid = ['off', 'low', 'medium', 'high', 'max'];

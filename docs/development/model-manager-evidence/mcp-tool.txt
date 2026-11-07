@@ -1,0 +1,63 @@
+Новый чат
+Рецепты
+Навыки
+Приложения
+Планировщик
+Расширения
+История сеансов
+ЧАТЫ
+MOE_PLACEMENT_OK
+CUDA_GOOSE_OK test
+New Chat
+New Chat
+Настройки
+goose
+MOE_PLACEMENT_OK
+
+Reply exactly MOE_PLACEMENT_OK. Do not use tools. /no_think
+
+18:03
+Изменить
+Копировать
+Thinking
+
+MOE_PLACEMENT_OK
+
+18:03
+Копировать
+1.35 tok/s
+·
+4.4k tok
+
+Use the shell tool once to execute exactly: printf LOCAL_TOOL_OK . Then report the tool output. Do not read or modify any files. /no_think
+
+18:04
+Изменить
+Копировать
+Thinking
+Shell command: printf LOCAL_TOOL_OK
+18:04
+12.5 tok/s
+·
+4.6k tok
+Thinking
+
+The tool output is: LOCAL_TOOL_OK
+
+18:04
+Копировать
+13.9 tok/s
+·
+4.6k tok
+Qwen CUDA placement test · Работает
+Загрузить модель
+Выгрузить модель
+
+Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет.
+
+Runtime и диагностика
+local-gguf
+yaroslav
+$0.00
+4.6k / 8.2k
+7

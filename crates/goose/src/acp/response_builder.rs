@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: preserve per-session mode in serialized session metadata.
 use crate::agents::{ExtensionLoadResult, StateMachineServices};
 use crate::config::{Config, GooseMode};
 use crate::providers::inventory::{ProviderInventoryEntry, ProviderInventoryService};
@@ -29,6 +30,7 @@ pub(super) fn session_provider_selection(session: &Session) -> &str {
 #[serde(rename_all = "camelCase")]
 struct SessionMeta<'a> {
     message_count: usize,
+    goose_mode: GooseMode,
     created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -51,6 +53,7 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
     fn from(session: &'a Session) -> Self {
         Self {
             message_count: session.message_count,
+            goose_mode: session.goose_mode,
             created_at: session.created_at,
             last_message_at: session.last_message_at,
             archived_at: session.archived_at,

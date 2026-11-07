@@ -1,3 +1,4 @@
+import type { StorageChoice, StorageStatus, StoragePreview, StorageProgress } from './storageTypes';
 import type { MemorySnapshot } from './memoryTelemetryTypes';
 import type { ProtocolSummary } from './ggufProtocolAudit';
 // Modified for Local AI Desktop: managed GGUF IPC.
@@ -122,6 +123,13 @@ type ElectronAPI = {
   showNotification: (data: NotificationData) => void;
   showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResponse>;
   showSaveDialog: (options: SaveDialogOptions) => Promise<SaveDialogResponse>;
+  storageStatus: () => Promise<StorageStatus>;
+  storageChoose: () => Promise<string | null>;
+  storagePreview: (choice: StorageChoice) => Promise<StoragePreview>;
+  storageApply: (choice: StorageChoice) => Promise<void>;
+  storageCleanup: () => Promise<void>;
+  storageRollback: () => Promise<void>;
+  storageProgress: (callback:(progress:StorageProgress)=>void) => () => void;
   reloadApp: () => void;
   checkForOllama: () => Promise<boolean>;
   ggufList: () => Promise<ProfileEntry[]>;
@@ -251,6 +259,13 @@ const electronAPI: ElectronAPI = {
   showNotification: (data: NotificationData) => ipcRenderer.send('notify', data),
   showMessageBox: (options: MessageBoxOptions) => ipcRenderer.invoke('show-message-box', options),
   showSaveDialog: (options: SaveDialogOptions) => ipcRenderer.invoke('show-save-dialog', options),
+  storageStatus: () => ipcRenderer.invoke('storage-status'),
+  storageChoose: () => ipcRenderer.invoke('storage-choose'),
+  storagePreview: (choice:StorageChoice) => ipcRenderer.invoke('storage-preview',choice),
+  storageApply: (choice:StorageChoice) => ipcRenderer.invoke('storage-apply',choice),
+  storageCleanup: () => ipcRenderer.invoke('storage-cleanup'),
+  storageRollback: () => ipcRenderer.invoke('storage-rollback'),
+  storageProgress: (callback:(progress:StorageProgress)=>void) => {const listener=(_e:Electron.IpcRendererEvent,p:StorageProgress)=>callback(p);ipcRenderer.on('storage-progress',listener);return ()=>ipcRenderer.removeListener('storage-progress',listener);},
   reloadApp: () => ipcRenderer.send('reload-app'),
   checkForOllama: () => ipcRenderer.invoke('check-ollama'),
 

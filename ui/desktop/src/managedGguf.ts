@@ -13,7 +13,7 @@ import { createServer as createTcpServer } from 'node:net';
 import { createServer, type Server, type ServerResponse, type IncomingMessage } from 'node:http';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs/promises';
-import { openSync, closeSync, existsSync, fstatSync } from 'node:fs';
+import { openSync, closeSync, existsSync, fstatSync, writeSync } from 'node:fs';
 import path from 'node:path';
 import { buildArguments, inspectProfile, preflightLaunchProfile, probeRuntime, runtimeError, validateProfile } from './ggufConfig';
 import type {
@@ -528,7 +528,7 @@ export class ManagedGguf {
     const controller = lease.controller;
     const reserves = this.contextReserves();
     const catalog = await this.discoveryCatalog(profileId);
-    const logPath = path.join(this.root, `gguf-${profileId}.log`);
+    const logPath = path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, `gguf-${profileId}.log`);
     this.publishDiscovery({
       busy: true,
       profileId,
@@ -1122,7 +1122,11 @@ export class ManagedGguf {
         capabilities?.flags.includes('--spec-type')
       )
         args.push('--spec-type', 'none');
-      const logPath = path.join(this.root, `gguf-${id}.log`);
+      const logPath = path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, `gguf-${id}.log`);
+      await fs.mkdir(path.dirname(logPath), { recursive: true });
+      // Rotate between launches; never truncate a live runtime's open descriptor.
+      const previousSize = await fs.stat(logPath).then(s => s.size).catch(() => 0);
+      if (previousSize > 16 * 1024 * 1024) await fs.rename(logPath, logPath + '.1');
       const fd = openSync(logPath, 'a', 0o600);
       logStart = fstatSync(fd).size;
       this.logStarts.set(id, logStart);
@@ -1134,7 +1138,7 @@ export class ManagedGguf {
           protectedLinux ? '/usr/bin/setpriv' : profile.executable,
           protectedLinux ? ['--pdeathsig', 'KILL', profile.executable, ...args] : args,
           {
-            stdio: ['ignore', fd, fd],
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: {
               ...process.env,
               LLAMA_API_KEY: key,
@@ -1145,9 +1149,24 @@ export class ManagedGguf {
             },
           }
         );
-      } finally {
+      } catch (error) {
         closeSync(fd);
+        throw error;
       }
+      let logBytes = logStart;
+      let logStopped = false;
+      const recordLog = (chunk: Buffer) => {
+        if (logStopped) return;
+        try {
+          if (logBytes + chunk.length > 16 * 1024 * 1024) {
+            writeSync(fd, '\n[Local AI Desktop: runtime diagnostic limit reached]\n');
+            logStopped = true;
+          } else { writeSync(fd, chunk); logBytes += chunk.length; }
+        } catch { logStopped = true; }
+      };
+      child.stdout?.on('data', recordLog);
+      child.stderr?.on('data', recordLog);
+      child.once('close', () => closeSync(fd));
       this.owned = child;
       let failure: Error | undefined;
       const guardedPlacement = profile.gpuBlockIds !== undefined || !!launchConfiguration.moeCacheMiB;
@@ -1286,6 +1305,7 @@ export class ManagedGguf {
   }
 }
 let service: ManagedGguf;
+export async function shutdownManagedGguf() { await service?.shutdown(); }
 export async function stopManagedGguf() {
   await service?.unload();
 }

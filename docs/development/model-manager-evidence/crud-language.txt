@@ -1,0 +1,66 @@
+Restart no-autoload { phase: 'idle' }
+Normal model selector Switch models
+
+Select a provider and model to use for your conversations.
+
+Qwen CUDA Dev · e292c3c0
+local-gguf
+Quick start guide
+Cancel
+Select model
+Close
+After duplicate save {
+  state: { phase: 'idle' },
+  profiles: [ 'Goose Dev Qwen GGUF', 'Qwen CUDA Dev', 'Temporary duplicate' ]
+}
+Confirmed duplicate deletion; profiles [ 'Goose Dev Qwen GGUF', 'Qwen CUDA Dev' ]
+RU Settings Назад
+Модели
+Локальный инференс
+Чат
+Внешний бэкенд
+Промпты
+Клавиатура
+Авторизация
+Приложение
+Локальный инференс
+Расширенный локальный запуск
+
+Управляйте существующими GGUF. Сохранение не загружает веса. Выберите профиль в списке моделей чата — загрузка начнётся при первом запросе.
+
+Goose Dev Qwen GGUF
+Доступна
+Изменить
+Дублировать
+Выбрать для чата
+Удалить
+Qwen CUDA Dev
+Доступна
+Изменить
+Дублировать
+Выбрать для чата
+Удалить
+Добавить модель
+Название профиля
+Путь к основной GGUF
+Обзор
+Backend инференса
+Управляемый llama-server
+Встроенный инференс Goose
+Исполняемый файл llama-server
+Обзор
+Слоёв на GPU (0 = CPU)
+Контекст, токенов
+GGUF проектора зрения (необязательно)
+Обзор
+Расширенный режим
+Сохранить профиль
+Проверить пути и runtime
+Локальные модели инференса
+
+Скачивайте и управляйте локальными LLM-моделями для инференса без API-ключей. Ищите модели GGUF или MLX на Hugging Face.
+
+Поиск в HuggingFace
+Нет доступных моделей
+RU validation error Файл не найден или недоступен. Подключите диск или исправьте путь. — /tmp/nonexistent-model.gguf
+Persisted language ru

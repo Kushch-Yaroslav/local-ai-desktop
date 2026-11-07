@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: enforce absence of tool schemas in Chat Only.
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -13,7 +14,7 @@ use super::pipeline::TestPipeline;
 use super::pipeline::MAX_TURNS;
 use super::test_pipeline;
 use crate::agents::state_machine::MAX_TURNS_MESSAGE;
-use crate::agents::tool_execution::{CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
+use crate::agents::tool_execution::DECLINED_RESPONSE;
 use crate::agents::AgentEvent;
 use crate::config::permission::PermissionLevel;
 use crate::config::GooseMode;
@@ -591,14 +592,11 @@ async fn tool_availability_tracks_mode_and_extension_removal() -> Result<()> {
     }
 
     let pipeline = pipeline.with_goose_mode(GooseMode::Chat).await;
-    api.on("try the tool").call(ADD, value(1));
-    api.on(CHAT_MODE_TOOL_SKIPPED_RESPONSE)
-        .reply("here is the plan");
+    api.on("try the tool").reply("here is the plan");
 
     let result = pipeline.run(["try the tool"]).await?;
-    result.assert_message(-2, ToolResponse, "chat mode");
     result.assert_message(-1, Agent, "here is the plan");
-    assert!(api.calls().last().unwrap().advertises_tool(ADD));
+    assert!(!api.calls().last().unwrap().advertises_tool(ADD));
     assert_eq!(pipeline.calculator_total(), 0);
 
     let pipeline = pipeline.with_goose_mode(GooseMode::Auto).await;

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Local AI Desktop — Goose Dev
+Comment=Isolated Local AI Desktop v0.4.0 development application
+Exec=/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/scripts/dev/launch-goose-dev.sh
+Path=/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040
+Icon=/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/ui/desktop/src/images/icon.png
+Terminal=false
+Categories=Development;
+StartupNotify=true

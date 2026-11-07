@@ -1,3 +1,4 @@
+import { acpReadConfig } from '../acp/config';
 import { contextChoices } from '../contextDiscovery/contextChoices';
 // Modified for Local AI Desktop: portal-based collision-aware session controls.
 import * as Popover from '@radix-ui/react-popover';
@@ -212,6 +213,15 @@ export default function SessionSettingsPopover({
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [modePending, setModePending] = useState(false);
+  const [defaultMode, setDefaultMode] = useState<GooseMode>();
+  useEffect(() => {
+    if (sessionId) return;
+    let alive = true;
+    void acpReadConfig('GOOSE_MODE').then(value => {
+      if (alive) setDefaultMode(['auto', 'approve', 'smart_approve', 'chat'].includes(String(value)) ? value as GooseMode : 'auto');
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [sessionId]);
   const [effortPending, setEffortPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modeOverride, setModeOverride] = useState<GooseMode | null>(null);
@@ -378,7 +388,7 @@ export default function SessionSettingsPopover({
   const currentMode =
     modeOverride ??
     (sessionId ? (configuration?.mode ?? session?.goose_mode) : draft?.mode) ??
-    'auto';
+    (sessionId ? undefined : defaultMode);
 
   useEffect(() => {
     setModeOverride(null);
@@ -675,11 +685,12 @@ export default function SessionSettingsPopover({
               </label>
               <select
                 id="session-agent-mode"
-                value={currentMode}
-                disabled={modePending}
+                value={currentMode ?? ''}
+                disabled={modePending || !currentMode}
                 onChange={(event) => void applyMode(event.target.value as GooseMode)}
                 className="mb-1 w-full rounded-lg border border-border-primary bg-background-primary px-2 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-border-primary"
               >
+                {!currentMode && <option value="">…</option>}
                 {(Object.keys(modeLabels) as GooseMode[]).map((mode) => (
                   <option key={mode} value={mode}>
                     {intl.formatMessage(messages[modeLabels[mode]])}

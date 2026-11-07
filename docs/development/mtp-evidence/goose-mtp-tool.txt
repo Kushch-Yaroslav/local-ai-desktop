@@ -1,0 +1,69 @@
+{
+  "bounds": {
+    "maxOutputTokens": 128,
+    "enableThinking": false
+  },
+  "protocol": [
+    {
+      "roles": {
+        "system": 1,
+        "user": 1
+      },
+      "tools": 0,
+      "gooseInstructions": false,
+      "toolChoice": "absent",
+      "requestReasoning": false,
+      "assistantToolCalls": false,
+      "toolResults": 0,
+      "responseReasoning": false,
+      "responseToolCalls": false,
+      "finishReasons": [
+        "stop"
+      ],
+      "done": true,
+      "truncated": false
+    },
+    {
+      "roles": {
+        "system": 1,
+        "user": 1
+      },
+      "tools": 17,
+      "gooseInstructions": true,
+      "toolChoice": "absent",
+      "requestReasoning": false,
+      "assistantToolCalls": false,
+      "toolResults": 0,
+      "responseReasoning": false,
+      "responseToolCalls": true,
+      "finishReasons": [
+        "tool_calls"
+      ],
+      "done": true,
+      "truncated": false
+    },
+    {
+      "roles": {
+        "system": 1,
+        "user": 1,
+        "assistant": 1,
+        "tool": 1
+      },
+      "tools": 17,
+      "gooseInstructions": true,
+      "toolChoice": "absent",
+      "requestReasoning": false,
+      "assistantToolCalls": true,
+      "toolResults": 1,
+      "responseReasoning": false,
+      "responseToolCalls": false,
+      "finishReasons": [
+        "stop"
+      ],
+      "done": true,
+      "truncated": false
+    }
+  ]
+}
+{"phase":"ready"}
+Hiding ready model leaves runtime ready ready

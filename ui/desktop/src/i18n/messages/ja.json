@@ -4834,5 +4834,143 @@
   },
   "contextXray.autoCompactionPending": {
     "defaultMessage": "自動コンパクション閾値を超えています。次のリクエストを送信する前に会話がコンパクションされます。"
+  },
+  "storage.apply": {
+    "defaultMessage": "Apply location"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Artifacts and backups"
+  },
+  "storage.browse": {
+    "defaultMessage": "Choose folder"
+  },
+  "storage.cache": {
+    "defaultMessage": "Cache"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "storage.checking": {
+    "defaultMessage": "Checking storage…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Choose a dedicated folder for application storage."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Free verified previous transfer copies"
+  },
+  "storage.config": {
+    "defaultMessage": "Configuration"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Move storage and restart?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
+  },
+  "storage.copying": {
+    "defaultMessage": "Copying and verifying files…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Custom location"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
+  },
+  "storage.default": {
+    "defaultMessage": "Use the default location"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "System default location"
+  },
+  "storage.description": {
+    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
+  },
+  "storage.effective": {
+    "defaultMessage": "Current data location"
+  },
+  "storage.error": {
+    "defaultMessage": "Storage could not be changed: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Available space: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "There is not enough free space for a verified copy."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Choose an application storage folder."
+  },
+  "storage.logs": {
+    "defaultMessage": "Logs"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "A storage transfer is already running."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Choose a folder outside the current application storage."
+  },
+  "storage.permission": {
+    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
+  },
+  "storage.recovered": {
+    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
+  },
+  "storage.required": {
+    "defaultMessage": "Space required for a verified copy: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Move and restart"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Restarting with the new storage…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
+  },
+  "storage.retry": {
+    "defaultMessage": "Retry"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Return to previous storage"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
+  },
+  "storage.split": {
+    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Another process is using the storage. Close that app and retry."
+  },
+  "storage.title": {
+    "defaultMessage": "Application Storage"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "This location is already applied."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "A compatible filesystem is required for permanent application data."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Storage migration is currently available on Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Checking database integrity…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   }
 }
