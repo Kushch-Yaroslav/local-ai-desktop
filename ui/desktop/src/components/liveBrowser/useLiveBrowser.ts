@@ -116,6 +116,37 @@ export interface UseLiveBrowser {
   }>;
 }
 
+/** Renderer-side Live Browser diagnostics. Only active in dev builds (E2E runs in dev). */
+const LB_DEBUG = import.meta.env.DEV;
+function lbdbg(...args: unknown[]): void {
+  if (LB_DEBUG) console.log('LBDBG', ...args);
+}
+function lbdbgWarn(...args: unknown[]): void {
+  if (LB_DEBUG) console.warn('LBDBG', ...args);
+}
+function lbdbgError(...args: unknown[]): void {
+  if (LB_DEBUG) console.error('LBDBG', ...args);
+}
+
+/** Decode a base64 JPEG frame and draw it onto a 2d canvas. Pure (no React). */
+function renderFrameTo(canvas: HTMLCanvasElement, data: string, width: number, height: number): Promise<void> {
+  if (!width || !height) return Promise.resolve();
+  if (canvas.width !== Math.round(width) || canvas.height !== Math.round(height)) {
+    canvas.width = Math.round(width);
+    canvas.height = Math.round(height);
+  }
+  const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: 'image/jpeg' });
+  return createImageBitmap(blob).then((bitmap) => {
+    try {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.drawImage(bitmap, 0, 0);
+    } finally {
+      bitmap.close();
+    }
+  });
+}
+
 export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   const [runtime, setRuntime] = useState<LiveBrowserRuntimeInfo>({
     running: false,
@@ -140,6 +171,8 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   const [hasFrame, setHasFrame] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /** Most recent screencast frame, kept so a late-mounted canvas can catch up. */
+  const latestFrameRef = useRef<{ data: string; width: number; height: number } | null>(null);
   const clientRef = useRef<LiveBrowserClient | null>(null);
   const conversationIdRef = useRef<string | null>(conversationId);
   conversationIdRef.current = conversationId;
@@ -181,8 +214,17 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   }, []);
 
   // --- canvas attachment --------------------------------------------------
+  // The canvas is conditionally rendered by the panel and may mount *after*
+  // the first SSE frame has already arrived (and been skipped). When a canvas
+  // attaches, immediately re-draw the stored latest frame so the UI catches up.
   const attachCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
     canvasRef.current = canvas;
+    if (!canvas) return;
+    const latest = latestFrameRef.current;
+    if (!latest) return;
+    void renderFrameTo(canvas, latest.data, latest.width, latest.height).then(() => {
+      setHasFrame(true);
+    });
   }, []);
 
   // --- SSE connection ------------------------------------------------------
@@ -196,50 +238,45 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
     const endpoint = runtime.endpoint;
     const client = new LiveBrowserClient(endpoint);
     clientRef.current = client;
+    let frameCount = 0;
 
     const drawFrame = (data: string, width: number, height: number) => {
-      const canvas = canvasRef.current;
-      if (!canvas || !width || !height) return;
-      // The canvas buffer matches the frame's device pixels; CSS layout
-      // (object-fit) handles the display scaling.
-      if (canvas.width !== Math.round(width) || canvas.height !== Math.round(height)) {
-        canvas.width = Math.round(width);
-        canvas.height = Math.round(height);
+      // Always remember the latest frame so a canvas that mounts later can
+      // catch up (the canvas is conditionally rendered by the panel).
+      if (width && height) {
+        latestFrameRef.current = { data, width, height };
       }
-      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: 'image/jpeg' });
-      createImageBitmap(blob)
-        .then((bitmap) => {
-          if (cancelled) {
-            bitmap.close();
-            return;
-          }
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            bitmap.close();
-            return;
-          }
-          ctx.drawImage(bitmap, 0, 0);
-          bitmap.close();
-          setHasFrame(true);
-        })
-        .catch(() => {
+      const canvas = canvasRef.current;
+      if (!canvas || !width || !height) {
+        if (frameCount < 5) lbdbgWarn('drawFrame-skip', { canvas: !!canvas, width, height });
+        return;
+      }
+      frameCount += 1;
+      if (frameCount <= 3) lbdbg('frame-draw-attempt', { w: canvas.width, h: canvas.height, n: frameCount });
+      void renderFrameTo(canvas, data, width, height)
+        .then(() => setHasFrame(true))
+        .catch((err) => {
           // frame decode failed; keep the previous frame
+          if (frameCount < 5) lbdbgError('frame-decode-fail', err instanceof Error ? err.message : String(err));
         });
     };
 
     const connect = () => {
       if (cancelled) return;
       es?.close();
-      es = new EventSource(client.sseUrl(conversationId));
+      const sseUrl = client.sseUrl(conversationId);
+      lbdbg('sse-connect', sseUrl);
+      es = new EventSource(sseUrl);
       es.onopen = () => {
         if (cancelled) return;
+        lbdbg('sse-OPEN', conversationId);
         setConnected(true);
         setConnecting(false);
       };
       es.onerror = () => {
         // EventSource auto-reconnects; reflect state and give up after the
         // browser's retries if the runtime is gone.
+        lbdbgWarn('sse-ERROR', conversationId, es?.readyState);
         setConnected(false);
       };
       es.onmessage = (event) => {
@@ -255,6 +292,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
             workspace?: LadWorkspaceSettings;
           };
           if (message.t === 'frame' && message.data) {
+            if (frameCount < 3) lbdbg('frame-msg', message.data.length, 'bytes', message.width, 'x', message.height);
             drawFrame(message.data, message.width ?? 0, message.height ?? 0);
           } else if (message.t === 'meta' && message.meta) {
             setMeta(message.meta);
@@ -271,8 +309,12 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
 
     void client
       .setActive(conversationId)
-      .then(() => connect())
+      .then(() => {
+        lbdbg('setActive-OK', conversationId);
+        connect();
+      })
       .catch((error) => {
+        lbdbgError('setActive-FAIL', error instanceof Error ? error.message : String(error));
         setLastError(error instanceof Error ? error.message : String(error));
         setConnecting(false);
       });

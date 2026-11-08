@@ -16,9 +16,11 @@ interface ScreencastState {
   subscribers: Set<LadFrameListener>;
   lastFrame: LadScreencastFrame | null;
   frameHandler?: (params: unknown) => void;
-  pollTimer?: NodeJS.Timeout;
+  pollTimer?: ReturnType<typeof setTimeout>;
+  watchdog?: ReturnType<typeof setInterval>;
   startedAt: number;
   frames: number;
+  lastFrameAt: number;
 }
 
 const MAX_FRAME_EDGE = 3840;
@@ -69,6 +71,7 @@ export class ScreencastHub {
         lastFrame: null,
         startedAt: Date.now(),
         frames: 0,
+        lastFrameAt: 0,
       };
       this.states.set(conversationId, state);
     }
@@ -88,7 +91,6 @@ export class ScreencastHub {
     const state = this.states.get(conversationId);
     if (visible) {
       if (state && (state.mode === 'suspended' || state.mode === 'idle')) {
-        state.mode = state.mode; // keep
         void this.ensureRunning(conversationId);
       }
       return;
@@ -114,6 +116,7 @@ export class ScreencastHub {
     state.mode = 'screencast';
     state.startedAt = Date.now();
     state.frames = 0;
+    state.lastFrameAt = Date.now();
 
     const maxW = Math.min(MAX_FRAME_EDGE, Math.round(session.viewport.width * session.dpr * session.zoom));
     const maxH = Math.min(MAX_FRAME_EDGE, Math.round(session.viewport.height * session.dpr * session.zoom));
@@ -130,6 +133,7 @@ export class ScreencastHub {
       if (!st) return;
       st.frames += 1;
       st.lastFrame = frame;
+      st.lastFrameAt = frame.ts;
       for (const listener of st.subscribers) {
         try {
           listener(frame);
@@ -152,14 +156,25 @@ export class ScreencastHub {
       everyNthFrame: 2,
     });
 
-    // Grace period: if nothing arrives, fall back to polling.
-    setTimeout(() => {
+    // Watchdog: fall back to polling when the CDP screencast produces no
+    // frames within the grace window OR stops advancing (stall). A one-shot
+    // grace timer that bails when `frames > 0` would leave the UI frozen on
+    // the last frame if CDP delivered one frame and then went quiet.
+    const watchdog = setInterval(() => {
       const st = this.states.get(conversationId);
-      if (!st || st.mode !== 'screencast' || st.frames > 0) return;
-      log('CDP screencast produced no frames; switching to polling fallback');
-      this.stop(conversationId);
-      this.startPolling(conversationId);
-    }, SCREENCAST_GRACE_MS).unref?.();
+      if (!st || st.mode !== 'screencast') {
+        clearInterval(watchdog);
+        return;
+      }
+      const stalled = Date.now() - st.lastFrameAt > SCREENCAST_GRACE_MS;
+      if (st.frames === 0 || stalled) {
+        clearInterval(watchdog);
+        log(`CDP screencast stalled (frames=${st.frames}); switching to polling fallback`);
+        this.stop(conversationId);
+        this.startPolling(conversationId);
+      }
+    }, SCREENCAST_GRACE_MS);
+    watchdog.unref?.();
   }
 
   private restartForViewport(conversationId: string): void {
@@ -204,6 +219,10 @@ export class ScreencastHub {
     if (state.pollTimer) {
       clearTimeout(state.pollTimer);
       state.pollTimer = undefined;
+    }
+    if (state.watchdog) {
+      clearInterval(state.watchdog);
+      state.watchdog = undefined;
     }
     if (state.frameHandler) {
       const session = this.manager.sessionOf(conversationId);

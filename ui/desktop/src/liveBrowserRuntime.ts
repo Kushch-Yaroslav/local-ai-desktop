@@ -48,12 +48,21 @@ interface NodeCandidate {
 }
 
 function runtimeScriptPath(): string {
-  // Dev: <repo>/ui/desktop/src/liveBrowserRuntime.ts → live-browser/dist/live-browser.js
-  // Packaged: .vite/build/main.js → resources/live-browser/dist/live-browser.js
-  const devPath = path.join(__dirname, '..', '..', 'live-browser', 'dist', 'live-browser.js');
-  if (existsSync(devPath)) return devPath;
-  const packagedPath = path.join(process.resourcesPath, 'live-browser', 'dist', 'live-browser.js');
-  return packagedPath;
+  // Candidate locations, in priority order:
+  //  1. Dev: <repo>/ui/desktop/src/liveBrowserRuntime.ts → live-browser/dist/live-browser.js
+  //  2. Packaged (designed nested): resources/live-browser/dist/live-browser.js
+  //  3. Packaged (flat): @electron/packager extraResource copies each entry to
+  //     resources/<basename>, so `live-browser/dist/live-browser.js` lands at
+  //     resources/live-browser.js, with browsers.json/package.json as siblings.
+  const candidates = [
+    path.join(__dirname, '..', '..', 'live-browser', 'dist', 'live-browser.js'),
+    path.join(process.resourcesPath, 'live-browser', 'dist', 'live-browser.js'),
+    path.join(process.resourcesPath, 'live-browser.js'),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return candidates[0];
 }
 
 function bundledNodeLauncherPath(): string | null {

@@ -85,11 +85,20 @@ export function LiveBrowserPanel({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
 
-  // Keep the canvas attached for frame drawing.
-  useEffect(() => {
-    attachCanvas(canvasRef.current);
-    return () => attachCanvas(null);
-  }, [attachCanvas]);
+  // The canvas is conditionally rendered (it appears only once the runtime
+  // endpoint is available), so a mount-time effect would attach `null`.
+  // A callback ref fires when the real element mounts and detaches, and the
+  // hook re-draws any frame that arrived in the meantime.
+  const handleCanvasRef = useCallback(
+    (el: HTMLCanvasElement | null) => {
+      canvasRef.current = el;
+      attachCanvas(el);
+    },
+    [attachCanvas],
+  );
+
+  // Detach on unmount so the hook stops drawing into a removed canvas.
+  useEffect(() => () => attachCanvas(null), [attachCanvas]);
 
   // Keep the live scroll snapshot fresh while the panel is mounted so region
   // outlines track the page position correctly.
@@ -468,7 +477,7 @@ export function LiveBrowserPanel({
               <div className="flex min-h-full items-start justify-center p-2">
                 <div className="relative w-full max-w-full" style={{ aspectRatio: meta ? `${meta.viewport.width} / ${meta.viewport.height}` : '16 / 10' }}>
                   <canvas
-                    ref={canvasRef}
+                    ref={handleCanvasRef}
                     data-testid="live-browser-canvas"
                     className="h-full w-full bg-black"
                     style={{ objectFit: 'fill', display: 'block' }}

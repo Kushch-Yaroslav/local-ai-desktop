@@ -173,6 +173,19 @@ export const test = base.extend<GooseTestFixtures>({
 
       console.log('App ready, starting test...');
 
+      // Capture renderer console + uncaught errors so Live Browser renderer
+      // diagnostics (EventSource, drawFrame, attachCanvas) are visible in logs.
+      page.on('console', (msg) => {
+        const text = msg.text();
+        const level = msg.type();
+        if (text.includes('LBDBG') || level === 'error' || level === 'warning') {
+          console.log(`[renderer:${level}] ${text}`);
+        }
+      });
+      page.on('pageerror', (err) => {
+        console.log(`[renderer:pageerror] ${err.message}`);
+      });
+
       // Provide the page to the test
       await providePage(page);
 
