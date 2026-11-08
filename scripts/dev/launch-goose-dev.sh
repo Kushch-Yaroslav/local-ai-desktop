@@ -5,7 +5,11 @@ repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 export LOCAL_AI_DESKTOP_DEV_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/local-ai-desktop-goose-dev"
 export GOOSE_PATH_ROOT="$LOCAL_AI_DESKTOP_DEV_ROOT/goose-backend"
 log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/local-ai-desktop-goose-dev"
-mkdir -p "$log_dir" "$LOCAL_AI_DESKTOP_DEV_ROOT/electron" "$GOOSE_PATH_ROOT"
+# Storage migration can leave an existing symlink whose destination has not
+# been created yet. mkdir -p on that symlink fails with "File exists" before
+# diagnostics start. Resolve it without replacing the user's storage links.
+log_dir="$(readlink -m -- "$log_dir")"
+mkdir -p -- "$log_dir" "$LOCAL_AI_DESKTOP_DEV_ROOT/electron" "$GOOSE_PATH_ROOT"
 # Record the original GNOME invocation before detaching. Keep at most two 1 MiB files.
 (
   flock 9
