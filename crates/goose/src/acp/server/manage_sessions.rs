@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: retain explicit directory-selection provenance for visual tasks.
 use super::*;
 
 impl AcpConnection {
@@ -28,10 +29,12 @@ impl AcpConnection {
         self.services
             .session_manager
             .update(&session.id)
-            .working_dir(path)
+            .working_dir(path.clone())
             .apply()
             .await
             .internal_err_ctx("Failed to update working directory")?;
+        super::live_browser::bind_directory(&self.services.session_manager, &session.id, &path)
+            .await?;
 
         let session = self
             .services

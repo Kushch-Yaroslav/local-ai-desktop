@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: durable visual attachments and model-only browser context.
 use crate::acp::custom_notifications::*;
 use crate::acp::custom_requests::*;
 pub(super) use crate::acp::response_builder::{
@@ -112,6 +113,7 @@ mod live_voice;
 mod load_session;
 mod local_inference;
 pub use crate::live_voice::LiveVoiceService;
+mod live_browser;
 mod manage_sessions;
 mod message_meta;
 mod new_session;
@@ -1281,6 +1283,14 @@ impl AcpConnection {
         cx: &ConnectionTo<Client>,
     ) -> Result<(), agent_client_protocol::Error> {
         let role = &message.role;
+        // Audience filtering must apply to live streaming as well as replay.
+        if matches!(
+            content_item,
+            MessageContent::Text(_) | MessageContent::Image(_)
+        ) && content_item.filter_for_audience(Role::User).is_none()
+        {
+            return Ok(());
+        }
 
         match content_item {
             MessageContent::Text(text) => {
@@ -2232,7 +2242,13 @@ impl AcpConnection {
             return Err(error);
         }
 
-        let user_message = Self::convert_acp_prompt_to_message(&args.prompt);
+        let user_message = live_browser::prepare(
+            &self.services.session_manager,
+            &session_id,
+            &args.prompt,
+            args.meta.as_ref(),
+        )
+        .await?;
         // The client's trace context must stay attached while the turn's spans and tool calls are polled.
         #[cfg(feature = "otel")]
         let trace_cx = crate::otel::trace_context::extract_from_meta(args.meta.as_ref())
@@ -2294,7 +2310,13 @@ impl AcpConnection {
             .require_active_run(&req.session_id, &req.expected_run_id)
             .await?;
 
-        let message = Self::convert_acp_prompt_to_message(&req.prompt);
+        let message = live_browser::prepare(
+            &self.services.session_manager,
+            &req.session_id,
+            &req.prompt,
+            None,
+        )
+        .await?;
         if message.content.is_empty() {
             return Err(agent_client_protocol::Error::invalid_params()
                 .data("prompt must contain steerable content"));

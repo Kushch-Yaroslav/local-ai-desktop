@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: replay explicit project-selection provenance.
 // Modified for Local AI Desktop: preserve per-session mode in serialized session metadata.
 use crate::agents::{ExtensionLoadResult, StateMachineServices};
 use crate::config::{Config, GooseMode};
@@ -72,10 +73,19 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
 }
 
 pub(super) fn session_meta(session: &Session) -> serde_json::Map<String, serde_json::Value> {
-    match serde_json::to_value(SessionMeta::from(session)) {
+    let mut meta = match serde_json::to_value(SessionMeta::from(session)) {
         Ok(serde_json::Value::Object(meta)) => meta,
         _ => serde_json::Map::new(),
+    };
+    if let Some(root) = session
+        .extension_data
+        .extension_states
+        .get("live_browser_project.v1")
+        .and_then(|value| value.get("root"))
+    {
+        meta.insert("browserProjectRoot".to_owned(), root.clone());
     }
+    meta
 }
 
 pub(super) fn session_response_meta(
