@@ -11,16 +11,18 @@
  *
  * Node resolution order (first working wins, probed with `node -e`):
  *   1. LAD_LB_NODE env override (explicit node executable)
- *   2. dev: the Electron binary itself with ELECTRON_RUN_AS_NODE=1
- *   3. the app's bundled node launcher (src/bin/node → hermit-provisioned node),
+ *   2. packaged: resources/live-browser/bin/node (offline, version checked)
+ *   3. dev: the Electron binary itself with ELECTRON_RUN_AS_NODE=1
+ *   4. the app's bundled node launcher (src/bin/node → hermit-provisioned node),
  *      which is the mechanism Goose already uses for MCP stdio servers
- *   4. `node` from PATH (developer machines)
+ *   5. `node` from PATH (developer machines)
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import { probeLiveBrowserNode } from './liveBrowserNode';
 
 export interface LiveBrowserEndpoint {
   url: string;
@@ -75,44 +77,6 @@ function bundledNodeLauncherPath(): string | null {
   return null;
 }
 
-function probeNode(cmd: string, env: Record<string, string>, timeoutMs = 8000): Promise<boolean> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (ok: boolean) => {
-      if (!settled) {
-        settled = true;
-        resolve(ok);
-      }
-    };
-    let child: ChildProcess;
-    try {
-      child = spawn(cmd, ['-e', 'process.exit(0)'], {
-        env: { ...process.env, ...env },
-        stdio: 'ignore',
-      });
-    } catch {
-      finish(false);
-      return;
-    }
-    const timer = setTimeout(() => {
-      try {
-        child.kill('SIGKILL');
-      } catch {
-        // already dead
-      }
-      finish(false);
-    }, timeoutMs);
-    child.on('error', () => {
-      clearTimeout(timer);
-      finish(false);
-    });
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      finish(code === 0);
-    });
-  });
-}
-
 export class LiveBrowserRuntimeManager {
   private child: ChildProcess | null = null;
   private endpoint: LiveBrowserEndpoint | null = null;
@@ -140,6 +104,10 @@ export class LiveBrowserRuntimeManager {
     if (override) {
       candidates.push({ label: 'LAD_LB_NODE', cmd: override, env: {}, needsArgs: false });
     }
+    const packagedNode = path.join(process.resourcesPath, 'live-browser', 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
+    if (app.isPackaged && existsSync(packagedNode)) {
+      candidates.push({label:'bundled-node-executable',cmd:packagedNode,env:{},needsArgs:false});
+    }
     if (!app.isPackaged) {
       candidates.push({
         label: 'electron-run-as-node',
@@ -161,7 +129,7 @@ export class LiveBrowserRuntimeManager {
       return { cmd: this.nodeCmd, env: this.nodeEnv, label: 'cached' };
     }
     for (const candidate of this.nodeCandidates()) {
-      const ok = await probeNode(candidate.cmd, candidate.env);
+      const ok = await probeLiveBrowserNode(candidate.cmd, candidate.env);
       if (ok) {
         this.nodeCmd = candidate.cmd;
         this.nodeEnv = candidate.env;
@@ -169,7 +137,7 @@ export class LiveBrowserRuntimeManager {
         return { cmd: candidate.cmd, env: candidate.env, label: candidate.label };
       }
     }
-    throw new Error('no working node runtime found for the Live Browser runtime');
+    throw new Error('Live Browser requires Node.js 20 or newer; no compatible runtime found. Reinstall the complete application package.');
   }
 
   async start(): Promise<LiveBrowserEndpoint> {
@@ -274,7 +242,10 @@ export class LiveBrowserRuntimeManager {
           this.child = null;
         });
       });
-    })().finally(() => {
+    })().catch((error) => {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      throw error;
+    }).finally(() => {
       this.starting = null;
     });
     return this.starting;

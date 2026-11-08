@@ -166,6 +166,13 @@ test.describe('Live Browser E2E', () => {
       await goosePage.waitForSelector('[data-testid="chat-input"]', { timeout: 60_000 });
 
       const { area } = await openPageAndCreateRegion(goosePage, server.url);
+      if (process.env.LAD_E2E_REQUIRE_BUNDLED_NODE === '1') {
+        const status = await goosePage.evaluate(() => window.electron.liveBrowserStatus());
+        expect(status.running).toBe(true);
+        expect(status.node?.replaceAll('\\', '/')).toContain('/resources/live-browser/bin/node');
+        expect(status.error).toBeNull();
+      }
+
 
       // Rename the area (name is persisted to the runtime store).
       const nameInput = area.locator('[data-testid="live-browser-area-name"]');

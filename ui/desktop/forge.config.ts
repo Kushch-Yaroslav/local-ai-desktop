@@ -80,10 +80,10 @@ module.exports = {
   rebuildConfig: {},
   // Direct Forge invocations must have the same runtime as package/make scripts.
   hooks: {
-    generateAssets: async () => {
+    generateAssets: async (_forgeConfig, platform, arch) => {
       const { execFileSync } = require('node:child_process');
       execFileSync(process.execPath, [resolve(__dirname, 'live-browser/build.mjs')], {
-        env: { ...process.env, LIVE_BROWSER_NO_SOURCEMAP: '1' }, stdio: 'inherit',
+        env: { ...process.env, LIVE_BROWSER_NO_SOURCEMAP: '1', LAD_LB_TARGET_PLATFORM: platform, LAD_LB_TARGET_ARCH: arch }, stdio: 'inherit',
       });
     },
   },

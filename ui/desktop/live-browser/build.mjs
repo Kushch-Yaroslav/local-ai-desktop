@@ -1,7 +1,8 @@
 import { build } from 'esbuild';
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, chmodSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +28,7 @@ await build({
   entryPoints: [join(root, 'runtime', 'main.ts')],
   bundle: true,
   platform: 'node',
-  target: 'node18',
+  target: 'node20',
   format: 'cjs',
   outfile: join(root, 'dist', 'live-browser.js'),
   sourcemap: !noSourcemap,
@@ -45,4 +46,27 @@ mkdirSync(join(staged, 'dist'), { recursive: true });
 copyFileSync(join(root, 'dist', 'live-browser.js'), join(staged, 'dist', 'live-browser.js'));
 copyFileSync(join(root, 'browsers.json'), join(staged, 'browsers.json'));
 copyFileSync(join(root, 'package.json'), join(staged, 'package.json'));
-console.log('live-browser runtime bundled and staged');
+// GUI sessions need no system Node, package manager, or network bootstrap.
+// For cross packaging provide a target-platform Node distribution explicitly.
+const targetPlatform = process.env.LAD_LB_TARGET_PLATFORM || process.platform;
+const targetArch = process.env.LAD_LB_TARGET_ARCH || process.arch;
+const nativeTarget = targetPlatform === process.platform && targetArch === process.arch;
+const nodeBinary = process.env.LAD_LB_NODE_BUNDLE || (nativeTarget ? process.execPath : '');
+if (!nodeBinary) throw new Error('Cross packaging requires LAD_LB_NODE_BUNDLE for the target platform/architecture');
+if (nativeTarget) {
+  const info = nodeBinary === process.execPath
+    ? {version:process.versions.node,arch:process.arch,platform:process.platform}
+    : JSON.parse(execFileSync(nodeBinary, ['-p', 'JSON.stringify({version:process.versions.node,arch:process.arch,platform:process.platform})'], {encoding:'utf8'}));
+  if (Number(info.version.split('.')[0]) < 20 || info.platform !== targetPlatform || info.arch !== targetArch) {
+    throw new Error('Live Browser bundle requires a compatible Node >=20 distribution');
+  }
+}
+const nodeLicense = process.env.LAD_LB_NODE_LICENSE || join(dirname(nodeBinary), '..', 'LICENSE');
+if (!existsSync(nodeLicense)) throw new Error('Node distribution LICENSE is required (LAD_LB_NODE_LICENSE)');
+mkdirSync(join(staged, 'bin'), {recursive:true});
+const installedNode = join(staged, 'bin', targetPlatform === 'win32' ? 'node.exe' : 'node');
+copyFileSync(nodeBinary, installedNode);
+chmodSync(installedNode, 0o755);
+copyFileSync(nodeLicense, join(staged, 'NODE-LICENSE'));
+writeFileSync(join(staged, 'node-runtime.json'), JSON.stringify({platform:targetPlatform,arch:targetArch,minimumNodeMajor:20,version:nativeTarget ? process.versions.node : undefined},null,2)+'\n');
+console.log('live-browser runtime and compatible Node bundled and staged');
