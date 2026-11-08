@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { copyFileSync, existsSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -39,4 +39,10 @@ await build({
   external: ['node:*', 'chromium-bidi', 'chromium-bidi/*', 'fsevents'],
 });
 
-console.log('live-browser runtime bundled → dist/live-browser.js');
+// Preserve Playwright's packageRoot = __dirname/.. in packaged runtime.
+const staged = join(root, 'dist', 'live-browser');
+mkdirSync(join(staged, 'dist'), { recursive: true });
+copyFileSync(join(root, 'dist', 'live-browser.js'), join(staged, 'dist', 'live-browser.js'));
+copyFileSync(join(root, 'browsers.json'), join(staged, 'browsers.json'));
+copyFileSync(join(root, 'package.json'), join(staged, 'package.json'));
+console.log('live-browser runtime bundled and staged');

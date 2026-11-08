@@ -2,13 +2,31 @@ import type { BrowserManager } from './browser';
 import { groundRegion, projectRegion } from './grounding';
 import { LadStore } from './store';
 import { newId, nowIso } from './util';
-import type { LadArea, LadRect, LadRegion, LadRegionStatus, LadWorkspaceSettings } from '../shared/types';
-import { LAD_DEFAULT_WORKSPACE, LAD_REGION_STATUSES, ladAreaColor, ladValidateWorkspace } from '../shared/types';
+import type {
+  LadArea,
+  LadRect,
+  LadRegion,
+  LadRegionStatus,
+  LadWorkspaceSettings,
+} from '../shared/types';
+import {
+  LAD_DEFAULT_WORKSPACE,
+  LAD_REGION_STATUSES,
+  ladAreaColor,
+  ladValidateWorkspace,
+} from '../shared/types';
 import type { LadConversationState } from './store';
 import { promptUrl } from './util';
 
 export type LadEventEmitter = {
-  emit: (event: { type: 'state' | 'region' | 'area'; conversationId: string; region?: LadRegion; area?: LadArea; removedRegionId?: string; removedAreaId?: string }) => void;
+  emit: (event: {
+    type: 'state' | 'region' | 'area';
+    conversationId: string;
+    region?: LadRegion;
+    area?: LadArea;
+    removedRegionId?: string;
+    removedAreaId?: string;
+  }) => void;
 };
 
 /**
@@ -19,7 +37,7 @@ export class RegionService {
   constructor(
     private readonly manager: BrowserManager,
     private readonly store: LadStore,
-    private readonly events: LadEventEmitter,
+    private readonly events: LadEventEmitter
   ) {}
 
   private async stateOf(conversationId: string): Promise<LadConversationState> {
@@ -46,7 +64,7 @@ export class RegionService {
   async createRegion(
     conversationId: string,
     rect: LadRect,
-    opts: { areaId?: string; note?: string } = {},
+    opts: { areaId?: string; note?: string } = {}
   ): Promise<{ region: LadRegion; area: LadArea | null }> {
     const page = this.manager.pageOf(conversationId);
     if (!page) throw new Error('no live page for this conversation; open a URL first');
@@ -88,12 +106,17 @@ export class RegionService {
       createdAt: nowIso(),
       updatedAt: nowIso(),
       snapshot: evidence.snapshot,
-      diagnostics: [...evidence.diagnostics, ...(opts.note ? [`user note: ${opts.note.slice(0, 400)}`] : [])],
+      diagnostics: [
+        ...evidence.diagnostics,
+        ...(opts.note ? [`user note: ${opts.note.slice(0, 400)}`] : []),
+      ],
       events: [
         {
           at: nowIso(),
           source: 'user',
-          action: evidence.diagnostics[0]?.includes('Screenshot-only') ? 'selected (screenshot-only Canvas/SVG)' : 'selected (DOM grounding)',
+          action: evidence.diagnostics[0]?.includes('Screenshot-only')
+            ? 'selected (screenshot-only Canvas/SVG)'
+            : 'selected (DOM grounding)',
         },
       ],
     };
@@ -149,7 +172,7 @@ export class RegionService {
 
   async createArea(
     conversationId: string,
-    input: { name: string; description?: string; status?: string },
+    input: { name: string; description?: string; status?: string }
   ): Promise<LadArea> {
     const state = await this.stateOf(conversationId);
     const number = state.areas.length + 1;
@@ -178,7 +201,12 @@ export class RegionService {
   async updateArea(
     conversationId: string,
     areaId: string,
-    patch: { name?: string; description?: string; status?: string; statusSource?: 'user' | 'agent' | 'runtime' },
+    patch: {
+      name?: string;
+      description?: string;
+      status?: string;
+      statusSource?: 'user' | 'agent' | 'runtime';
+    }
   ): Promise<LadArea> {
     const state = await this.stateOf(conversationId);
     const area = state.areas.find((a) => a.id === areaId);
@@ -195,7 +223,11 @@ export class RegionService {
     return area;
   }
 
-  async attachRegionToArea(conversationId: string, regionId: string, areaId: string): Promise<{ region: LadRegion; area: LadArea }> {
+  async attachRegionToArea(
+    conversationId: string,
+    regionId: string,
+    areaId: string
+  ): Promise<{ region: LadRegion; area: LadArea }> {
     const state = await this.stateOf(conversationId);
     const region = state.regions.find((r) => r.id === regionId);
     const area = state.areas.find((a) => a.id === areaId);
@@ -245,7 +277,10 @@ export class RegionService {
     this.emitState(conversationId);
   }
 
-  async setWorkspace(conversationId: string, patch: Partial<LadWorkspaceSettings>): Promise<LadWorkspaceSettings> {
+  async setWorkspace(
+    conversationId: string,
+    patch: Partial<LadWorkspaceSettings>
+  ): Promise<LadWorkspaceSettings> {
     const state = await this.stateOf(conversationId);
     state.workspace = ladValidateWorkspace({ ...state.workspace, ...patch });
     await this.save(conversationId, state);
@@ -253,7 +288,10 @@ export class RegionService {
     return state.workspace;
   }
 
-  async setViewportForWorkspace(conversationId: string, workspace: LadWorkspaceSettings): Promise<void> {
+  async setViewportForWorkspace(
+    conversationId: string,
+    workspace: LadWorkspaceSettings
+  ): Promise<void> {
     // 'auto' viewport is driven by the renderer panel size; skip.
     if (workspace.viewport === 'auto') return;
     await this.manager
@@ -269,8 +307,11 @@ export class RegionService {
   async captureRegion(
     conversationId: string,
     region: LadRegion,
-    opts: { maxEdge?: number } = {},
-  ): Promise<{ mime: 'image/jpeg' | 'image/png'; data: string; width: number; height: number } | { error: string; reason?: string }> {
+    opts: { maxEdge?: number } = {}
+  ): Promise<
+    | { mime: 'image/jpeg' | 'image/png'; data: string; width: number; height: number }
+    | { error: string; reason?: string }
+  > {
     const page = this.manager.pageOf(conversationId);
     if (!page) return { error: 'no-session' };
     // Re-project to get a current viewport-relative rect.
@@ -283,16 +324,11 @@ export class RegionService {
     } catch {
       staleReason = 'projection-failed';
     }
-    if (!rect) {
-      // Screenshot-only fallback: original viewport rect (document → viewport).
-      rect = {
-        x: Math.max(0, region.rect.x - region.scroll.x),
-        y: Math.max(0, region.rect.y - region.scroll.y),
-        width: region.rect.width,
-        height: region.rect.height,
-      };
-    }
-    const result = await this.manager.captureCrop(conversationId, rect, { maxEdge: opts.maxEdge ?? 1280, quality: 80 });
+    if (!rect) return { error: 'stale-region', reason: staleReason };
+    const result = await this.manager.captureCrop(conversationId, rect, {
+      maxEdge: opts.maxEdge ?? 1280,
+      quality: 80,
+    });
     if ('error' in result) return { error: result.error, reason: staleReason };
     return { ...result, mime: 'image/jpeg' };
   }
@@ -303,7 +339,12 @@ export class RegionService {
   async recordCheck(
     conversationId: string,
     areaId: string,
-    check: { status: string; reason?: string; source: 'user' | 'agent' | 'runtime'; newStatus?: string },
+    check: {
+      status: string;
+      reason?: string;
+      source: 'user' | 'agent' | 'runtime';
+      newStatus?: string;
+    }
   ): Promise<LadArea | null> {
     const state = await this.stateOf(conversationId);
     const area = state.areas.find((a) => a.id === areaId);
@@ -313,12 +354,19 @@ export class RegionService {
       reason: check.reason?.slice(0, 1000),
       at: nowIso(),
       url: state.regions.find((r) => r.areaId === area.id)?.url ?? '',
-      viewport: state.regions.find((r) => r.areaId === area.id)?.viewport ?? { width: 0, height: 0 },
+      viewport: state.regions.find((r) => r.areaId === area.id)?.viewport ?? {
+        width: 0,
+        height: 0,
+      },
     };
     if (check.newStatus) {
       LadStore.setAreaStatus(area, check.newStatus, check.source, check.reason);
     }
-    LadStore.appendEvent(area, { source: check.source, action: `check:${check.status}`, status: check.newStatus as LadRegionStatus | undefined });
+    LadStore.appendEvent(area, {
+      source: check.source,
+      action: `check:${check.status}`,
+      status: check.newStatus as LadRegionStatus | undefined,
+    });
     area.updatedAt = nowIso();
     await this.save(conversationId, state);
     this.events.emit({ type: 'area', conversationId, area });

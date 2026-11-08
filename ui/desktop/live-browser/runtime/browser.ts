@@ -1,4 +1,10 @@
-import { chromium, type Browser, type BrowserContext, type CDPSession, type Page } from 'playwright-core';
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type CDPSession,
+  type Page,
+} from 'playwright-core';
 import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
 import { isAllowedPageUrl, isBlockedResourceUrl } from './security';
@@ -28,8 +34,19 @@ export interface LadSession {
 
 export type LadRuntimeEvent =
   | { type: 'session'; conversationId: string; detail: 'created' | 'restored' | 'closed' }
-  | { type: 'action'; conversationId: string; source: 'user' | 'agent'; tool: string; summary: string }
-  | { type: 'error'; conversationId: string; code: 'browser-restarted' | 'page-crashed' | 'navigation-blocked' | 'runtime-error'; message: string }
+  | {
+      type: 'action';
+      conversationId: string;
+      source: 'user' | 'agent';
+      tool: string;
+      summary: string;
+    }
+  | {
+      type: 'error';
+      conversationId: string;
+      code: 'browser-restarted' | 'page-crashed' | 'navigation-blocked' | 'runtime-error';
+      message: string;
+    }
   | { type: 'meta'; conversationId: string }
   | { type: 'state'; conversationId: string };
 
@@ -83,6 +100,7 @@ export class BrowserManager extends EventEmitter {
   private browser: Browser | null = null;
   private sessions = new Map<string, LadSession>();
   private closing = false;
+  private creating = new Map<string, Promise<LadSession>>();
   private launchPromise: Promise<Browser> | null = null;
   private readonly chromePath: string | null;
   private readonly headless: boolean;
@@ -103,7 +121,11 @@ export class BrowserManager extends EventEmitter {
     if (this.browser && this.browser.isConnected()) return this.browser;
     if (this.launchPromise) return this.launchPromise;
     this.launchPromise = (async () => {
-      log('launching chromium', this.chromePath ?? '(bundled)', this.headless ? 'headless' : 'headed');
+      log(
+        'launching chromium',
+        this.chromePath ?? '(bundled)',
+        this.headless ? 'headless' : 'headed'
+      );
       const browser = await chromium.launch({
         executablePath: this.chromePath ?? undefined,
         headless: this.headless,
@@ -133,7 +155,25 @@ export class BrowserManager extends EventEmitter {
   }
 
   /** Create (or reuse) the session for a conversation. */
-  async get(conversationId: string, opts: { viewport?: { width: number; height: number }; dpr?: number } = {}): Promise<LadSession> {
+  async get(
+    conversationId: string,
+    opts: { viewport?: { width: number; height: number }; dpr?: number } = {}
+  ): Promise<LadSession> {
+    const pending = this.creating.get(conversationId);
+    if (pending) return pending;
+    const creation = this.createSession(conversationId, opts);
+    this.creating.set(conversationId, creation);
+    try {
+      return await creation;
+    } finally {
+      this.creating.delete(conversationId);
+    }
+  }
+
+  private async createSession(
+    conversationId: string,
+    opts: { viewport?: { width: number; height: number }; dpr?: number }
+  ): Promise<LadSession> {
     const existing = this.sessions.get(conversationId);
     if (existing && !existing.page.isClosed() && this.browser?.isConnected()) {
       return existing;
@@ -216,21 +256,38 @@ export class BrowserManager extends EventEmitter {
       this.emitMeta(conversationId);
     });
     // Poll title a few times after navigation (SPAs set it late).
-    setInterval(() => {
+    const titleTimer = setInterval(() => {
       if (!page.isClosed()) refreshTitle();
     }, 2000).unref?.();
     page.on('crash', () => {
       log(`page crashed: ${conversationId}`);
-      this.emitLadEvent({ type: 'error', conversationId, code: 'page-crashed', message: 'page crashed' });
+      this.emitLadEvent({
+        type: 'error',
+        conversationId,
+        code: 'page-crashed',
+        message: 'page crashed',
+      });
       void this.rebuildSession(conversationId);
     });
 
     // If Chromium died while the page existed, rebuild transparently.
-    browser.on('disconnected', () => {
+    const disconnected = () => {
+      clearInterval(titleTimer);
       if (this.sessions.get(conversationId) === session) {
         this.sessions.delete(conversationId);
-        this.emitLadEvent({ type: 'error', conversationId, code: 'browser-restarted', message: 'browser process exited; session will be rebuilt on next use' });
+        this.emitLadEvent({
+          type: 'error',
+          conversationId,
+          code: 'browser-restarted',
+          message: 'browser process exited; session will be rebuilt on next use',
+        });
       }
+    };
+
+    browser.on('disconnected', disconnected);
+    page.once('close', () => {
+      clearInterval(titleTimer);
+      browser.off('disconnected', disconnected);
     });
 
     this.emitLadEvent({ type: 'session', conversationId, detail: 'created' });
@@ -284,7 +341,11 @@ export class BrowserManager extends EventEmitter {
     };
   }
 
-  async navigate(conversationId: string, url: string, source: 'user' | 'agent'): Promise<{ ok: boolean; summary: string; error?: string }> {
+  async navigate(
+    conversationId: string,
+    url: string,
+    source: 'user' | 'agent'
+  ): Promise<{ ok: boolean; summary: string; error?: string }> {
     const check = isAllowedPageUrl(url);
     if (!check.ok) {
       return { ok: false, summary: '', error: check.reason };
@@ -300,7 +361,11 @@ export class BrowserManager extends EventEmitter {
       return { ok: true, summary: `opened ${check.url}` };
     } catch (error) {
       this.fail(conversationId, error);
-      return { ok: false, summary: '', error: error instanceof Error ? error.message : String(error) };
+      return {
+        ok: false,
+        summary: '',
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -316,7 +381,12 @@ export class BrowserManager extends EventEmitter {
     this.emitMeta(conversationId);
   }
 
-  private emitAction(conversationId: string, source: 'user' | 'agent', tool: string, summary: string): void {
+  private emitAction(
+    conversationId: string,
+    source: 'user' | 'agent',
+    tool: string,
+    summary: string
+  ): void {
     this.emitLadEvent({ type: 'action', conversationId, source, tool, summary });
   }
 
@@ -325,7 +395,7 @@ export class BrowserManager extends EventEmitter {
     source: 'user' | 'agent',
     tool: string,
     summary: string,
-    fn: (session: LadSession) => Promise<unknown>,
+    fn: (session: LadSession) => Promise<unknown>
   ): Promise<{ ok: boolean; summary: string; error?: string }> {
     try {
       const session = await this.get(conversationId);
@@ -346,22 +416,39 @@ export class BrowserManager extends EventEmitter {
   }
 
   back(conversationId: string, source: 'user' | 'agent') {
-    return this.act(conversationId, source, 'browser_back', 'navigated back', async (s) => s.page.goBack({ timeout: 30_000 }));
+    return this.act(conversationId, source, 'browser_back', 'navigated back', async (s) =>
+      s.page.goBack({ timeout: 30_000 })
+    );
   }
   forward(conversationId: string, source: 'user' | 'agent') {
-    return this.act(conversationId, source, 'browser_forward', 'navigated forward', async (s) => s.page.goForward({ timeout: 30_000 }));
+    return this.act(conversationId, source, 'browser_forward', 'navigated forward', async (s) =>
+      s.page.goForward({ timeout: 30_000 })
+    );
   }
   reload(conversationId: string, source: 'user' | 'agent') {
-    return this.act(conversationId, source, 'browser_reload', 'reloaded page', async (s) => s.page.reload({ timeout: 30_000, waitUntil: 'domcontentloaded' }));
+    return this.act(conversationId, source, 'browser_reload', 'reloaded page', async (s) =>
+      s.page.reload({ timeout: 30_000, waitUntil: 'domcontentloaded' })
+    );
   }
 
-  state(conversationId: string): { url: string; title: string; ready: boolean; ownership: LadOwnership } | null {
+  state(
+    conversationId: string
+  ): { url: string; title: string; ready: boolean; ownership: LadOwnership } | null {
     const session = this.sessions.get(conversationId);
     if (!session) return null;
-    return { url: session.url, title: session.title, ready: session.ready, ownership: session.ownership };
+    return {
+      url: session.url,
+      title: session.title,
+      ready: session.ready,
+      ownership: session.ownership,
+    };
   }
 
-  setOwnership(conversationId: string, ownership: LadOwnership, source: 'user' | 'agent' = 'user'): void {
+  setOwnership(
+    conversationId: string,
+    ownership: LadOwnership,
+    source: 'user' | 'agent' = 'user'
+  ): void {
     const session = this.sessions.get(conversationId);
     if (!session) return;
     if (session.ownership !== ownership) {
@@ -378,7 +465,12 @@ export class BrowserManager extends EventEmitter {
    * Implemented via Emulation.setDeviceMetricsOverride exactly like the
    * original native-project-page.ts (width=cssW, dpr=dpr*zoom).
    */
-  async setViewport(conversationId: string, viewport: { width: number; height: number }, zoom = 1, source: 'user' | 'agent' = 'user'): Promise<{ ok: boolean; error?: string }> {
+  async setViewport(
+    conversationId: string,
+    viewport: { width: number; height: number },
+    zoom = 1,
+    source: 'user' | 'agent' = 'user'
+  ): Promise<{ ok: boolean; error?: string }> {
     try {
       const session = await this.get(conversationId);
       const width = Math.max(320, Math.min(7680, Math.round(viewport.width)));
@@ -393,7 +485,12 @@ export class BrowserManager extends EventEmitter {
       });
       session.viewport = { width, height };
       session.zoom = z;
-      this.emitAction(conversationId, source, 'browser_viewport', `viewport ${width}x${height} zoom ${Math.round(z * 100)}%`);
+      this.emitAction(
+        conversationId,
+        source,
+        'browser_viewport',
+        `viewport ${width}x${height} zoom ${Math.round(z * 100)}%`
+      );
       this.emitMeta(conversationId);
       return { ok: true };
     } catch (error) {
@@ -410,8 +507,11 @@ export class BrowserManager extends EventEmitter {
   async captureCrop(
     conversationId: string,
     rect: { x: number; y: number; width: number; height: number },
-    opts: { format?: 'jpeg' | 'png'; quality?: number; maxEdge?: number } = {},
-  ): Promise<{ mime: 'image/jpeg' | 'image/png'; data: string; width: number; height: number } | { error: string }> {
+    opts: { format?: 'jpeg' | 'png'; quality?: number; maxEdge?: number } = {}
+  ): Promise<
+    | { mime: 'image/jpeg' | 'image/png'; data: string; width: number; height: number }
+    | { error: string }
+  > {
     const session = this.sessions.get(conversationId);
     if (!session) return { error: 'no-session' };
     const format = opts.format ?? 'jpeg';
@@ -424,10 +524,17 @@ export class BrowserManager extends EventEmitter {
     const fullH = rect.height * zoom * session.dpr;
     const scale = Math.min(1, maxEdge / Math.max(fullW, fullH));
     try {
+      const scroll = await session.page.evaluate(() => ({ x: scrollX, y: scrollY }));
       const result = await session.cdp.send('Page.captureScreenshot', {
         format,
         quality,
-        clip: { x: rect.x * zoom, y: rect.y * zoom, width: rect.width * zoom, height: rect.height * zoom, scale },
+        clip: {
+          x: rect.x + scroll.x,
+          y: rect.y + scroll.y,
+          width: rect.width,
+          height: rect.height,
+          scale,
+        },
         captureBeyondViewport: false,
       });
       const data = result.data as string;
@@ -440,11 +547,18 @@ export class BrowserManager extends EventEmitter {
   }
 
   /** Full-viewport frame via Playwright (JPEG). */
-  async captureFrame(conversationId: string, opts: { maxEdge?: number; quality?: number } = {}): Promise<{ mime: string; data: string; width: number; height: number } | { error: string }> {
+  async captureFrame(
+    conversationId: string,
+    opts: { maxEdge?: number; quality?: number } = {}
+  ): Promise<{ mime: string; data: string; width: number; height: number } | { error: string }> {
     const session = this.sessions.get(conversationId);
     if (!session) return { error: 'no-session' };
     try {
-      const buffer = await session.page.screenshot({ type: 'jpeg', quality: opts.quality ?? 75, fullPage: false });
+      const buffer = await session.page.screenshot({
+        type: 'jpeg',
+        quality: opts.quality ?? 75,
+        fullPage: false,
+      });
       return {
         mime: 'image/jpeg',
         data: buffer.toString('base64'),
@@ -457,7 +571,10 @@ export class BrowserManager extends EventEmitter {
   }
 
   /** Evaluate a bounded function in the page. */
-  async evaluate<T>(conversationId: string, fn: (page: Page) => Promise<T> | T): Promise<T | { error: string }> {
+  async evaluate<T>(
+    conversationId: string,
+    fn: (page: Page) => Promise<T> | T
+  ): Promise<T | { error: string }> {
     const session = this.sessions.get(conversationId);
     if (!session) return { error: 'no-session' };
     try {
@@ -513,5 +630,3 @@ export class BrowserManager extends EventEmitter {
     log('browser manager shut down');
   }
 }
-
-

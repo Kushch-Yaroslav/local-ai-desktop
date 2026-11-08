@@ -45,7 +45,8 @@ export class ScreencastHub {
       if (event.type === 'meta') {
         // Viewport/zoom changes may need new screencast max dimensions.
         const state = this.states.get(event.conversationId);
-        if (state && state.mode === 'screencast') void this.restartForViewport(event.conversationId);
+        if (state && state.mode === 'screencast')
+          void this.restartForViewport(event.conversationId);
       }
     });
   }
@@ -79,9 +80,11 @@ export class ScreencastHub {
     if (state.mode === 'idle') void this.ensureRunning(conversationId);
     return () => {
       state.subscribers.delete(listener);
-      if (state.subscribers.size === 0 && state.mode !== 'suspended') {
+      if (state.subscribers.size === 0) {
         // Keep producing briefly? No: no subscribers and not suspended → stop to save CPU.
         this.stop(conversationId);
+        state.lastFrame = null;
+        this.states.delete(conversationId);
       }
     };
   }
@@ -103,8 +106,12 @@ export class ScreencastHub {
     const state = this.states.get(conversationId);
     if (!state || state.mode === 'screencast' || state.mode === 'polling') return;
     const session = await this.manager.get(conversationId);
+    if (this.states.get(conversationId) !== state || state.subscribers.size === 0) return;
     this.runScreencast(conversationId, session).catch((error) => {
-      log('screencast start failed, starting polling fallback:', error instanceof Error ? error.message : error);
+      log(
+        'screencast start failed, starting polling fallback:',
+        error instanceof Error ? error.message : error
+      );
       this.startPolling(conversationId);
     });
   }
@@ -118,11 +125,27 @@ export class ScreencastHub {
     state.frames = 0;
     state.lastFrameAt = Date.now();
 
-    const maxW = Math.min(MAX_FRAME_EDGE, Math.round(session.viewport.width * session.dpr * session.zoom));
-    const maxH = Math.min(MAX_FRAME_EDGE, Math.round(session.viewport.height * session.dpr * session.zoom));
+    const maxW = Math.min(
+      MAX_FRAME_EDGE,
+      Math.round(session.viewport.width * session.dpr * session.zoom)
+    );
+    const maxH = Math.min(
+      MAX_FRAME_EDGE,
+      Math.round(session.viewport.height * session.dpr * session.zoom)
+    );
 
     const frameHandler = (params: unknown) => {
-      const p = params as { sessionId: number; data: string; metadata: { deviceWidth: number; deviceHeight: number; pageScaleFactor: number; cssWidth?: number; cssHeight?: number } };
+      const p = params as {
+        sessionId: number;
+        data: string;
+        metadata: {
+          deviceWidth: number;
+          deviceHeight: number;
+          pageScaleFactor: number;
+          cssWidth?: number;
+          cssHeight?: number;
+        };
+      };
       const frame: LadScreencastFrame = {
         data: p.data,
         width: p.metadata.deviceWidth,
@@ -142,7 +165,9 @@ export class ScreencastHub {
         }
       }
       // Ack so CDP keeps sending.
-      void session.cdp.send('Page.screencastFrameAck', { sessionId: p.sessionId }).catch(() => undefined);
+      void session.cdp
+        .send('Page.screencastFrameAck', { sessionId: p.sessionId })
+        .catch(() => undefined);
     };
 
     session.cdp.on('Page.screencastFrame', frameHandler);
@@ -174,6 +199,7 @@ export class ScreencastHub {
         this.startPolling(conversationId);
       }
     }, SCREENCAST_GRACE_MS);
+    state.watchdog = watchdog;
     watchdog.unref?.();
   }
 
@@ -197,8 +223,17 @@ export class ScreencastHub {
       }
       const result = await this.manager.captureFrame(conversationId, { quality: JPEG_QUALITY });
       const s = this.states.get(conversationId);
-      if ('error' in result || !s) return;
-      const frame: LadScreencastFrame = { data: result.data, width: result.width, height: result.height, ts: Date.now() };
+      if (!s || s.mode !== 'polling' || s.subscribers.size === 0) return;
+      if ('error' in result) {
+        s.pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+        return;
+      }
+      const frame: LadScreencastFrame = {
+        data: result.data,
+        width: result.width,
+        height: result.height,
+        ts: Date.now(),
+      };
       s.frames += 1;
       s.lastFrame = frame;
       for (const listener of s.subscribers) {

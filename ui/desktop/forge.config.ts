@@ -15,9 +15,7 @@ let cfg = {
     'src/images',
     // Live Browser runtime: self-contained Node bundle + playwright-core data files
     // (resolved at runtime relative to the bundle location).
-    'live-browser/dist/live-browser.js',
-    'live-browser/browsers.json',
-    'live-browser/package.json',
+    'live-browser/dist/live-browser',
     resolve(__dirname, '../../runtime/llama'),
     resolve(__dirname, '../../LICENSE'),
     resolve(__dirname, '../../THIRD_PARTY_NOTICES.md'),
@@ -80,6 +78,15 @@ module.exports = {
   outDir: process.env.LOCAL_AI_DESKTOP_FORGE_OUT_DIR || 'out',
   packagerConfig: cfg,
   rebuildConfig: {},
+  // Direct Forge invocations must have the same runtime as package/make scripts.
+  hooks: {
+    generateAssets: async () => {
+      const { execFileSync } = require('node:child_process');
+      execFileSync(process.execPath, [resolve(__dirname, 'live-browser/build.mjs')], {
+        env: { ...process.env, LIVE_BROWSER_NO_SOURCEMAP: '1' }, stdio: 'inherit',
+      });
+    },
+  },
   makers: [
     {
       name: '@electron-forge/maker-zip',

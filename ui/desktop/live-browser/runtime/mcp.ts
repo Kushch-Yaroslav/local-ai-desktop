@@ -24,7 +24,14 @@ type McpImage = { type: 'image'; data: string; mimeType: string };
 type McpContent = McpText | McpImage;
 
 function textResult(text: string): { content: McpText[] } {
-  return { content: [{ type: 'text', text: text.length > MAX_TOOL_TEXT ? `${text.slice(0, MAX_TOOL_TEXT)}\n[truncated]` : text }] };
+  return {
+    content: [
+      {
+        type: 'text',
+        text: text.length > MAX_TOOL_TEXT ? `${text.slice(0, MAX_TOOL_TEXT)}\n[truncated]` : text,
+      },
+    ],
+  };
 }
 
 function imageResult(mime: string, data: string, note?: string): { content: McpContent[] } {
@@ -33,7 +40,10 @@ function imageResult(mime: string, data: string, note?: string): { content: McpC
   return { content };
 }
 
-function errorResult(message: string): { content: Array<{ type: 'text'; text: string }>; isError: true } {
+function errorResult(message: string): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+} {
   return { content: [{ type: 'text', text: `error: ${message}` }], isError: true };
 }
 
@@ -46,8 +56,11 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
   const server = new McpServer({ name: 'local-ai-live-browser', version: '0.4.0' });
 
   const target = (args: { conversation_id?: string }): string => {
-    const id = args.conversation_id?.trim() || ctx.activeConversation() || '';
-    if (!id) throw new Error('no conversation: pass conversation_id or activate a chat first');
+    const id = args.conversation_id?.trim() || '';
+    if (!id)
+      throw new Error(
+        'no conversation: pass conversation_id explicitly; UI focus does not determine the agent session'
+      );
     return id;
   };
 
@@ -59,56 +72,70 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       title: 'Open URL in Live Browser',
       description:
         'Open a URL in the shared Live Browser page (the one the user sees). http/https only. ' +
-        'Use conversation_id to target a specific chat; defaults to the active chat.',
+        'Use conversation_id to target a specific chat; always pass the conversation_id supplied in the chat context.',
       inputSchema: {
         url: z.string().describe('http(s) URL to open'),
-        conversation_id: z.string().optional().describe('Target conversation (chat) id'),
+        conversation_id: z.string().min(1).describe('Target conversation (chat) id'),
       },
     },
     async ({ url, conversation_id }) => {
       const conversationId = target({ conversation_id });
       const result = await ctx.manager.navigate(conversationId, url, 'agent');
-      return result.ok ? textResult(`ok: ${result.summary}`) : errorResult(result.error ?? 'navigation failed');
-    },
+      return result.ok
+        ? textResult(`ok: ${result.summary}`)
+        : errorResult(result.error ?? 'navigation failed');
+    }
   );
 
-  const navTool = (name: string, description: string, fn: (id: string) => Promise<{ ok: boolean; summary: string; error?: string }>) => {
+  const navTool = (
+    name: string,
+    description: string,
+    fn: (id: string) => Promise<{ ok: boolean; summary: string; error?: string }>
+  ) => {
     server.registerTool(
       name,
       {
         title: description,
         description,
         inputSchema: {
-          conversation_id: z.string().optional(),
+          conversation_id: z.string().min(1),
         },
       },
       async ({ conversation_id }) => {
         const conversationId = target({ conversation_id });
         const result = await fn(conversationId);
-        return result.ok ? textResult(`ok: ${result.summary}`) : errorResult(result.error ?? 'action failed');
-      },
+        return result.ok
+          ? textResult(`ok: ${result.summary}`)
+          : errorResult(result.error ?? 'action failed');
+      }
     );
   };
 
-  navTool('browser_back', 'Go back in browser history (shared Live Browser page).', (id) => ctx.manager.back(id, 'agent'));
-  navTool('browser_forward', 'Go forward in browser history (shared Live Browser page).', (id) => ctx.manager.forward(id, 'agent'));
-  navTool('browser_reload', 'Reload the current page (shared Live Browser page).', (id) => ctx.manager.reload(id, 'agent'));
+  navTool('browser_back', 'Go back in browser history (shared Live Browser page).', (id) =>
+    ctx.manager.back(id, 'agent')
+  );
+  navTool('browser_forward', 'Go forward in browser history (shared Live Browser page).', (id) =>
+    ctx.manager.forward(id, 'agent')
+  );
+  navTool('browser_reload', 'Reload the current page (shared Live Browser page).', (id) =>
+    ctx.manager.reload(id, 'agent')
+  );
 
   server.registerTool(
     'browser_state',
     {
       title: 'Browser state',
       description: 'Current URL, title, readiness and ownership of the shared Live Browser page.',
-      inputSchema: { conversation_id: z.string().optional() },
+      inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
       const conversationId = target({ conversation_id });
       const state = ctx.manager.state(conversationId);
       if (!state) return textResult('no live page yet — open a URL with browser_open first');
       return textResult(
-        `url: ${state.url}\ntitle: ${state.title}\nready: ${state.ready}\nownership: ${state.ownership}\nactive chat: ${ctx.activeConversation() ?? 'none'}`,
+        `url: ${state.url}\ntitle: ${state.title}\nready: ${state.ready}\nownership: ${state.ownership}\nactive chat: ${ctx.activeConversation() ?? 'none'}`
       );
-    },
+    }
   );
 
   // ------------------------------------------------------------------ read
@@ -121,7 +148,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Bounded readable text of the current page (no full DOM dump). Use a selector to scope. ' +
         'Set html=true for a bounded HTML fragment of the scope.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         max_chars: z.number().int().min(200).max(60000).optional(),
         selector: z.string().max(512).optional().describe('Optional CSS selector scope'),
         html: z.boolean().optional(),
@@ -142,11 +169,17 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
                   return el;
                 })()
               : document.body;
-            const text = ((root as HTMLElement).innerText ?? (root as Element).textContent ?? '').slice(0, args.maxChars * 2);
-            const htmlOut = args.withHtml ? ((root as Element).outerHTML ?? '').slice(0, args.maxChars * 3) : undefined;
+            const text = (
+              (root as HTMLElement).innerText ??
+              (root as Element).textContent ??
+              ''
+            ).slice(0, args.maxChars * 2);
+            const htmlOut = args.withHtml
+              ? ((root as Element).outerHTML ?? '').slice(0, args.maxChars * 3)
+              : undefined;
             return { text, htmlOut, url: location.href, title: document.title };
           },
-          { selector: selector ?? null, maxChars: max, withHtml: Boolean(html) },
+          { selector: selector ?? null, maxChars: max, withHtml: Boolean(html) }
         );
         const { text, truncated } = boundText(result.text ?? '', max);
         const htmlOut = result.htmlOut ? boundText(result.htmlOut, max) : undefined;
@@ -157,7 +190,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
-    },
+    }
   );
 
   server.registerTool(
@@ -168,7 +201,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Element information for a CSS selector: tag, id, classes, accessible name, role, ' +
         'bounding box, bounded computed styles and a bounded HTML fragment.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         selector: z.string().max(512),
         max_chars: z.number().int().min(200).max(20000).optional(),
       },
@@ -184,19 +217,53 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
           if (!el) return null;
           const style = getComputedStyle(el);
           const styles: Record<string, string> = {};
-          for (const key of ['display','position','overflow','overflow-x','overflow-y','visibility','opacity','width','height','margin','padding','font-family','font-size','font-weight','line-height','color','background-color','border','border-radius','white-space','text-overflow','flex','grid']) {
+          for (const key of [
+            'display',
+            'position',
+            'overflow',
+            'overflow-x',
+            'overflow-y',
+            'visibility',
+            'opacity',
+            'width',
+            'height',
+            'margin',
+            'padding',
+            'font-family',
+            'font-size',
+            'font-weight',
+            'line-height',
+            'color',
+            'background-color',
+            'border',
+            'border-radius',
+            'white-space',
+            'text-overflow',
+            'flex',
+            'grid',
+          ]) {
             styles[key] = style.getPropertyValue(key).slice(0, 120);
           }
-          const acc = (window as unknown as { getComputedAccessibleNode?: (n: Element) => unknown }).getComputedAccessibleNode?.(el) as
-            | { name?: string; role?: string }
-            | undefined;
+          const acc = (
+            window as unknown as { getComputedAccessibleNode?: (n: Element) => unknown }
+          ).getComputedAccessibleNode?.(el) as { name?: string; role?: string } | undefined;
           const rect = el.getBoundingClientRect();
           return {
             tag: el.tagName.toLowerCase(),
             id: el.id || null,
             classes: Array.from(el.classList).slice(0, 12),
-            text: ((el as HTMLElement).innerText ?? el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 400),
-            rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, docX: rect.x + scrollX, docY: rect.y + scrollY },
+            text: ((el as HTMLElement).innerText ?? el.textContent ?? '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 400),
+            rect: {
+              x: rect.x,
+              y: rect.y,
+              width: rect.width,
+              height: rect.height,
+              docX: rect.x + scrollX,
+              docY: rect.y + scrollY,
+            },
             styles,
             accessibleName: acc?.name ?? el.getAttribute('aria-label'),
             role: acc?.role ?? el.getAttribute('role'),
@@ -213,19 +280,22 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
             `rect (viewport): x=${Math.round(info.rect.x)} y=${Math.round(info.rect.y)} w=${Math.round(info.rect.width)} h=${Math.round(info.rect.height)}`,
             `rect (document): x=${Math.round(info.rect.docX)} y=${Math.round(info.rect.docY)}`,
             `text: ${info.text || '(empty)'}`,
-            `styles: ${Object.entries(info.styles).filter(([, v]) => v && v !== 'none' && v !== 'normal').map(([k, v]) => `${k}:${v}`).join('; ')}`,
+            `styles: ${Object.entries(info.styles)
+              .filter(([, v]) => v && v !== 'none' && v !== 'normal')
+              .map(([k, v]) => `${k}:${v}`)
+              .join('; ')}`,
             '',
             'HTML (bounded):',
             htmlText,
             truncated ? '[html truncated]' : '',
           ]
             .filter((line) => line !== null)
-            .join('\n'),
+            .join('\n')
         );
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
-    },
+    }
   );
 
   // ------------------------------------------------------------------ input
@@ -236,7 +306,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       title: 'Click',
       description: 'Click an element by CSS selector (preferred) or at viewport CSS coordinates.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         selector: z.string().max(512).optional(),
         x: z.number().min(0).max(100000).optional(),
         y: z.number().min(0).max(100000).optional(),
@@ -260,7 +330,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
-    },
+    }
   );
 
   server.registerTool(
@@ -269,7 +339,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       title: 'Fill input',
       description: 'Set the value of an input/textarea/contenteditable element by CSS selector.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         selector: z.string().max(512),
         value: z.string().max(20000),
       },
@@ -284,7 +354,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
-    },
+    }
   );
 
   server.registerTool(
@@ -293,7 +363,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       title: 'Scroll',
       description: 'Scroll the page to absolute CSS coordinates or by a delta.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         x: z.number().min(0).max(1000000).optional().describe('Absolute viewport CSS x'),
         y: z.number().min(0).max(1000000).optional().describe('Absolute viewport CSS y'),
         dx: z.number().min(-100000).max(100000).optional().describe('Delta x (scrollBy)'),
@@ -317,16 +387,17 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
-    },
+    }
   );
 
   server.registerTool(
     'browser_set_viewport',
     {
       title: 'Set viewport/zoom',
-      description: 'Change the page viewport (CSS px) and page zoom (0.5..2). Affects layout — use deliberately.',
+      description:
+        'Change the page viewport (CSS px) and page zoom (0.5..2). Affects layout — use deliberately.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         width: z.number().int().min(320).max(7680),
         height: z.number().int().min(240).max(7680),
         zoom: z.number().min(0.25).max(4).optional(),
@@ -334,9 +405,16 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     },
     async ({ conversation_id, width, height, zoom }) => {
       const conversationId = target({ conversation_id });
-      const result = await ctx.manager.setViewport(conversationId, { width, height }, zoom ?? 1, 'agent');
-      return result.ok ? textResult(`ok: viewport ${width}x${height} zoom ${zoom ?? 1}`) : errorResult(result.error ?? 'failed');
-    },
+      const result = await ctx.manager.setViewport(
+        conversationId,
+        { width, height },
+        zoom ?? 1,
+        'agent'
+      );
+      return result.ok
+        ? textResult(`ok: viewport ${width}x${height} zoom ${zoom ?? 1}`)
+        : errorResult(result.error ?? 'failed');
+    }
   );
 
   // -------------------------------------------------------------- capture
@@ -349,7 +427,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Capture the current viewport, or a bounded crop (viewport CSS px). The image is included in the result; ' +
         'if your model does not support vision the host will drop it — read the text context instead.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         x: z.number().min(0).max(100000).optional(),
         y: z.number().min(0).max(100000).optional(),
         width: z.number().min(1).max(100000).optional(),
@@ -361,16 +439,31 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       const conversationId = target({ conversation_id });
       const session = ctx.manager.meta(conversationId);
       if (!session) return errorResult('no live page');
-      const useCrop = typeof x === 'number' && typeof y === 'number' && typeof width === 'number' && typeof height === 'number';
+      const useCrop =
+        typeof x === 'number' &&
+        typeof y === 'number' &&
+        typeof width === 'number' &&
+        typeof height === 'number';
       if (useCrop) {
-        const result = await ctx.manager.captureCrop(conversationId, { x, y, width, height }, { maxEdge: max_edge ?? 1280, quality: 80 });
+        const result = await ctx.manager.captureCrop(
+          conversationId,
+          { x, y, width, height },
+          { maxEdge: max_edge ?? 1280, quality: 80 }
+        );
         if ('error' in result) return errorResult(result.error);
-        return imageResult(result.mime, result.data, `crop ${result.width}x${result.height} (viewport CSS rect ${x},${y},${width}x${height}; DPR ${session.dpr} zoom ${session.zoom})`);
+        return imageResult(
+          result.mime,
+          result.data,
+          `crop ${result.width}x${result.height} (viewport CSS rect ${x},${y},${width}x${height}; DPR ${session.dpr} zoom ${session.zoom})`
+        );
       }
-      const result = await ctx.manager.captureFrame(conversationId, { maxEdge: max_edge ?? 1600, quality: 75 });
+      const result = await ctx.manager.captureFrame(conversationId, {
+        maxEdge: max_edge ?? 1600,
+        quality: 75,
+      });
       if ('error' in result) return errorResult(result.error);
       return imageResult(result.mime, result.data, `viewport ${result.width}x${result.height}`);
-    },
+    }
   );
 
   // ---------------------------------------------------------------- regions
@@ -379,16 +472,17 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     'browser_list_areas',
     {
       title: 'List Live Browser areas',
-      description: 'All user-defined areas/regions for a conversation with their status, task and diagnostics.',
-      inputSchema: { conversation_id: z.string().optional() },
+      description:
+        'All user-defined areas/regions for a conversation with their status, task and diagnostics.',
+      inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
-      const conversationId = conversation_id?.trim() || ctx.activeConversation() || '';
+      const conversationId = conversation_id?.trim() || '';
       if (!conversationId) return textResult('no conversation specified');
       const state = await ctx.regions.list(conversationId);
       if (!state.areas.length) return textResult('no areas selected yet');
       return textResult(buildAreaContextText({ areas: state.areas, regions: state.regions }));
-    },
+    }
   );
 
   server.registerTool(
@@ -399,7 +493,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Full bounded context for one area: task, URL, geometry, viewport/DPR/scroll, DOM anchors, styles, ' +
         'findings, surroundings, diagnostics, history — plus a bounded crop image when available.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         area_id: z.string(),
         with_image: z.boolean().optional(),
       },
@@ -413,13 +507,17 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       if (with_image === false) return textResult(text);
       const firstRegion = state.regions.find((r) => r.areaId === area.id);
       if (!firstRegion) return textResult(text);
-      const capture = await ctx.regions.captureRegion(conversationId, firstRegion, { maxEdge: 1280 });
+      const capture = await ctx.regions.captureRegion(conversationId, firstRegion, {
+        maxEdge: 1280,
+      });
       const note = visionLimitNote(area, state.regions, 'unknown');
       if ('error' in capture) {
-        return textResult(`${text}\n\n[image unavailable: ${capture.error}${capture.reason ? ` (${capture.reason})` : ''}]${note ? `\n${note}` : ''}`);
+        return textResult(
+          `${text}\n\n[image unavailable: ${capture.error}${capture.reason ? ` (${capture.reason})` : ''}]${note ? `\n${note}` : ''}`
+        );
       }
       return imageResult(capture.mime, capture.data, `${text}${note ? `\n${note}` : ''}`);
-    },
+    }
   );
 
   server.registerTool(
@@ -430,7 +528,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Create a region from a viewport CSS rect (e.g. after inspecting coordinates). ' +
         'Use when the user points at a spot without using the selection tool.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         x: z.number().min(0).max(100000),
         y: z.number().min(0).max(100000),
         width: z.number().min(4).max(100000),
@@ -446,10 +544,15 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         note: `agent grounded via browser tools${area_name ? ` — ${area_name}` : ''}`,
       });
       if (area_name && area) {
-        await ctx.regions.updateArea(conversationId, area.id, { name: area_name, statusSource: 'agent' });
+        await ctx.regions.updateArea(conversationId, area.id, {
+          name: area_name,
+          statusSource: 'agent',
+        });
       }
-      return textResult(`ok: region ${region.id} in area "${area?.name}" (${region.anchors.length} anchors, ${region.diagnostics.join('; ')})`);
-    },
+      return textResult(
+        `ok: region ${region.id} in area "${area?.name}" (${region.anchors.length} anchors, ${region.diagnostics.join('; ')})`
+      );
+    }
   );
 
   server.registerTool(
@@ -460,7 +563,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         'Update an area status: Detected | Confirmed | In progress | Fixed | Verified | Unresolved. ' +
         'Use after investigating or fixing the selected area.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         area_id: z.string(),
         status: z.enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Verified', 'Unresolved']),
         note: z.string().max(1000).optional(),
@@ -468,10 +571,18 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     },
     async ({ conversation_id, area_id, status, note }) => {
       const conversationId = target({ conversation_id });
-      const area = await ctx.regions.updateArea(conversationId, area_id, { status, statusSource: 'agent' });
-      if (note) await ctx.regions.recordCheck(conversationId, area_id, { status, reason: note, source: 'agent' });
+      const area = await ctx.regions.updateArea(conversationId, area_id, {
+        status,
+        statusSource: 'agent',
+      });
+      if (note)
+        await ctx.regions.recordCheck(conversationId, area_id, {
+          status,
+          reason: note,
+          source: 'agent',
+        });
       return textResult(`ok: area "${area.name}" → ${status}`);
-    },
+    }
   );
 
   server.registerTool(
@@ -481,19 +592,28 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       description:
         'Record the result of verifying an area after changes: pass/fail with evidence, and optionally the new status.',
       inputSchema: {
-        conversation_id: z.string().optional(),
+        conversation_id: z.string().min(1),
         area_id: z.string(),
         result: z.enum(['verified', 'not-fixed', 'partially-fixed', 'cannot-verify']),
         reason: z.string().max(2000),
-        new_status: z.enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Verified', 'Unresolved']).optional(),
+        new_status: z
+          .enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Verified', 'Unresolved'])
+          .optional(),
       },
     },
     async ({ conversation_id, area_id, result, reason, new_status }) => {
       const conversationId = target({ conversation_id });
-      const area = await ctx.regions.recordCheck(conversationId, area_id, { status: result, reason, source: 'agent', newStatus: new_status });
+      const area = await ctx.regions.recordCheck(conversationId, area_id, {
+        status: result,
+        reason,
+        source: 'agent',
+        newStatus: new_status,
+      });
       if (!area) return errorResult(`unknown-area: ${area_id}`);
-      return textResult(`ok: check ${result} recorded on "${area.name}"${new_status ? `; status → ${new_status}` : ''}`);
-    },
+      return textResult(
+        `ok: check ${result} recorded on "${area.name}"${new_status ? `; status → ${new_status}` : ''}`
+      );
+    }
   );
 
   // ------------------------------------------------------------------ misc
@@ -502,28 +622,30 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     'browser_release_input',
     {
       title: 'Return control to user',
-      description: 'Hand browser control back to the user (ownership → user). Call when your browser work is done.',
-      inputSchema: { conversation_id: z.string().optional() },
+      description:
+        'Hand browser control back to the user (ownership → user). Call when your browser work is done.',
+      inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
       const conversationId = target({ conversation_id });
       ctx.manager.setOwnership(conversationId, 'user', 'agent');
       return textResult('ok: ownership returned to user');
-    },
+    }
   );
 
   server.registerTool(
     'browser_take_control',
     {
       title: 'Take control',
-      description: 'Mark the browser as agent-controlled (ownership → agent) before acting on behalf of the user.',
-      inputSchema: { conversation_id: z.string().optional() },
+      description:
+        'Mark the browser as agent-controlled (ownership → agent) before acting on behalf of the user.',
+      inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
       const conversationId = target({ conversation_id });
       ctx.manager.setOwnership(conversationId, 'agent', 'agent');
       return textResult('ok: ownership → agent');
-    },
+    }
   );
 
   return server;
@@ -537,7 +659,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
 export async function handleMcpRequest(
   ctx: LadMcpContext,
   req: IncomingMessage & { body?: unknown },
-  res: ServerResponse,
+  res: ServerResponse
 ): Promise<void> {
   try {
     const server = createLiveBrowserMcpServer(ctx);
@@ -555,7 +677,13 @@ export async function handleMcpRequest(
       res.statusCode = 500;
       res.setHeader('content-type', 'application/json');
     }
-    res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32603, message: error instanceof Error ? error.message : String(error) }, id: randomUUID() }));
+    res.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32603, message: error instanceof Error ? error.message : String(error) },
+        id: randomUUID(),
+      })
+    );
   }
 }
 

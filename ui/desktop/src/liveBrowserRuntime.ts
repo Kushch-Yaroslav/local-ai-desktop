@@ -57,6 +57,7 @@ function runtimeScriptPath(): string {
   const candidates = [
     path.join(__dirname, '..', '..', 'live-browser', 'dist', 'live-browser.js'),
     path.join(process.resourcesPath, 'live-browser', 'dist', 'live-browser.js'),
+    path.join(process.resourcesPath, 'dist', 'live-browser.js'),
     path.join(process.resourcesPath, 'live-browser.js'),
   ];
   for (const candidate of candidates) {
@@ -292,7 +293,7 @@ export class LiveBrowserRuntimeManager {
     }
     const killTimer = setTimeout(() => {
       try {
-        if (!child.killed) child.kill('SIGKILL');
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
       } catch {
         // ignore
       }
