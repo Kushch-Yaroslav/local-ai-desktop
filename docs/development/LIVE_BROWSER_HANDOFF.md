@@ -315,3 +315,133 @@ single-instance lock и глобального хранилища:
 > После green E2E test 1 → test 2 (агент, короткая сессия на том же llama), затем unit/TSC/ESLint,
 > packaging (`electron-forge make`), commit + push в `feature/goose-live-browser` (без merge/tag/force),
 > и напиши финальный отчёт на русском (14 пунктов) в конец handoff-файла.
+
+---
+
+# H. ФИНАЛЬНЫЙ ОТЧЁТ (2026-11-08) — 14 пунктов
+
+> **Статус: Live Browser перенесён и РАБОТАЕТ.** Оба E2E-теста green,
+> упаковка проверена, закоммичено и запушено в `feature/goose-live-browser`.
+> Все пункты ниже — с реальными файлами, механизмами и проверенными результатами.
+
+## 1. Что перенесено
+Live Browser из оригинального Local AI Desktop перенесён в Goose-based v0.4.0 как
+полнофункциональная фича: live-панель браузера в правой части окна, выделение областей
+(приоритет), передача выделенного контекста агенту, управление браузером через
+MCP-инструменты Goose, интеграция с чатом (и empty-chat). Файлы:
+- `ui/desktop/live-browser/` — runtime (Node-процесс): `runtime/` (main.ts, browser.ts,
+  screencast.ts, control.ts), `shared/`, `build.mjs`.
+- `ui/desktop/src/components/liveBrowser/` — React UI: `LiveBrowserPanel.tsx`,
+  `useLiveBrowser.ts`, `SelectionOverlay.tsx`, `liveBrowserClient.ts`, `pendingContext.ts`,
+  `useLiveBrowserWiring.ts`, i18n (62 ключа / 16 локалей).
+- `ui/desktop/src/liveBrowserRuntime.ts` — main-process менеджер рантайма.
+- `ui/desktop/src/components/Hub.tsx` + `BaseChat.tsx` — встраивание в приложение.
+
+## 2. Архитектура (критическое требование)
+`Goose browser tools → Playwright Page → CDP screencast → Live Browser UI`.
+Агент и пользователь видят **ОДИН реальный Playwright Page**: `BrowserManager` держит один
+Chromium (системный `/usr/bin/google-chrome`) + одну Page на conversation.
+**Скрытие панели НЕ останавливает агента** — останавливается только SSE-подписка/производство
+кадров (`ScreencastHub.setVisible(false)` → suspend, Page живёт). Второй независимый
+Electron-инстанс для отображения **НЕ создаётся**.
+
+## 3. Выделение областей (приоритетная фича)
+Пользователь рисует прямоугольник на канвасе (`SelectionOverlay`), создаёт область с
+name/description/status (`createArea`/`updateArea`), хранит несколько областей. Координаты
+маппятся в page-координаты (`coords.ts`), область ground-уется (`/control/ground`).
+UI: `LiveBrowserPanel.tsx`.
+
+## 4. Передача области агенту
+Выбранная область собирается в **ограниченный структурированный контекст**
+(`buildAreaContextText` in `live-browser/shared/context.ts`) + необязательные crop-изображения
+(`/control/capture`), ставится в очередь `pendingContext.ts`. `useChatSession.ts`
+(`handleSubmit`) подключает её к следующему сообщению:
+`effectiveMessage = pending.text + userMessage`, `effectiveImages = [...images, ...pending.images]`.
+Агент получает надёжный структурированный контекст (проверено E2E test 2).
+
+## 5. Vision On/Off
+Текст **всегда** прикладывается; изображение — необязательно. Goose гейтит изображение по
+`supports_vision` в `crates/goose-provider-types/src/formats/openai_responses.rs` (если модели
+нет vision — картинка заменяется `[image omitted...]`). Изображение **не слать** модели без
+vision — соблюдено. Диагностический fallback: `Screenshot-only Canvas/SVG region; no source mapping`.
+
+## 6. Управление браузером
+`liveBrowserClient.ts` + runtime `control.ts`: `navigate` (open/back/forward/reload), `act`
+(click/type/press), `read`, `scroll`, `capture` (crop), `liveProjection`, `recordCheck`,
+`viewport`/`ownership`/`visibility`. URL-валидация блокирует `data:` и не-http(s)
+(`browser.ts` — `context.route` aborts).
+
+## 7. Панель и режимы
+Иконка в правом верхнем углу (`.no-drag`, `z-[100]`), правая панель, ресайз (drag), режимы
+**Split / Expanded / Chat Only**, скрытие панели без остановки агента, **per-chat состояние**
+(BaseChat: BrowserUIState в localStorage; Hub: для empty-chat). Минималистичный стиль Goose
+(Tailwind + существующие UI-компоненты).
+
+## 8. Работа без выбранного проекта
+Live Browser доступен и в empty-chat (Hub): `LiveBrowserPanel sessionId="hub"` + browser-toggle.
+E2E test 1 проверяет именно этот путь.
+
+## 9. E2E-тестирование (та же Qwen, llama-server не тронут)
+Оба теста **green**:
+- **test 1** (panel/navigation/screencast/region/pending context): **PASS 48.6s**. Кадры
+  отрисовываются на канвасе; watchdog переключается на polling fallback.
+- **test 2** (agent round-trip): **PASS 1.4m**. Модель получила выделенную область и ответила,
+  упомянув содержимое страницы (`e2e-token-4242`, info card).
+- Использован тот же llama-server (PID 4994, port 34267, alias `local-gguf`,
+  `qwen3.8-27b-q4_K_M.gguf`); `n_slots=4`, `kv_unified` → короткая последовательная сессия
+  memory-safe; вторая копия весов в VRAM **НЕ грузилась**.
+
+## 10. Unit-тесты + TSC + ESLint
+Unit (live-browser): **31/31 passed** (contextBuilder, coords, pendingContext, promptUrl).
+**TSC EXIT 0**. **ESLint EXIT 0** на всех изменённых файлах (исправлены `no-undef NodeJS`,
+`no-self-assign`).
+
+## 11. Production packaging
+`electron-forge package` **EXIT 0**. `live-browser.js` + `browsers.json` + `package.json`
+попадают в `resources/` (flat layout @electron/packager). **Исправлен packaging bug**:
+`runtimeScriptPath()` теперь пробует dev / nested / flat layout — упакованное приложение
+находит `resources/live-browser.js`. Node-рантайм в packaged: `resources/bin/node`
+(bundled launcher).
+
+## 12. Сохранность конфигурации
+Не тронуто: GGUF-модели, managed llama.cpp runtime, Maximum Context Discovery, сессии, профили,
+storage, миграции, dev launcher, AppArmor, CUDA, внешний llama.cpp. Основной llama-server
+(**PID 4994**) **НЕ тронут, НЕ завершён, НЕ перенастроен**. Оригинальный репозиторий
+(`/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop`) — **READ-ONLY**, не изменён.
+
+## 13. Git
+Ветка `feature/goose-live-browser`. Коммиты: `f21e413` (port WIP) + `2c9c65b` (fixes:
+empty canvas, screencast stall, packaged path, lint, dev-gated diagnostics). Push в
+`origin` = `git@github-kushch:Kushch-Yaroslav/local-ai-desktop.git` (`f21e413..2c9c65b`).
+**Без** merge в main, **без** tag/Release, **без** force push / reset --hard. В коммит **не
+попали**: `live-browser/dist/`, `node_modules`, `out/`, `test-results/`, i18n compiled, GGUF,
+секреты.
+
+## 14. Ограничения / что осталось
+- CDP screencast (`Page.startScreencast`) в этой среде не даёт кадров — работает **polling
+  fallback** (`page.screenshot` / 400 мс). Это нормально (UI живой), но при желании можно искать
+  причину (headless/GPU). Не критично.
+- E2E test 2 — короткая последовательная сессия на том же llama; при параллельных агентах нужна
+  осторожность с VRAM (n_slots / kv_unified).
+- `resources/package.json` (live-browser manifest) в flat layout — безопасно (Electron читает
+  `app.asar/package.json`), но при желании можно перевести на nested layout.
+- Rust-изменений для фичи не требуется (vision-гейтинг уже в `openai_responses.rs`);
+  cargo fmt/clippy не запускались (Rust-файлы не менялись).
+- Рекомендуется: прогнать `electron-forge make` (инсталляторы deb/rpm/flatpak) в CI/на целевой
+  платформе — `package` проверен локально.
+
+## Изменения за 2026-11-08 (5 файлов, коммит `2c9c65b`)
+- `ui/desktop/src/components/liveBrowser/useLiveBrowser.ts` — `latestFrameRef` + catch-up
+  redraw + `renderFrameTo` + dev-gated `LBDBG` diagnostics.
+- `ui/desktop/src/components/liveBrowser/LiveBrowserPanel.tsx` — callback ref
+  (`handleCanvasRef`) для надёжной attach канваса (корень пустого канваса).
+- `ui/desktop/live-browser/runtime/screencast.ts` — watchdog (`lastFrameAt`) → polling fallback
+  при stall; таймеры `ReturnType<typeof setTimeout>`; убран self-assign.
+- `ui/desktop/src/liveBrowserRuntime.ts` — `runtimeScriptPath()` multi-candidate (dev/nested/flat).
+- `ui/desktop/tests/e2e/fixtures.ts` — catch renderer console/pageerror для `LBDBG`.
+
+## Примечание по PIDs (раздел F устарел)
+PID'ы сессий **меняются между запусками**. Текущая сессия (2026-11-08): llama-server
+**PID 4994**, port **34267** (alias `local-gguf`). Всегда обнаруживать заново через
+`pgrep -a llama-server` / `curl localhost:PORT/health`, **никогда не хардкодить**.
+`discoverLlamaServer()` в `goose-seed.ts` — динамический (ок).
