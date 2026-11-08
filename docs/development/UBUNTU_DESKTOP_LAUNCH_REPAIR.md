@@ -65,3 +65,18 @@ Activated restored root at the existing configured path; bootstrap storage confi
 Recovery restores the dated snapshot, not data potentially created after November 6. No user files, chats, GGUF weights, previous directory, or backup archive were deleted. The earlier pending-recovery status above is superseded by this verified recovery.
 
 Final checks: sessions comprise 23 user chats and 3 sub-agent sessions. A repeat plain `gio launch` of the same Desktop Entry exited its secondary Electron process with status 0, while the original visible window remained; there was no second storage dialog. Launcher source was already fixed in be018e3; this recovery required no further application-code or build changes.
+
+## Live Browser boot failure after a normal menu restart — fixed 2026-11-08
+
+The prior launch verification inherited the IDE's Node 24 PATH. On the user's subsequent ordinary menu restart, main.log explicitly reported `You are running Node.js 18.19.1. Playwright requires Node.js 20 or higher`, followed by runtime exit 1. The old probe only checked `process.exit(0)`, so it incorrectly accepted system Node 18. This was independent of profile/storage recovery.
+
+Commit e6b07bf fixes the actual runtime dependency:
+
+- Forge packages a native compatible Node executable at `resources/live-browser/bin/node`, along with the distribution's NODE-LICENSE and target metadata. No global Node install or on-click download is needed. Native builds validate Node >=20 and platform/architecture; cross builds must explicitly supply LAD_LB_NODE_BUNDLE and its license.
+- Main prioritizes this offline executable over Hermit and PATH, and probes the Node major version instead of merely accepting an executable that exits successfully. esbuild now targets Node 20, matching playwright-core's requirement. Startup errors occurring during resolution are retained in status.
+- Three regression tests accept the pinned Node, reject a missing executable, and reproduce/reject the Ubuntu Node 18 that the old probe accepted.
+- Packaged E2E now optionally asserts that the child actually uses the packaged Node. With PATH=/usr/bin:/bin (system Node 18), the complete panel/navigation/region/layout/reopen scenario passed in 41.6s (42.1s total). Live Browser targeted tests: 37/37 passed; TypeScript and targeted ESLint passed.
+
+A fresh native package was staged and activated only after checking that no process executed files from the installed package. Previous package retained at `ui/desktop/out-menu-backups/before-bundled-node-20261108-175150`. User profiles and storage configuration were not changed. The system Node remains 18.19.1.
+
+**Installed normal-profile verification:** invoked the existing Goose Dev Desktop Entry via gio with PATH=/usr/bin:/bin, without isolated XDG/profile roots. Launcher reported backend_ready; main.log selected bundled-node-executable and runtime ready. Main IPC reported running=true, error=null, and node=`.../ui/desktop/out/Local AI Desktop-linux-x64/resources/live-browser/bin/node` (Node 24.22.1). Live Browser navigated to https://example.com/, title Example Domain, canvas 1280×800 with 1,022,220 non-dark pixels. This is the permanent installed package, not an artifact under /tmp. The working application was left open. No inference was invoked or stopped.
