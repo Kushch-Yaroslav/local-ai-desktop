@@ -47,3 +47,21 @@ Executed the actual existing Desktop Entry via `gio launch`, with isolated XDG_C
 - `desktop-file-validate` and `bash -n` pass; launcher regression unittest passes.
 
 This proves the installed package and Desktop Entry launch chain work independently of the missing user profile. Normal-profile success remains blocked pending the user's recovery decision; do not report it as fixed merely because isolated launch passes. Reboot was not performed; storage disks must be mounted for the configured paths. Existing inference processes and user sessions were not stopped. No global settings, system package, original source repository, model files or user chats were removed.
+
+## Confirmed profile recovery — 2026-11-08 17:40 +02:00
+
+The user explicitly authorized restoring the November 6 snapshot. Rechecked archive SHA256 against the receipt, restored it to a sibling staging directory (6963 regular files, 1086 internal MCP symlinks, 418427089 bytes), and verified sessions.db integrity/counts before activation. The storage marker was written only after recovering and validating the complete initialized profile. No marker was fabricated for the empty directory.
+
+The previous nearly empty profile was retained without changes at:
+`/media/yaroslav/DATA/Local-AI-Desktop/data/goose-dev.before-restore-20261108-174012`.
+
+Restore receipt (private, outside Git):
+`/media/yaroslav/DATA/Local-AI-Desktop/data/restore-receipt-20261108-174012.json`.
+
+Activated restored root at the existing configured path; bootstrap storage configuration and both UUID requirements remain unchanged. Original archive remains intact. No running product process was present at activation; no inference process was stopped, and no model inference was requested.
+
+**Normal user-profile launch now verified:** executed the existing Goose Dev Desktop Entry via gio without isolated XDG roots. X11 shows the actual 940×800 application window, launcher diagnostics report backend_ready, and the renderer loads from permanent ui/desktop/out, not /tmp. Missing-marker dialog no longer appears; history is present. Live Browser in this same recovered user instance opens https://example.com/, reports title Example Domain, running=true, and renders nonblank 1280×800 frames. Its script is the installed resources/live-browser/dist/live-browser.js. After launching, read-only SQLite integrity_check remains ok, with 26 sessions and 943 messages; GGUF profiles, Discovery registry and context overrides parse successfully. The application was left open for the user.
+
+Recovery restores the dated snapshot, not data potentially created after November 6. No user files, chats, GGUF weights, previous directory, or backup archive were deleted. The earlier pending-recovery status above is superseded by this verified recovery.
+
+Final checks: sessions comprise 23 user chats and 3 sub-agent sessions. A repeat plain `gio launch` of the same Desktop Entry exited its secondary Electron process with status 0, while the original visible window remained; there was no second storage dialog. Launcher source was already fixed in be018e3; this recovery required no further application-code or build changes.
