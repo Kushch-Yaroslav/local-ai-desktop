@@ -1,3 +1,5 @@
+> **Актуализация независимого аудита 2026-11-08:** прежнее заявление ниже о полном переносе не подтверждается. Сначала читайте [LIVE_BROWSER_PARITY_AUDIT.md](LIVE_BROWSER_PARITY_AUDIT.md), разделы 8–10. Реальный packaged UI проверен новым аудитом; полный функциональный паритет остаётся незавершённым.
+
 # Live Browser → Goose v0.4.0 — HANDOFF (перенос)
 
 > Этот файл — инструкция для нового агентного сеанса (завтра). Он создан 2026-11-08 в
@@ -445,3 +447,18 @@ PID'ы сессий **меняются между запусками**. Теку
 **PID 4994**, port **34267** (alias `local-gguf`). Всегда обнаруживать заново через
 `pgrep -a llama-server` / `curl localhost:PORT/health`, **никогда не хардкодить**.
 `discoverLlamaServer()` в `goose-seed.ts` — динамический (ок).
+
+
+## Независимый аудит и исправления 2026-11-08
+
+Оригинал изучен read-only по фактическим main/preload/IPC/renderer/visual services. Текущий оригинал — native WebContentsView + Playwright CDP, а не screencast. Архивный `docs/img/live-browser/split-view.png` показывает более ранний UX; не следует путать его с текущим кодом. Отдельное окно браузера в текущей реализации не найдено.
+
+Работа выполнена поверх Qwen; сохранены внешний runtime, общий Page для UI/MCP, bounded grounding, JSON areas, SSE и fallback. Исправления: staged packaged runtime с parent metadata Playwright и обязательным build в Forge hook; сериализация создания Page; cleanup таймеров/listeners/watchdog и lastFrame; polling recovery; запрет stale crop; явный MCP conversation_id + scoped pending context; очистка кадра при смене чата; runtime rediscovery после SSE error. Панель получает collapse/side/bottom/resizing инструментов, keyboard resizing, preview scale, viewport presets/custom, Vision toggle, multi-rect area, history, прямую отправку и container-responsive browser-first. Hub clipping обнаружен на скриншоте успешного теста и отдельно исправлен.
+
+Проверено: fresh offline `electron-forge package`, не старый out; runtime smoke 31/31; unit 34/34; renderer/runtime TypeScript и targeted ESLint. Packaged E2E на двух последовательных упаковках PASS (45.6s и 45.7s): страница/кадры/область/rename/description/pending/collapse/expanded/split/resize/reload/hide/reopen. Вторая упаковка дополнительно проверяет широкое и узкое рабочее пространство и правую границу панели. Скриншоты остаются в ignored test-results, сборки в /tmp. Финальная упаковка после добавления rediscovery и cleanup проверяется ниже в аудите.
+
+Ранее красные E2E не скрыты: onboarding без модели (исправлен UI-only seed), missing parent metadata при первом packaged запуске (исправлена структура). Среда пишет MESA permission/GPU fatal при cleanup тестового Electron; это ограничение длительной стабильности, даже при зелёном функциональном тесте. Inference discovery не нашёл доступный авторизованный endpoint; model round-trip не проверен, новая модель не запускалась. Старые PID/результаты модели из предыдущего handoff исторические.
+
+**Незавершённое:** нативный ввод/IME/drag/upload, browser zoom/auto viewport, полная crash-state restoration, проверенная end-to-end runtime restart, source revision ledger/recheck/detect/workflow/reveal, dpr2/long soak/heap, модельный round-trip и provider-wide vision verification. Полный паритет не объявлять. Подробная карта и конкретные пути — в аудите.
+
+Финальная проверка: `/tmp/lad-parity-final/Local AI Desktop-linux-x64/local-ai-desktop`, packaged E2E **PASS 49.0s**, runtime smoke **31/31 PASS**, unit **34/34 PASS**. Это свежий пакет после последних source changes. Runtime/audit commit: `4c02949`; UI/test commit следует за ним. Не устанавливался поверх основного приложения; make/deb/rpm не проверены. Остатки двух ранних тестовых запусков очищены по точным executable-путям внутри /tmp, основные процессы не затронуты.

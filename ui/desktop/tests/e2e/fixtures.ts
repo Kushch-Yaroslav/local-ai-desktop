@@ -42,7 +42,7 @@ export const test = base.extend<GooseTestFixtures>({
     try {
       // Assign a unique debug port for this test to enable parallel execution
       // Base port 9222, offset by worker index * 100 + parallel slot
-      const debugPort = 9222 + (testInfo.parallelIndex * 10);
+      const debugPort = 9222 + testInfo.parallelIndex * 10;
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
       // Isolated app instance (opt-in via LAD_E2E_ISOLATE=1, set by specs
@@ -75,9 +75,20 @@ export const test = base.extend<GooseTestFixtures>({
         const llama = discoverLlamaServer();
         if (llama) {
           seedGooseBackend(devRoot, llama);
-          console.log(`E2E: seeded isolated goose config -> ${llama.baseUrl} (llama pid ${llama.pid})`);
+          console.log(
+            `E2E: seeded isolated goose config -> ${llama.baseUrl} (llama pid ${llama.pid})`
+          );
         } else {
-          console.log('E2E: llama-server not found; agent-dependent tests will skip');
+          console.log(
+            'E2E: no inference endpoint; UI-only tests use a placeholder provider, model test skips'
+          );
+          seedGooseBackend(devRoot, {
+            pid: 0,
+            port: 9,
+            apiKey: 'ui-only-placeholder',
+            modelAlias: 'ui-only',
+            baseUrl: 'http://127.0.0.1:9',
+          });
         }
         isolatedEnv = {
           LOCAL_AI_DESKTOP_DEV_ROOT: devRoot,
@@ -119,20 +130,22 @@ export const test = base.extend<GooseTestFixtures>({
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
-          console.log(`Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`);
+          console.log(
+            `Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`
+          );
           break;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           if (attempt === maxRetries) {
             throw Object.assign(
               new Error(
-                `Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`,
+                `Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`
               ),
-              { cause: error },
+              { cause: error }
             );
           }
           // Wait before next retry
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
 
@@ -166,10 +179,13 @@ export const test = base.extend<GooseTestFixtures>({
       }
 
       // Wait for React app to be ready
-      await page.waitForFunction(() => {
-        const root = document.getElementById('root');
-        return root && root.children.length > 0;
-      }, { timeout: 30000 });
+      await page.waitForFunction(
+        () => {
+          const root = document.getElementById('root');
+          return root && root.children.length > 0;
+        },
+        { timeout: 30000 }
+      );
 
       console.log('App ready, starting test...');
 
@@ -188,7 +204,6 @@ export const test = base.extend<GooseTestFixtures>({
 
       // Provide the page to the test
       await providePage(page);
-
     } finally {
       console.log('Cleaning up Electron app for this test...');
 
@@ -208,7 +223,7 @@ export const test = base.extend<GooseTestFixtures>({
             try {
               // First try SIGTERM for graceful shutdown
               process.kill(-appProcess.pid, 'SIGTERM');
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise((resolve) => setTimeout(resolve, 2000));
             } catch {
               // Process might already be dead
             }

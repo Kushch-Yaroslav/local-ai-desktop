@@ -36,6 +36,13 @@ describe('pendingContext', () => {
     expect(peekPendingSelection()).toBe(s); // peek is non-destructive
   });
 
+  it('does not consume another conversation selection', () => {
+    const s = {...selection(), conversationId: 'chat-a'};
+    setPendingSelection(s);
+    expect(consumePendingSelection('chat-b')).toBeNull();
+    expect(consumePendingSelection('chat-a')).toBe(s);
+  });
+
   it('consumes exactly once', () => {
     const s = selection();
     setPendingSelection(s);

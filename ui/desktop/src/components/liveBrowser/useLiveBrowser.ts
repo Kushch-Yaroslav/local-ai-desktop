@@ -6,14 +6,14 @@
  * exposes the control operations. Hiding the panel never stops the runtime or
  * the Playwright Page — only the SSE subscription (frame production) stops.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LiveBrowserApiError, LiveBrowserClient, type LiveBrowserEndpoint } from './liveBrowserClient';
+import { useCallback, useEffect, useMemo, useLayoutEffect, useRef, useState } from 'react';
+import {
+  LiveBrowserApiError,
+  LiveBrowserClient,
+  type LiveBrowserEndpoint,
+} from './liveBrowserClient';
 import type { LadControlMeta } from '../../../live-browser/shared/api';
-import type {
-  LadArea,
-  LadRegion,
-  LadWorkspaceSettings,
-} from '../../../live-browser/shared/types';
+import type { LadArea, LadRegion, LadWorkspaceSettings } from '../../../live-browser/shared/types';
 
 export interface LiveBrowserRuntimeInfo {
   running: boolean;
@@ -24,7 +24,12 @@ export interface LiveBrowserRuntimeInfo {
 
 function getRuntimeInfo(): Promise<LiveBrowserRuntimeInfo> {
   if (!window.electron) {
-    return Promise.resolve({ running: false, endpoint: null, error: 'not-in-electron', node: null });
+    return Promise.resolve({
+      running: false,
+      endpoint: null,
+      error: 'not-in-electron',
+      node: null,
+    });
   }
   return window.electron
     .liveBrowserStatus()
@@ -54,7 +59,10 @@ function startRuntime(): Promise<{ ok: boolean; error?: string; endpoint?: LiveB
       }
       return { ok: false, error: result.error ?? 'unknown error' };
     })
-    .catch((error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }));
+    .catch((error) => ({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }));
 }
 
 export interface UseLiveBrowser {
@@ -74,12 +82,12 @@ export interface UseLiveBrowser {
   navigate: (action: 'open' | 'back' | 'forward' | 'reload', url?: string) => Promise<void>;
   ground: (
     rect: { x: number; y: number; width: number; height: number },
-    opts?: { areaId?: string; note?: string },
+    opts?: { areaId?: string; note?: string }
   ) => Promise<{ region: LadRegion; area: LadArea | null }>;
   createArea: (body: { name: string; description?: string; status?: string }) => Promise<LadArea>;
   updateArea: (
     areaId: string,
-    body: { name?: string; description?: string; status?: string },
+    body: { name?: string; description?: string; status?: string }
   ) => Promise<LadArea>;
   removeArea: (areaId: string) => Promise<void>;
   removeRegion: (regionId: string) => Promise<void>;
@@ -97,13 +105,13 @@ export interface UseLiveBrowser {
   }) => Promise<void>;
   captureRegionCrop: (
     rect: { x: number; y: number; width: number; height: number },
-    maxEdge?: number,
+    maxEdge?: number
   ) => Promise<{ data: string; mime: string; width: number; height: number }>;
   readPage: (maxChars?: number, selector?: string) => Promise<string>;
   liveProjection: (regionId: string) => Promise<LadRegion>;
   recordCheck: (
     areaId: string,
-    body: { result?: string; reason?: string; newStatus?: string },
+    body: { result?: string; reason?: string; newStatus?: string }
   ) => Promise<LadArea>;
   closeSession: () => Promise<void>;
   scrollSnapshot: () => Promise<{
@@ -129,7 +137,12 @@ function lbdbgError(...args: unknown[]): void {
 }
 
 /** Decode a base64 JPEG frame and draw it onto a 2d canvas. Pure (no React). */
-function renderFrameTo(canvas: HTMLCanvasElement, data: string, width: number, height: number): Promise<void> {
+function renderFrameTo(
+  canvas: HTMLCanvasElement,
+  data: string,
+  width: number,
+  height: number
+): Promise<void> {
   if (!width || !height) return Promise.resolve();
   if (canvas.width !== Math.round(width) || canvas.height !== Math.round(height)) {
     canvas.width = Math.round(width);
@@ -177,6 +190,17 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   const conversationIdRef = useRef<string | null>(conversationId);
   conversationIdRef.current = conversationId;
 
+  // Clear before paint so a chat switch cannot expose the previous chat frame.
+  useLayoutEffect(() => {
+    latestFrameRef.current = null;
+    setHasFrame(false);
+    setMeta(null);
+    setAreas([]);
+    setRegions([]);
+    const canvas = canvasRef.current;
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+  }, [conversationId]);
+
   // --- runtime bootstrap -------------------------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +211,12 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         void startRuntime().then((result) => {
           if (cancelled) return;
           if (result.ok && result.endpoint) {
-            setRuntime((prev) => ({ ...prev, running: true, endpoint: result.endpoint!, error: null }));
+            setRuntime((prev) => ({
+              ...prev,
+              running: true,
+              endpoint: result.endpoint!,
+              error: null,
+            }));
           } else {
             setRuntime((prev) => ({ ...prev, running: false, error: result.error ?? prev.error }));
           }
@@ -207,7 +236,11 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         if (result.ok && result.endpoint) {
           setRuntime({ running: true, endpoint: result.endpoint, error: null, node: null });
         } else {
-          setRuntime((prev) => ({ ...prev, running: false, error: result.error ?? 'start failed' }));
+          setRuntime((prev) => ({
+            ...prev,
+            running: false,
+            error: result.error ?? 'start failed',
+          }));
         }
       })
       .finally(() => setConnecting(false));
@@ -252,12 +285,14 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return;
       }
       frameCount += 1;
-      if (frameCount <= 3) lbdbg('frame-draw-attempt', { w: canvas.width, h: canvas.height, n: frameCount });
+      if (frameCount <= 3)
+        lbdbg('frame-draw-attempt', { w: canvas.width, h: canvas.height, n: frameCount });
       void renderFrameTo(canvas, data, width, height)
         .then(() => setHasFrame(true))
         .catch((err) => {
           // frame decode failed; keep the previous frame
-          if (frameCount < 5) lbdbgError('frame-decode-fail', err instanceof Error ? err.message : String(err));
+          if (frameCount < 5)
+            lbdbgError('frame-decode-fail', err instanceof Error ? err.message : String(err));
         });
     };
 
@@ -265,7 +300,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       if (cancelled) return;
       es?.close();
       const sseUrl = client.sseUrl(conversationId);
-      lbdbg('sse-connect', sseUrl);
+      lbdbg('sse-connect', conversationId);
       es = new EventSource(sseUrl);
       es.onopen = () => {
         if (cancelled) return;
@@ -278,8 +313,17 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         // browser's retries if the runtime is gone.
         lbdbgWarn('sse-ERROR', conversationId, es?.readyState);
         setConnected(false);
+        if (!reconnectTimer) reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          void getRuntimeInfo().then(info => {
+            if (cancelled) return;
+            if (!info.running || !info.endpoint) retryRuntime();
+            else if (info.endpoint.url !== endpoint.url) setRuntime(info);
+          });
+        }, 2000);
       };
       es.onmessage = (event) => {
+        if (cancelled) return;
         try {
           const message = JSON.parse(event.data as string) as {
             t: string;
@@ -292,7 +336,8 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
             workspace?: LadWorkspaceSettings;
           };
           if (message.t === 'frame' && message.data) {
-            if (frameCount < 3) lbdbg('frame-msg', message.data.length, 'bytes', message.width, 'x', message.height);
+            if (frameCount < 3)
+              lbdbg('frame-msg', message.data.length, 'bytes', message.width, 'x', message.height);
             drawFrame(message.data, message.width ?? 0, message.height ?? 0);
           } else if (message.t === 'meta' && message.meta) {
             setMeta(message.meta);
@@ -326,7 +371,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       clientRef.current = null;
       setConnected(false);
     };
-  }, [conversationId, runtime.endpoint]);
+  }, [conversationId, runtime.endpoint, retryRuntime]);
 
   // --- control helpers -----------------------------------------------------
   const client = useCallback((): LiveBrowserClient | null => {
@@ -335,20 +380,17 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
     return clientRef.current;
   }, []);
 
-  const guard = useCallback(
-    async <T>(fn: () => Promise<T>): Promise<T> => {
-      try {
-        const result = await fn();
-        setLastError(null);
-        return result;
-      } catch (error) {
-        const message = error instanceof LiveBrowserApiError ? error.message : String(error);
-        setLastError(message);
-        throw error;
-      }
-    },
-    [],
-  );
+  const guard = useCallback(async <T>(fn: () => Promise<T>): Promise<T> => {
+    try {
+      const result = await fn();
+      setLastError(null);
+      return result;
+    } catch (error) {
+      const message = error instanceof LiveBrowserApiError ? error.message : String(error);
+      setLastError(message);
+      throw error;
+    }
+  }, []);
 
   const navigate = useCallback(
     (action: 'open' | 'back' | 'forward' | 'reload', url?: string) => {
@@ -361,13 +403,13 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         if (state.meta) setMeta(state.meta);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const ground = useCallback(
     (
       rect: { x: number; y: number; width: number; height: number },
-      opts?: { areaId?: string; note?: string },
+      opts?: { areaId?: string; note?: string }
     ) => {
       const c = client();
       const conversation = conversationIdRef.current;
@@ -384,7 +426,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result;
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const refreshState = useCallback(async (c: LiveBrowserClient, conversation: string) => {
@@ -406,7 +448,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result.area;
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const updateArea = useCallback(
@@ -420,7 +462,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result.area;
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const removeArea = useCallback(
@@ -433,7 +475,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         await refreshState(c, conversation);
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const removeRegion = useCallback(
@@ -446,7 +488,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         await refreshState(c, conversation);
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const attachRegion = useCallback(
@@ -459,7 +501,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         await refreshState(c, conversation);
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const setWorkspacePatch = useCallback(
@@ -472,7 +514,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         setWorkspace(result.workspace);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const setOwnership = useCallback(
@@ -486,7 +528,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         if (state.meta) setMeta(state.meta);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const setViewportSize = useCallback(
@@ -500,7 +542,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         if (state.meta) setMeta(state.meta);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const setVisible = useCallback(
@@ -512,7 +554,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         await c.setVisible(conversation, visible);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const act = useCallback(
@@ -524,7 +566,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         await c.act(conversation, body);
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const captureRegionCrop = useCallback(
@@ -537,7 +579,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return { data: result.data, mime: result.mime, width: result.width, height: result.height };
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const readPage = useCallback(
@@ -550,7 +592,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result.text;
       });
     },
-    [client, guard],
+    [client, guard]
   );
 
   const liveProjection = useCallback(
@@ -564,7 +606,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result.region;
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const recordCheck = useCallback(
@@ -578,7 +620,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         return result.area;
       });
     },
-    [client, guard, refreshState],
+    [client, guard, refreshState]
   );
 
   const closeSession = useCallback(() => {
@@ -662,7 +704,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       recordCheck,
       closeSession,
       scrollSnapshot,
-    ],
+    ]
   );
 
   return value;

@@ -82,7 +82,9 @@ function startTestServer(): Promise<{ url: string; close: () => Promise<void> }>
 /** True when the screencast canvas has non-black pixels (a frame arrived). */
 async function canvasHasContent(page: import('@playwright/test').Page): Promise<boolean> {
   return page.evaluate(() => {
-    const canvas = document.querySelector('[data-testid="live-browser-canvas"]') as HTMLCanvasElement | null;
+    const canvas = document.querySelector(
+      '[data-testid="live-browser-canvas"]'
+    ) as HTMLCanvasElement | null;
     if (!canvas || canvas.width === 0 || canvas.height === 0) return false;
     try {
       const ctx = canvas.getContext('2d');
@@ -154,10 +156,13 @@ test.describe('Live Browser E2E', () => {
   // Covers fixture setup (app launch) + test body. The agent round-trip test
   // needs minutes against the local 27B model.
   test.describe.configure({ timeout: 900_000 });
-  test('panel, navigation, screencast, region selection and pending context', async ({ goosePage }) => {
+  test('panel, navigation, screencast, region selection and pending context', async ({
+    goosePage,
+  }) => {
     test.setTimeout(240_000);
     const server = await startTestServer();
     try {
+      await goosePage.setViewportSize({width:1600,height:1000});
       await goosePage.waitForSelector('[data-testid="chat-input"]', { timeout: 60_000 });
 
       const { area } = await openPageAndCreateRegion(goosePage, server.url);
@@ -184,6 +189,32 @@ test.describe('Live Browser E2E', () => {
       await expect(note).toBeVisible({ timeout: 30_000 });
       await expect(note).toContainText('E2E target region', { timeout: 10_000 });
 
+      const panel = goosePage.locator('[data-testid="live-browser-panel"]');
+      await goosePage.locator('[data-testid="live-browser-tools-toggle"]').click();
+      await expect(goosePage.locator('[data-testid="live-browser-areas"]')).not.toBeVisible();
+      await goosePage.locator('[data-testid="live-browser-tools-toggle"]').click();
+      await expect(area).toBeVisible();
+      await goosePage.locator('[data-testid="live-browser-mode-expanded"]').click();
+      await expect(panel).toHaveAttribute('data-mode', 'expanded');
+      await goosePage.locator('[data-testid="live-browser-mode-split"]').click();
+      await expect(panel).toHaveAttribute('data-mode', 'split');
+      const separator = panel.getByRole('separator', { name: 'Resize browser', exact: true });
+      const widthBefore = (await panel.boundingBox())!.width;
+      await separator.focus();
+      await separator.press('ArrowLeft');
+      expect((await panel.boundingBox())!.width).toBeGreaterThanOrEqual(widthBefore);
+      await goosePage.locator('[data-testid="live-browser-reload"]').click();
+      await expect.poll(() => canvasHasContent(goosePage), { timeout: 30000 }).toBe(true);
+      await goosePage.locator('[data-testid="live-browser-mode-close"]').click();
+      await expect(panel).not.toBeVisible();
+      await goosePage.locator('[data-testid="browser-toggle"]').click();
+      await expect(panel).toBeVisible();
+      await expect(area).toBeVisible();
+      await expect.poll(() => canvasHasContent(goosePage), { timeout: 30000 }).toBe(true);
+      await goosePage.screenshot({path:test.info().outputPath('live-browser-wide.png'), fullPage:true});
+      await goosePage.setViewportSize({width:940,height:800});
+      const bounds = (await panel.boundingBox())!;
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(941);
       await goosePage.screenshot({
         path: test.info().outputPath('live-browser-region-selected.png'),
         fullPage: true,
@@ -196,7 +227,10 @@ test.describe('Live Browser E2E', () => {
   test('agent round-trip: model receives the pending region and replies', async ({ goosePage }) => {
     test.setTimeout(900_000); // local 27B model: give the full round-trip time
     if (!llamaEndpoint) {
-      test.skip(true, 'local llama-server endpoint not found; agent round-trip requires the running inference server');
+      test.skip(
+        true,
+        'local llama-server endpoint not found; agent round-trip requires the running inference server'
+      );
       return;
     }
     const server = await startTestServer();
@@ -216,7 +250,9 @@ test.describe('Live Browser E2E', () => {
       await expect(note).toBeVisible({ timeout: 30_000 });
 
       // Count messages before sending.
-      const messageCountBefore = await goosePage.locator('[data-testid="message-container"]').count();
+      const messageCountBefore = await goosePage
+        .locator('[data-testid="message-container"]')
+        .count();
 
       const chatInput = goosePage.locator('[data-testid="chat-input"]');
       await chatInput.fill(

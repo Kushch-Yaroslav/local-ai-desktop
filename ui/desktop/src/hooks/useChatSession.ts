@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: scope Live Browser context to its chat.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
@@ -179,10 +180,11 @@ export function useChatSession({
       // geometry, viewport/DPR, scroll, DOM anchors, diagnostics and the
       // Canvas/SVG screenshot-only limits, so the agent understands what
       // "fix this" refers to even with Vision Off.
-      const pendingSelection = consumePendingSelection();
-      const effectiveMessage = pendingSelection
+      const pendingSelection = consumePendingSelection(sessionId);
+      const contextMessage = pendingSelection
         ? `${pendingSelection.text}\n\n${userMessage}`
         : userMessage;
+      const effectiveMessage = `[Live Browser conversation_id: ${JSON.stringify(sessionId)}. Always pass this conversation_id to browser_* tools, including while the browser panel is hidden.]\n\n${contextMessage}`;
       const effectiveImages = pendingSelection
         ? [...images, ...pendingSelection.images]
         : images;

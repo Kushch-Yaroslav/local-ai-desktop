@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: responsive Live Browser workspace.
 /**
  * Hub Component
  *
@@ -277,10 +278,10 @@ export default function Hub({
   };
 
   return (
-    <div className="flex h-full min-h-0 relative">
+    <div className="lb-workspace flex h-full min-h-0 min-w-0 overflow-hidden relative">
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center px-6',
+          'lb-chat relative flex min-h-0 min-w-0 overflow-hidden flex-1 flex-col items-center justify-center px-6',
           browserMode === 'expanded' && 'hidden',
         )}
       >

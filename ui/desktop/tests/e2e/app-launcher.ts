@@ -25,6 +25,17 @@ import { join, resolve } from 'path';
  * whole process group on cleanup).
  */
 export function launchApp(cwd: string, env: Record<string, string | undefined>): ChildProcess {
+  if (env.LAD_E2E_PACKAGED_EXECUTABLE) {
+    if (env.LAD_E2E_ISOLATE !== '1') throw new Error('Packaged E2E requires an isolated profile');
+    const child = spawn(env.LAD_E2E_PACKAGED_EXECUTABLE, [], {
+      cwd,
+      env: { ...env, ENABLE_PLAYWRIGHT: 'true' },
+      stdio: 'pipe',
+      detached: process.platform !== 'win32',
+    });
+    drain(child);
+    return child;
+  }
   const isWin = process.platform === 'win32';
   const desktopDir = resolve(cwd);
   const uiDir = resolve(desktopDir, '..');
@@ -32,7 +43,7 @@ export function launchApp(cwd: string, env: Record<string, string | undefined>):
     uiDir,
     'node_modules',
     '.bin',
-    isWin ? 'electron-forge.cmd' : 'electron-forge',
+    isWin ? 'electron-forge.cmd' : 'electron-forge'
   );
 
   const commonEnv = {
@@ -72,7 +83,7 @@ export function launchApp(cwd: string, env: Record<string, string | undefined>):
 
   if (!existsSync(forgeBin)) {
     throw new Error(
-      `E2E launcher: pnpm is unusable in this environment and the electron-forge binary was not found at ${forgeBin}`,
+      `E2E launcher: pnpm is unusable in this environment and the electron-forge binary was not found at ${forgeBin}`
     );
   }
 

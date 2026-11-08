@@ -1,0 +1,72 @@
+/* Local AI Desktop: responsive Live Browser workspace. */
+[data-testid='live-browser-panel'] {
+  container-type: inline-size;
+  min-width: 0;
+}
+.lb-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.lb-tools {
+  min-width: 220px;
+  max-width: 45%;
+  background: var(--background-primary);
+}
+.lb-tools-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  touch-action: none;
+}
+.lb-tools-divider:hover,
+.lb-tools-divider:focus-visible {
+  background: #6088bb;
+}
+.lb-tools-hidden .lb-tools,
+.lb-tools-hidden .lb-tools-divider {
+  display: none;
+}
+.lb-bottom {
+  flex-direction: column;
+}
+.lb-bottom .lb-tools {
+  width: 100% !important;
+  max-width: none;
+  max-height: 38%;
+  border-top: 1px solid #8884;
+}
+.lb-bottom .lb-tools-divider {
+  display: none;
+}
+@container (max-width: 650px) {
+  .lb-body {
+    flex-direction: column;
+  }
+  .lb-tools {
+    width: 100% !important;
+    max-width: none;
+    max-height: 32%;
+    border-top: 1px solid #8884;
+  }
+  .lb-tools-divider {
+    display: none;
+  }
+}
+.lb-workspace {
+  container: workspace / inline-size;
+}
+@container workspace (max-width:720px) {
+  .lb-chat:has(~ [data-testid='live-browser-panel']) {
+    display: none;
+  }
+  [data-testid='live-browser-panel'] {
+    max-width: 100% !important;
+    width: 100% !important;
+    flex: 1;
+  }
+  [data-testid='live-browser-panel'] > [role='separator'] {
+    display: none;
+  }
+}

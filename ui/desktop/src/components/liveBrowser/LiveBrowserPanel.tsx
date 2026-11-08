@@ -10,6 +10,7 @@
  * diagnostics), marks areas for the next agent message, and records checks.
  * Hiding the panel (chatOnly) never stops the browser or the agent.
  */
+import './liveBrowser.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
@@ -21,6 +22,8 @@ import {
   Maximize2,
   MousePointerSquareDashed,
   RotateCw,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
 } from 'lucide-react';
 import { cn } from '../../utils';
@@ -41,12 +44,16 @@ import {
 
 /** Per-region live-check summary in the shape buildAreaContextText expects. */
 function liveRecord(
-  regions: LadRegion[],
+  regions: LadRegion[]
 ): Record<string, { stale: boolean; reason?: string; at: string }> {
   const record: Record<string, { stale: boolean; reason?: string; at: string }> = {};
   for (const region of regions) {
     if (region.live) {
-      record[region.id] = { stale: region.live.stale, reason: region.live.reason, at: region.live.observedAt };
+      record[region.id] = {
+        stale: region.live.stale,
+        reason: region.live.reason,
+        at: region.live.observedAt,
+      };
     }
   }
   return record;
@@ -84,6 +91,39 @@ export function LiveBrowserPanel({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
+  const [toolsOpen, setToolsOpen] = useState(true);
+  const [toolsWidth, setToolsWidth] = useState(260);
+  const [toolsLayout, setToolsLayout] = useState('side');
+  const [previewScale, setPreviewScale] = useState('fit');
+  const [vision, setVision] = useState(false);
+  const [selectionAreaId, setSelectionAreaId] = useState<string | undefined>();
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(`live-browser-tools:${sessionId}`) || '{}');
+      setToolsOpen(saved.open ?? true);
+      setToolsWidth(saved.width ?? 260);
+      setToolsLayout(saved.layout ?? 'side');
+      setPreviewScale(saved.scale ?? 'fit');
+    } catch {
+      /* Use defaults for invalid preferences. */
+    }
+  }, [sessionId]);
+  const saveTools = (patch: Record<string, unknown>) => {
+    try {
+      localStorage.setItem(
+        `live-browser-tools:${sessionId}`,
+        JSON.stringify({
+          open: toolsOpen,
+          width: toolsWidth,
+          layout: toolsLayout,
+          scale: previewScale,
+          ...patch,
+        })
+      );
+    } catch {
+      /* Storage unavailable. */
+    }
+  };
 
   // The canvas is conditionally rendered (it appears only once the runtime
   // endpoint is available), so a mount-time effect would attach `null`.
@@ -94,7 +134,7 @@ export function LiveBrowserPanel({
       canvasRef.current = el;
       attachCanvas(el);
     },
-    [attachCanvas],
+    [attachCanvas]
   );
 
   // Detach on unmount so the hook stops drawing into a removed canvas.
@@ -105,11 +145,16 @@ export function LiveBrowserPanel({
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     const refresh = () => {
-      live.scrollSnapshot()
+      live
+        .scrollSnapshot()
         .then((s) =>
           // Keep state stable when the scroll position did not change so the
           // panel (and the overlay) do not re-render on every poll.
-          setScroll((prev) => (prev && prev.x === s.scrollX && prev.y === s.scrollY ? prev : { x: s.scrollX, y: s.scrollY })),
+          setScroll((prev) =>
+            prev && prev.x === s.scrollX && prev.y === s.scrollY
+              ? prev
+              : { x: s.scrollX, y: s.scrollY }
+          )
         )
         .catch(() => undefined);
     };
@@ -128,7 +173,7 @@ export function LiveBrowserPanel({
       if (!draggingRef.current || !panelRef.current) return;
       const rect = panelRef.current.getBoundingClientRect();
       const width = Math.round(rect.right - event.clientX);
-      onPanelWidthChange(Math.max(360, Math.min(1200, width)));
+      onPanelWidthChange(Math.max(320, Math.min(window.innerWidth - 340, width)));
     };
     const onUp = () => {
       draggingRef.current = false;
@@ -143,15 +188,16 @@ export function LiveBrowserPanel({
 
   const meta = live.meta;
   const areaOfRegion = useCallback(
-    (region: LadRegion): LadArea | undefined => live.areas.find((a) => a.regionIds.includes(region.id)),
-    [live.areas],
+    (region: LadRegion): LadArea | undefined =>
+      live.areas.find((a) => a.regionIds.includes(region.id)),
+    [live.areas]
   );
 
   const handleCommitSelection = useCallback(
     async (rect: { x: number; y: number; width: number; height: number }) => {
       setSelectionMode(false);
       try {
-        const result = await live.ground(rect);
+        const result = await live.ground(rect, { areaId: selectionAreaId });
         const createdArea = result.area;
         if (createdArea) {
           setIncludeAreaIds((prev) => new Set(prev).add(createdArea.id));
@@ -162,7 +208,7 @@ export function LiveBrowserPanel({
         setErrorNote(error instanceof Error ? error.message : String(error));
       }
     },
-    [live],
+    [live, selectionAreaId]
   );
 
   const toggleInclude = useCallback((areaId: string) => {
@@ -177,18 +223,31 @@ export function LiveBrowserPanel({
   const sendToAgent = useCallback(
     async (area: LadArea) => {
       try {
-        const regions = live.regions.filter((r) => area.regionIds.includes(r.id));
+        const regions = await Promise.all(
+          live.regions
+            .filter((r) => area.regionIds.includes(r.id))
+            .map((r) =>
+              live
+                .liveProjection(r.id)
+                .catch(() => ({
+                  ...r,
+                  live: { ...r.live!, stale: true, reason: 'projection-failed' },
+                }))
+            )
+        );
         const text = buildAreaContextText({
           areas: [area],
           regions,
           project: undefined,
-          vision: undefined,
+          vision: vision ? 'on' : 'off',
           live: liveRecord(regions),
         });
         const images: Array<{ data: string; mimeType: string }> = [];
-        for (const region of regions.slice(0, 3)) {
+        for (const region of (vision ? regions : []).slice(0, 3)) {
           try {
-            const crop = await live.captureRegionCrop(region.rect, 1280);
+            const fresh = await live.liveProjection(region.id);
+            if (fresh.live?.stale || !fresh.live?.rect) continue;
+            const crop = await live.captureRegionCrop(fresh.live.rect, 1280);
             images.push({ data: crop.data, mimeType: crop.mime });
           } catch {
             // capture failed — text context still goes through
@@ -199,12 +258,13 @@ export function LiveBrowserPanel({
           images,
           areaNames: [area.name],
           createdAt: Date.now(),
+          conversationId: sessionId,
         });
       } catch (error) {
         setErrorNote(error instanceof Error ? error.message : String(error));
       }
     },
-    [live],
+    [live, vision, sessionId]
   );
 
   const sendAllToAgent = useCallback(async () => {
@@ -216,13 +276,15 @@ export function LiveBrowserPanel({
         areas: list,
         regions,
         project: undefined,
-        vision: undefined,
+        vision: vision ? 'on' : 'off',
         live: liveRecord(regions),
       });
       const images: Array<{ data: string; mimeType: string }> = [];
-      for (const region of regions.slice(0, 6)) {
+      for (const region of (vision ? regions : []).slice(0, 6)) {
         try {
-          const crop = await live.captureRegionCrop(region.rect, 1024);
+          const fresh = await live.liveProjection(region.id);
+          if (fresh.live?.stale || !fresh.live?.rect) continue;
+          const crop = await live.captureRegionCrop(fresh.live.rect, 1024);
           images.push({ data: crop.data, mimeType: crop.mime });
         } catch {
           // ignore
@@ -233,11 +295,12 @@ export function LiveBrowserPanel({
         images,
         areaNames: list.map((a) => a.name),
         createdAt: Date.now(),
+        conversationId: sessionId,
       });
     } catch (error) {
       setErrorNote(error instanceof Error ? error.message : String(error));
     }
-  }, [live, includeAreaIds]);
+  }, [live, includeAreaIds, vision, sessionId]);
 
   const pending = peekPendingSelection();
 
@@ -248,9 +311,13 @@ export function LiveBrowserPanel({
       data-mode={mode}
       className={cn(
         'relative z-[100] flex h-full min-h-0 border-l border-border-primary bg-background-primary no-drag',
-        mode === 'split' ? '' : 'h-full',
+        mode === 'split' ? '' : 'h-full'
       )}
-      style={mode === 'split' ? { width: panelWidth } : { width: '100%', flex: 1 }}
+      style={
+        mode === 'split'
+          ? { width: panelWidth, maxWidth: 'calc(100% - 320px)', flexShrink: 0 }
+          : { width: '100%', flex: 1 }
+      }
     >
       {mode === 'split' && (
         <div
@@ -259,7 +326,27 @@ export function LiveBrowserPanel({
             event.preventDefault();
             draggingRef.current = true;
           }}
-          title={intl.formatMessage(i18n.closePanel)}
+          role="separator"
+          tabIndex={0}
+          aria-label="Resize browser"
+          aria-orientation="vertical"
+          aria-valuemin={320}
+          aria-valuemax={window.innerWidth - 340}
+          aria-valuenow={panelWidth}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault();
+              onPanelWidthChange(
+                Math.max(
+                  320,
+                  Math.min(
+                    window.innerWidth - 340,
+                    panelWidth + (event.key === 'ArrowLeft' ? 32 : -32)
+                  )
+                )
+              );
+            }
+          }}
         />
       )}
 
@@ -368,13 +455,95 @@ export function LiveBrowserPanel({
             className="h-7"
             data-testid="live-browser-open"
             onClick={() => {
-              if (urlInput.trim()) void live.navigate('open', urlInput.trim()).then(() => setUrlInput(''));
+              if (urlInput.trim())
+                void live.navigate('open', urlInput.trim()).then(() => setUrlInput(''));
             }}
           >
             {intl.formatMessage(i18n.open)}
           </Button>
         </div>
 
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-primary px-2 py-1 text-xs">
+          <button
+            data-testid="live-browser-tools-toggle"
+            aria-expanded={toolsOpen}
+            title={intl.formatMessage(i18n.technicalData)}
+            onClick={() => {
+              setToolsOpen(!toolsOpen);
+              saveTools({ open: !toolsOpen });
+            }}
+          >
+            {toolsOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          </button>
+          <select
+            aria-label="Tools layout"
+            value={toolsLayout}
+            onChange={(e) => {
+              setToolsLayout(e.target.value);
+              saveTools({ layout: e.target.value });
+            }}
+          >
+            <option value="side">↔</option>
+            <option value="bottom">↕</option>
+          </select>
+          <select
+            aria-label="Preview scale"
+            value={previewScale}
+            onChange={(e) => {
+              setPreviewScale(e.target.value);
+              saveTools({ scale: e.target.value });
+            }}
+          >
+            <option value="fit">Fit</option>
+            {['0.5', '0.75', '1', '1.25', '1.5'].map((v) => (
+              <option key={v} value={v}>
+                {Number(v) * 100}%
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1">
+            <input type="checkbox" checked={vision} onChange={(e) => setVision(e.target.checked)} />
+            Vision
+          </label>
+          <details className="relative">
+            <summary>Viewport</summary>
+            <form
+              className="absolute right-0 z-50 flex gap-1 rounded bg-background-primary p-2 shadow"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const data = new FormData(e.currentTarget);
+                void live.setViewportSize({
+                  width: Number(data.get('width')),
+                  height: Number(data.get('height')),
+                  zoom: meta?.zoom,
+                });
+              }}
+            >
+              <input
+                name="width"
+                aria-label="Viewport width"
+                type="number"
+                min="320"
+                max="4096"
+                defaultValue={meta?.viewport.width ?? 1280}
+                className="w-20"
+              />
+              <input
+                name="height"
+                aria-label="Viewport height"
+                type="number"
+                min="240"
+                max="4096"
+                defaultValue={meta?.viewport.height ?? 800}
+                className="w-20"
+              />
+              <button>✓</button>
+            </form>
+          </details>
+          <span className="ml-auto text-text-secondary">
+            {meta?.viewport.width} × {meta?.viewport.height}
+          </span>
+        </div>
         {/* View controls */}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border-primary px-2 py-1.5 text-xs text-text-secondary">
           <span>{intl.formatMessage(i18n.viewportLabel)}:</span>
@@ -382,15 +551,28 @@ export function LiveBrowserPanel({
             <Select
               isSearchable={false}
               options={(() => {
-                const current = meta ? `${meta.viewport.width}x${meta.viewport.height}` : '1280x800';
-                const base = ['1280x800', '1024x768', '1920x1080', '1366x768'].map((v) => ({
+                const current = meta
+                  ? `${meta.viewport.width}x${meta.viewport.height}`
+                  : '1280x800';
+                const base = [
+                  '390x844',
+                  '768x1024',
+                  '1280x800',
+                  '1440x900',
+                  '1920x1080',
+                  '3840x2160',
+                ].map((v) => ({
                   value: v,
                   label: v.replace('x', '×'),
                 }));
-                return base.some((o) => o.value === current) ? base : [{ value: current, label: current.replace('x', '×') }, ...base];
+                return base.some((o) => o.value === current)
+                  ? base
+                  : [{ value: current, label: current.replace('x', '×') }, ...base];
               })()}
               value={(() => {
-                const current = meta ? `${meta.viewport.width}x${meta.viewport.height}` : '1280x800';
+                const current = meta
+                  ? `${meta.viewport.width}x${meta.viewport.height}`
+                  : '1280x800';
                 return { value: current, label: current.replace('x', '×') };
               })()}
               onChange={(option) => {
@@ -409,7 +591,10 @@ export function LiveBrowserPanel({
               isSearchable={false}
               options={(() => {
                 const current = meta ? String(meta.zoom) : '1';
-                const base = ZOOM_OPTIONS.map((z) => ({ value: z, label: `${Math.round(Number(z) * 100)}%` }));
+                const base = ZOOM_OPTIONS.map((z) => ({
+                  value: z,
+                  label: `${Math.round(Number(z) * 100)}%`,
+                }));
                 return base.some((o) => o.value === current)
                   ? base
                   : [{ value: current, label: `${Math.round(Number(current) * 100)}%` }, ...base];
@@ -422,7 +607,11 @@ export function LiveBrowserPanel({
                 if (!option || !meta) return;
                 const zoom = Number((option as { value: string }).value);
                 if (Number.isFinite(zoom) && zoom > 0) {
-                  void live.setViewportSize({ width: meta.viewport.width, height: meta.viewport.height, zoom });
+                  void live.setViewportSize({
+                    width: meta.viewport.width,
+                    height: meta.viewport.height,
+                    zoom,
+                  });
                 }
               }}
             />
@@ -431,7 +620,10 @@ export function LiveBrowserPanel({
             variant="ghost"
             size="sm"
             className="h-6"
-            onClick={() => setSelectionMode((v) => !v)}
+            onClick={() => {
+              setSelectionAreaId(undefined);
+              setSelectionMode((v) => !v);
+            }}
             title={intl.formatMessage(i18n.newArea)}
             data-testid="live-browser-new-area"
           >
@@ -441,27 +633,37 @@ export function LiveBrowserPanel({
           </Button>
           {live.areas.length > 0 && (
             <div className="ml-auto flex items-center gap-1">
-              <Button variant="outline" size="sm" className="h-6 text-xs" data-testid="live-browser-include-all" onClick={() => void sendAllToAgent()}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs"
+                data-testid="live-browser-include-all"
+                onClick={() => void sendAllToAgent()}
+              >
                 → {intl.formatMessage(i18n.includeInNext)}
               </Button>
             </div>
           )}
         </div>
 
-        {errorNote && (
+        {(errorNote || live.lastError || live.runtime.error) && (
           <div className="shrink-0 border-b border-border-primary bg-red-500/10 px-2 py-1 text-xs text-red-600 dark:text-red-400">
-            {errorNote}
+            <span role="alert">{errorNote || live.lastError || live.runtime.error}</span>{' '}
+            <button onClick={live.retryRuntime}>{intl.formatMessage(i18n.retry)}</button>
           </div>
         )}
 
         {/* Body: screencast + areas */}
-        <div className="flex min-h-0 flex-1">
-          <div className="relative min-w-0 flex-1 overflow-auto bg-black">
+        <div className={`lb-body lb-${toolsLayout} ${toolsOpen ? '' : 'lb-tools-hidden'}`}>
+          <div className="relative min-w-0 flex-1 overflow-auto bg-background-secondary">
             {!live.runtime.endpoint ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-text-secondary" data-testid="live-browser-connecting">
+              <div
+                className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-text-secondary"
+                data-testid="live-browser-connecting"
+              >
                 {live.runtime.error ? (
                   <>
-                    <p>{intl.formatMessage(i18n.runtimeError, { error: live.runtime.error })}</p>
+                    <Globe className="h-8 w-8 opacity-40" />
                     <Button variant="outline" size="sm" onClick={live.retryRuntime}>
                       {intl.formatMessage(i18n.retry)}
                     </Button>
@@ -475,7 +677,18 @@ export function LiveBrowserPanel({
               </div>
             ) : (
               <div className="flex min-h-full items-start justify-center p-2">
-                <div className="relative w-full max-w-full" style={{ aspectRatio: meta ? `${meta.viewport.width} / ${meta.viewport.height}` : '16 / 10' }}>
+                <div
+                  className="relative shrink-0"
+                  style={{
+                    width:
+                      previewScale === 'fit'
+                        ? '100%'
+                        : (meta?.viewport.width ?? 1280) * Number(previewScale),
+                    aspectRatio: meta
+                      ? `${meta.viewport.width} / ${meta.viewport.height}`
+                      : '16 / 10',
+                  }}
+                >
                   <canvas
                     ref={handleCanvasRef}
                     data-testid="live-browser-canvas"
@@ -484,11 +697,7 @@ export function LiveBrowserPanel({
                   />
                   <SelectionOverlay
                     canvas={canvasRef.current}
-                    meta={
-                      meta
-                        ? { viewport: meta.viewport, dpr: meta.dpr, zoom: meta.zoom }
-                        : null
-                    }
+                    meta={meta ? { viewport: meta.viewport, dpr: meta.dpr, zoom: meta.zoom } : null}
                     regions={live.regions}
                     areas={live.areas}
                     active={selectionMode}
@@ -508,8 +717,47 @@ export function LiveBrowserPanel({
             )}
           </div>
 
+          <div
+            className="lb-tools-divider"
+            role="separator"
+            tabIndex={0}
+            aria-label="Resize areas"
+            aria-orientation="vertical"
+            aria-valuemin={220}
+            aria-valuemax={520}
+            aria-valuenow={toolsWidth}
+            onKeyDown={(e) => {
+              if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const width = Math.max(
+                  220,
+                  Math.min(520, toolsWidth + (e.key === 'ArrowLeft' ? 16 : -16))
+                );
+                setToolsWidth(width);
+                saveTools({ width });
+              }
+            }}
+            onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
+            onPointerMove={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId) && panelRef.current) {
+                const width = Math.max(
+                  220,
+                  Math.min(520, panelRef.current.getBoundingClientRect().right - e.clientX)
+                );
+                setToolsWidth(width);
+              }
+            }}
+            onPointerUp={(e) => {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+              saveTools({ width: toolsWidth });
+            }}
+          />
           {/* Areas sidebar */}
-          <div className="flex w-72 shrink-0 flex-col overflow-hidden border-l border-border-primary" data-testid="live-browser-areas">
+          <div
+            className="lb-tools flex shrink-0 flex-col overflow-hidden border-l border-border-primary"
+            style={{ width: toolsWidth }}
+            data-testid="live-browser-areas"
+          >
             <div className="flex shrink-0 items-center justify-between border-b border-border-primary px-2 py-1.5">
               <span className="text-xs font-medium text-text-secondary">
                 {intl.formatMessage(i18n.regionsCount, { count: live.regions.length })}
@@ -525,7 +773,13 @@ export function LiveBrowserPanel({
                   >
                     {intl.formatMessage(i18n.selectAll)}
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" data-testid="live-browser-deselect-all" onClick={() => setIncludeAreaIds(new Set())}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px]"
+                    data-testid="live-browser-deselect-all"
+                    onClick={() => setIncludeAreaIds(new Set())}
+                  >
                     {intl.formatMessage(i18n.deselectAll)}
                   </Button>
                 </div>
@@ -538,14 +792,24 @@ export function LiveBrowserPanel({
                 const expanded = expandedAreaId === area.id;
                 const included = includeAreaIds.has(area.id);
                 return (
-                  <div key={area.id} className="border-b border-border-primary px-2 py-2" data-testid="live-browser-area" data-area-name={area.name}>
+                  <div
+                    key={area.id}
+                    className="border-b border-border-primary px-2 py-2"
+                    data-testid="live-browser-area"
+                    data-area-name={area.name}
+                  >
                     <div className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: area.color }} />
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: area.color }}
+                      />
                       <input
                         className="min-w-0 flex-1 bg-transparent text-xs font-medium text-text-primary outline-none"
                         data-testid="live-browser-area-name"
                         value={nameDraft[area.id] ?? area.name}
-                        onChange={(event) => setNameDraft((prev) => ({ ...prev, [area.id]: event.target.value }))}
+                        onChange={(event) =>
+                          setNameDraft((prev) => ({ ...prev, [area.id]: event.target.value }))
+                        }
                         onBlur={() => {
                           const name = (nameDraft[area.id] ?? '').trim();
                           if (name && name !== area.name) void live.updateArea(area.id, { name });
@@ -556,7 +820,10 @@ export function LiveBrowserPanel({
                           });
                         }}
                       />
-                      <span className="rounded-full px-1.5 py-0.5 text-[9px] font-medium" style={{ backgroundColor: `${area.color}33`, color: area.color }}>
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                        style={{ backgroundColor: `${area.color}33`, color: area.color }}
+                      >
                         {area.status}
                       </span>
                     </div>
@@ -567,10 +834,13 @@ export function LiveBrowserPanel({
                       rows={2}
                       placeholder={intl.formatMessage(i18n.areaDescription)}
                       value={descDraft[area.id] ?? area.description ?? ''}
-                      onChange={(event) => setDescDraft((prev) => ({ ...prev, [area.id]: event.target.value }))}
+                      onChange={(event) =>
+                        setDescDraft((prev) => ({ ...prev, [area.id]: event.target.value }))
+                      }
                       onBlur={() => {
                         const description = (descDraft[area.id] ?? '').trim();
-                        if (description !== (area.description ?? '')) void live.updateArea(area.id, { description: description || undefined });
+                        if (description !== (area.description ?? ''))
+                          void live.updateArea(area.id, { description: description || undefined });
                         setDescDraft((prev) => {
                           const next = { ...prev };
                           delete next[area.id];
@@ -583,24 +853,32 @@ export function LiveBrowserPanel({
                       <div className="w-28" data-testid="live-browser-area-status">
                         <Select
                           isSearchable={false}
-                          options={LAD_REGION_STATUSES.map((status) => ({ value: status, label: status }))}
+                          options={LAD_REGION_STATUSES.map((status) => ({
+                            value: status,
+                            label: status,
+                          }))}
                           value={{ value: area.status, label: area.status }}
                           onChange={(option) => {
-                            if (option) void live.updateArea(area.id, { status: (option as { value: string }).value });
+                            if (option)
+                              void live.updateArea(area.id, {
+                                status: (option as { value: string }).value,
+                              });
                           }}
                         />
                       </div>
                       <label className="flex cursor-pointer items-center gap-1 text-[10px] text-text-secondary">
-                        <Switch
-                          checked={included}
-                          onCheckedChange={() => toggleInclude(area.id)}
-                        />
+                        <Switch checked={included} onCheckedChange={() => toggleInclude(area.id)} />
                         {intl.formatMessage(i18n.includeInNext)}
                       </label>
                     </div>
 
                     <div className="mt-1.5 flex flex-wrap gap-1">
-                      <Button variant="ghost" size="sm" className="h-5 text-[10px]" onClick={() => setExpandedAreaId(expanded ? null : area.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 text-[10px]"
+                        onClick={() => setExpandedAreaId(expanded ? null : area.id)}
+                      >
                         {expanded ? '−' : '+'} {intl.formatMessage(i18n.technicalData)}
                       </Button>
                       <Button
@@ -622,14 +900,44 @@ export function LiveBrowserPanel({
                       </Button>
                     </div>
 
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => {
+                        setSelectionAreaId(area.id);
+                        setSelectionMode(true);
+                      }}
+                    >
+                      + {intl.formatMessage(i18n.newArea)}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs"
+                      onClick={() => void sendToAgent(area)}
+                    >
+                      → {intl.formatMessage(i18n.includeInNext)}
+                    </Button>
                     {expanded && (
                       <div className="mt-2 space-y-2 rounded-md bg-background-secondary p-2 text-[10px] text-text-secondary">
+                        <details>
+                          <summary>{intl.formatMessage(i18n.historyLabel)}</summary>
+                          {area.events?.map((event, index) => (
+                            <div key={index}>
+                              {event.at} · {event.source} · {event.action}
+                            </div>
+                          ))}
+                        </details>
                         {regionList.map((region) => {
                           const areaHere = areaOfRegion(region);
                           const anchor = region.anchors[0];
                           const stale = region.live?.stale === true;
                           return (
-                            <div key={region.id} className="space-y-1 border-b border-border-primary pb-2 last:border-b-0 last:pb-0">
+                            <div
+                              key={region.id}
+                              className="space-y-1 border-b border-border-primary pb-2 last:border-b-0 last:pb-0"
+                            >
                               <div className="flex justify-between">
                                 <span>{intl.formatMessage(i18n.viewportLabel)}</span>
                                 <span className="font-mono">
@@ -645,15 +953,22 @@ export function LiveBrowserPanel({
                               <div className="flex justify-between">
                                 <span>rect</span>
                                 <span className="font-mono">
-                                  {Math.round(region.rect.x)},{Math.round(region.rect.y)} {Math.round(region.rect.width)}×{Math.round(region.rect.height)}
+                                  {Math.round(region.rect.x)},{Math.round(region.rect.y)}{' '}
+                                  {Math.round(region.rect.width)}×{Math.round(region.rect.height)}
                                 </span>
                               </div>
                               <div className="flex justify-between">
                                 <span>{intl.formatMessage(i18n.urlLabel)}</span>
-                                <span className="max-w-[10rem] truncate font-mono">{region.route}</span>
+                                <span className="max-w-[10rem] truncate font-mono">
+                                  {region.route}
+                                </span>
                               </div>
                               <div className="flex justify-between">
-                                <span>{intl.formatMessage(i18n.anchorsCount, { count: region.anchors.length })}</span>
+                                <span>
+                                  {intl.formatMessage(i18n.anchorsCount, {
+                                    count: region.anchors.length,
+                                  })}
+                                </span>
                                 {anchor && (
                                   <span className="max-w-[10rem] truncate font-mono">
                                     {anchor.tag} {anchor.selector}
@@ -663,7 +978,9 @@ export function LiveBrowserPanel({
                               {anchor && (
                                 <div className="flex justify-between">
                                   <span>{intl.formatMessage(i18n.confidenceLabel)}</span>
-                                  <span className="font-mono">{Math.round(anchor.confidence * 100)}%</span>
+                                  <span className="font-mono">
+                                    {Math.round(anchor.confidence * 100)}%
+                                  </span>
                                 </div>
                               )}
                               {stale && (
@@ -700,7 +1017,12 @@ export function LiveBrowserPanel({
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 text-[10px]"
-                                  onClick={() => void live.recordCheck(area.id, { result: 'verified', newStatus: 'Verified' })}
+                                  onClick={() =>
+                                    void live.recordCheck(area.id, {
+                                      result: 'verified',
+                                      newStatus: 'Verified',
+                                    })
+                                  }
                                 >
                                   {intl.formatMessage(i18n.markVerified)}
                                 </Button>
@@ -708,7 +1030,12 @@ export function LiveBrowserPanel({
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 text-[10px]"
-                                  onClick={() => void live.recordCheck(area.id, { result: 'broken', newStatus: 'Unresolved' })}
+                                  onClick={() =>
+                                    void live.recordCheck(area.id, {
+                                      result: 'broken',
+                                      newStatus: 'Unresolved',
+                                    })
+                                  }
                                 >
                                   {intl.formatMessage(i18n.markUnresolved)}
                                 </Button>
@@ -726,7 +1053,9 @@ export function LiveBrowserPanel({
                           );
                         })}
                         {regionList.length === 0 && (
-                          <div className="italic">{intl.formatMessage(i18n.regionsCount, { count: 0 })}</div>
+                          <div className="italic">
+                            {intl.formatMessage(i18n.regionsCount, { count: 0 })}
+                          </div>
                         )}
                         {live.runtime.endpoint && (
                           <div className="flex gap-1 pt-1">

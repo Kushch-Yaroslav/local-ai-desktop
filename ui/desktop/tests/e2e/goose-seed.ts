@@ -1,5 +1,4 @@
-import { execSync } from 'node:child_process';
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -40,20 +39,20 @@ export function discoverLlamaServer(): LlamaServerEndpoint | null {
   if (process.platform === 'win32') {
     return null;
   }
-  let pid: number;
-  try {
-    const out = execSync('pgrep -f "llama-server" | head -1', {
-      encoding: 'utf8',
-      timeout: 5_000,
-    }).trim();
-    const parsed = Number(out.split(/\s+/)[0]);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return null;
-    }
-    pid = parsed;
-  } catch {
-    return null; // no llama-server running
-  }
+  // Inspect executable names; pgrep -f can select the invoking shell or IDE prompt.
+  const pid = readdirSync('/proc')
+    .filter((name) => /^\d+$/.test(name))
+    .map(Number)
+    .find((id) => {
+      try {
+        return /(?:^|\/)llama-server$/.test(
+          splitNul(readFileSync(`/proc/${id}/cmdline`, 'utf8'))[0] ?? ''
+        );
+      } catch {
+        return false;
+      }
+    });
+  if (!pid) return null;
 
   let cmdline: string;
   let environ: string;
@@ -144,7 +143,7 @@ export function seedGooseBackend(devRoot: string, endpoint: LlamaServerEndpoint)
   writeFileSync(
     join(providersDir, `${PROVIDER_NAME}.json`),
     `${JSON.stringify(provider, null, 2)}\n`,
-    'utf8',
+    'utf8'
   );
 
   const configYaml = [
@@ -163,6 +162,9 @@ export function seedGooseBackend(devRoot: string, endpoint: LlamaServerEndpoint)
 
   // GOOSE_DISABLE_KEYRING=true in the test env makes goose use this file.
   const secretsPath = join(configDir, 'secrets.yaml');
-  writeFileSync(secretsPath, `${SECRET_KEY}: ${endpoint.apiKey}\n`, { encoding: 'utf8', mode: 0o600 });
+  writeFileSync(secretsPath, `${SECRET_KEY}: ${endpoint.apiKey}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  });
   chmodSync(secretsPath, 0o600);
 }

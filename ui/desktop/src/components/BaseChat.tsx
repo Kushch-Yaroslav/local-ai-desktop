@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: responsive Live Browser workspace.
 // Modified for Local AI Desktop: expose managed-runtime memory state in chat.
 import { AppEvents } from '../constants/events';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -94,7 +95,7 @@ function loadBrowserUIState(sessionId: string): BrowserUIState {
         parsed.mode === 'split' || parsed.mode === 'expanded' ? parsed.mode : 'chatOnly';
       const panelWidth =
         typeof parsed.panelWidth === 'number' && Number.isFinite(parsed.panelWidth)
-          ? Math.min(1200, Math.max(360, Math.round(parsed.panelWidth)))
+          ? Math.min(3840, Math.max(320, Math.round(parsed.panelWidth)))
           : BROWSER_DEFAULT_PANEL_WIDTH;
       return { mode, panelWidth };
     }
@@ -555,8 +556,8 @@ export default function BaseChat({
           </Button>
         </div>
       )}
-      <div className="flex min-h-0 flex-1">
-        <div className={cn('flex min-w-0 flex-1 flex-col', browserMode === 'expanded' && 'hidden')}>
+      <div className="lb-workspace flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className={cn('lb-chat flex min-w-0 flex-1 flex-col overflow-hidden', browserMode === 'expanded' && 'hidden')}>
         <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
         {/* Chat container with sticky recipe header */}
         <div className="flex flex-col flex-1 min-h-0 relative">

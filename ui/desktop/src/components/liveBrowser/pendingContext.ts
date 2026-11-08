@@ -22,6 +22,7 @@ export interface PendingSelection {
   /** Names of the areas included (for UI feedback). */
   areaNames: string[];
   createdAt: number;
+  conversationId?: string;
 }
 
 let pending: PendingSelection | null = null;
@@ -38,7 +39,14 @@ export function setPendingSelection(selection: PendingSelection | null): void {
 }
 
 /** Take the queued selection (or null). Consumed exactly once. */
-export function consumePendingSelection(): PendingSelection | null {
+export function consumePendingSelection(conversationId?: string): PendingSelection | null {
+  if (
+    conversationId &&
+    pending?.conversationId &&
+    pending.conversationId !== conversationId &&
+    pending.conversationId !== 'hub'
+  )
+    return null;
   const current = pending;
   pending = null;
   if (current) emit();
