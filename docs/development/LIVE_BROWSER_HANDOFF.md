@@ -626,3 +626,6 @@ Verification: installed Entry ID `local-ai-desktop.desktop` was launched with `g
 ## Latest P0 follow-up
 
 See [P0_DOCK_QWEN.md](P0_DOCK_QWEN.md). The active build is now `.local-work/p0-dock-qwen/Local AI Desktop-linux-x64/`; Dock desktop identity and reveal handling changed. Real Qwen35 32K FP16/FA and discovery passed with MTP Off; Qwen27 baseline passed. Physical Dock acceptance is pending and packaged second-instance test timed out, so full readiness is not claimed.
+
+
+P0 Dock acceptance correction: physical click initially failed with no_usable_sandbox/SIGTRAP because the old AppArmor userns attachment covered only ui/desktop/out. The user installed the prepared exact-active-build rule and confirmed Dock launch, minimized restore, and reopen after normal close all work. See P0_DOCK_QWEN.md. The kernel/AppArmor/Chromium sandbox protections remain enabled; future new-path activation now requires its exact policy attachment.

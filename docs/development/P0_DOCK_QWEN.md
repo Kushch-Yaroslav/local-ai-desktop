@@ -25,3 +25,17 @@ The existing memory error hint now mentions MTP's additional context. Discovery 
 Host targeted suite: 53 PASS. Restricted-namespace fixture execution initially had 17 credentialUnsupported failures because its fake runtime could not probe correctly; rerun on the host passed all 53. TSC passed. Real Qwen35 baseline/discovery PASS, real Qwen27 baseline PASS. Packaged activation E2E FAIL (timeout), physical Dock and new login NOT VERIFIED.
 
 Fresh package: .local-work/p0-dock-qwen/Local AI Desktop-linux-x64/. Activated via the existing selector and canonical menu installer; no extra activation is needed for the next start. Existing processes were not replaced. If an older instance remains open, it must be closed normally before the new executable takes effect. Validation artifacts are ignored under the package's validation directory.
+
+## Confirmed physical Dock failure, subsequent correction
+
+The user clicked the fresh active build and reported no window. The timestamped launch JSON at 23:31:04 records canonical gio_entry local-ai-desktop.desktop, executable p0-dock-qwen, AppArmor unconfined, startup_error no_usable_sandbox and exit -5 (SIGTRAP); no Electron main initialization occurred. A prior successful ordinary desktop-icon launch recorded desktop-icons-ng (unconfined). The installed /etc/apparmor.d/local-ai-desktop-goose-dev attaches only to ui/desktop/out/.../Local AI Desktop, so switching to .local-work removed the binary from its explicit userns allowance. kernel.apparmor_restrict_unprivileged_userns=1. This is a confirmed launch-path security-policy regression, independent of window identity/focus.
+
+install-dev-apparmor.sh now generates a second exact-path attachment for the selected build, retains the original out rule and backs up the old dedicated policy before validated reload. It does not disable AppArmor or Chromium sandbox and has no wildcard permission for arbitrary executables. Optional argument accepts an exact future selected executable, enabling policy installation before activation. activate-packaged-build.sh now rejects --activate when the installed dedicated policy lacks the target path, printing the exact sudo command. launch-diagnostics.py surfaces no_usable_sandbox through an allowlisted desktop notification.
+
+The generated policy passed apparmor_parser -Q -T. Root installation could not be automated: sudo -n requires the user's password. The user has been asked to run sudo scripts/dev/install-dev-apparmor.sh and click Dock again. Until that result is supplied, Dock remains pending; identity/focus changes alone did not fix the physical failure.
+
+
+Physical Dock acceptance update: the user installed the exact-path rule and confirmed the Dock click opened the window. The 23:34:35 launch trace records canonical entry, p0-dock-qwen executable, backend_started and backend_ready; main.log records React ready and Live Browser runtime ready. The initial physical failure is therefore resolved by the targeted AppArmor attachment. Minimize/reopen follow-up and fresh-login acceptance remain separate until confirmed.
+
+
+The user additionally confirmed both minimize → Dock restore and normal close → Dock reopen work on the active build after the rule installation. A fresh GNOME login has not been performed. scripts/dev/test-activation-policy.py passes and proves a new uncovered package cannot replace the existing selection.

@@ -21,6 +21,12 @@ if [[ "$mode" == --check ]]; then
   echo 'No installation/profile changes. Close the old application yourself before switching.'
   exit 0
 fi
+if [[ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || true)" == 1 ]] &&
+   ! grep -Fq "\"$target/Local AI Desktop\"" /etc/apparmor.d/local-ai-desktop-goose-dev 2>/dev/null; then
+  echo 'This build is outside the installed AppArmor userns rule. Dock launch will fail.' >&2
+  printf 'Run: sudo %q %q\n' "$repo/scripts/dev/install-dev-apparmor.sh" "$target/Local AI Desktop" >&2
+  exit 1
+fi
 mkdir -p -- "$repo/.local-work"
 pointer="$repo/.local-work/desktop-selected.path"
 temp="$(mktemp -- "$repo/.local-work/desktop-selected.XXXXXX")"

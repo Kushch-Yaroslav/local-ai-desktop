@@ -77,6 +77,13 @@ for line in iter(lambda: child.stdout.readline(8192), b''):
     for needle, code in errors.items():
         if needle in line:
             record('startup_error', code=code)
+            if code == 'no_usable_sandbox':
+                try:
+                    subprocess.run(['notify-send', 'Local AI Desktop — sandbox',
+                        'Ubuntu blocked the active build sandbox. Run sudo scripts/dev/install-dev-apparmor.sh from the project terminal, then launch again.'],
+                        timeout=3, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
             break
 status = child.wait()
 record('electron_exit', pid=child.pid, status=status)
