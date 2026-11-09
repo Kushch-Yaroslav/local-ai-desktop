@@ -2242,13 +2242,21 @@ impl AcpConnection {
             return Err(error);
         }
 
-        let user_message = live_browser::prepare(
+        let user_message = match live_browser::prepare(
             &self.services.session_manager,
             &session_id,
             &args.prompt,
             args.meta.as_ref(),
         )
-        .await?;
+        .await
+        {
+            Ok(message) => message,
+            Err(error) => {
+                self.clear_active_run(&session_id, &run_id).await;
+                let _ = Self::send_active_run_update(cx, &args.session_id, None);
+                return Err(error);
+            }
+        };
         // The client's trace context must stay attached while the turn's spans and tool calls are polled.
         #[cfg(feature = "otel")]
         let trace_cx = crate::otel::trace_context::extract_from_meta(args.meta.as_ref())

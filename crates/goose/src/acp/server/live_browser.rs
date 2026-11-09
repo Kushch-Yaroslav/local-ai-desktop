@@ -144,6 +144,41 @@ pub(super) async fn prepare(
         .get_session(session_id, false)
         .await
         .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?;
+    let vision = meta
+        .and_then(|m| m.get("liveBrowserVision"))
+        .and_then(|v| v.as_str())
+        .map(str::to_owned)
+        .or_else(|| {
+            prompt.iter().find_map(|block| match block {
+                ContentBlock::Text(text) => text
+                    .meta
+                    .as_ref()?
+                    .get("liveBrowserVision")?
+                    .as_str()
+                    .map(str::to_owned),
+                _ => None,
+            })
+        });
+    if let Some(vision) = vision {
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Policy {
+            allow_images: bool,
+        }
+        impl ExtensionState for Policy {
+            const EXTENSION_NAME: &'static str = "live_browser_policy";
+            const VERSION: &'static str = "v1";
+        }
+        manager
+            .set_extension_state(
+                session_id,
+                &Policy {
+                    allow_images: vision == "on",
+                },
+            )
+            .await
+            .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?;
+    }
     let mut stored = session
         .extension_data
         .extension_states
@@ -198,6 +233,23 @@ pub(super) async fn prepare(
             }
         }
     }
+    // A saved attachment's project must not silently become another chat project.
+    if !roots.is_empty() {
+        for block in prompt {
+            if let ContentBlock::Text(text) = block {
+                if let Some(raw) = text.text.strip_prefix(CARD_PREFIX) {
+                    if let Ok(card) = serde_json::from_str::<serde_json::Value>(raw) {
+                        if let Some(captured) = card.get("projectRoot").and_then(|v| v.as_str()) {
+                            let path=std::path::PathBuf::from(captured).canonicalize().map_err(|_|agent_client_protocol::Error::invalid_params().data("Attachment project is unavailable; remove it or select its original project"))?;
+                            if !roots.iter().any(|root| std::path::Path::new(root) == path) {
+                                return Err(agent_client_protocol::Error::invalid_params().data("Attachment belongs to a different project; select its original project or create a new selection"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     let projects=roots.iter().enumerate().map(|(index,root)|serde_json::json!({"root":root,"role":if index==0 {"primary"} else {"secondary"},"active":index==0})).collect::<Vec<_>>();
     let project = serde_json::json!({"projectId": session.project_id, "roots": roots, "projects":projects, "selectionSource": selected.map(|scope|scope.source),
         "scopeNote":"Configured project roots only. This metadata does not grant filesystem permissions; obey Goose tool approvals."});
@@ -215,7 +267,14 @@ pub(super) async fn prepare(
         if attachment.vision {
             for image in attachment.images {
                 message = message.with_content(MessageContent::Image(
-                    RmcpImageContent::new(image.data, image.mime_type).with_annotations(audience()),
+                    RmcpImageContent::new(image.data, image.mime_type)
+                        .with_annotations(audience())
+                        .with_meta(rmcp::model::MetaObject(
+                            serde_json::json!({"ladBrowserAttachmentId":id})
+                                .as_object()
+                                .unwrap()
+                                .clone(),
+                        )),
                 ));
             }
         }
@@ -232,6 +291,49 @@ pub(super) async fn prepare(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn old_attachment_cannot_silently_switch_projects_and_policy_is_persisted() {
+        let data = tempfile::tempdir().unwrap();
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let manager = SessionManager::new(data.path().to_path_buf());
+        let session = manager
+            .create_session(
+                first.path().to_path_buf(),
+                "scope".into(),
+                SessionType::User,
+                GooseMode::Approve,
+            )
+            .await
+            .unwrap();
+        bind_directory(&manager, &session.id, first.path())
+            .await
+            .unwrap();
+        let prompt = vec![ContentBlock::Text(TextContent::new(format!(
+            "{CARD_PREFIX}{}",
+            serde_json::json!({"id":Uuid::new_v4().to_string(),"projectRoot":first.path()})
+        )))];
+        bind_directory(&manager, &session.id, second.path())
+            .await
+            .unwrap();
+        assert!(prepare(&manager, &session.id, &prompt, None).await.is_err());
+        let mut meta = Meta::new();
+        meta.insert("liveBrowserVision".into(), serde_json::json!("off"));
+        prepare(
+            &manager,
+            &session.id,
+            &[ContentBlock::Text(TextContent::new("Analyze"))],
+            Some(&meta),
+        )
+        .await
+        .unwrap();
+        let current = manager.get_session(&session.id, false).await.unwrap();
+        assert_eq!(
+            current.extension_data.extension_states["live_browser_policy.v1"]["allowImages"],
+            false
+        );
+    }
+
     #[tokio::test]
     async fn attachments_survive_reload_truncate_and_fork_without_leaking_to_other_chats() {
         let data = tempfile::tempdir().unwrap();
@@ -351,5 +453,135 @@ mod tests {
         merge_attachments(&mut stored, Some(&input)).unwrap();
         let changed = serde_json::json!([{"id":id,"text":"different page","vision":false}]);
         assert!(merge_attachments(&mut stored, Some(&changed)).is_err());
+    }
+}
+
+/// Hash only bounded source files in the directory explicitly selected for this session.
+/// No caller-supplied filesystem path and no contents are returned over ACP.
+pub(super) async fn source_revision(
+    manager: &SessionManager,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, agent_client_protocol::Error> {
+    let id = params
+        .get("sessionId")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| agent_client_protocol::Error::invalid_params().data("Missing sessionId"))?;
+    let session = manager
+        .get_session(id, false)
+        .await
+        .map_err(|_| agent_client_protocol::Error::resource_not_found(Some(id.to_owned())))?;
+    let scope = ProjectScope::from_extension_data(&session.extension_data).ok_or_else(|| {
+        agent_client_protocol::Error::invalid_params()
+            .data("Choose a project directory in this chat before verification")
+    })?;
+    let root = std::path::PathBuf::from(scope.root);
+    let revision = tokio::task::spawn_blocking(move || hash_sources(&root))
+        .await
+        .map_err(|e| agent_client_protocol::Error::internal_error().data(e.to_string()))?
+        .map_err(|e| agent_client_protocol::Error::invalid_params().data(e))?;
+    Ok(revision)
+}
+
+fn hash_sources(root: &Path) -> Result<serde_json::Value, String> {
+    use sha2::{Digest, Sha256};
+    let root = root.canonicalize().map_err(|e| e.to_string())?;
+    let mut pending = vec![root.clone()];
+    let mut files = std::collections::BTreeMap::new();
+    let mut total = 0u64;
+    let mut visited = 0usize;
+    while let Some(dir) = pending.pop() {
+        for item in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+            let item = item.map_err(|e| e.to_string())?;
+            visited += 1;
+            if visited > 10000 {
+                return Err("Source inventory exceeds 10000 entries".into());
+            }
+            let name = item.file_name().to_string_lossy().into_owned();
+            if name.starts_with('.')
+                || [
+                    "node_modules",
+                    "target",
+                    "dist",
+                    "build",
+                    "out",
+                    "coverage",
+                    "vendor",
+                ]
+                .contains(&name.as_str())
+            {
+                continue;
+            }
+            let kind = item.file_type().map_err(|e| e.to_string())?;
+            // Never follow symlinks, including a project link into an unrelated tree.
+            if kind.is_symlink() {
+                continue;
+            }
+            if kind.is_dir() {
+                pending.push(item.path());
+                continue;
+            }
+            let path = item.path();
+            let extension = path.extension().and_then(|v| v.to_str()).unwrap_or("");
+            if ![
+                "js", "jsx", "mjs", "cjs", "ts", "tsx", "css", "scss", "sass", "less", "html",
+                "vue", "svelte", "json", "svg",
+            ]
+            .contains(&extension)
+            {
+                continue;
+            }
+            let actual = path.canonicalize().map_err(|e| e.to_string())?;
+            if !actual.starts_with(&root) {
+                return Err("Source escaped selected project".into());
+            }
+            let size = item.metadata().map_err(|e| e.to_string())?.len();
+            total += size;
+            if size > 4_000_000 || total > 32_000_000 || files.len() >= 2000 {
+                return Err("Source revision exceeds bounded inventory".into());
+            }
+            let data = std::fs::read(&actual).map_err(|e| e.to_string())?;
+            files.insert(
+                actual
+                    .strip_prefix(&root)
+                    .map_err(|e| e.to_string())?
+                    .to_string_lossy()
+                    .into_owned(),
+                Sha256::digest(&data)
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+            );
+        }
+    }
+    if files.is_empty() {
+        return Err("No supported source files in selected project".into());
+    }
+    let fingerprint = Sha256::digest(serde_json::to_vec(&files).map_err(|e| e.to_string())?)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(
+        serde_json::json!({"root":root,"fingerprint":fingerprint,"files":files,"capturedAt":chrono::Utc::now().to_rfc3339(),"scope":"selected-project-source-inventory-v1"}),
+    )
+}
+
+#[cfg(test)]
+mod revision_tests {
+    use super::*;
+    #[test]
+    fn revision_changes_and_never_follows_external_symlinks() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("Card.tsx"), "before").unwrap();
+        std::fs::write(outside.path().join("secret.ts"), "private").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(outside.path(), root.path().join("external")).unwrap();
+        let before = hash_sources(root.path()).unwrap();
+        assert_eq!(before["files"].as_object().unwrap().len(), 1);
+        std::fs::write(root.path().join("Card.tsx"), "after").unwrap();
+        assert_ne!(
+            before["fingerprint"],
+            hash_sources(root.path()).unwrap()["fingerprint"]
+        );
     }
 }

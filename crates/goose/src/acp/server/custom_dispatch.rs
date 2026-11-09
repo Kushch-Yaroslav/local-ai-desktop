@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: source revision scoped to explicit chat project.
 use super::*;
 use goose_acp_macros::custom_methods;
 
@@ -10,6 +11,13 @@ impl AcpConnection {
         params: serde_json::Value,
     ) -> Result<serde_json::Value, agent_client_protocol::Error> {
         let result = async {
+            if method == "_local_ai/live_browser/source_revision" {
+                return super::live_browser::source_revision(
+                    &self.services.session_manager,
+                    params,
+                )
+                .await;
+            }
             if <SaveRecipeRequest as agent_client_protocol::JsonRpcMessage>::matches_method(method)
             {
                 let req = recipe::deserialize_save_recipe_request(params)?;

@@ -1,4 +1,6 @@
+// Modified for Local AI Desktop: send-time browser image policy.
 mod active_run;
+pub(crate) mod browser_vision;
 pub mod container;
 pub mod context_report;
 pub mod execute_commands;
