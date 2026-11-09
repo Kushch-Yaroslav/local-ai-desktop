@@ -31,7 +31,7 @@ for relative in ('Local AI Desktop', 'resources/bin/goose', 'resources/live-brow
     assert os.access(package / relative, os.X_OK), f'Not executable: {package / relative}'
 subprocess.run(['bash', '-n', str(launcher), str(activator), str(entry_installer)], check=True)
 assert desktop.get('Name') == 'Local AI Desktop'
-assert desktop.get('StartupWMClass') == 'local-ai-desktop-goose-dev'
+assert desktop.get('StartupWMClass') == 'local-ai-desktop'
 for alias in ('local-ai-desktop-ollama.desktop', 'local-ai-desktop-llama-cpp.desktop', 'local-ai-desktop-goose-dev.desktop'):
     alias_path = entry.parent / alias
     if alias_path.exists():

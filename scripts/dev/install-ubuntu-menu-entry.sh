@@ -31,7 +31,7 @@ Terminal=false
 Categories=Development;
 StartupNotify=true
 DBusActivatable=false
-StartupWMClass=local-ai-desktop-goose-dev
+StartupWMClass=local-ai-desktop
 EOF
 chmod 644 "$temp"
 mv -f -- "$temp" "$canonical"

@@ -15,7 +15,7 @@ export const ggufMessages = defineMessages({
   specActive: { id: 'gguf.specActive', defaultMessage: 'Active CLI mode' },
   reloadRequired: { id: 'gguf.reloadRequired', defaultMessage: 'Reload required to apply changes.' },
   projectorCpu: { id: 'gguf.projectorCpu', defaultMessage: 'Run vision projector on CPU' },
-  deviceMemory: { id: 'gguf.deviceMemory', defaultMessage: 'GPU memory allocation failed. Lower context/GPU offload, or run the vision projector on CPU, then reload.' },
+  deviceMemory: { id: 'gguf.deviceMemory', defaultMessage: 'GPU memory allocation failed. Disable MTP if its additional context cannot fit, lower context/GPU offload, or run the vision projector on CPU, then reload.' },
   specDraftGpuEmbedded: {
     id: 'gguf.specDraftGpuEmbedded',
     defaultMessage:

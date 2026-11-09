@@ -10,6 +10,7 @@ const emergencyHostReserve = 4 * 1024 ** 3;
 const predictionUncertaintyBytes = 256 * 1024 ** 2;
 
 export type DiscoveryProbe = {
+  failureKind?: string;
   record: ContextProbeRecord;
   estimate: RuntimeContextEstimate | null;
 };
@@ -98,6 +99,9 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
     const probe = await deps.probe(context, mode, phase);
     deps.signal?.throwIfAborted();
     probes.push(probe.record);
+    if (probe.failureKind && probe.failureKind !== 'cuda-oom') {
+      throw new Error(`Discovery stopped (${probe.failureKind}): ${probe.record.reason ?? 'runtime probe failed before valid memory measurement'}`);
+    }
     return probe;
   };
   try {

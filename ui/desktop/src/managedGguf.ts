@@ -1,3 +1,4 @@
+import { classifyRuntimeFailure as classifyProbeRuntimeFailure } from './contextDiscovery/runtimeFailure';
 import { detectManagedReasoning } from './ggufReasoningCapabilities';
 import { attachOwnedMemoryScope, watchOwnedMemory } from './moe/memoryGuard';
 import { placementPreview } from './moe/placement';
@@ -651,8 +652,11 @@ export class ManagedGguf {
             return { record, estimate: { ...estimate, vramBudget } };
           } catch (error) {
             record.reason = discoveryProbeError(error);
+            const diagnostic = await fs.readFile(logPath).then(data => data.subarray(this.logStarts.get(profileId) ?? data.length).toString('utf8')).catch(() => '');
+            const failureKind = classifyProbeRuntimeFailure(diagnostic + '\n' + record.reason);
+            record.reason = `${failureKind}: ${record.reason}${/failed to create MTP context/i.test(diagnostic) ? ' MTP draft context could not fit; disable MTP or reduce GPU offload before retrying.' : ''}`;
             record.elapsedMs = Date.now() - started;
-            return { record, estimate: null };
+            return { record, estimate: null, failureKind };
           }
         },
         restore: async () => {

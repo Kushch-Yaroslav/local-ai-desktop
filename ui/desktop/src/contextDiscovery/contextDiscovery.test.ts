@@ -73,3 +73,9 @@ describe('ported donor context discovery core', () => {
     expect(estimate.unknownReasons.length).toBeGreaterThan(0);
   });
 });
+
+it('stops infrastructure failures after one probe and restores without claiming a memory boundary', async () => {
+ let calls=0, restores=0;
+ await expect(discoverContextBoundary({ modelId:'broken', hardLimit:65536, kvOffload:true, hostReserveBytes:8*GiB, deviceReserveBytes:2*GiB, progress:()=>{}, restore:async()=>{restores++;}, probe:async(context,mode,phase)=>{calls++;return {failureKind:'arguments',estimate:null,record:{contextWindow:context,kvCacheType:mode,phase,startup:false,health:false,inference:false,fits:false,reason:'unknown argument',elapsedMs:1,headroom:null,memoryBaseline:null}};} })).rejects.toThrow('Discovery stopped (arguments)');
+ expect(calls).toBe(1);expect(restores).toBe(1);
+});

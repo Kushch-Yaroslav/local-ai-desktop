@@ -1,3 +1,4 @@
+import { revealWindow } from './windowActivation';
 // Modified for Local AI Desktop: native shared browser surfaces and isolated test controls.
 import { StorageService, recoverInterruptedStorage, defaultLayout } from './storageService';
 import { registerStorageIpc } from './storageIpc';
@@ -255,8 +256,8 @@ if (process.env.LOCAL_AI_DESKTOP_DEV_ROOT) {
   if (!path.isAbsolute(root)) throw new Error('Development data root must be absolute');
   app.setPath('userData', path.join(root, 'electron'));
   if (process.platform === 'linux') {
-    app.setDesktopName('local-ai-desktop-goose-dev.desktop');
-    app.commandLine.appendSwitch('class', 'local-ai-desktop-goose-dev');
+    app.setDesktopName('local-ai-desktop.desktop');
+    app.commandLine.appendSwitch('class', 'local-ai-desktop');
   }
   process.env.GOOSE_PATH_ROOT = path.join(root, 'goose-backend');
   console.log(`[Main] dev root active: userData=${app.getPath('userData')}`);
@@ -612,10 +613,8 @@ if (process.platform !== 'darwin') {
       const regularWindows = getRegularWindows();
       if (regularWindows.length > 0) {
         const mainWindow = regularWindows[0];
-        if (mainWindow.isMinimized()) {
-          mainWindow.restore();
-        }
-        mainWindow.focus();
+        log.info('[activation] second-instance: revealing regular window', mainWindow.id);
+        revealWindow(mainWindow);
       } else if (!protocolUrl) {
         app.whenReady().then(async () => {
           const recentDirs = loadRecentDirs();
@@ -2981,7 +2980,10 @@ async function appMain() {
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    const windows = getRegularWindows();
+    log.info('[activation] activate: regular windows', windows.length);
+    if (windows.length) revealWindow(windows[0]);
+    else {
       createNewWindow(app);
     }
   });
