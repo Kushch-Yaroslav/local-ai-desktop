@@ -23,6 +23,13 @@ if [[ "${LOCAL_AI_DESKTOP_DEV_DETACHED:-0}" != 1 ]] && command -v setsid >/dev/n
 fi
 cd "$repo"
 executable="$repo/ui/desktop/out/Local AI Desktop-linux-x64/Local AI Desktop"
+# An explicitly selected permanent side-by-side package survives reboot.
+# The activation script validates resources; the launcher rechecks the paths.
+if [[ -f "$repo/.local-work/desktop-selected.path" ]]; then
+  IFS= read -r selected < "$repo/.local-work/desktop-selected.path"
+  selected="$(realpath -e -- "$selected")"
+  case "$selected" in "$repo"/.local-work/*/'Local AI Desktop') executable="$selected";; *) echo 'Invalid selected desktop path'; exit 1;; esac
+fi
 if [[ ! -x "$executable" || ! -x "$(dirname "$executable")/resources/bin/goose" ]]; then
   echo "Missing packaged development app: $executable. See docs/development/advanced-local-inference.md for one-time build instructions."
   command -v notify-send >/dev/null && notify-send 'Local AI Desktop — Goose Dev' 'Build output missing. See development launcher log.' || true
