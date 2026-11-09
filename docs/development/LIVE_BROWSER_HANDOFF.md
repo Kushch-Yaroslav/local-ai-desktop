@@ -1,3 +1,75 @@
+# Live Browser 3 continuation — current handoff, 2026-11-09
+
+This section supersedes the historical Live Browser 2 snapshot below. **Full parity and real Qwen autonomous repair are not confirmed.** Original repository remained read-only; no primary application, inference worker or proxy was stopped. User profiles, chats, settings and GGUF were not replaced.
+
+## Current implementation
+
+Existing WebContentsView + Node runtime + Goose MCP + Rust registry architecture is retained. Source revision RPC hashes only the explicitly selected chat project. Runtime recheck measures original DOM text clipping at original URL/viewport against fresh loaded-source-map evidence, and persists bounded historical receipts/crops and per-area ledger. Verified is an observed text-fit result, never an agent claim; arbitrary visual intent remains unsupported. Source/project/selection/description/status changes invalidate current proof without deleting historical receipts. Workflow active/completed/disputed is separate. Reselect preserves region identity and original capture. Inspector explicitly exposes historical evidence. Per-chat mutation queues prevent async capture from losing edits.
+
+Current Vision Off is applied during provider projection, including historical browser crops and tagged MCP images, preserving persisted history and ordinary uploads. It cannot revoke already transmitted data. Stale attachment project roots are rejected rather than silently rebound; rejected prompts release run state. Session-load project metadata and the Hub-to-chat initial snapshot now preserve the acknowledged explicit root; cwd is not substituted for an explicit project.
+
+See audit sections 14–16 and [Qwen acceptance](LIVE_BROWSER_QWEN_ACCEPTANCE.md) for exact contracts, limitations and source paths.
+
+## Qwen result: unavailable, not a scripted pass
+
+Selected custom provider routes through the Electron managed gateway `http://127.0.0.1:32849`, with separate gateway/worker authorization. Host checks at 21:30 and 21:32 Kyiv again returned ECONNREFUSED on all four persisted gateways; no matching resident llama-server. Strict real-model test failed setup: selected gateway unreachable, resident match absent. No second model/server was started. Real source discovery/edit and quality of autonomous «Исправь это» are **NOT VERIFIED**.
+
+Minimal action: start the usual Local AI Desktop profile and load Qwen27B-3.8, leaving it resident; then run the non-scripted check below. Configured credentials are read privately; never paste keys into logs or arguments.
+
+## Fresh permanent QA package and safe update
+
+Package directory: `.local-work/live-browser3-checked/Local AI Desktop-linux-x64/`.
+Executable: `Local AI Desktop`. Resources include `bin/goose`, `live-browser/dist/live-browser.js`, compatible Node 24 and metadata/license. Validation artifacts are ignored under `.local-work/live-browser3-checked/validation/`. Do not commit packages/profiles/logs.
+
+Run isolated checks from a **host GUI terminal**, in repository root:
+
+```bash
+scripts/dev/check-live-browser.sh "$PWD/.local-work/live-browser3-checked/Local AI Desktop-linux-x64" --all
+scripts/dev/check-live-browser.sh "$PWD/.local-work/live-browser3-checked/Local AI Desktop-linux-x64" --qwen
+scripts/dev/check-live-browser.sh "$PWD/.local-work/live-browser3-checked/Local AI Desktop-linux-x64" --desktop-entry
+```
+
+`--qwen` requires an already resident matching model and fails clearly if unavailable. Other protocol tests use a scripted provider and do not prove Qwen reasoning. Test projects/profiles are separate from user data. Tests do not activate a managed model.
+
+Ubuntu entry: `/home/yaroslav/.local/share/applications/local-ai-desktop-goose-dev.desktop`, Exec/TryExec: repository `scripts/dev/launch-goose-dev.sh`, Path: repository root. Default existing `ui/desktop/out/` and other `/opt/local-ai-desktop` installations were not replaced. Menu launch is not a build step.
+
+Prepared update (not activated by this task):
+
+```bash
+scripts/dev/activate-packaged-build.sh --check "$PWD/.local-work/live-browser3-checked/Local AI Desktop-linux-x64"
+# Close the previous application normally yourself, then:
+scripts/dev/activate-packaged-build.sh --activate "$PWD/.local-work/live-browser3-checked/Local AI Desktop-linux-x64"
+```
+
+Open **Local AI Desktop — Goose Dev** from Ubuntu menu. Activation atomically selects a permanent path for the existing launcher; it neither stops processes nor changes storage/profile data. The isolated Desktop Entry E2E uses a temporary entry and profile; it does not certify production-profile migration or replace the primary entry automatically.
+
+## Verification and remaining boundaries
+
+- Targeted unit suite: 51 PASS (39 browser-related + 12 ACP session/mode cases). Renderer/runtime TSC and targeted ESLint PASS. Rust registry/source scope 5 PASS, Vision projection 2 PASS, load-metadata regression 1 PASS, fmt/clippy PASS in retained validation logs; release backend matches packaged backend.
+- Standalone runtime smoke: 32 PASS. One preliminary invocation inherited system Node 18 in a child; smoke now launches children via process.execPath and passed with bundled Node 24.
+- Scripted packaged protocol checks verify selected project and DOM IDs on model wire; compact transcript, retry, current Vision Off removing old crops, Page adoption. Auto-mode schema includes filesystem tools and browser_recheck_area. Fixture edits are manual test actions, never attributed to Qwen.
+- Native checks cover approved own-file upload/content, OS-pointer HTML drag/drop, IME composition, runtime reconnect, native renderer crash, cookies/localStorage, hidden panel, zoom/pan/layout, isolation and screenshots. Full OS chooser, DPI/display and real-provider retry/fork/compaction matrices remain partial.
+- Short soak: 96 cycles in 120 seconds, pages=2, shields=1, pending/revisionRequests=0 throughout. Main RSS 227,971,072 → 268,668,928 bytes; heapUsed 11,230,608 → 12,137,636. No claim of leak-free long-term stability; hours-long whole-process/Chromium/GPU sampling remains required.
+- A preliminary full run failed an obsolete last-summary E2E locator after adding nested history; corrected to an explicit Evidence & history control. Final acceptance results follow below. Preliminary assertions also caught the cached initial-session scope label and an assertion against a hidden panel; both were corrected.
+
+
+---
+
+## Final packaged acceptance
+
+Latest complete packaged run: **6 PASS, 2 SKIP, 1.2 minutes** (`accepted-all-results`, `accepted-all.log`). Skips are the real-model cases; no skipped case is counted as a model pass. Fresh isolated Desktop Entry (`gio launch`) run: **1 PASS** (`accepted-entry-results`, `accepted-entry.log`), including visible window, native page/navigation/selection and attachment. Main installed profile/entry was not activated or migrated by QA.
+
+Short soak and earlier Auto-mode tool-schema evidence are separate from this last no-soak regression run. `validation/manifest.json` records code commit, resource hashes and the unavailable real-Qwen boundary. Temporary test Node 18 and build/launch-overlap failures were corrected before this accepted run.
+
+## Current backend fingerprint
+
+`target/release/goose` and packaged `resources/bin/goose` SHA256:
+`90b8375a975172a5e0a0ab1f94359782912703fad540adc061beb7d1dd01ac3f`.
+
+Code commits: `1bbdffd`, `ab7c033`, `a227c1a`, `5d9e9b4`, `2d0fab3`, `61e5b22`. Final documentation commit follows these. No merge/tag/release or production activation.
+
+## Historical snapshot at 62fdc43
+
 # Live Browser 2 — актуальный handoff, 2026-11-09
 
 Эта секция заменяет исторические рекомендации ниже. Полный паритет **не объявляется**. Оригинал остался READ-ONLY, основная установка и рабочие inference процессы не заменялись/не останавливались.

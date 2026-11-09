@@ -1,6 +1,6 @@
 # Live Browser: аудит паритета (2026-11-08)
 
-Актуальная реализация Live Browser 2 описана в разделах 11–13. Разделы 1–10 фиксируют предыдущий аудит и промежуточную SSE-реализацию; их ограничения не являются автоматически состоянием нового кода.
+Разделы 11–13 — исторический срез коммита 62fdc43. Актуальные изменения и ограничения этой итерации описаны в разделах 14–16; они заменяют прежние статусы отсутствующих ledger, reselect и Vision revocation. Разделы 1–10 фиксируют предыдущий аудит и промежуточную SSE-реализацию; их ограничения не являются автоматически состоянием нового кода.
 
 Статус: исследование исходников завершено до изменения реализации. Полный паритет НЕ подтверждён. Оригинал `/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop` использован только для чтения. Исторические утверждения HANDOFF не являются результатами текущей проверки.
 
@@ -163,3 +163,51 @@ Vision Off удаляет изображения из attachment registry и з�
 5. В native режиме перекрывающий поверхность renderer menu временно скрывает native view; это безопасный обход native z-order, но возможна дальнейшая UX-доработка. Старые технические пользовательские сообщения не переписывались: сохранность истории важнее неоднозначной миграции.
 
 Полный паритет и завершённый автономный workflow не объявляются. Эта итерация даёт проверяемую нативную основу и новую UX/attachment архитектуру, а не доказательство всех возможностей исходного visual debugger.
+
+## 14. Continued Visual Debugging: original contracts and implementation
+
+The read-only original was inspected again: `src/main/services/visual-debugging.ts:validatedDocument/command`, `src/main/services/visual-workflow.ts:provesOriginalRegions`, `src/main/web/project-browser.ts:visualRecheck`, and `src/main/web/browser-scenario-runner.ts:observe(text_fit)`. Important contracts: workflow completion is not verification; original URL/viewport/unique DOM identity must be checked; clipping uses rendered text ranges rather than text presence; source revisions must stay fresh; unsupported Canvas/hidden/private targets remain inconclusive.
+
+Implemented on the existing WCV + Node/MCP + Rust architecture:
+
+- `acp/server/live_browser.rs:source_revision/hash_sources` obtains the **explicitly selected session root**, hashes bounded source inventory and returns hashes, not file contents. No caller-controlled filesystem path. Symlinks, hidden/dependency/build trees are excluded; limits are 10,000 entries, 2,000 source files, 4 MB/file and 32 MB total. Unsupported/oversized projects fail closed. `custom_dispatch.rs` exposes a private product ACP method; `AppInner`/preload/`NativeBrowserHost.sourceRevision` bridge only the owning conversation to it.
+- `RegionService.recheck`, `verification.ts:textFit`, `BrowserManager.verificationViewport`: fresh original-page load, exact original CSS viewport, original unique anchor/identity, bounded rendered text range measurement, runtime errors, before/after source fingerprint. Loaded inline source-map contents must match selected-project hashes to certify a pass. This associates observed browser resources with a revision; it does not assert an exact React-to-pixel source mapping. Missing source association means Not Verified. Cache is disabled only for the verification load via a temporary route; initial testing caught Vite 304 responses omitting useful source evidence. Preview settings and ownership restore in finally.
+- A bounded per-area ledger stores exact region/snapshot/URL/viewport/selector, expected/observed values, source fingerprint, served sources, timestamp and errors. Full receipts are local evidence files. Status Verified is produced by this runtime measurement, never `browser_check_area` or an assistant claim. Original text-fit candidates across one to six same-route/same-viewport regions are supported; arbitrary visual intent/custom assertion matrices remain partial.
+- `RegionService.list` downgrades Verified when project or source fingerprint changes. Selection mutations/dispute also invalidate it. Existing areas remain compatible; legacy Verified claims remain visibly unproven.
+- Historical selection/reselection/recheck anchors, geometry and crops are retained. Twenty observations per region retain the original plus recent observations; fifty ledger records per area; crop/receipt storage is limited to 32 MB/conversation. History image bytes are fetched explicitly for the inspector, not broadcast in SSE or automatically sent to a model. A quota/capture failure is diagnostic, never fake evidence.
+- Reselection retains region ID and historical evidence; adding/removing several regions continues to work. Reveal is distinct from explicitly opening the saved page. Workflow active/completed/disputed is distinct from Verified. Inspector shows evidence, saved crops and ledger. Automatic overflow detection deduplicates existing targets and retains candidate semantics.
+- Per-conversation reentrant transactions serialize async evidence/area mutations so capture/recheck cannot overwrite a concurrent rename or workflow update. Different conversations remain independent. SSE no longer retains empty subscriber sets or reads state for absent viewers.
+- A new snapshot suffix preserves the original document-time prefix used by Canvas/SVG stale checks. A preliminary random replacement broke Vision On canvas capture; standalone smoke caught it and the document-prefix contract was restored.
+
+## 15. Context safety, inference and acceptance boundaries
+
+`agents/browser_vision.rs` projects **current** Vision policy at request time through `reply_parts::stream_response_from_provider`, without deleting persisted messages or registry snapshots. It strips historical browser attachment pixels and marked browser MCP images (including when a tool request has been compacted away); ordinary uploaded images are retained. Legacy browser evidence is recognized separately. The model receives an explicit current-Off note. This cannot revoke an in-flight/already delivered request; full live-provider/compaction matrices still require acceptance.
+
+`acp/prompt.ts` supplies current workspace policy for normal prompts and steering. New browser images carry provenance metadata. Saved attachment project roots are compared to current authoritative scope; a stale attachment cannot silently become another selected project. A rejected prompt clears the active-run marker so correction/retry is possible. The UI now supplies the actual selected root to its bounded evidence builder as well as relying on backend scope.
+
+Real inference investigation and current Qwen acceptance are recorded in [LIVE_BROWSER_QWEN_ACCEPTANCE.md](LIVE_BROWSER_QWEN_ACCEPTANCE.md). The primary configured gateway was found, but refused TCP connections on the host, with no primary inference processes resident. No model was loaded by the task. Scripted provider tests verify protocol, ledger and Vision projection only.
+
+Safe Ubuntu update: `scripts/dev/activate-packaged-build.sh` validates a permanent side-by-side package and can atomically select it for the next `launch-goose-dev.sh` invocation. It does not stop anything or replace `out/`, profiles, chats or GGUF. The relevant menu entry is `~/.local/share/applications/local-ai-desktop-goose-dev.desktop`; other `/opt/local-ai-desktop` entries are separate installations and were not modified. The default remains the existing out until explicit activation.
+
+Final test counts/build/hash and remaining acceptance gaps are maintained in the handoff after the final packaged run. Full parity is not declared: real Qwen autonomous repair, general visual criteria beyond original text fitting, full historical/deleted-reference workflow, long-duration heap/GPU stability, DPI/display matrix and full real-agent fork/compaction/provider coverage remain separate work.
+
+
+## 16. Acceptance update — 2026-11-09
+
+| Capability | Current status | Evidence / boundary |
+|---|---|---|
+| Source revision ledger and recheck | Partial parity | Trusted selected-root hashes, fresh original Page/viewport/anchor, rendered text fitting, loaded-source-map association, immutable historical receipts. General visual criteria are not certified. |
+| Evidence/history/reselection | Partial parity | Original identity and capture retained, bounded history/crops, explicit inspector retrieval, original region ID preserved; full deleted-reference/planner workflow remains incomplete. |
+| Verified safety | Implemented | Source/project changes, selection mutations, changed acceptance description, explicit status changes and disputes invalidate current proof; historical ledger remains. Workflow completion cannot certify a fix. Criterion is explicitly text_fit. |
+| Vision Off on later requests | Implemented for tested paths | Historical browser pixels removed at provider projection, regular uploads preserved, history/registry unmodified. Streaming already sent/in-flight cannot be revoked; full real-provider compaction matrix unconfirmed. |
+| Native renderer crash | Tested scenario | Page.crash recovery, URL/cookies/localStorage, same-chat ownership. Entire application restart and arbitrary SPA in-memory restoration are separate. |
+| Native input | Partial parity | Actual IME composition, OS-pointer drag/drop, own-file chooser approval and contents; full graphical chooser/DPI/platform matrix unconfirmed. |
+| Explicit project → model | Tested protocol | DirSwitcher, authoritative ACP scope, source hashes and provider request. Load-response browserProjectRoot restored in renderer without inferring project from cwd. |
+| Real Qwen autonomous repair | Requires acceptance | Selected managed gateway found; host TCP unavailable, no resident matching model. No scripted completion counts as a Qwen pass. |
+| Long-term stability | Partial check | 120-second/96-cycle resource sample is a short regression soak, not proof of absence of leaks over hours. |
+
+Final package and concrete test results are recorded in the current handoff. Native-window screenshots cover wide/medium/narrow/expanded, selected/error/empty and explicit historical evidence. Technical JSON is available only after explicitly opening the evidence inspector; compact chat attachments remain compact.
+
+During final regression a pre-existing E2E selector using last summary matched a newly nested hidden history entry. It was replaced with the explicit Evidence & history control; no forced click was introduced. A unit fixture initially used the unsupported area status Failed (a verification outcome); corrected to Unresolved. These failed preliminary runs are not reported as successful final tests.
+
+Final packaged regression: 6 PASS / 2 model-dependent SKIP (1.2m); isolated gio Desktop Entry navigation/selection/attachment: 1 PASS. Targeted frontend/ACP: 51 PASS; Rust registry/revision 5, Vision 2, metadata 1 PASS; standalone smoke 32 PASS. Latest typechecks, targeted lint, fmt and clippy passed. The initial cached-scope label failure was fixed by publishing the acknowledged Hub scope into the session store, not by substituting cwd. No production activation or real-model PASS is implied.
