@@ -8,7 +8,7 @@ import type { RegionService } from './regions';
 import { buildAreaContextText, visionLimitNote } from '../shared/context';
 import { isAllowedPageUrl } from './security';
 import { boundText } from './security';
-import { log } from './util';
+import { log, redactRuntimeText } from './util';
 
 export interface LadMcpContext {
   manager: BrowserManager;
@@ -20,10 +20,16 @@ export interface LadMcpContext {
 const MAX_TOOL_TEXT = 60_000;
 
 type McpText = { type: 'text'; text: string };
-type McpImage = { type: 'image'; data: string; mimeType: string };
+type McpImage = {
+  type: 'image';
+  data: string;
+  mimeType: string;
+  _meta?: { ladBrowserImage: boolean };
+};
 type McpContent = McpText | McpImage;
 
 function textResult(text: string): { content: McpText[] } {
+  text = redactRuntimeText(text);
   return {
     content: [
       {
@@ -35,8 +41,10 @@ function textResult(text: string): { content: McpText[] } {
 }
 
 function imageResult(mime: string, data: string, note?: string): { content: McpContent[] } {
-  const content: McpContent[] = [{ type: 'image', data, mimeType: mime }];
-  if (note) content.push({ type: 'text', text: note });
+  const content: McpContent[] = [
+    { type: 'image', data, mimeType: mime, _meta: { ladBrowserImage: true } },
+  ];
+  if (note) content.push({ type: 'text', text: redactRuntimeText(note) });
   return { content };
 }
 
@@ -44,7 +52,10 @@ function errorResult(message: string): {
   content: Array<{ type: 'text'; text: string }>;
   isError: true;
 } {
-  return { content: [{ type: 'text', text: `error: ${message}` }], isError: true };
+  return {
+    content: [{ type: 'text', text: `error: ${redactRuntimeText(message)}` }],
+    isError: true,
+  };
 }
 
 /**
@@ -64,6 +75,25 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     await ctx.manager.get(id);
     return id;
   };
+
+  server.registerTool(
+    'browser_recheck_area',
+    {
+      title: 'Recheck original visual area',
+      description:
+        'Reload the original URL at its saved viewport, measure DOM text fitting, and link the result to the explicitly selected project source revision. Only original text-clipping/overflow candidates can become Verified. Other intents remain inconclusive. User completion is separate from verification.',
+      inputSchema: { conversation_id: z.string().min(1), area_id: z.string().min(1) },
+    },
+    async ({ conversation_id, area_id }) => {
+      try {
+        return textResult(
+          JSON.stringify(await ctx.regions.recheck(await target({ conversation_id }), area_id))
+        );
+      } catch (error) {
+        return errorResult(String(error));
+      }
+    }
+  );
 
   // ------------------------------------------------------------------ nav
 
@@ -572,7 +602,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       inputSchema: {
         conversation_id: z.string().min(1),
         area_id: z.string(),
-        status: z.enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Verified', 'Unresolved']),
+        status: z.enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Unresolved']),
         note: z.string().max(1000).optional(),
       },
     },
@@ -597,14 +627,14 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     {
       title: 'Record area check result',
       description:
-        'Record the result of verifying an area after changes: pass/fail with evidence, and optionally the new status.',
+        'Record an agent assessment after changes. This is a claim, not proof. Use browser_recheck_area for source-revision-linked verification; only that tool can certify Verified.',
       inputSchema: {
         conversation_id: z.string().min(1),
         area_id: z.string(),
-        result: z.enum(['verified', 'not-fixed', 'partially-fixed', 'cannot-verify']),
+        result: z.enum(['fixed', 'not-fixed', 'partially-fixed', 'cannot-verify']),
         reason: z.string().max(2000),
         new_status: z
-          .enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Verified', 'Unresolved'])
+          .enum(['Detected', 'Confirmed', 'In progress', 'Fixed', 'Unresolved'])
           .optional(),
       },
     },

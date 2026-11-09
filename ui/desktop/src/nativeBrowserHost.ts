@@ -1,6 +1,7 @@
 /** Local AI Desktop: isolated native surface and one-target authenticated CDP bridge. */
 import {
   app,
+  ipcMain,
   BrowserWindow,
   WebContentsView,
   View,
@@ -81,7 +82,36 @@ export class NativeBrowserHost {
     'live-browser',
     'native-partitions.json'
   );
+  private revisions = new Map<string, { owner: WebContents; done: (value: unknown) => void }>();
+  private async sourceRevision(id: string): Promise<unknown> {
+    const owner = this.owners.get(id);
+    if (!owner || owner.isDestroyed() || id.startsWith('hub-'))
+      throw new Error('Choose a project in a saved chat before verification');
+    const requestId = randomUUID();
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.revisions.delete(requestId);
+        reject(new Error('Project revision request timed out'));
+      }, 15000);
+      this.revisions.set(requestId, {
+        owner,
+        done: (value) => {
+          clearTimeout(timeout);
+          this.revisions.delete(requestId);
+          resolve(value);
+        },
+      });
+      owner.send('live-browser:source-revision', { requestId, conversationId: id });
+    });
+  }
   constructor() {
+    ipcMain.on(
+      'live-browser:source-revision-result',
+      (event, requestId: string, value: unknown) => {
+        const pending = this.revisions.get(requestId);
+        if (pending?.owner === event.sender) pending.done(value);
+      }
+    );
     try {
       this.urls = JSON.parse(fs.readFileSync(this.pageFile, 'utf8'));
       try {
@@ -225,6 +255,14 @@ export class NativeBrowserHost {
   }
   async test(owner: WebContents, id: string, method: string, params: Record<string, unknown>) {
     if (this.owners.get(id) !== owner) throw new Error('Wrong native browser owner');
+    if (method === 'LAD.stats')
+      return {
+        pages: this.entries.size,
+        pending: this.pending.size,
+        shields: this.shields.size,
+        revisionRequests: this.revisions.size,
+        mainMemory: process.memoryUsage(),
+      };
     const entry = await this.get(id);
     return method.startsWith('Input.')
       ? this.command(entry, { method, params, sessionId: 'native-page' })
@@ -269,6 +307,33 @@ export class NativeBrowserHost {
           if (entry.controlled) await this.ensureShield(entry.owner);
           this.layout(entry);
           res.end('{}');
+          return;
+        }
+        if (url.pathname === '/verification-viewport') {
+          const entry = await this.get(id);
+          const previous = globalThis.structuredClone(entry.settings);
+          const restore = url.searchParams.get('restore');
+          entry.settings = restore
+            ? validSettings(JSON.parse(restore))
+            : {
+                ...entry.settings,
+                zoom: 1,
+                viewport: {
+                  width: Number(url.searchParams.get('width')),
+                  height: Number(url.searchParams.get('height')),
+                },
+              };
+          entry.settings = validSettings(entry.settings);
+          this.layout(entry);
+          await entry.metrics;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(previous));
+          return;
+        }
+        if (url.pathname === '/source-revision') {
+          const result = await this.sourceRevision(id);
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(result));
           return;
         }
         if (url.pathname === '/metrics') {

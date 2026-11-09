@@ -320,6 +320,10 @@ type ElectronAPI = {
   liveBrowserPan: (
     callback: (value: { conversationId: string; pan: { x: number; y: number } }) => void
   ) => () => void;
+  liveBrowserSourceRevision: (
+    callback: (value: { requestId: string; conversationId: string }) => void
+  ) => () => void;
+  liveBrowserSourceRevisionResult: (requestId: string, result: unknown) => void;
   liveBrowserRegister: (id: string) => Promise<void>;
   liveBrowserView: (
     id: string,
@@ -542,6 +546,16 @@ const electronAPI: ElectronAPI = {
   listGitBranches: (dir: string) => ipcRenderer.invoke('list-git-branches', dir),
   switchGitBranch: (dir: string, branch: string) =>
     ipcRenderer.invoke('switch-git-branch', dir, branch),
+  liveBrowserSourceRevision: (callback) => {
+    const listener = (_event: unknown, value: { requestId: string; conversationId: string }) =>
+      callback(value);
+    ipcRenderer.on('live-browser:source-revision', listener);
+    return () => {
+      ipcRenderer.removeListener('live-browser:source-revision', listener);
+    };
+  },
+  liveBrowserSourceRevisionResult: (requestId, result) =>
+    ipcRenderer.send('live-browser:source-revision-result', requestId, result),
   liveBrowserStart: () => ipcRenderer.invoke('live-browser:start'),
   liveBrowserStatus: () => ipcRenderer.invoke('live-browser:status'),
   liveBrowserStop: () => ipcRenderer.invoke('live-browser:stop'),

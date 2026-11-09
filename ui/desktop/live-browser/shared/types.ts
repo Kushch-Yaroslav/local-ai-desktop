@@ -140,6 +140,8 @@ export interface LadRegion {
   createdAt: string;
   updatedAt: string;
   snapshot: string;
+  projectRoot?: string;
+  history?: LadVisualEvidence[];
   diagnostics: string[];
   events: Array<{
     at: string;
@@ -168,6 +170,9 @@ export interface LadArea {
     action: string;
     status?: LadRegionStatus;
   }>;
+  workflow?: { state: 'active' | 'completed' | 'disputed'; at: string };
+  verification?: LadVerification;
+  ledger?: LadVerification[];
   check?: {
     status: string;
     reason?: string;
@@ -334,4 +339,44 @@ export function ladValidateWorkspace(value: unknown): LadWorkspaceSettings {
     visible: typeof s.visible === 'boolean' ? s.visible : true,
   };
   return out;
+}
+
+export interface LadSourceRevision {
+  root: string;
+  fingerprint: string;
+  files: Record<string, string>;
+  capturedAt: string;
+  scope: string;
+}
+export interface LadVisualEvidence {
+  id: string;
+  at: string;
+  kind: 'selection' | 'reselection' | 'recheck';
+  url: string;
+  viewport: { width: number; height: number };
+  snapshot: string;
+  anchors: LadAnchor[];
+  rect: LadRect;
+  cropId?: string;
+  diagnostics: string[];
+}
+export interface LadVerification {
+  id: string;
+  at: string;
+  outcome: 'Verified' | 'Failed' | 'Not Verified';
+  reason?: string;
+  criterion?: 'text_fit';
+  source?: Pick<LadSourceRevision, 'root' | 'fingerprint' | 'scope'>;
+  regions: {
+    id: string;
+    snapshot: string;
+    url: string;
+    viewport: { width: number; height: number };
+    selector?: string;
+    expected: 0;
+    observed: number | null;
+  }[];
+  errors: string[];
+  servedSources?: string[];
+  sourceDiagnostics?: string[];
 }

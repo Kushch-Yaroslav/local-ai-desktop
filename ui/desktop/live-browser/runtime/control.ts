@@ -5,7 +5,7 @@ import type { RegionService } from './regions';
 import type { ScreencastHub } from './screencast';
 import { handleMcpRequest } from './mcp';
 import { validateRect } from './security';
-import { log } from './util';
+import { log, redactRuntimeText } from './util';
 import type {
   LadCaptureResponse,
   LadCreateAreaRequest,
@@ -94,7 +94,7 @@ export class LadControlServer {
                 })()
               : null;
       if (!message) return;
-      for (const client of this.clientsFor(event.conversationId)) {
+      for (const client of this.sseClients.get(event.conversationId) ?? []) {
         this.writeSse(client, message);
       }
     });
@@ -119,6 +119,7 @@ export class LadControlServer {
   }
 
   private async pushState(conversationId: string): Promise<void> {
+    if (!this.sseClients.get(conversationId)?.size) return;
     const state = await this.deps.regions.list(conversationId).catch(() => null);
     if (!state) return;
     const message: LadWsMessage = {
@@ -127,7 +128,7 @@ export class LadControlServer {
       regions: state.regions,
       workspace: state.workspace,
     };
-    for (const client of this.clientsFor(conversationId)) this.writeSse(client, message);
+    for (const client of this.sseClients.get(conversationId) ?? []) this.writeSse(client, message);
   }
 
   private authorized(req: IncomingMessage): boolean {
@@ -162,7 +163,7 @@ export class LadControlServer {
         if (!res.headersSent)
           json(res, 500, {
             ok: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
           });
         else res.end();
       }
@@ -279,6 +280,8 @@ export class LadControlServer {
         req.on('close', () => {
           clearInterval(heartbeat);
           clients.delete(res);
+          if (!clients.size && this.sseClients.get(conversationId) === clients)
+            this.sseClients.delete(conversationId);
           unsubscribeFrames();
         });
         // Immediate initial payload: last frame + state.
@@ -297,6 +300,15 @@ export class LadControlServer {
         return;
       }
 
+      case '/control/evidence': {
+        const conversationId = conversationParam || '';
+        const evidence = await this.deps.regions.evidence(
+          conversationId,
+          url.searchParams.get('id') ?? ''
+        );
+        json(res, 200, { ok: true, evidence });
+        return;
+      }
       case '/control/state': {
         const conversationId = conversationParam || this.deps.activeConversation();
         if (!conversationId) {
@@ -529,7 +541,20 @@ export class LadControlServer {
           return;
         }
         try {
-          if (body.action === 'detect') {
+          if (body.action === 'recheck') {
+            const record = await this.deps.regions.recheck(conversationId, body.value ?? '');
+            json(res, 200, { ok: true, record });
+          } else if (body.action === 'workflow') {
+            const [areaId, workflow] = (body.value ?? '').split(':');
+            await this.deps.regions.workflow(conversationId, areaId, workflow);
+            json(res, 200, { ok: true });
+          } else if (body.action === 'navigate-region') {
+            const region = await this.deps.regions.getRegion(conversationId, body.value ?? '');
+            if (!region) throw new Error('Region unavailable');
+            const result = await this.deps.manager.navigate(conversationId, region.url, 'user');
+            if (!result.ok) throw new Error(result.error);
+            json(res, 200, { ok: true });
+          } else if (body.action === 'detect') {
             await this.deps.regions.detect(conversationId);
             json(res, 200, { ok: true });
           } else if (body.action === 'reveal') {
@@ -557,7 +582,7 @@ export class LadControlServer {
         } catch (error) {
           json(res, 500, {
             ok: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
           });
         }
         return;
@@ -649,7 +674,7 @@ export class LadControlServer {
         } catch (error) {
           json(res, 500, {
             ok: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
           });
         }
         return;
@@ -675,7 +700,7 @@ export class LadControlServer {
         } catch (error) {
           json(res, 500, {
             ok: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
           });
         }
         return;

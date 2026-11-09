@@ -1,3 +1,4 @@
+import { redactRuntimeText } from '../live-browser/runtime/util';
 /**
  * Local AI Desktop — Live Browser runtime manager (Electron main process).
  *
@@ -207,12 +208,12 @@ export class LiveBrowserRuntimeManager {
           if (settled) return;
           settled = true;
           clearTimeout(bootTimeout);
-          this.lastError = message;
+          this.lastError = redactRuntimeText(message, this.token);
           if (this.child === child) {
             this.endpoint = null;
             this.child = null;
           }
-          reject(new Error(message));
+          reject(new Error(redactRuntimeText(message, this.token)));
         };
         child.stdout?.on('data', (chunk: Buffer) => {
           stdoutBuf += chunk.toString('utf8');
@@ -222,7 +223,7 @@ export class LiveBrowserRuntimeManager {
             stdoutBuf = stdoutBuf.slice(idx + 1);
             if (!line) continue;
             if (!line.startsWith('{')) {
-              this.log(`[live-browser] ${line}`);
+              this.log(`[live-browser] ${redactRuntimeText(line, this.token)}`);
               continue;
             }
             try {
@@ -261,7 +262,7 @@ export class LiveBrowserRuntimeManager {
         });
         child.stderr?.on('data', (chunk: Buffer) => {
           const text = chunk.toString('utf8').trim();
-          if (text) this.log(`[live-browser:stderr] ${text}`);
+          if (text) this.log(`[live-browser:stderr] ${redactRuntimeText(text, this.token)}`);
         });
         child.on('error', (error) => fail(`spawn error: ${error.message}`));
         child.on('exit', (code, signal) => {

@@ -122,6 +122,8 @@ export function LiveBrowserPanel({
   const [inspector, setInspector] = useState(false),
     [display, setDisplay] = useState(false),
     [interaction, setInteraction] = useState<'interact' | 'pan' | 'select'>('interact');
+  const [replacing, setReplacing] = useState<{ id: string; at: string } | null>(null);
+  const [crop, setCrop] = useState<{ id: string; url: string } | null>(null);
   const [selected, setSelected] = useState<string | null>(null),
     [address, setAddress] = useState(''),
     [draftAddress, setDraftAddress] = useState(false),
@@ -228,6 +230,16 @@ export function LiveBrowserPanel({
   useEffect(() => {
     if (live.meta?.ownership === 'agent') setInteraction('interact');
   }, [live.meta?.ownership]);
+  useEffect(() => {
+    if (replacing && live.regions.find((r) => r.id === replacing.id)?.updatedAt !== replacing.at) {
+      setReplacing(null);
+      setInteraction('interact');
+    }
+  }, [replacing, live.regions]);
+  useEffect(() => {
+    setReplacing(null);
+    setCrop(null);
+  }, [sessionId]);
   const previousCount = useRef(0);
   useEffect(() => {
     if (live.regions.length > previousCount.current && interaction === 'select') {
@@ -240,9 +252,17 @@ export function LiveBrowserPanel({
   useEffect(() => {
     if (!live.connected) return;
     void live
-      .act({ action: 'selection', value: interaction === 'select' ? (selected ?? 'new') : 'off' })
+      .act({
+        action: 'selection',
+        value:
+          interaction === 'select'
+            ? replacing
+              ? `replace:${replacing.id}`
+              : (selected ?? 'new')
+            : 'off',
+      })
       .catch(() => undefined);
-  }, [interaction, selected, live.connected]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [interaction, selected, replacing, live.connected]); // eslint-disable-line react-hooks/exhaustive-deps
   const action = async (fn: () => Promise<unknown>) => {
     setError(null);
     try {
@@ -291,7 +311,11 @@ export function LiveBrowserPanel({
         areas: [selectedArea],
         regions: fresh,
         vision: vision ? 'on' : 'off',
-        project: projectId ? { name: projectId } : undefined,
+        project: projectId
+          ? projectId.startsWith('/')
+            ? { name: projectId.split('/').at(-1), root: projectId }
+            : { name: projectId }
+          : undefined,
         live: Object.fromEntries(
           fresh
             .filter((r) => r.live)
@@ -856,7 +880,7 @@ export function LiveBrowserPanel({
                     <Choice
                       label="Area status"
                       value={
-                        area.status === 'Verified'
+                        area.status === 'Verified' && area.verification?.outcome !== 'Verified'
                           ? t('Legacy claim • unverified', 'Старая запись • не проверено')
                           : area.status
                       }
@@ -900,23 +924,135 @@ export function LiveBrowserPanel({
                     className="lb2-recheck"
                     onClick={() =>
                       void action(async () => {
-                        for (const region of regions) await live.liveProjection(region.id);
-                        await live.recordCheck(area.id, {
-                          result: 'not-verified',
-                          reason: 'Binding rechecked; no source revision proof supplied.',
-                        });
+                        await live.act({ action: 'recheck', value: area.id });
                       })
                     }
                   >
                     <RotateCw size={12} />
-                    {t('Recheck binding', 'Проверить привязку')}
+                    {t('Recheck text fitting', 'Перепроверить обрезку текста')}
                   </button>
+                  <div className="lb2-workflow">
+                    <Choice
+                      label={t('Task workflow', 'Состояние задачи')}
+                      value={area.workflow?.state ?? 'active'}
+                      options={[
+                        { value: 'active', label: t('Active task', 'В работе') },
+                        { value: 'completed', label: t('Complete task', 'Завершить задачу') },
+                        { value: 'disputed', label: t('Dispute result', 'Оспорить результат') },
+                      ]}
+                      onChange={(value) =>
+                        void action(() =>
+                          live.act({ action: 'workflow', value: `${area.id}:${value}` })
+                        )
+                      }
+                    />
+                    <span className="lb2-dim">
+                      {t('Completion does not certify a fix', 'Завершение не означает Verified')}
+                    </span>
+                  </div>
+                  {area.verification && (
+                    <p role="status" className="lb2-dim" data-testid="area-verification">
+                      {area.verification.outcome} ·{' '}
+                      {area.verification.reason ??
+                        area.verification.source?.fingerprint.slice(0, 12)}
+                    </p>
+                  )}
                   <details>
                     <summary>{t('Evidence & history', 'Данные и история')}</summary>
                     <div className="lb2-evidence">
                       {regions.map((region) => (
                         <div key={region.id}>
                           <code>{region.id}</code>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() =>
+                                void action(() => live.act({ action: 'reveal', value: region.id }))
+                              }
+                            >
+                              {t('Reveal', 'Показать')}
+                            </button>
+                            <button
+                              onClick={() =>
+                                void action(() =>
+                                  live.act({ action: 'navigate-region', value: region.id })
+                                )
+                              }
+                            >
+                              {t('Open saved page', 'Открыть сохранённую страницу')}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReplacing({ id: region.id, at: region.updatedAt });
+                                setInteraction('select');
+                              }}
+                            >
+                              {t('Reselect', 'Выделить заново')}
+                            </button>
+                            <button onClick={() => void action(() => live.removeRegion(region.id))}>
+                              {t('Remove region', 'Удалить регион')}
+                            </button>
+                          </div>
+                          {region.history?.map((evidence) => (
+                            <details key={evidence.id} className="lb2-history-capture">
+                              <summary>
+                                {evidence.at} · {evidence.kind}
+                              </summary>
+                              <p>
+                                {t(
+                                  'Historical evidence, not current page state',
+                                  'Исторические данные, не текущее состояние страницы'
+                                )}
+                              </p>
+                              <p>{evidence.diagnostics.join(' · ')}</p>
+                              <pre>
+                                {JSON.stringify(
+                                  {
+                                    url: evidence.url,
+                                    viewport: evidence.viewport,
+                                    rect: evidence.rect,
+                                    anchors: evidence.anchors,
+                                    snapshot: evidence.snapshot,
+                                  },
+                                  null,
+                                  2
+                                )}
+                              </pre>
+                              {evidence.cropId && (
+                                <button
+                                  onClick={() =>
+                                    void action(async () => {
+                                      const endpoint = live.runtime.endpoint;
+                                      if (!endpoint) return;
+                                      const response = await fetch(
+                                        `${endpoint.url}/control/evidence?conversation=${encodeURIComponent(sessionId)}&id=${encodeURIComponent(evidence.cropId!)}`,
+                                        { headers: { Authorization: `Bearer ${endpoint.token}` } }
+                                      );
+                                      if (!response.ok)
+                                        throw new Error('Historical crop unavailable');
+                                      const { evidence: image } = await response.json();
+                                      if (image?.data)
+                                        setCrop({
+                                          id: evidence.id,
+                                          url: `data:${image.mime};base64,${image.data}`,
+                                        });
+                                    })
+                                  }
+                                >
+                                  {t('View saved crop', 'Сохранённый снимок')}
+                                </button>
+                              )}
+                              {crop?.id === evidence.id && (
+                                <img
+                                  src={crop.url}
+                                  alt={t(
+                                    'Historical selection, not current page',
+                                    'Историческое выделение, не текущая страница'
+                                  )}
+                                  className="max-w-full"
+                                />
+                              )}
+                            </details>
+                          ))}
                           <p>
                             {region.route} · {region.viewport.width}×{region.viewport.height}
                           </p>
@@ -933,6 +1069,14 @@ export function LiveBrowserPanel({
                             )}
                           </pre>
                         </div>
+                      ))}
+                      {area.ledger?.map((record) => (
+                        <details key={record.id}>
+                          <summary>
+                            {record.at} · {record.outcome}
+                          </summary>
+                          <pre>{JSON.stringify(record, null, 2)}</pre>
+                        </details>
                       ))}
                       {area.events.map((event, index) => (
                         <p key={index}>

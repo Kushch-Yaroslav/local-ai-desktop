@@ -1,4 +1,8 @@
-import type { Page } from 'playwright-core';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { textFit } from './verification';
+import type { LadSourceRevision, LadVerification, LadVisualEvidence } from '../shared/types';
+import { createHash } from 'node:crypto';
+import type { Page, Response, Route } from 'playwright-core';
 import type { BrowserManager } from './browser';
 import { groundRegion, projectRegion, paintRegions } from './grounding';
 import { LadStore } from './store';
@@ -35,12 +39,63 @@ export type LadEventEmitter = {
  * All mutations go through save() so the runtime is the single writer.
  */
 export class RegionService {
+  private transactions = new AsyncLocalStorage<Set<string>>();
+  private queues = new Map<string, Promise<unknown>>();
+  private atomic<T>(id: string, work: () => Promise<T>): Promise<T> {
+    if (this.transactions.getStore()?.has(id)) return work();
+    const previous = this.queues.get(id) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() =>
+        this.transactions.run(new Set([...(this.transactions.getStore() ?? []), id]), work)
+      );
+    this.queues.set(id, next);
+    void next
+      .finally(() => {
+        if (this.queues.get(id) === next) this.queues.delete(id);
+      })
+      .catch(() => undefined);
+    return next;
+  }
   private selectionBindings = new WeakMap<Page, { conversationId: string }>();
   constructor(
     private readonly manager: BrowserManager,
     private readonly store: LadStore,
     private readonly events: LadEventEmitter
-  ) {}
+  ) {
+    // Async filesystem and source snapshots must not overwrite a concurrent rename/selection.
+    // Nested operations (detect -> createRegion) share the same transaction.
+    const names = [
+      'list',
+      'createRegion',
+      'createArea',
+      'updateArea',
+      'attachRegionToArea',
+      'removeRegion',
+      'removeArea',
+      'setWorkspace',
+      'liveProjection',
+      'replaceRegion',
+      'workflow',
+      'recheck',
+      'recordCheck',
+      'detect',
+    ] as const;
+    for (const name of names) {
+      const operation = this[name].bind(this) as (
+        id: string,
+        ...args: unknown[]
+      ) => Promise<unknown>;
+      Object.defineProperty(this, name, {
+        value: (id: string, ...args: unknown[]) => this.atomic(id, () => operation(id, ...args)),
+      });
+    }
+    const adopt = this.adopt.bind(this);
+    this.adopt = (from, to) => {
+      const [first, second] = [from, to].sort();
+      return this.atomic(first, () => this.atomic(second, () => adopt(from, to)));
+    };
+  }
 
   private async stateOf(conversationId: string): Promise<LadConversationState> {
     return this.store.load(conversationId);
@@ -54,8 +109,36 @@ export class RegionService {
     this.events.emit({ type: 'state', conversationId });
   }
 
-  list(conversationId: string): Promise<LadConversationState> {
-    return this.stateOf(conversationId);
+  async list(conversationId: string): Promise<LadConversationState> {
+    const state = await this.stateOf(conversationId);
+    const verified = state.areas.filter(
+      (a) => a.status === 'Verified' && a.verification?.outcome === 'Verified'
+    );
+    if (verified.length) {
+      const current = await this.manager.sourceRevision(conversationId).catch(() => null);
+      let changed = false;
+      for (const area of verified)
+        if (
+          !current ||
+          current.root !== area.verification!.source?.root ||
+          current.fingerprint !== area.verification!.source?.fingerprint
+        ) {
+          area.status = 'Fixed';
+          area.verification = {
+            ...area.verification!,
+            outcome: 'Not Verified',
+            criterion: 'text_fit',
+            reason: 'Source revision or selected project changed',
+          };
+          LadStore.appendEvent(area, {
+            source: 'runtime',
+            action: 'verification stale: source/project changed',
+          });
+          changed = true;
+        }
+      if (changed) await this.save(conversationId, state);
+    }
+    return state;
   }
 
   async adopt(from: string, to: string): Promise<void> {
@@ -66,6 +149,9 @@ export class RegionService {
     const existing = await this.stateOf(to);
     if (existing.areas.length || existing.regions.length)
       throw new Error('Destination has browser evidence');
+    await this.store.copyEvidence(from, to);
+    const scope = await this.manager.sourceRevision(to).catch(() => null);
+    if (scope) for (const region of state.regions) region.projectRoot ??= scope.root;
     const next = {
       ...state,
       conversationId: to,
@@ -92,8 +178,25 @@ export class RegionService {
     if (!page) throw new Error('no live page for this conversation; open a URL first');
 
     const evidence = await groundRegion(page, rect);
+    const scope = await this.manager.sourceRevision(conversationId).catch(() => null);
     const state = await this.stateOf(conversationId);
 
+    if (opts.note?.startsWith('DOM overflow candidate')) {
+      const existing = state.regions.find(
+        (r) =>
+          r.url === evidence.url &&
+          r.viewport.width === evidence.viewport.width &&
+          r.viewport.height === evidence.viewport.height &&
+          r.anchors[0]?.confidence >= 0.8 &&
+          r.anchors[0].selector === evidence.anchors[0]?.selector
+      );
+      if (existing)
+        return {
+          region: existing,
+          area: state.areas.find((a) => a.id === existing.areaId) ?? null,
+        };
+    }
+    if (state.regions.length >= 100) throw new Error('Region limit reached (100 per conversation)');
     let area = opts.areaId ? state.areas.find((a) => a.id === opts.areaId) : undefined;
     if (!area) {
       const number = state.areas.length + 1;
@@ -128,6 +231,7 @@ export class RegionService {
       createdAt: nowIso(),
       updatedAt: nowIso(),
       snapshot: evidence.snapshot,
+      projectRoot: scope?.root,
       diagnostics: [
         ...evidence.diagnostics,
         ...(opts.note ? [`user note: ${opts.note.slice(0, 400)}`] : []),
@@ -142,6 +246,8 @@ export class RegionService {
         },
       ],
     };
+    await this.remember(conversationId, region, 'selection');
+    this.invalidate(area, 'selection added');
     area.regionIds.push(region.id);
     area.updatedAt = nowIso();
     LadStore.appendEvent(area, { source: 'user', action: `region added (${region.id})` });
@@ -242,6 +348,10 @@ export class RegionService {
             value.rect.height > 8192
           )
             throw new Error('Invalid selection rectangle');
+          if (value.areaId?.startsWith('replace:')) {
+            await this.replaceRegion(target.conversationId, value.areaId.slice(8), value.rect);
+            return;
+          }
           await this.createRegion(target.conversationId, value.rect, {
             areaId: value.areaId === 'new' ? undefined : value.areaId,
           });
@@ -391,8 +501,18 @@ export class RegionService {
     const state = await this.stateOf(conversationId);
     const area = state.areas.find((a) => a.id === areaId);
     if (!area) throw new Error(`unknown-area: ${areaId}`);
-    if (patch.name !== undefined) area.name = patch.name.slice(0, 200);
-    if (patch.description !== undefined) area.description = patch.description.slice(0, 2000);
+    if (patch.name !== undefined && patch.name.slice(0, 200) !== area.name) {
+      area.name = patch.name.slice(0, 200);
+      LadStore.appendEvent(area, { source: patch.statusSource ?? 'user', action: 'name changed' });
+    }
+    if (patch.description !== undefined && patch.description.slice(0, 2000) !== area.description) {
+      area.description = patch.description.slice(0, 2000);
+      this.invalidate(area, 'Acceptance description changed; recheck required');
+      LadStore.appendEvent(area, {
+        source: patch.statusSource ?? 'user',
+        action: 'description changed',
+      });
+    }
     if (patch.status !== undefined) {
       LadStore.setAreaStatus(area, patch.status, patch.statusSource ?? 'user');
     }
@@ -420,6 +540,8 @@ export class RegionService {
       oldArea.updatedAt = nowIso();
     }
     if (!area.regionIds.includes(region.id)) area.regionIds.push(region.id);
+    if (oldArea) this.invalidate(oldArea, 'region moved');
+    this.invalidate(area, 'region moved');
     region.areaId = area.id;
     region.updatedAt = nowIso();
     LadStore.appendEvent(region, { source: 'user', action: `moved to area ${area.name}` });
@@ -438,6 +560,7 @@ export class RegionService {
     const [removed] = state.regions.splice(idx, 1);
     const area = state.areas.find((a) => a.id === removed.areaId);
     if (area) {
+      this.invalidate(area, 'region removed');
       area.regionIds = area.regionIds.filter((id) => id !== regionId);
       area.updatedAt = nowIso();
     }
@@ -513,6 +636,286 @@ export class RegionService {
     return result;
   }
 
+  private invalidate(area: LadArea, reason: string) {
+    if (area.status === 'Verified') area.status = 'Fixed';
+    if (area.verification)
+      area.verification = { ...area.verification, outcome: 'Not Verified', reason };
+  }
+  private async remember(id: string, region: LadRegion, kind: LadVisualEvidence['kind']) {
+    const record: LadVisualEvidence = {
+      id: newId('evidence'),
+      at: nowIso(),
+      kind,
+      url: region.url,
+      viewport: region.viewport,
+      snapshot: region.snapshot,
+      anchors: globalThis.structuredClone(region.anchors),
+      rect: region.rect,
+      diagnostics: [...region.diagnostics],
+    };
+    const crop = await this.captureRegion(id, region, { maxEdge: 800 }).catch(() => ({
+      error: 'capture-unavailable',
+    }));
+    if (!('error' in crop)) {
+      try {
+        await this.store.saveEvidence(id, record.id, crop);
+        record.cropId = record.id;
+      } catch (error) {
+        record.diagnostics.push(String(error));
+      }
+    }
+    const history = [...(region.history ?? []), record];
+    region.history = history.length > 20 ? [history[0], ...history.slice(-19)] : history;
+  }
+  async evidence(id: string, evidenceId: string): Promise<unknown> {
+    const state = await this.stateOf(id);
+    if (!state.regions.some((r) => r.history?.some((h) => h.cropId === evidenceId)))
+      throw new Error('Evidence not referenced in this conversation');
+    return this.store.evidence(id, evidenceId);
+  }
+  async workflow(id: string, areaId: string, value: string): Promise<void> {
+    if (!['active', 'completed', 'disputed'].includes(value)) throw new Error('Invalid workflow');
+    const state = await this.stateOf(id),
+      area = state.areas.find((a) => a.id === areaId);
+    if (!area) throw new Error('Unknown area');
+    area.workflow = { state: value as 'active' | 'completed' | 'disputed', at: nowIso() };
+    if (value === 'disputed') this.invalidate(area, 'User disputed result');
+    LadStore.appendEvent(area, { source: 'user', action: `workflow:${value}` });
+    await this.save(id, state);
+    this.emitState(id);
+  }
+  async replaceRegion(id: string, regionId: string, rect: LadRect): Promise<void> {
+    const page = this.manager.pageOf(id);
+    if (!page) throw new Error('No live page');
+    const state = await this.stateOf(id),
+      region = state.regions.find((r) => r.id === regionId);
+    if (!region) throw new Error('Unknown region');
+    const evidence = await groundRegion(page, rect);
+    if (evidence.url !== region.url) throw new Error('Reselect on the original page');
+    const scope = await this.manager.sourceRevision(id).catch(() => null);
+    if (region.projectRoot && scope?.root !== region.projectRoot)
+      throw new Error('Select the original project before reselecting');
+    // Identity and the original immutable selection remain in history.
+    if (!region.history?.length) await this.remember(id, region, 'selection');
+    Object.assign(region, evidence, { updatedAt: nowIso(), live: undefined });
+    await this.remember(id, region, 'reselection');
+    LadStore.appendEvent(region, { source: 'user', action: 'reselected; identity retained' });
+    const area = state.areas.find((a) => a.id === region.areaId);
+    if (area) {
+      this.invalidate(area, 'region reselected');
+      LadStore.appendEvent(area, { source: 'user', action: `reselected ${regionId}` });
+    }
+    await this.save(id, state);
+    this.emitState(id);
+  }
+  private checking = new Set<string>();
+  async recheck(id: string, areaId: string): Promise<LadVerification> {
+    if (this.checking.has(id)) throw new Error('Verification already running');
+    this.checking.add(id);
+    const state = await this.stateOf(id),
+      area = state.areas.find((a) => a.id === areaId);
+    if (!area) {
+      this.checking.delete(id);
+      throw new Error('Unknown area');
+    }
+    const regions = state.regions.filter((r) => r.areaId === areaId);
+    const record: LadVerification = {
+      id: newId('check'),
+      at: nowIso(),
+      outcome: 'Not Verified',
+      criterion: 'text_fit',
+      regions: [],
+      errors: [],
+    };
+    let source: LadSourceRevision | undefined, restore: (() => Promise<void>) | undefined;
+    const page = this.manager.pageOf(id),
+      previousOwnership = this.manager.meta(id)?.ownership ?? 'user';
+    const freshAssets = (route: Route) => route.continue();
+    const onError = (error: Error) => record.errors.push(error.message.slice(0, 500));
+    record.sourceDiagnostics = [];
+    const served = new Set<string>(),
+      responses: Promise<void>[] = [];
+    const onResponse = (response: Response) => {
+      if (
+        !source ||
+        !response.ok() ||
+        new URL(response.url()).origin !== new URL(regions[0].url).origin ||
+        !/javascript|css/.test(response.headers()['content-type'] ?? '')
+      )
+        return;
+      responses.push(
+        (async () => {
+          const length = Number(response.headers()['content-length'] ?? 0);
+          if (length > 4_000_000) return;
+          if (record.sourceDiagnostics!.length < 20)
+            record.sourceDiagnostics!.push(new URL(response.url()).pathname);
+          const body = await response.text();
+          if (body.length > 4_000_000) return;
+          const match = body.match(
+            /sourceMappingURL=data:application\/json[^,]*;base64,([A-Za-z0-9+/=]+)/
+          );
+          if (!match) {
+            record.sourceDiagnostics!.push('inline source map unavailable');
+            return;
+          }
+          const map = JSON.parse(Buffer.from(match[1], 'base64').toString('utf8')) as {
+            sources?: string[];
+            sourcesContent?: string[];
+          };
+          for (let index = 0; index < (map.sourcesContent?.length ?? 0); index++) {
+            const content = map.sourcesContent![index];
+            if (typeof content !== 'string') continue;
+            const hash = createHash('sha256').update(content).digest('hex');
+            for (const [file, expected] of Object.entries(source!.files))
+              if (hash === expected) served.add(file);
+          }
+        })().catch((error) => {
+          if (record.sourceDiagnostics!.length < 20)
+            record.sourceDiagnostics!.push(
+              'Source response unavailable: ' + (error instanceof Error ? error.name : 'error')
+            );
+        })
+      );
+    };
+    try {
+      if (!page || !regions.length || regions.length > 6)
+        throw new Error('Recheck supports one to six DOM regions');
+      const first = regions[0];
+      source = await this.manager.sourceRevision(id);
+      if (regions.some((r) => r.projectRoot !== source!.root))
+        throw new Error('Area is not bound to the selected project; reselect in that project');
+      if (
+        regions.some(
+          (r) =>
+            r.url !== first.url ||
+            r.viewport.width !== first.viewport.width ||
+            r.viewport.height !== first.viewport.height
+        )
+      )
+        throw new Error('All regions must share their original URL and viewport');
+      if (
+        regions.some(
+          (r) =>
+            !r.anchors[0] ||
+            r.anchors[0].confidence < 0.8 ||
+            !r.anchors[0].findings?.some((f) =>
+              ['text-clipping', 'horizontal-overflow', 'vertical-overflow'].includes(f.category)
+            )
+        )
+      )
+        throw new Error(
+          'Automatic recheck supports original DOM text-fitting candidates; other intent needs explicit acceptance criteria'
+        );
+      record.source = { root: source.root, fingerprint: source.fingerprint, scope: source.scope };
+      await this.manager.setOwnership(id, 'agent', 'user');
+      restore = await this.manager.verificationViewport(id, first.viewport);
+      page.on('pageerror', onError);
+      page.on('response', onResponse);
+      // Interception disables the page HTTP cache for a fresh verification load.
+      await page.route('**/*', freshAssets);
+      await this.setSelection(id, 'off');
+      const response = await page.goto(first.url, { waitUntil: 'load', timeout: 15000 });
+      if (!response) await page.reload({ waitUntil: 'load', timeout: 15000 });
+      if (response && !response.ok()) throw new Error(`Page returned ${response.status()}`);
+      await page.evaluate(() => document.fonts.ready);
+      for (const region of regions) {
+        const projection = await projectRegion(page, region);
+        const size = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }));
+        if (
+          projection.stale ||
+          page.url() !== region.url ||
+          size.width !== region.viewport.width ||
+          size.height !== region.viewport.height
+        )
+          throw new Error('Original URL, viewport or DOM identity unproven: ' + projection.reason);
+        const selector = region.anchors[0].selector,
+          observed = await textFit(page, selector);
+        record.regions.push({
+          id: region.id,
+          snapshot: region.snapshot,
+          url: region.url,
+          viewport: region.viewport,
+          selector,
+          expected: 0,
+          observed,
+        });
+        const fresh = await groundRegion(page, projection.rect!);
+        const observation = { ...region, ...fresh, history: region.history };
+        await this.remember(id, observation, 'recheck');
+        region.history = observation.history;
+      }
+      await Promise.all(responses);
+      record.servedSources = [...served];
+      if (!served.size && record.regions.every((r) => r.observed === 0))
+        throw new Error(
+          'No loaded source-map content matches the selected project revision; served source association unproven'
+        );
+      const after = await this.manager.sourceRevision(id);
+      if (after.root !== source.root || after.fingerprint !== source.fingerprint)
+        throw new Error('Sources changed during verification');
+      if (record.errors.length) throw new Error('Page runtime errors occurred');
+      record.outcome = record.regions.every((r) => r.observed === 0)
+        ? 'Verified'
+        : record.regions.some((r) => r.observed !== null && r.observed > 0)
+          ? 'Failed'
+          : 'Not Verified';
+      if (record.outcome === 'Not Verified') record.reason = 'Unsupported/hidden/empty text target';
+      await this.store.saveEvidence(id, record.id, { ...record, sourceRevision: source });
+    } catch (error) {
+      record.outcome = 'Not Verified';
+      record.reason = error instanceof Error ? error.message : String(error);
+    } finally {
+      page?.off('pageerror', onError);
+      page?.off('response', onResponse);
+      await page?.unroute('**/*', freshAssets).catch(() => undefined);
+      try {
+        await restore?.();
+      } catch (error) {
+        record.outcome = 'Not Verified';
+        record.reason = String(error);
+      }
+      try {
+        await this.manager.setOwnership(id, previousOwnership, 'user');
+      } catch {
+        /* closed page */
+      }
+      this.checking.delete(id);
+    }
+    // Reload after asynchronous capture so unrelated UI edits are not overwritten.
+    const current = await this.stateOf(id),
+      target = current.areas.find((a) => a.id === areaId);
+    if (!target) throw new Error('Area was removed during verification');
+    if (
+      target.regionIds.join() !== area.regionIds.join() ||
+      regions.some((r) => current.regions.find((v) => v.id === r.id)?.snapshot !== r.snapshot)
+    ) {
+      record.outcome = 'Not Verified';
+      record.reason = 'Selections changed during verification';
+    }
+    for (const r of regions) {
+      const latest = current.regions.find((v) => v.id === r.id);
+      if (latest && latest.snapshot === r.snapshot) latest.history = r.history;
+    }
+    target.verification = record;
+    target.ledger = [...(target.ledger ?? []), record].slice(-50);
+    if (record.outcome === 'Verified' && target.workflow?.state !== 'disputed')
+      target.status = 'Verified';
+    else if (record.outcome === 'Failed') target.status = 'Unresolved';
+    else if (target.status === 'Verified') target.status = 'Fixed';
+    target.statusSource = 'runtime';
+    target.updatedAt = nowIso();
+    LadStore.appendEvent(target, {
+      source: 'runtime',
+      action: `recheck:${record.outcome} ${record.reason ?? record.id}`,
+    });
+    await this.save(id, current);
+    this.emitState(id);
+    return record;
+  }
+
   /**
    * Record an agent action against an area (check / verification proof).
    */
@@ -539,7 +942,7 @@ export class RegionService {
         height: 0,
       },
     };
-    if (check.newStatus === 'Verified' || check.status === 'verified')
+    if (check.newStatus === 'Verified' || check.status.toLowerCase() === 'verified')
       throw new Error(
         'Verified requires source revision evidence; manual assertions cannot certify a fix'
       );

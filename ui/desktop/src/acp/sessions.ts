@@ -57,6 +57,7 @@ export interface SessionListPage {
 }
 
 export interface LoadSessionMeta {
+  browserProjectRoot?: string;
   recipe?: Recipe | null;
   userRecipeValues?: Record<string, string> | null;
   extensionResults?: ExtensionLoadResult[] | null;
@@ -74,6 +75,8 @@ const inFlightSessionLoads = new Map<string, Promise<AcpLoadSessionResult>>();
 function parseSessionResponseMeta(rawMeta: unknown): LoadSessionMeta {
   const meta = (rawMeta ?? {}) as LoadSessionMeta;
   return {
+    browserProjectRoot:
+      typeof meta.browserProjectRoot === 'string' ? meta.browserProjectRoot : undefined,
     recipe: meta.recipe,
     userRecipeValues: meta.userRecipeValues,
     extensionResults: meta.extensionResults,
@@ -112,7 +115,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     goose_mode: getSessionConfiguration(String(s.sessionId))?.mode ?? meta.gooseMode,
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
-    browser_project_root: meta.browserProjectRoot,
+    browser_project_root: loadMeta.browserProjectRoot ?? meta.browserProjectRoot,
     provider_name: meta.providerId,
     model_config: modelConfig,
     session_type: meta.sessionType,

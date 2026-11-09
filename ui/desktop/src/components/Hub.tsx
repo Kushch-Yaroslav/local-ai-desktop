@@ -210,6 +210,9 @@ export default function Hub({
       if (userSelectedWorkingDirRef.current) await acpUpdateWorkingDir(session.id, dir);
       preparedSession.current = session;
       const configuredSession = await configureNewChatSession(session, newChatSettings);
+      // The explicit scope was acknowledged above after session creation. Preserve
+      // it in the initial UI snapshot as well as the backend extension state.
+      if (userSelectedWorkingDirRef.current) configuredSession.browser_project_root = dir;
       const browserDraft = consumePendingSelection(hubId);
       const hasBrowser = Boolean(await window.electron.liveBrowserWorkspaceRead(hubId));
       if (browserDraft || hasBrowser) {

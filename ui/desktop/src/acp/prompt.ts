@@ -8,6 +8,22 @@ import { browserPayloads } from '../components/liveBrowser/attachments';
 import type { Message } from '../types/message';
 import { getAcpClient } from './acpConnection';
 
+async function browserVisionPolicy(sessionId: string): Promise<'on' | 'off'> {
+  try {
+    const status = await window.electron.liveBrowserStatus();
+    if (!status.endpoint) return 'off';
+    const response = await fetch(
+      `${status.endpoint.url}/control/state?conversation=${encodeURIComponent(sessionId)}`,
+      { headers: { Authorization: `Bearer ${status.endpoint.token}` } }
+    );
+    if (!response.ok) return 'off';
+    const value = await response.json();
+    return value.workspace?.vision === 'on' ? 'on' : 'off';
+  } catch {
+    return 'off';
+  }
+}
+
 export async function acpPromptSession(
   sessionId: string,
   message: Message
@@ -17,7 +33,10 @@ export async function acpPromptSession(
   return client.connection.agent.request(methods.agent.session.prompt, {
     sessionId,
     prompt: messageToAcpPromptContent(message),
-    _meta: { liveBrowserAttachments: browserPayloads(message) },
+    _meta: {
+      liveBrowserAttachments: browserPayloads(message),
+      liveBrowserVision: await browserVisionPolicy(sessionId),
+    },
   });
 }
 
@@ -32,10 +51,14 @@ export async function acpSteerSession(
   expectedRunId: string
 ): Promise<SteerSessionResponse_unstable> {
   const client = await getAcpClient();
+  const content = messageToAcpPromptContent(message);
+  const first = content.find((c) => c.type === 'text');
+  if (first)
+    first._meta = { ...first._meta, liveBrowserVision: await browserVisionPolicy(sessionId) };
   return client.goose.sessionSteer_unstable({
     sessionId,
     expectedRunId,
-    prompt: messageToAcpPromptContent(message) as unknown as SteerSessionRequest_unstable['prompt'],
+    prompt: content as unknown as SteerSessionRequest_unstable['prompt'],
   });
 }
 

@@ -8,7 +8,7 @@ import {
 import { EventEmitter } from 'node:events';
 import { existsSync } from 'node:fs';
 import { isAllowedPageUrl, isBlockedResourceUrl } from './security';
-import { log } from './util';
+import { log, redactRuntimeText } from './util';
 
 export type LadOwnership = 'user' | 'agent';
 
@@ -98,6 +98,52 @@ function findSystemChrome(): string | null {
  *   stored separately).
  */
 export class BrowserManager extends EventEmitter {
+  async verificationViewport(
+    id: string,
+    viewport: { width: number; height: number }
+  ): Promise<() => Promise<void>> {
+    const session = await this.get(id);
+    if (!session.native) {
+      const previous = session.page.viewportSize();
+      await session.page.setViewportSize(viewport);
+      return async () => {
+        if (previous) await session.page.setViewportSize(previous);
+      };
+    }
+    const url = `${process.env.LAD_LB_NATIVE_ENDPOINT}/verification-viewport?conversation=${encodeURIComponent(id)}`;
+    const headers = { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` };
+    const response = await fetch(`${url}&width=${viewport.width}&height=${viewport.height}`, {
+      headers,
+    });
+    if (!response.ok) throw new Error('Cannot restore original verification viewport');
+    const previous = await response.json();
+    return async () => {
+      const result = await fetch(`${url}&restore=${encodeURIComponent(JSON.stringify(previous))}`, {
+        headers,
+      });
+      if (!result.ok) throw new Error('Cannot restore preview settings');
+    };
+  }
+  async sourceRevision(
+    conversationId: string
+  ): Promise<import('../shared/types').LadSourceRevision> {
+    const endpoint = process.env.LAD_LB_NATIVE_ENDPOINT;
+    if (!endpoint) throw new Error('Source verification requires the native Goose project bridge');
+    const response = await fetch(
+      `${endpoint}/source-revision?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` },
+        signal: AbortSignal.timeout(17000),
+      }
+    );
+    const value = (await response.json()) as import('../shared/types').LadSourceRevision & {
+      error?: string;
+    };
+    if (!response.ok || value.error || !value.root || !/^[a-f0-9]{64}$/.test(value.fingerprint))
+      throw new Error(value.error || 'Project revision unavailable');
+    return value;
+  }
+
   private browser: Browser | null = null;
   private sessions = new Map<string, LadSession>();
   private visibility = new Map<string, boolean>();
@@ -163,7 +209,9 @@ export class BrowserManager extends EventEmitter {
   ): Promise<LadSession> {
     const pending = this.creating.get(conversationId);
     if (pending) return pending;
-    const creation = this.createSession(conversationId, opts);
+    const creation = this.createSession(conversationId, opts).catch((error) => {
+      throw new Error(redactRuntimeText(error instanceof Error ? error.message : String(error)));
+    });
     this.creating.set(conversationId, creation);
     try {
       return await creation;
@@ -374,7 +422,7 @@ export class BrowserManager extends EventEmitter {
         type: 'error',
         conversationId,
         code: 'runtime-error',
-        message: `session rebuild failed: ${error instanceof Error ? error.message : String(error)}`,
+        message: `session rebuild failed: ${redactRuntimeText(error instanceof Error ? error.message : String(error))}`,
       });
     }
   }
@@ -430,19 +478,20 @@ export class BrowserManager extends EventEmitter {
       return {
         ok: false,
         summary: '',
-        error: error instanceof Error ? error.message : String(error),
+        error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
       };
     }
   }
 
   private fail(conversationId: string, error: unknown): void {
     const session = this.sessions.get(conversationId);
-    if (session) session.lastError = error instanceof Error ? error.message : String(error);
+    if (session)
+      session.lastError = redactRuntimeText(error instanceof Error ? error.message : String(error));
     this.emitLadEvent({
       type: 'error',
       conversationId,
       code: 'runtime-error',
-      message: error instanceof Error ? error.message : String(error),
+      message: redactRuntimeText(error instanceof Error ? error.message : String(error)),
     });
     this.emitMeta(conversationId);
   }
@@ -474,7 +523,7 @@ export class BrowserManager extends EventEmitter {
       const extra = typeof result === 'string' && result ? ` — ${result}` : '';
       return { ok: true, summary: summary + extra };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = redactRuntimeText(error instanceof Error ? error.message : String(error));
       const session = this.sessions.get(conversationId);
       if (session) session.lastError = message;
       this.emitMeta(conversationId);
@@ -579,7 +628,10 @@ export class BrowserManager extends EventEmitter {
       this.emitMeta(conversationId);
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      return {
+        ok: false,
+        error: redactRuntimeText(error instanceof Error ? error.message : String(error)),
+      };
     }
   }
 
@@ -639,7 +691,7 @@ export class BrowserManager extends EventEmitter {
       const height = Math.max(1, Math.round(fullH * scale));
       return { mime: format === 'png' ? 'image/png' : 'image/jpeg', data, width, height };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : String(error) };
+      return { error: redactRuntimeText(error instanceof Error ? error.message : String(error)) };
     }
   }
 
@@ -675,7 +727,7 @@ export class BrowserManager extends EventEmitter {
         height: Math.round(session.viewport.height * session.dpr * session.zoom),
       };
     } catch (error) {
-      return { error: error instanceof Error ? error.message : String(error) };
+      return { error: redactRuntimeText(error instanceof Error ? error.message : String(error)) };
     }
   }
 
@@ -689,7 +741,7 @@ export class BrowserManager extends EventEmitter {
     try {
       return await fn(session.page);
     } catch (error) {
-      return { error: error instanceof Error ? error.message : String(error) };
+      return { error: redactRuntimeText(error instanceof Error ? error.message : String(error)) };
     }
   }
 

@@ -1,3 +1,4 @@
+import { newId } from './util';
 import type { Page } from 'playwright-core';
 import type { LadAnchor, LadRect, LadRegion, LadSurroundings } from '../shared/types';
 
@@ -100,7 +101,7 @@ export async function groundRegion(page: Page, rect: LadRect): Promise<LadGround
     ) => Promise<LadGroundEvidence>,
     rect
   );
-  return evidence;
+  return { ...evidence, snapshot: `${evidence.snapshot}:${newId('snapshot')}` };
 }
 
 // ---------------------------------------------------------------------------

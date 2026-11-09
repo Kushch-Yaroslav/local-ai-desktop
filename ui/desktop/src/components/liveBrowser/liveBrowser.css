@@ -493,3 +493,19 @@
 .lb2-panel[data-mode='split'] .lb2-body {
   padding-inline-start: 6px;
 }
+
+.lb2-workflow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0;
+}
+.lb2-history-capture {
+  margin: 6px 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-primary);
+}
+.lb2-history-capture summary {
+  overflow-wrap: anywhere;
+}

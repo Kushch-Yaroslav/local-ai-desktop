@@ -15,9 +15,9 @@ export function sha256(text: string): string {
 }
 
 export async function atomicWrite(path: string, data: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(tmp, data, 'utf8');
+  await writeFile(tmp, data, { encoding: 'utf8', mode: 0o600 });
   await rename(tmp, path);
 }
 
@@ -30,11 +30,27 @@ export async function readJson<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
+/** Runtime connection failures may include private CDP URLs in Playwright call logs. */
+export function redactRuntimeText(
+  text: string,
+  token: string | undefined = process.env.LAD_LB_TOKEN
+): string {
+  for (const secret of [token, process.env.LLAMA_API_KEY])
+    if (secret && secret.length >= 8) text = text.split(secret).join('[redacted]');
+  return text
+    .replace(
+      /([?&](?:token|access_token|refresh_token|api[_-]?key|authorization|secret|password)=)[^&\s#"'<>]+/gi,
+      '$1[redacted]'
+    )
+    .replace(/([a-z]+:\/\/)[^\s/@:]+:[^\s/@]+@/gi, '$1[redacted]@')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]{8,}/gi, 'Bearer [redacted]');
+}
+
 export function log(...args: unknown[]): void {
   const line = args
     .map((a) => (typeof a === 'string' ? a : a instanceof Error ? a.message : JSON.stringify(a)))
     .join(' ');
-  process.stdout.write(`[live-browser] ${new Date().toISOString()} ${line}\n`);
+  process.stdout.write(`[live-browser] ${new Date().toISOString()} ${redactRuntimeText(line)}\n`);
 }
 
 export function clamp(value: number, min: number, max: number): number {

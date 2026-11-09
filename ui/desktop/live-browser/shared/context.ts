@@ -82,9 +82,17 @@ export function buildAreaContextText(input: LadContextInput): string {
     const live = first ? input.live?.[first.id] : undefined;
 
     lines.push(`Area ${area.number} — "${area.name}" [${area.status}] (id: ${area.id})`);
-    if (area.status === 'Verified')
+    if (area.status === 'Verified' && area.verification?.outcome !== 'Verified')
       lines.push(
         '  Legacy verification claim only: no source-revision ledger proof is attached. Do not treat this label as verified evidence.'
+      );
+    if (area.verification)
+      lines.push(`  Verification ledger: ${JSON.stringify(area.verification)}`);
+    if (area.workflow)
+      lines.push(`  Workflow: ${area.workflow.state}; completion is separate from verification.`);
+    if (first?.projectRoot)
+      lines.push(
+        `  Historical selection project: ${first.projectRoot}; compare with the current bound Goose scope before editing.`
       );
     if (area.description) lines.push(`  Task: ${area.description}`);
     if (first) {
