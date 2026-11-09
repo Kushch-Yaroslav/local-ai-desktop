@@ -93,6 +93,9 @@ pub(super) fn session_response_meta(
     extension_results: &[ExtensionLoadResult],
 ) -> serde_json::Map<String, serde_json::Value> {
     let mut meta = serde_json::Map::new();
+    if let Some(root) = session_meta(session).remove("browserProjectRoot") {
+        meta.insert("browserProjectRoot".to_owned(), root);
+    }
     if let Some(recipe) = &session.recipe {
         if let Ok(v) = serde_json::to_value(recipe) {
             meta.insert("recipe".to_string(), v);
@@ -550,6 +553,36 @@ mod tests {
     use agent_client_protocol::schema::v1::SessionConfigKind;
     use goose_providers::thinking::ThinkingEffortOption;
     use test_case::test_case;
+
+    #[tokio::test]
+    async fn load_response_preserves_explicit_project_without_inventing_cwd_scope() {
+        use crate::config::GooseMode;
+        use crate::session::{SessionManager, SessionType};
+        let data = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let manager = SessionManager::new(data.path().to_path_buf());
+        let mut session = manager
+            .create_session(
+                root.path().to_path_buf(),
+                "scope".into(),
+                SessionType::User,
+                GooseMode::Approve,
+            )
+            .await
+            .unwrap();
+        assert!(session_response_meta(&session, &[])
+            .get("browserProjectRoot")
+            .is_none());
+        session.extension_data.set_extension_state(
+            "live_browser_project",
+            "v1",
+            serde_json::json!({"root":root.path().to_string_lossy(),"source":"directory-picker"}),
+        );
+        assert_eq!(
+            session_response_meta(&session, &[]).get("browserProjectRoot"),
+            Some(&serde_json::json!(root.path().to_string_lossy()))
+        );
+    }
 
     fn model_selection(current: &str, models: &[&str]) -> ModelSelection {
         ModelSelection {
