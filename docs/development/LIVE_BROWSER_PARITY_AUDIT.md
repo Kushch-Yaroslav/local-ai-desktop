@@ -214,3 +214,6 @@ Final packaged regression: 6 PASS / 2 model-dependent SKIP (1.2m); isolated gio 
 
 
 Ubuntu launch follow-up (2026-11-10): the user's permanent Desktop Entry was inspected and run twice via `gio launch`. Both attempts started the selected package and reached React/Live Browser runtime readiness; the first QA-owned instance closed cleanly before the second. No incorrect pointer, missing file, permission issue or Electron startup error reproduced. `scripts/dev/test-launch-entry.py` guards Desktop Entry wiring and package selection. This records the evidence without inventing a root cause for the earlier unobserved failure.
+
+
+GNOME menu issue resolved at the actual application ID: the visible canonical `local-ai-desktop.desktop` had remained system-bound to `/opt/local-ai-desktop/local-ai-desktop`; activating the app changed only the Goose Dev ID. A user override now points the canonical ID to the active-build launcher, the old user aliases and redundant Goose Dev ID are backed up and hidden, and favorites target the canonical ID. `gtk-launch local-ai-desktop` started the active package twice with clean targeted close between runs. Physical app-grid click and a fresh login were unavailable for automation and are called out in the handoff.

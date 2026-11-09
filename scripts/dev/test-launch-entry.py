@@ -6,12 +6,13 @@ from pathlib import Path
 import subprocess
 
 repo = Path(__file__).resolve().parents[2]
-entry = Path(os.environ.get('LAD_GOOSE_DESKTOP_ENTRY', Path.home() / '.local/share/applications/local-ai-desktop-goose-dev.desktop'))
+entry = Path(os.environ.get('LAD_GOOSE_DESKTOP_ENTRY', Path.home() / '.local/share/applications/local-ai-desktop.desktop'))
 launcher = repo / 'scripts/dev/launch-goose-dev.sh'
+entry_installer = repo / 'scripts/dev/install-ubuntu-menu-entry.sh'
 activator = repo / 'scripts/dev/activate-packaged-build.sh'
 pointer = repo / '.local-work/desktop-selected.path'
 assert entry.is_file(), f'Desktop Entry not found: {entry}'
-assert os.access(launcher, os.X_OK) and os.access(activator, os.X_OK)
+assert os.access(launcher, os.X_OK) and os.access(activator, os.X_OK) and os.access(entry_installer, os.X_OK)
 config = configparser.ConfigParser(interpolation=None)
 config.read(entry)
 desktop = config['Desktop Entry']
@@ -28,6 +29,15 @@ for relative in ('resources/bin/goose', 'resources/live-browser/bin/node', 'reso
     assert path.is_file() and os.access(path, os.R_OK), f'Missing resource: {path}'
 for relative in ('Local AI Desktop', 'resources/bin/goose', 'resources/live-browser/bin/node'):
     assert os.access(package / relative, os.X_OK), f'Not executable: {package / relative}'
-subprocess.run(['bash', '-n', str(launcher), str(activator)], check=True)
+subprocess.run(['bash', '-n', str(launcher), str(activator), str(entry_installer)], check=True)
+assert desktop.get('Name') == 'Local AI Desktop'
+assert desktop.get('StartupWMClass') == 'local-ai-desktop-goose-dev'
+for alias in ('local-ai-desktop-ollama.desktop', 'local-ai-desktop-llama-cpp.desktop', 'local-ai-desktop-goose-dev.desktop'):
+    alias_path = entry.parent / alias
+    if alias_path.exists():
+        alias_cfg = configparser.ConfigParser(interpolation=None); alias_cfg.read(alias_path)
+        assert alias_cfg['Desktop Entry'].getboolean('Hidden', fallback=False), f'Conflicting menu entry remains visible: {alias}'
+raw = subprocess.check_output(['gsettings', 'get', 'org.gnome.shell', 'favorite-apps'], text=True)
+assert 'local-ai-desktop.desktop' in raw
 subprocess.run([str(activator), '--check', str(package)], check=True)
-print(f'PASS: {entry} -> {launcher} -> {selected}')
+print(f'PASS: canonical GNOME ID {entry.name} -> {launcher} -> {selected}')
