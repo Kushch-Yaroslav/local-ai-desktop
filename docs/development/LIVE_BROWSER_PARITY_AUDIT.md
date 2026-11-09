@@ -1,5 +1,7 @@
 # Live Browser: аудит паритета (2026-11-08)
 
+Актуальная реализация Live Browser 2 описана в разделах 11–13. Разделы 1–10 фиксируют предыдущий аудит и промежуточную SSE-реализацию; их ограничения не являются автоматически состоянием нового кода.
+
 Статус: исследование исходников завершено до изменения реализации. Полный паритет НЕ подтверждён. Оригинал `/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop` использован только для чтения. Исторические утверждения HANDOFF не являются результатами текущей проверки.
 
 ## 1. Архитектура оригинала
@@ -89,3 +91,75 @@ P2: компактные toolbar и области, светлая нейтра�
 Packaged E2E `lad-parity-package-responsive`: PASS 45.7s (46.3s total), 1600×1000 и 940×800. После narrow resize проверена правая граница панели <=941px, просмотрены wide/narrow screenshots. Сохранённые области отображаются, инструменты доступны без выхода за экран. После последнего зрителя освобождается lastFrame и state; новые regression tests проверяют transient screenshot failure и unsubscribe во время initialization. SSE error теперь повторно проверяет main runtime и запускает rediscovery/restart; это не заменяет end-to-end crash/restart тест.
 
 Финальная сборка `/tmp/lad-parity-final/Local AI Desktop-linux-x64/local-ai-desktop`: packaged E2E PASS 49.0s (49.4s total), runtime smoke PASS 31/31. Этот артефакт включает последние reconnect/cleanup изменения. Проверены executable-пути оставшихся тестовых процессов; остатки двух ранних неудачных запусков завершены только по точным путям `/tmp/lad-parity-package/...`. Основное приложение/inference не завершались. Первые команды smoke внутри sandbox получали EPERM loopback; реальные проверки выполнены после разрешённого запуска вне сетевого sandbox. Системный pnpm отклонил engines, поэтому упаковка выполнена локальным Forge с установленным Node 24.22.1; глобальный toolchain не менялся. Инсталляторы make/deb/rpm не собирались.
+
+
+## 11. Live Browser 2: повторное исследование и новая архитектура
+
+Повторное исследование оригинала выполнено до этой реализации и записано в [LIVE_BROWSER_2_DESIGN.md](LIVE_BROWSER_2_DESIGN.md). Существенная находка: текущий оригинал уже использует **WebContentsView**, настоящий `webContents.setZoomFactor`, независимый display scale и CSS pan. Сохранение canvas как основной поверхности не могло обеспечить его ввод и zoom. Исходный репозиторий и его профиль не запускались и не изменялись.
+
+`ui/desktop/src/nativeBrowserHost.ts:NativeBrowserHost` теперь создаёт sandboxed WebContentsView с отдельной persistent Electron session на conversation и прикрепляет её к окну владельца. Изолированные HTTP/WebSocket endpoints на loopback требуют runtime bearer. CDP bridge разрешает один target и его дочерние sessions, запрещает browser-wide target escape. Page UI и Page Goose совпадают; новый Chromium для native-сессии не запускается. `BrowserManager.createSession` подключается к этому target, не создавая другую Page/CDPSession. В native-режиме `ScreencastHub` не производит JPEG; SSE передаёт состояние. Внешний Node runtime, Goose MCP, bounded grounding/projectRegion и JSON area store Qwen сохранены. Standalone системный Chromium/SSE fallback также сохранён.
+
+Независимые пространства: physical viewport → CSS viewport через настоящий browser zoom; display DPR берётся с Electron display; preview fit/fixed влияет только на presentation. Pan хранится в CSS px, с ограничением видимой поверхности, средней кнопкой/Hand mode и колесом в Hand mode. Hand использует собственный прозрачный input shield с DOM wheel deltas: Electron before-mouse-event не отдавал необходимые deltas. Shield общий с agent ownership, без app preload/Node. В Interact колесо остаётся у сайта. `useNativeBrowserView` передаёт bounds в main, hide удаляет bounds без закрытия Page. Ownership shield блокирует пользовательский ввод при работе агента; передача управления освобождает отслеженные user keys/buttons и снимает selection overlay. Hidden sessions продолжают работу, MCP всегда требует явный conversation_id.
+
+Сбой runtime сохраняет native Page. При отключении CDP reset debugger-соединения нужен потому, что повторный `Runtime.enable` без reset не отдавал execution contexts новому Playwright. Эта причина была воспроизведена: сохранённый DOM ещё читался тестовым main API, но UI оставался пустым. Теперь SSE дожидается reattach до объявления Connected. Сохранённые URL/partition mappings позволяют восстановить страницу и cookies после закрытия приложения; полный Chromium crash matrix пока не проверен.
+
+### Контекст и проект
+
+`attachments.ts`, `PendingBrowserAttachments.tsx`, `UserMessage.tsx`: пользователь видит обычный текст и компактную раскрываемую карточку области с названием страницы, количеством регионов, Vision и проектом. Draft можно удалить, несколько областей допускаются, очередь разделена по conversation. Технический payload не вставляется в composer.
+
+`crates/goose/src/acp/server/live_browser.rs:prepare`: валидирует typed payload и UUID reference, сохраняет immutable registry в `session.extension_data` (`live_browser.v1`), раскрывает только явно приложенные IDs в assistant-only Content. Visible card использует совместимый с ACP text reference с `audience: user`; технический контекст — `audience: assistant`. Это backend projection, не CSS-подмена истории. Streaming (`server.rs:handle_message_content`) и replay фильтруют audience; edit/resend сохраняет reference и разрешает её через registry после truncate. Registry сохраняется при fork и не выдаёт ID чужому чату; параллельные merges сериализованы. Генерация заголовка исключает reference. Payload ограничен 8 вложениями на запрос, 128 записями/32MB на registry, 24KB текста и 3 ограниченными изображениями на вложение. Достижение лимита даёт явную ошибку, не молчаливое удаление старых evidence.
+
+`DirSwitcher` → `acpUpdateWorkingDir` → `manage_sessions.rs:on_update_working_dir` действительно меняет working_dir Goose и сохраняет канонический выбранный каталог с provenance `explicit-directory-selection` (`live_browser_project.v1`). Hub выполняет эту привязку перед первым prompt; при создании чата передаёт свою Page и области новой conversation. Ошибка adopt сохраняет draft и не прикрепляет область к другой Page. Backend добавляет conversation ID и project scope также к обычным запросам без области. Default cwd не объявляется выбранным проектом, путь не выводится из localhost. Корни выбранного Project source добавляются отдельно, с primary/secondary/active. Goose имеет один project_id; это список корней, а не новая система нескольких независимых project entities. Никакие metadata не расширяют разрешения filesystem: инструменты используют реальную working_dir с существующими Goose approvals/mode. В Chat mode редактирование файлов не обещается.
+
+Vision Off удаляет изображения из attachment registry и запрещает image results `browser_screenshot`/`browser_describe_area`. UI crop готовится после свежей projection, stale evidence не подменяется снимком другой страницы. Vision On — явное разрешение пользователя для этого чата; качество поддержки конкретным provider дополнительно зависит от Goose.
+
+### Обновлённая карта
+
+| Возможность | Текущий статус | Реализация / граница |
+|---|---|---|
+| Одна native Page для UI/Goose | Полный паритет | NativeBrowserHost + ограниченный CDP; реальный MCP click виден в native DOM |
+| Packaged runtime и Node | Полный паритет | staged resources/live-browser, отдельный Node 24 с LICENSE; проверен реальный executable |
+| Настоящий browser zoom | Полный паритет в Electron | setZoomFactor; CSS innerWidth меняется независимо от preview/DPR; standalone legacy approximation остаётся fallback |
+| Auto/presets/custom viewport, Fit/fixed preview | Полный паритет основных controls | отдельные значения, main bounds/Emulation, React controls; нет исходного resize-grabber страницы |
+| Split/Expanded/Chat Only | Полный паритет | сохраняемая доля 25..75%, container resize, narrow browser-first |
+| Split/inspector keyboard resize | Полный паритет | focusable separators и стрелки; pointer resize также реализован |
+| Areas panel workspace-first | Реализовано иначе с обоснованным преимуществом | закрыта по умолчанию; компактный inspector, side/bottom, resize, поиск, один editor вместо раскрытия всех областей |
+| Pan/колесо | Частичный паритет | middle drag/Hand drag и Hand wheel, reset/persistence; исходные pan-pad/scrollbars не переносились |
+| Native input/IME/drag/upload | Частичный паритет / дополнительные проверки | native surface, реальные click и IME composition проверены; OS file chooser и разнообразные drag/drop/IME системы не прошли полную матрицу |
+| Скрытая Page/явный MCP target | Полный паритет основных гарантий | hide не закрывает; explicit conversation_id, owner check; второй target проверен отдельно |
+| Runtime crash recovery | Полный паритет проверенного сценария | SIGKILL только тестового Node, повторный attach, DOM/input/area сохраняются и selection создаётся заново |
+| Chromium/app restart recovery | Требует дополнительной проверки | URL + persistent partition mappings реализованы; возврат полного in-memory SPA state после Chromium crash не обещается |
+| DOM anchors, CSS, geometry, identity | Частичный паритет | bounded grounding Qwen сохранён; browser evidence не выдаётся за доказанный source mapping |
+| Canvas/SVG/WebGL fallback | Частичный паритет | общая canvas/SVG диагностика без anchors; реальный canvas тест, отдельного WebGL hardware matrix нет |
+| Несколько regions в area | Частичный паритет | add region/remove/rename/description/status/history; нет полноценного reselect существующего region с сохранением всей исходной истории |
+| Compact model attachments | Реализовано иначе с обоснованным преимуществом | typed backend registry + audience projection, чистый user transcript, retry/fork изолированы |
+| Explicit project root → model | Полный паритет проверенного data path | нормальный picker React/Vite root → реальный cwd Goose → backend scope → provider request |
+| Автономное «Исправь это» | Требует дополнительной проверки | данные и MCP проверены, но доступной Qwen нет; реальное нахождение/изменение исходника моделью НЕ подтверждено |
+| Recheck | Частичный паритет | повторная projection + history; кнопка честно называется Recheck binding |
+| Source revision verification ledger | Отсутствует | Verified и заявленный verified запрещены без доказательств; это предохранитель, не замена ledger |
+| Detect | Частичный паритет | ограниченные DOM overflow candidates; не полный исходный detector/workflow |
+| Reveal/evidence history | Частичный паритет | reveal текущего anchor/rect и events/checks; нет полного журнала исторических crops/revisions, dispute/deleted references/color workflow |
+| Отдельное browser window | Требует дополнительной проверки как требование | в изученном оригинале popout не найден; не добавлялся |
+
+## 12. Проверки Live Browser 2
+
+Постоянный свежий packaged executable: `.local-work/live-browser2-release-candidate/Local AI Desktop-linux-x64/Local AI Desktop`. Сборка содержит последний Rust backend, native main/preload/renderer и staged Node runtime; SHA256 backend сверена с `target/release/goose`. Основная установленная версия и Ubuntu Desktop Entry в этой итерации не заменялись.
+
+- Rust attachment tests: 3 PASS: reload/truncate/fork, cross-session refusal, default cwd не project, explicit directory, Vision Off, immutable IDs, concurrent merges. Session naming tests: 2 PASS. `cargo fmt --all --check` и `cargo clippy -p goose --lib --no-default-features -- -D warnings`: PASS.
+- Renderer/runtime TypeScript и targeted ESLint: PASS. Frontend/Node tests: 39 PASS.
+- Standalone runtime smoke: **32 PASS**. Старое ожидание image при Vision Off сначала дало 30/31; тест исправлен на проверку Off и явного On, ограничение не удалялось ради зелёного результата.
+- Свежий packaged Electron: **4 PASS, 1 SKIP** за 54.1s (реальная модель). React/Vite fixture использует настоящий directory picker, регион, короткий запрос «Исправь это», backend/provider wire capture, чистую историю и edit/resend. Мок возвращает фиксированный ответ, не моделирует Qwen и не редактирует исходники.
+- Дополнительно: уникальные Hub IDs и разные Page двух окон; закрытие второго окна без падения main; перенос существующей Page в первый чат без области; hidden viewport и свежесть screenshot после изменения DOM. Найден и исправлен cleanup после уничтожения owner (`BrowserWindow.fromWebContents`), который вызывал необработанное исключение main.
+- Native E2E проверяет настоящий zoom по innerWidth, Unicode/IME composition, MCP click на той же Page, второй hidden chat, Canvas fallback, отказ Verified, Vision Off tool result, SIGKILL собственного runtime (путь профиля проверяется через /proc), возврат UI URL/native mode и новое выделение после reattach, narrow bounds, Expanded, hide/reopen, error strip.
+- Визуально просмотрены полные X11 окна 940×800, 1600×1000, 2560×1300, Expanded, inspector и display controls. Реальные X11 pointer tests дополнительно выявили перекрытие split separator native view и прерывание middle drag из-за React effect cleanup при каждом pan; исправлены hit area и раздельный lifecycle/settings update. Первый стенд ошибочно менял только renderer viewport; исправлен `resizeNativeWindow`, проверяются реальные размеры BrowserWindow. `native-window-shot.ts` захватывает WebContentsView, а не только renderer. Снимки/логи/пакет остаются ignored local artifacts.
+- Искусственное падение Node даёт ожидаемый ERR_INCOMPLETE_CHUNKED_ENCODING; запрещённый file: даёт ожидаемую навигационную ошибку. В окружении были MESA/GPU сообщения при cleanup ранних запусков; долговременная GPU стабильность этим не доказана. Тестовые процессы завершаются по своей process group, без широкого pkill.
+
+## 13. Что необходимо доделать до заявления полного паритета
+
+1. Реальный Qwen end-to-end: выбранный безопасный проект → область → «Исправь это» → source discovery/edit через разрешённые инструменты → проверка в той же Page. Endpoint не найден, новая модель не загружалась. Нельзя выдавать protocol fixture за этот результат.
+2. Source-revision ledger, достоверное автоматическое подтверждение fix, historical crop/evidence/revision workflow, replace-region и полный detect/recheck/dispute UI.
+3. Длительный soak/heap audit, Chromium crash/restart с cookies и несколькими SPA, DPI 2/display switching, OS file upload и реальные IME/drag сценарии разных платформ.
+4. Vision Off проверен для новых вложений и текущих MCP images. Ранее разрешённые Vision On снимки сохраняются в истории; ретроактивный отзыв изображений при смене режима не реализован. Compaction реально работающего agent loop и разные model/provider vision gates: persistence primitives проверены, полная матрица не проверена. Также нужны проверки переключения project_id после explicit directory и повторного использования старых вложений при смене project scope.
+5. В native режиме перекрывающий поверхность renderer menu временно скрывает native view; это безопасный обход native z-order, но возможна дальнейшая UX-доработка. Старые технические пользовательские сообщения не переписывались: сохранность истории важнее неоднозначной миграции.
+
+Полный паритет и завершённый автономный workflow не объявляются. Эта итерация даёт проверяемую нативную основу и новую UX/attachment архитектуру, а не доказательство всех возможностей исходного visual debugger.

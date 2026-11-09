@@ -1,3 +1,73 @@
+# Live Browser 2 — актуальный handoff, 2026-11-09
+
+Эта секция заменяет исторические рекомендации ниже. Полный паритет **не объявляется**. Оригинал остался READ-ONLY, основная установка и рабочие inference процессы не заменялись/не останавливались.
+
+## Результат этой итерации
+
+- `src/nativeBrowserHost.ts`: настоящая WebContentsView на chat, private partition/cookies, one-target CDP bridge. Node/Goose MCP управляет той же Page. SSE в Electron передаёт состояние, не изображения.
+- Настоящий browser zoom, Auto/custom/presets viewport, независимый fit/fixed preview, pan/reset. Split теперь сохраняет долю workspace, inspector закрыт по умолчанию и открывает один editor. Side/bottom resize, list search, narrow browser-first.
+- Реальный OS-тест нашёл перекрытие split separator native view: добавлена отдельная 6px hit area. Для Hand wheel/drag используется один прозрачный input shield на окно (тот же shield, что блокирует ввод при работе агента), с собственным ограниченным binding для pan deltas. Он не имеет app preload/Node и не управляет файлами. Interact wheel остаётся у сайта. React settings update больше не вызывает hide/unmount native view и не прерывает middle drag.
+- При смерти Node native Page живёт. Новый runtime переподключается через reset debugger connection: без reset `Runtime.enable` не переотдавал execution contexts и UI мог оставаться пустым. SSE Connected объявляется после reattach. URL/partition mapping сохраняется в userData/live-browser.
+- `attachments.ts`/`pendingContext.ts`/`UserMessage.tsx`: compact per-chat attachment chips, remove/details, обычный текст пользователя без служебного префикса.
+- `crates/goose/src/acp/server/live_browser.rs`: typed immutable registry `live_browser.v1`, user-only card reference и model-only evidence, ограничения размера/IDs, concurrent merge lock. Streaming и replay фильтруют audience. Retry после truncate/fork работает по registry; title generation исключает reference. Vision Off запрещает и attachment images, и MCP image results.
+- Каталог из нормального DirSwitcher меняет реальный Goose working_dir/provider context и сохраняет explicit selection provenance `live_browser_project.v1`. Hub делает это до первого prompt и передаёт Page/regions новой conversation. Никаких localhost→filesystem эвристик. `browserProjectRoot` возвращается в session metadata. Default cwd не считается выбранным проектом, существующие Goose approvals/mode сохраняются.
+- Старый bounded grounding/projectRegion, area JSON store, standalone Chromium/SSE fallback и Goose MCP Qwen сохранены. Статус Verified нельзя назначить простым утверждением. Исходный verification ledger ещё не реализован; старые Verified записи показываются как неподтверждённые claims.
+
+Код этой итерации: `2410f4c` (ACP registry/project scope), `c222d30` (native Page, UI, tests).
+
+## Проверенная сборка и данные
+
+Постоянная сборка: `.local-work/live-browser2-release-candidate/Local AI Desktop-linux-x64/Local AI Desktop`.
+
+Это isolated-QA пакет, а не перезаписанный `ui/desktop/out/` и не обновление Ubuntu Desktop Entry. Основной профиль, чаты, storage markers, GGUF и inference config этой итерацией не переносились. Backend `resources/bin/goose` должен совпадать по SHA256 с `target/release/goose`; sidecar — `resources/live-browser/dist/live-browser.js` + parent metadata + `bin/node` + NODE-LICENSE.
+
+Пакет и validation screenshots/logs не коммитить. Старые /tmp/lad-parity-* и /tmp/lad2-package* не считать текущей сборкой. Изолированные E2E профили находятся только в /tmp/lad-e2e-*; fixtures проверяют принадлежность Node перед SIGKILL. Не применять широкие pkill.
+
+## Проверки
+
+Финальный packaged прогон: 4 PASS, 1 SKIP за 54.1s. Логи, снимки и SHA256: `.local-work/live-browser2-release-candidate/validation/`.
+
+- Renderer/runtime TSC, targeted ESLint, cargo fmt/clippy: PASS.
+- Frontend + Node tests: 39 PASS; Rust attachment registry: 3 PASS; session naming: 2 PASS.
+- Standalone smoke: 32 PASS. Image expectation при Vision Off заменена явной проверкой Off и On.
+- Packaged: четыре сценария плюс один SKIP реального Qwen (endpoint не обнаружен). `live-browser-context.spec.ts` — **scripted protocol fixture, не Qwen**: реальный React/Vite проект, обычный выбор каталога, выделение, «Исправь это», реальный provider request с root/DOM/IDs, чистая visible history, edit/resend с тем же контекстом.
+- Native spec: zoom innerWidth, IME composition/Unicode, MCP click, Canvas fallback, запрет Verified, Vision Off, два native chat target, runtime kill/reattach, новая selection после recovery, Split/Expanded/hide/reopen и физические размеры окна. `LAD_E2E_VISUAL=1` добавляет полный X11 screenshot и настоящие OS pointer/wheel проверки.
+- Только renderer screenshot непригоден для native UI! `native-window-shot.ts` идентифицирует уникальное тестовое окно, учитывает его client origin/menu, захватывает WCV и возвращает OS cursor после ввода. Не применять к пользовательским окнам.
+
+Команды из `ui/desktop` с pinned Node 24 (pnpm >=10.30):
+
+```sh
+node ../node_modules/typescript/bin/tsc --noEmit
+node ../node_modules/typescript/bin/tsc -p live-browser/tsconfig.json --noEmit
+node ../node_modules/vitest/vitest.mjs run src/components/liveBrowser src/liveBrowserNode.test.ts
+LAD_E2E_PACKAGED_EXECUTABLE="/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/.local-work/live-browser2-release-candidate/Local AI Desktop-linux-x64/Local AI Desktop" LAD_E2E_VISUAL=1 LAD_E2E_REQUIRE_BUNDLED_NODE=1 node ../node_modules/@playwright/test/cli.js test tests/e2e/live-browser2.spec.ts tests/e2e/live-browser-context.spec.ts tests/e2e/live-browser.spec.ts --reporter=list --workers=1
+node live-browser/tests/smoke.mjs
+```
+
+Из корня Rust: `cargo test -p goose --lib acp::server::live_browser --no-default-features`; `cargo clippy -p goose --lib --no-default-features -- -D warnings`.
+
+Сборка backend требует CMake/Ninja/clang headers согласно repo toolchain. В этой среде использовались временные `/tmp/lad2-build-tools` и `BINDGEN_EXTRA_CLANG_ARGS=-isystem /usr/lib/gcc/x86_64-linux-gnu/13/include`; эти временные пути могут исчезнуть после reboot. Сборка Electron выполнена offline через cached Electron ZIP 43.4.0, с `LOCAL_AI_DESKTOP_FORGE_OUT_DIR` вне установленного out. Для безопасной пересборки сначала проверить процессы по точному executable path.
+
+Дополнительно проверены разные Hub IDs у двух окон, закрытие второго окна без падения main, перенос существующей Page в первый чат без вложенной области и свежие кадры скрытой Page. Исправлена реальная ошибка cleanup: `BrowserWindow.fromWebContents` вызывался после уничтожения owner. Финальный повтор E2E и результаты smoke записаны в validation рядом с пакетом.
+
+Vision Off проверен для новых вложений и текущих MCP image results. Ранее отправленные с Vision On снимки остаются частью истории; ретроактивное удаление/отзыв изображений при смене режима и полная retry/provider матрица не реализованы.
+
+## Обязательные оставшиеся задачи
+
+1. Авторизованный живой Qwen endpoint: реальный workflow «каталог → область → Исправь это → source discovery/edit → browser verification». Fixture доказал контекст, а не автономное исправление; никаких редактирований исходника моделью не было. Не запускать вторую модель.
+2. Source revision verification ledger, полная история crops/evidence/revisions, replace-region с сохранением ID/history, dispute/workflow/color, полный detector/recheck. Сейчас только binding recheck и запрет ложного Verified.
+3. Длительный memory/heap soak, Chromium/app restart matrix, DPI2/display switching, настоящий OS file chooser и разнообразные drag/IME системы. Native архитектура даёт ввод, но это не доказательство всех OS сценариев.
+4. Полный compaction E2E, разные providers/vision gates, смена project scope при старых вложениях. Registry survives persistence/fork/truncate, но это не полная матрица agent loop. Goose project_id один; primary/secondary описывают корни, не новую multi-project entity model.
+5. Renderer menus, пересекающие native surface, временно скрывают view для корректного z-order. Возможна дальнейшая UX-доработка. Исторические гигантские user messages не переписывались ради сохранности данных.
+
+Точная карта: [LIVE_BROWSER_PARITY_AUDIT.md](LIVE_BROWSER_PARITY_AUDIT.md), разделы 11–13. Контракты оригинала: [LIVE_BROWSER_2_DESIGN.md](LIVE_BROWSER_2_DESIGN.md).
+
+---
+
+## Исторический handoff до Live Browser 2
+
+Ниже сохранён журнал предыдущих итераций. Его утверждения о full parity, source paths, screenshot pipeline и готовности проверять по актуальной секции выше и фактическому коду.
+
 > **Актуализация независимого аудита 2026-11-08:** прежнее заявление ниже о полном переносе не подтверждается. Сначала читайте [LIVE_BROWSER_PARITY_AUDIT.md](LIVE_BROWSER_PARITY_AUDIT.md), разделы 8–10. Реальный packaged UI проверен новым аудитом; полный функциональный паритет остаётся незавершённым.
 
 # Live Browser → Goose v0.4.0 — HANDOFF (перенос)
