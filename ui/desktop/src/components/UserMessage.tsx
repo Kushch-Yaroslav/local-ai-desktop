@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: render persisted visual references as attachment cards.
+import { readBrowserAttachment, browserPageLabel } from './liveBrowser/attachments';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import ImagePreview from './ImagePreview';
 import MarkdownContent from './MarkdownContent';
@@ -326,6 +328,27 @@ function UserMessage({ message, onMessageUpdate }: UserMessageProps) {
           <div className="message flex justify-end w-full">
             <div className="flex-col max-w-[85%] w-fit">
               <div className="flex flex-col group">
+                <div className="flex flex-wrap gap-2" data-testid="browser-message-attachments">
+                  {message.content.map((block, index) => {
+                    const card = readBrowserAttachment(block);
+                    return card ? (
+                      <details
+                        key={index}
+                        className="rounded-xl border border-border-primary bg-background-secondary px-3 py-2 text-xs"
+                      >
+                        <summary>
+                          ▧ {card.name} · {browserPageLabel(card.url)} · {card.regionCount} regions
+                        </summary>
+                        <p className="mt-2 break-all text-text-secondary">
+                          {card.url} · Vision {card.vision ? 'On' : 'Off'}
+                          <br />
+                          {card.projectRoot ??
+                            (card.projectBound ? 'Project linked in chat' : 'No project bound')}
+                        </p>
+                      </details>
+                    ) : null;
+                  })}
+                </div>
                 {textContent.trim() && (
                   <div
                     className="user-message-bubble flex bg-text-primary text-background-primary rounded-xl py-2.5 px-4"

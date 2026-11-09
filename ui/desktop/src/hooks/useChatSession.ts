@@ -26,7 +26,12 @@ import {
 } from '../acp/chatSessionStore';
 import { acpSteerSession } from '../acp/prompt';
 import { isAcpRecovering } from '../acp/acpConnection';
-import { consumePendingSelection, setPendingSelection } from '../components/liveBrowser/pendingContext';
+import { attachmentBlock } from '../components/liveBrowser/attachments';
+import {
+  consumePendingSelection,
+  peekPendingSelection,
+  setPendingSelection,
+} from '../components/liveBrowser/pendingContext';
 
 const initialTokenState: TokenState = {
   inputTokens: 0,
@@ -181,13 +186,8 @@ export function useChatSession({
       // Canvas/SVG screenshot-only limits, so the agent understands what
       // "fix this" refers to even with Vision Off.
       const pendingSelection = consumePendingSelection(sessionId);
-      const contextMessage = pendingSelection
-        ? `${pendingSelection.text}\n\n${userMessage}`
-        : userMessage;
-      const effectiveMessage = `[Live Browser conversation_id: ${JSON.stringify(sessionId)}. Always pass this conversation_id to browser_* tools, including while the browser panel is hidden.]\n\n${contextMessage}`;
-      const effectiveImages = pendingSelection
-        ? [...images, ...pendingSelection.images]
-        : images;
+      const effectiveMessage = userMessage;
+      const effectiveImages = images;
 
       const currentSnapshot = getCurrentSnapshot();
 
@@ -226,7 +226,13 @@ export function useChatSession({
         return;
       }
 
-      const newMessage = hasNewMessage ? createUserMessage(effectiveMessage, effectiveImages) : lastMessage;
+      const newMessage = hasNewMessage
+        ? createUserMessage(effectiveMessage, effectiveImages)
+        : lastMessage;
+      if (pendingSelection && hasNewMessage) {
+        for (const attachment of pendingSelection.attachments ?? [])
+          newMessage.content.push(attachmentBlock(attachment));
+      }
       const messagesForStore = clearsConversation
         ? []
         : hasNewMessage
@@ -269,7 +275,11 @@ export function useChatSession({
 
       try {
         const steeredMessage = createUserMessage(userMessage, images);
+        const draft = peekPendingSelection(sessionId);
+        for (const attachment of draft?.attachments ?? [])
+          steeredMessage.content.push(attachmentBlock(attachment));
         const response = await acpSteerSession(sessionId, steeredMessage, activeRunId);
+        if (draft) consumePendingSelection(sessionId);
         const localSteerMessage: Message = {
           ...steeredMessage,
           id: response.messageId,

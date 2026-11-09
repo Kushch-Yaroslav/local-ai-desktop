@@ -91,13 +91,16 @@ describe('buildAreaContextText', () => {
   });
 
   it('explicitly says there is no DOM anchor for screenshot-only regions', () => {
-    const region = makeRegion({ anchors: [], diagnostics: ['Screenshot-only Canvas/SVG region; no source mapping'] });
+    const region = makeRegion({
+      anchors: [],
+      diagnostics: ['Screenshot-only Canvas/SVG region; no source mapping'],
+    });
     const text = buildAreaContextText({ areas: [makeArea()], regions: [region], vision: 'off' });
     expect(text).toContain('Anchor: none — screenshot-only region');
     expect(text).toContain('Screenshot-only Canvas/SVG region; no source mapping');
   });
 
-  it('states the project root when selected, and the no-project limitation otherwise', () => {
+  it('states an explicit root and defers missing project information to the authoritative host scope', () => {
     const withProject = buildAreaContextText({
       areas: [makeArea()],
       regions: [makeRegion()],
@@ -106,12 +109,20 @@ describe('buildAreaContextText', () => {
     });
     expect(withProject).toContain('Project: "myapp" /home/u/myapp');
 
-    const withoutProject = buildAreaContextText({ areas: [makeArea()], regions: [makeRegion()], vision: 'off' });
-    expect(withoutProject).toContain('Project: none selected — analyze via URL/DOM/page data only');
+    const withoutProject = buildAreaContextText({
+      areas: [makeArea()],
+      regions: [makeRegion()],
+      vision: 'off',
+    });
+    expect(withoutProject).toContain('Project: consult the bound Goose session scope.');
   });
 
   it('adds a VISION OFF note and a VISION ON note respectively', () => {
-    const off = buildAreaContextText({ areas: [makeArea()], regions: [makeRegion()], vision: 'off' });
+    const off = buildAreaContextText({
+      areas: [makeArea()],
+      regions: [makeRegion()],
+      vision: 'off',
+    });
     expect(off).toContain('VISION OFF: no image was sent for this selection');
     const on = buildAreaContextText({ areas: [makeArea()], regions: [makeRegion()], vision: 'on' });
     expect(on).toContain('VISION ON: a bounded image crop is attached');
@@ -119,20 +130,47 @@ describe('buildAreaContextText', () => {
 
   it('reflects a stale live binding and a valid live binding', () => {
     const stale = makeRegion({
-      live: { url: 'https://example.com/page', viewport: { width: 1280, height: 800 }, dpr: 2, scroll: { x: 0, y: 0 }, stale: true, reason: 'selector-not-found', observedAt: '2026-01-02T00:00:00.000Z' },
+      live: {
+        url: 'https://example.com/page',
+        viewport: { width: 1280, height: 800 },
+        dpr: 2,
+        scroll: { x: 0, y: 0 },
+        stale: true,
+        reason: 'selector-not-found',
+        observedAt: '2026-01-02T00:00:00.000Z',
+      },
     });
-    const staleText = buildAreaContextText({ areas: [makeArea()], regions: [stale], vision: 'off' });
+    const staleText = buildAreaContextText({
+      areas: [makeArea()],
+      regions: [stale],
+      vision: 'off',
+    });
     expect(staleText).toContain('binding STALE (selector-not-found)');
 
     const valid = makeRegion({
-      live: { url: 'https://example.com/page', viewport: { width: 1280, height: 800 }, dpr: 2, scroll: { x: 0, y: 0 }, stale: false, observedAt: '2026-01-02T00:00:00.000Z' },
+      live: {
+        url: 'https://example.com/page',
+        viewport: { width: 1280, height: 800 },
+        dpr: 2,
+        scroll: { x: 0, y: 0 },
+        stale: false,
+        observedAt: '2026-01-02T00:00:00.000Z',
+      },
     });
-    const validText = buildAreaContextText({ areas: [makeArea()], regions: [valid], vision: 'off' });
+    const validText = buildAreaContextText({
+      areas: [makeArea()],
+      regions: [valid],
+      vision: 'off',
+    });
     expect(validText).toContain('binding still valid');
   });
 
   it('includes region history events when present', () => {
-    const region = makeRegion({ events: [{ at: '2026-01-01T00:00:01.000Z', source: 'agent', action: 'click', status: 'Fixed' }] });
+    const region = makeRegion({
+      events: [
+        { at: '2026-01-01T00:00:01.000Z', source: 'agent', action: 'click', status: 'Fixed' },
+      ],
+    });
     const text = buildAreaContextText({ areas: [makeArea()], regions: [region], vision: 'off' });
     expect(text).toContain('History: click → Fixed');
   });
@@ -168,7 +206,9 @@ describe('buildAreaContextText', () => {
       const regionIds: string[] = [];
       for (let r = 0; r < 3; r++) {
         const id = `region-${a}-${r}`;
-        regions.push(makeRegion({ id, anchors: [longAnchor(a * 10 + r * 2), longAnchor(a * 10 + r * 2 + 1)] }));
+        regions.push(
+          makeRegion({ id, anchors: [longAnchor(a * 10 + r * 2), longAnchor(a * 10 + r * 2 + 1)] })
+        );
         regionIds.push(id);
       }
       areas.push(makeArea({ id: `area-${a}`, number: a + 1, regionIds }));
@@ -182,7 +222,10 @@ describe('buildAreaContextText', () => {
 describe('visionLimitNote', () => {
   it('returns a note only for screenshot-only areas with Vision Off', () => {
     const area = makeArea();
-    const screenshotOnly = makeRegion({ anchors: [], diagnostics: ['Screenshot-only Canvas/SVG region; no source mapping'] });
+    const screenshotOnly = makeRegion({
+      anchors: [],
+      diagnostics: ['Screenshot-only Canvas/SVG region; no source mapping'],
+    });
     expect(visionLimitNote(area, [screenshotOnly], 'off')).toContain('Vision is OFF');
     expect(visionLimitNote(area, [screenshotOnly], 'on')).toBeNull();
     expect(visionLimitNote(area, [screenshotOnly], 'unknown')).toBeNull();
@@ -192,7 +235,16 @@ describe('visionLimitNote', () => {
     const area = makeArea();
     const withAnchor = makeRegion({
       anchors: [
-        { tag: 'div', selector: 'div.x', text: '', classes: [], rect: { x: 0, y: 0, width: 1, height: 1 }, confidence: 0.9, diagnostics: [], styles: {} },
+        {
+          tag: 'div',
+          selector: 'div.x',
+          text: '',
+          classes: [],
+          rect: { x: 0, y: 0, width: 1, height: 1 },
+          confidence: 0.9,
+          diagnostics: [],
+          styles: {},
+        },
       ],
     });
     expect(visionLimitNote(area, [withAnchor], 'off')).toBeNull();

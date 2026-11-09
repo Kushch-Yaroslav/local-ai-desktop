@@ -25,13 +25,7 @@ export type Usage = {
 };
 
 export type SessionType =
-  | 'user'
-  | 'scheduled'
-  | 'sub_agent'
-  | 'hidden'
-  | 'terminal'
-  | 'gateway'
-  | 'acp';
+  'user' | 'scheduled' | 'sub_agent' | 'hidden' | 'terminal' | 'gateway' | 'acp';
 
 export type Session = {
   accumulated_cost?: number | null;
@@ -48,6 +42,7 @@ export type Session = {
   model_config?: ModelConfig | null;
   name: string;
   project_id?: string | null;
+  browser_project_root?: string | null;
   provider_name?: string | null;
   recipe?: Recipe | null;
   schedule_id?: string | null;

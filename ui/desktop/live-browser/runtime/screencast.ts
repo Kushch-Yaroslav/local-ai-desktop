@@ -77,7 +77,10 @@ export class ScreencastHub {
       this.states.set(conversationId, state);
     }
     state.subscribers.add(listener);
-    if (state.mode === 'idle') void this.ensureRunning(conversationId);
+    if (state.mode === 'idle')
+      void this.ensureRunning(conversationId).catch((error) =>
+        log('preview connection failed:', String(error))
+      );
     return () => {
       state.subscribers.delete(listener);
       if (state.subscribers.size === 0) {
@@ -107,6 +110,10 @@ export class ScreencastHub {
     if (!state || state.mode === 'screencast' || state.mode === 'polling') return;
     const session = await this.manager.get(conversationId);
     if (this.states.get(conversationId) !== state || state.subscribers.size === 0) return;
+    if (session.native) {
+      state.mode = 'suspended';
+      return;
+    }
     this.runScreencast(conversationId, session).catch((error) => {
       log(
         'screencast start failed, starting polling fallback:',
@@ -165,15 +172,15 @@ export class ScreencastHub {
         }
       }
       // Ack so CDP keeps sending.
-      void session.cdp
-        .send('Page.screencastFrameAck', { sessionId: p.sessionId })
+      void session
+        .cdp!.send('Page.screencastFrameAck', { sessionId: p.sessionId })
         .catch(() => undefined);
     };
 
-    session.cdp.on('Page.screencastFrame', frameHandler);
+    session.cdp!.on('Page.screencastFrame', frameHandler);
     state.frameHandler = frameHandler;
-    await session.cdp.send('Page.enable');
-    await session.cdp.send('Page.startScreencast', {
+    await session.cdp!.send('Page.enable');
+    await session.cdp!.send('Page.startScreencast', {
       format: 'jpeg',
       quality: JPEG_QUALITY,
       maxWidth: maxW,
@@ -262,8 +269,8 @@ export class ScreencastHub {
     if (state.frameHandler) {
       const session = this.manager.sessionOf(conversationId);
       if (session) {
-        session.cdp.off('Page.screencastFrame', state.frameHandler);
-        void session.cdp.send('Page.stopScreencast').catch(() => undefined);
+        session.cdp!.off('Page.screencastFrame', state.frameHandler);
+        void session.cdp!.send('Page.stopScreencast').catch(() => undefined);
       }
       state.frameHandler = undefined;
     }

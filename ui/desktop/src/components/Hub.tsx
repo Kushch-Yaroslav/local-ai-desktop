@@ -1,3 +1,6 @@
+import { browserHubId } from './liveBrowser/hubSession';
+import { consumePendingSelection, setPendingSelection } from './liveBrowser/pendingContext';
+import { PendingBrowserAttachments } from './liveBrowser/PendingBrowserAttachments';
 // Modified for Local AI Desktop: responsive Live Browser workspace.
 /**
  * Hub Component
@@ -24,6 +27,7 @@ import { View, ViewOptions } from '../utils/navigationUtils';
 import { useConfig } from './ConfigContext';
 import { getEffectiveWorkingDir, getInitialWorkingDir } from '../utils/workingDir';
 import { createSession } from '../sessions';
+import { acpUpdateWorkingDir } from '../acp/sessions';
 import LoadingGoose from './LoadingGoose';
 import { UserInput } from '../types/message';
 import {
@@ -44,11 +48,6 @@ import { cn } from '../utils';
 import { LiveBrowserPanel } from './liveBrowser/LiveBrowserPanel';
 import { useLiveBrowserWiring } from './liveBrowser/useLiveBrowserWiring';
 import { i18n as liveBrowserMessages } from './liveBrowser/i18n';
-import {
-  peekPendingSelection,
-  onPendingSelectionChange,
-  type PendingSelection,
-} from './liveBrowser/pendingContext';
 
 type BrowserMode = 'chatOnly' | 'split' | 'expanded';
 
@@ -81,11 +80,13 @@ export default function Hub({
   liveVoice: LiveVoiceController;
 }) {
   const intl = useIntl();
+  const hubId = useMemo(() => browserHubId(), []);
   const { state } = useLocation();
   const initialWorkingDir = (state as { workingDir?: string } | null)?.workingDir;
   const { extensionsList } = useConfig();
   const [workingDir, setWorkingDir] = useState(initialWorkingDir ?? getInitialWorkingDir());
-  const userSelectedWorkingDirRef = useRef(false);
+  const userSelectedWorkingDirRef = useRef(Boolean(initialWorkingDir));
+  const [projectSelected, setProjectSelected] = useState(Boolean(initialWorkingDir));
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [liveVoiceAvailability, setLiveVoiceAvailability] =
     useState<LiveVoiceAvailabilityResponse_unstable | null>(null);
@@ -106,17 +107,10 @@ export default function Hub({
   // selection and prepended to the first message of the new session.
   const [browserMode, setBrowserMode] = useState<BrowserMode>('chatOnly');
   const [browserPanelWidth, setBrowserPanelWidth] = useState(520);
-  useLiveBrowserWiring(true);
+  useLiveBrowserWiring(true, hubId);
 
   // The pending selection queue is global: an area sent from the Hub panel is
   // queued here and consumed by the new session's first auto-submitted message.
-  const [pendingSelection, setPendingSelectionState] = useState<PendingSelection | null>(
-    () => peekPendingSelection(),
-  );
-  useEffect(
-    () => onPendingSelectionChange(() => setPendingSelectionState(peekPendingSelection())),
-    [],
-  );
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { time, meridiem, hour } = useClock();
@@ -187,6 +181,7 @@ export default function Hub({
 
   const handleWorkingDirChange = useCallback((dir: string) => {
     userSelectedWorkingDirRef.current = true;
+    setProjectSelected(true);
     setWorkingDir(dir);
   }, []);
 
@@ -212,8 +207,32 @@ export default function Hub({
         ? workingDir
         : await getEffectiveWorkingDir(initialWorkingDir);
       const session = preparedSession.current ?? (await createSession(dir, sessionOptions));
+      if (userSelectedWorkingDirRef.current) await acpUpdateWorkingDir(session.id, dir);
       preparedSession.current = session;
       const configuredSession = await configureNewChatSession(session, newChatSettings);
+      const browserDraft = consumePendingSelection(hubId);
+      const hasBrowser = Boolean(await window.electron.liveBrowserWorkspaceRead(hubId));
+      if (browserDraft || hasBrowser) {
+        try {
+          await window.electron.liveBrowserAdopt(hubId, configuredSession.id);
+        } catch (error) {
+          if (browserDraft) setPendingSelection(browserDraft);
+          throw error;
+        }
+        if (browserDraft)
+          setPendingSelection({ ...browserDraft, conversationId: configuredSession.id });
+        try {
+          localStorage.setItem(
+            `lad-live-browser-ui-${configuredSession.id}`,
+            JSON.stringify({ mode: browserMode, panelWidth: browserPanelWidth })
+          );
+          const preferences = localStorage.getItem(`lad.browser2:${hubId}`);
+          if (preferences)
+            localStorage.setItem(`lad.browser2:${configuredSession.id}`, preferences);
+        } catch {
+          /* Storage unavailable. */
+        }
+      }
       preparedSession.current = null;
       settingsDrafts.delete(draftRef);
       setNextChatExtensionDraft(null);
@@ -282,7 +301,7 @@ export default function Hub({
       <div
         className={cn(
           'lb-chat relative flex min-h-0 min-w-0 overflow-hidden flex-1 flex-col items-center justify-center px-6',
-          browserMode === 'expanded' && 'hidden',
+          browserMode === 'expanded' && 'hidden'
         )}
       >
         <div className="absolute right-14 top-3 z-10 max-w-[calc(100%-3.5rem)]">
@@ -303,76 +322,65 @@ export default function Hub({
           </Button>
         </div>
         <div className="w-full max-w-3xl">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-6xl font-light text-text-primary tracking-tight tabular-nums">
-            {time}
-          </span>
-          {meridiem ? (
-            <span className="text-2xl font-light text-text-secondary">{meridiem}</span>
-          ) : null}
-        </div>
-        <p className="text-xl text-text-secondary mb-6">{greeting}</p>
-
-        {pendingSelection && (
-          <div
-            className="mx-4 mb-2 flex items-center gap-2 rounded-md border border-border-primary bg-background-secondary px-2 py-1 text-xs text-text-secondary"
-            data-testid="pending-selection-note"
-          >
-            <Globe className="h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">
-              {intl.formatMessage(liveBrowserMessages.pendingNote, {
-                names: pendingSelection.areaNames.join(', ') || 'Live Browser selection',
-              })}
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-6xl font-light text-text-primary tracking-tight tabular-nums">
+              {time}
             </span>
+            {meridiem ? (
+              <span className="text-2xl font-light text-text-secondary">{meridiem}</span>
+            ) : null}
+          </div>
+          <p className="text-xl text-text-secondary mb-6">{greeting}</p>
+
+          <PendingBrowserAttachments conversationId={hubId} />
+
+          <ChatInputCard>
+            <ChatInput
+              sessionId={null}
+              newChatSettings={newChatSettings}
+              onNewChatSettingsChange={changeNewChatSettings}
+              draftRef={draftRef}
+              handleSubmit={handleSubmit}
+              chatState={isCreatingSession ? ChatState.LoadingConversation : ChatState.Idle}
+              hasActiveRun={false}
+              onStop={() => {}}
+              initialValue=""
+              setView={setView}
+              totalTokens={0}
+              accumulatedInputTokens={0}
+              accumulatedOutputTokens={0}
+              droppedFiles={[]}
+              onFilesProcessed={() => {}}
+              messages={[]}
+              disableAnimation={false}
+              workingDir={workingDir}
+              onWorkingDirChange={handleWorkingDirChange}
+              inputRef={inputRef}
+              nextChatExtensionDraft={draftForMenu}
+              onNextChatExtensionDraftChange={handleNextChatExtensionDraftChange}
+              liveVoice={{
+                availability: isCreatingSession ? null : liveVoiceAvailability,
+                phase: 'idle',
+                muted: false,
+                activeInAnotherSession: liveVoice.activeSessionId !== null,
+                start: handleStartLiveVoice,
+                stop: liveVoice.stop,
+                toggleMute: liveVoice.toggleMute,
+              }}
+            />
+          </ChatInputCard>
+        </div>
+
+        {isCreatingSession && (
+          <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
+            <LoadingGoose chatState={ChatState.LoadingConversation} />
           </div>
         )}
-
-        <ChatInputCard>
-          <ChatInput
-            sessionId={null}
-            newChatSettings={newChatSettings}
-            onNewChatSettingsChange={changeNewChatSettings}
-            draftRef={draftRef}
-            handleSubmit={handleSubmit}
-            chatState={isCreatingSession ? ChatState.LoadingConversation : ChatState.Idle}
-            hasActiveRun={false}
-            onStop={() => {}}
-            initialValue=""
-            setView={setView}
-            totalTokens={0}
-            accumulatedInputTokens={0}
-            accumulatedOutputTokens={0}
-            droppedFiles={[]}
-            onFilesProcessed={() => {}}
-            messages={[]}
-            disableAnimation={false}
-            workingDir={workingDir}
-            onWorkingDirChange={handleWorkingDirChange}
-            inputRef={inputRef}
-            nextChatExtensionDraft={draftForMenu}
-            onNextChatExtensionDraftChange={handleNextChatExtensionDraftChange}
-            liveVoice={{
-              availability: isCreatingSession ? null : liveVoiceAvailability,
-              phase: 'idle',
-              muted: false,
-              activeInAnotherSession: liveVoice.activeSessionId !== null,
-              start: handleStartLiveVoice,
-              stop: liveVoice.stop,
-              toggleMute: liveVoice.toggleMute,
-            }}
-          />
-        </ChatInputCard>
-      </div>
-
-      {isCreatingSession && (
-        <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
-          <LoadingGoose chatState={ChatState.LoadingConversation} />
-        </div>
-      )}
       </div>
       {browserMode !== 'chatOnly' && (
         <LiveBrowserPanel
-          sessionId="hub"
+          sessionId={hubId}
+          projectId={projectSelected ? workingDir : undefined}
           mode={browserMode === 'expanded' ? 'expanded' : 'split'}
           onModeChange={(m) => setBrowserMode(m)}
           panelWidth={browserPanelWidth}

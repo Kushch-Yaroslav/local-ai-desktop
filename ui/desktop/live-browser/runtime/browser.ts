@@ -16,7 +16,7 @@ export interface LadSession {
   conversationId: string;
   context: BrowserContext;
   page: Page;
-  cdp: CDPSession;
+  cdp: CDPSession | null;
   ownership: LadOwnership;
   visible: boolean;
   /** Page zoom factor (1 = 100%). Rendered size = CSS px * dpr * zoom. */
@@ -30,6 +30,7 @@ export interface LadSession {
   url: string;
   title: string;
   createdAt: number;
+  native?: boolean;
 }
 
 export type LadRuntimeEvent =
@@ -99,6 +100,7 @@ function findSystemChrome(): string | null {
 export class BrowserManager extends EventEmitter {
   private browser: Browser | null = null;
   private sessions = new Map<string, LadSession>();
+  private visibility = new Map<string, boolean>();
   private closing = false;
   private creating = new Map<string, Promise<LadSession>>();
   private launchPromise: Promise<Browser> | null = null;
@@ -175,44 +177,62 @@ export class BrowserManager extends EventEmitter {
     opts: { viewport?: { width: number; height: number }; dpr?: number }
   ): Promise<LadSession> {
     const existing = this.sessions.get(conversationId);
-    if (existing && !existing.page.isClosed() && this.browser?.isConnected()) {
+    if (existing && !existing.page.isClosed() && (existing.native || this.browser?.isConnected())) {
       return existing;
     }
     if (existing) await this.closeSession(conversationId, { silent: true });
 
-    const browser = await this.ensureBrowser();
+    const nativeEndpoint = process.env.LAD_LB_NATIVE_ENDPOINT;
+    let browser: Browser;
+    if (nativeEndpoint) {
+      const response = await fetch(
+        `${nativeEndpoint}/session?conversation=${encodeURIComponent(conversationId)}`,
+        { method: 'POST', headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+      );
+      const body = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !body.url) throw new Error(body.error ?? 'Native browser unavailable');
+      try {
+        browser = await chromium.connectOverCDP(body.url, { noDefaults: true, timeout: 15000 });
+      } catch {
+        throw new Error('Native browser connection failed; reconnect the preview');
+      }
+    } else browser = await this.ensureBrowser();
     const viewport = opts.viewport ?? { width: 1280, height: 800 };
     const dpr = opts.dpr ?? 1;
-    const context = await browser.newContext({
-      viewport,
-      deviceScaleFactor: dpr,
-      colorScheme: 'light',
-      userAgent:
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) LocalAIDesktopLiveBrowser/0.4 Chrome/157 Safari/537.36',
-    });
+    const context = nativeEndpoint
+      ? browser.contexts()[0]
+      : await browser.newContext({
+          viewport,
+          deviceScaleFactor: dpr,
+          colorScheme: 'light',
+          userAgent:
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) LocalAIDesktopLiveBrowser/0.4 Chrome/157 Safari/537.36',
+        });
 
     // Security: abort non-http(s) resource loads (file:, data:, ...).
-    await context.route('**/*', (route) => {
-      const req = route.request();
-      if (req.resourceType() === 'document') {
-        const check = isAllowedPageUrl(req.url());
-        if (!check.ok) {
-          this.emitLadEvent({
-            type: 'error',
-            conversationId,
-            code: 'navigation-blocked',
-            message: `blocked navigation to ${req.url().slice(0, 200)} (${check.reason})`,
-          });
+    if (!nativeEndpoint)
+      await context.route('**/*', (route) => {
+        const req = route.request();
+        if (req.resourceType() === 'document') {
+          const check = isAllowedPageUrl(req.url());
+          if (!check.ok) {
+            this.emitLadEvent({
+              type: 'error',
+              conversationId,
+              code: 'navigation-blocked',
+              message: `blocked navigation to ${req.url().slice(0, 200)} (${check.reason})`,
+            });
+            return route.abort('blockedbyclient');
+          }
+        } else if (isBlockedResourceUrl(req.url())) {
           return route.abort('blockedbyclient');
         }
-      } else if (isBlockedResourceUrl(req.url())) {
-        return route.abort('blockedbyclient');
-      }
-      return route.continue();
-    });
+        return route.continue();
+      });
 
-    const page = await context.newPage();
-    const cdp = await context.newCDPSession(page);
+    const page = nativeEndpoint ? context.pages()[0] : await context.newPage();
+    // Native automation already owns the scoped Page CDP session. Do not attach a second browser-wide target.
+    const cdp = nativeEndpoint ? null : await context.newCDPSession(page);
 
     const session: LadSession = {
       conversationId,
@@ -220,7 +240,7 @@ export class BrowserManager extends EventEmitter {
       page,
       cdp,
       ownership: 'user',
-      visible: true,
+      visible: this.visibility.get(conversationId) ?? !nativeEndpoint,
       zoom: 1,
       dpr,
       viewport,
@@ -229,7 +249,23 @@ export class BrowserManager extends EventEmitter {
       url: 'about:blank',
       title: '',
       createdAt: Date.now(),
+      native: Boolean(nativeEndpoint),
     };
+    if (session.native) {
+      session.url = page.url();
+      session.title = await page.title().catch(() => '');
+      const actual = await page
+        .evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          dpr: window.devicePixelRatio,
+          ready: document.readyState === 'complete',
+        }))
+        .catch(() => ({ width: viewport.width, height: viewport.height, dpr, ready: false }));
+      session.viewport = { width: actual.width, height: actual.height };
+      session.dpr = actual.dpr;
+      session.ready = actual.ready;
+    }
     this.sessions.set(conversationId, session);
 
     const refreshTitle = () => {
@@ -238,7 +274,7 @@ export class BrowserManager extends EventEmitter {
         .then((t) => {
           if (session.title !== t) {
             session.title = t;
-            this.emitMeta(conversationId);
+            this.emitMeta(session.conversationId);
           }
         })
         .catch(() => undefined);
@@ -247,37 +283,65 @@ export class BrowserManager extends EventEmitter {
       if (frame === page.mainFrame()) {
         session.url = frame.url();
         refreshTitle();
-        this.emitMeta(conversationId);
+        this.emitMeta(session.conversationId);
       }
     });
     page.on('load', () => {
       session.ready = true;
       refreshTitle();
-      this.emitMeta(conversationId);
+      this.emitMeta(session.conversationId);
     });
     // Poll title a few times after navigation (SPAs set it late).
     const titleTimer = setInterval(() => {
-      if (!page.isClosed()) refreshTitle();
+      if (!page.isClosed()) {
+        refreshTitle();
+        if (session.native)
+          void page
+            .evaluate(() => ({
+              width: window.innerWidth,
+              height: window.innerHeight,
+              dpr: window.devicePixelRatio,
+            }))
+            .then(async (size) => {
+              const response = await fetch(
+                `${nativeEndpoint}/metrics?conversation=${encodeURIComponent(session.conversationId)}`,
+                { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+              );
+              const { zoom } = (await response.json()) as { zoom: number };
+              if (
+                size.width !== session.viewport.width ||
+                size.height !== session.viewport.height ||
+                size.dpr !== session.dpr ||
+                zoom !== session.zoom
+              ) {
+                session.viewport = { width: size.width, height: size.height };
+                session.dpr = size.dpr;
+                session.zoom = zoom;
+                this.emitMeta(session.conversationId);
+              }
+            })
+            .catch(() => undefined);
+      }
     }, 2000).unref?.();
     page.on('crash', () => {
-      log(`page crashed: ${conversationId}`);
+      log(`page crashed: ${session.conversationId}`);
       this.emitLadEvent({
         type: 'error',
-        conversationId,
+        conversationId: session.conversationId,
         code: 'page-crashed',
         message: 'page crashed',
       });
-      void this.rebuildSession(conversationId);
+      void this.rebuildSession(session.conversationId);
     });
 
     // If Chromium died while the page existed, rebuild transparently.
     const disconnected = () => {
       clearInterval(titleTimer);
-      if (this.sessions.get(conversationId) === session) {
-        this.sessions.delete(conversationId);
+      if (this.sessions.get(session.conversationId) === session) {
+        this.sessions.delete(session.conversationId);
         this.emitLadEvent({
           type: 'error',
-          conversationId,
+          conversationId: session.conversationId,
           code: 'browser-restarted',
           message: 'browser process exited; session will be rebuilt on next use',
         });
@@ -337,6 +401,7 @@ export class BrowserManager extends EventEmitter {
       dpr: session.dpr,
       viewport: session.viewport,
       agentBusy: session.agentBusy,
+      native: session.native,
       lastError: session.lastError,
     };
   }
@@ -353,6 +418,7 @@ export class BrowserManager extends EventEmitter {
     try {
       const session = await this.get(conversationId);
       session.agentBusy = source === 'agent';
+      if (source === 'agent') await this.setOwnership(conversationId, 'agent', 'agent');
       session.lastError = undefined;
       await session.page.goto(check.url, { timeout: 60_000, waitUntil: 'domcontentloaded' });
       session.url = session.page.url();
@@ -400,6 +466,7 @@ export class BrowserManager extends EventEmitter {
     try {
       const session = await this.get(conversationId);
       session.agentBusy = source === 'agent';
+      if (source === 'agent') await this.setOwnership(conversationId, 'agent', 'agent');
       session.lastError = undefined;
       const result = await fn(session);
       this.emitAction(conversationId, source, tool, summary);
@@ -431,9 +498,13 @@ export class BrowserManager extends EventEmitter {
     );
   }
 
-  state(
-    conversationId: string
-  ): { url: string; title: string; ready: boolean; ownership: LadOwnership } | null {
+  state(conversationId: string): {
+    url: string;
+    title: string;
+    ready: boolean;
+    ownership: LadOwnership;
+    visible: boolean;
+  } | null {
     const session = this.sessions.get(conversationId);
     if (!session) return null;
     return {
@@ -441,20 +512,27 @@ export class BrowserManager extends EventEmitter {
       title: session.title,
       ready: session.ready,
       ownership: session.ownership,
+      visible: session.visible,
     };
   }
 
-  setOwnership(
+  async setOwnership(
     conversationId: string,
     ownership: LadOwnership,
     source: 'user' | 'agent' = 'user'
-  ): void {
+  ): Promise<void> {
     const session = this.sessions.get(conversationId);
     if (!session) return;
     if (session.ownership !== ownership) {
       session.ownership = ownership;
       this.emitAction(conversationId, source, 'browser_ownership', `ownership → ${ownership}`);
     }
+    if (session.native)
+      await fetch(
+        `${process.env.LAD_LB_NATIVE_ENDPOINT}/ownership?conversation=${encodeURIComponent(conversationId)}&value=${ownership}`,
+        { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+      ).catch(() => undefined);
+    if (ownership === 'user') session.agentBusy = false;
     this.emitMeta(conversationId);
   }
 
@@ -462,8 +540,8 @@ export class BrowserManager extends EventEmitter {
    * Set viewport + page zoom. Mirrors the original workspace model:
    * - viewport = layout size in CSS px
    * - zoom = page zoom factor; rendered device px = css * dpr * zoom
-   * Implemented via Emulation.setDeviceMetricsOverride exactly like the
-   * original native-project-page.ts (width=cssW, dpr=dpr*zoom).
+   * Electron native mode uses real webContents zoom; the standalone
+   * screencast fallback retains its legacy device-metric approximation.
    */
   async setViewport(
     conversationId: string,
@@ -473,16 +551,23 @@ export class BrowserManager extends EventEmitter {
   ): Promise<{ ok: boolean; error?: string }> {
     try {
       const session = await this.get(conversationId);
-      const width = Math.max(320, Math.min(7680, Math.round(viewport.width)));
-      const height = Math.max(240, Math.min(7680, Math.round(viewport.height)));
+      const width = Math.max(320, Math.min(4096, Math.round(viewport.width)));
+      const height = Math.max(240, Math.min(4096, Math.round(viewport.height)));
       const z = Math.max(0.25, Math.min(4, zoom));
-      await session.page.setViewportSize({ width, height });
-      await session.cdp.send('Emulation.setDeviceMetricsOverride', {
-        width,
-        height,
-        deviceScaleFactor: session.dpr * z,
-        mobile: false,
-      });
+      if (session.native) {
+        const response = await fetch(
+          `${process.env.LAD_LB_NATIVE_ENDPOINT}/viewport?conversation=${encodeURIComponent(conversationId)}&width=${width}&height=${height}&zoom=${z}`,
+          { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+        );
+        if (!response.ok) throw new Error('Native viewport update failed');
+      } else await session.page.setViewportSize({ width, height });
+      if (!session.native)
+        await session.cdp!.send('Emulation.setDeviceMetricsOverride', {
+          width,
+          height,
+          deviceScaleFactor: session.dpr * z,
+          mobile: false,
+        });
       session.viewport = { width, height };
       session.zoom = z;
       this.emitAction(
@@ -514,6 +599,18 @@ export class BrowserManager extends EventEmitter {
   > {
     const session = this.sessions.get(conversationId);
     if (!session) return { error: 'no-session' };
+    if (session.native) {
+      const response = await fetch(
+        `${process.env.LAD_LB_NATIVE_ENDPOINT}/capture?conversation=${encodeURIComponent(conversationId)}&rect=${encodeURIComponent(JSON.stringify(rect))}`,
+        { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+      );
+      return (await response.json()) as {
+        mime: 'image/png';
+        data: string;
+        width: number;
+        height: number;
+      };
+    }
     const format = opts.format ?? 'jpeg';
     const quality = opts.quality ?? 80;
     const maxEdge = opts.maxEdge ?? 1600;
@@ -524,8 +621,8 @@ export class BrowserManager extends EventEmitter {
     const fullH = rect.height * zoom * session.dpr;
     const scale = Math.min(1, maxEdge / Math.max(fullW, fullH));
     try {
-      const scroll = await session.page.evaluate(() => ({ x: scrollX, y: scrollY }));
-      const result = await session.cdp.send('Page.captureScreenshot', {
+      const scroll = await session.page.evaluate(() => ({ x: window.scrollX, y: window.scrollY }));
+      const result = await session.cdp!.send('Page.captureScreenshot', {
         format,
         quality,
         clip: {
@@ -554,6 +651,18 @@ export class BrowserManager extends EventEmitter {
     const session = this.sessions.get(conversationId);
     if (!session) return { error: 'no-session' };
     try {
+      if (session.native) {
+        const response = await fetch(
+          `${process.env.LAD_LB_NATIVE_ENDPOINT}/capture?conversation=${encodeURIComponent(conversationId)}`,
+          { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+        );
+        return (await response.json()) as {
+          mime: string;
+          data: string;
+          width: number;
+          height: number;
+        };
+      }
       const buffer = await session.page.screenshot({
         type: 'jpeg',
         quality: opts.quality ?? 75,
@@ -593,6 +702,7 @@ export class BrowserManager extends EventEmitter {
   }
 
   setScreencastVisible(conversationId: string, visible: boolean): void {
+    this.visibility.set(conversationId, visible);
     const session = this.sessions.get(conversationId);
     if (!session) return;
     session.visible = visible;
@@ -604,7 +714,12 @@ export class BrowserManager extends EventEmitter {
     if (!session) return;
     this.sessions.delete(conversationId);
     try {
-      await session.context.close();
+      if (session.native)
+        await fetch(
+          `${process.env.LAD_LB_NATIVE_ENDPOINT}/close?conversation=${encodeURIComponent(conversationId)}`,
+          { headers: { Authorization: `Bearer ${process.env.LAD_LB_TOKEN}` } }
+        );
+      else await session.context.close();
     } catch {
       /* already closed */
     }
@@ -612,6 +727,20 @@ export class BrowserManager extends EventEmitter {
       this.emitLadEvent({ type: 'session', conversationId, detail: 'closed' });
       this.emitMeta(conversationId);
     }
+  }
+
+  adopt(from: string, to: string): void {
+    if (this.sessions.has(to)) throw new Error('Destination browser already exists');
+    const session = this.sessions.get(from);
+    if (!session) return;
+    this.sessions.delete(from);
+    if (this.visibility.has(from)) {
+      this.visibility.set(to, this.visibility.get(from)!);
+      this.visibility.delete(from);
+    }
+    session.conversationId = to;
+    this.sessions.set(to, session);
+    this.emitMeta(to);
   }
 
   async shutdown(): Promise<void> {

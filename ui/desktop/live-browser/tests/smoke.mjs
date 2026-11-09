@@ -193,6 +193,9 @@ check('mcp browser_state', String(callState.body?.result?.content?.[0]?.text ?? 
 const callList = await mcp('tools/call', { name: 'browser_list_areas', arguments: { conversation_id: conv } }, 4);
 const listText = callList.body?.result?.content?.[0]?.text ?? '';
 check('mcp list areas text', listText.includes('Chart region') && listText.includes('Screenshot-only Canvas/SVG region; no source mapping'), listText.slice(0, 200));
+const offDescription=await mcp('tools/call',{name:'browser_describe_area',arguments:{conversation_id:conv,area_id:area.id}},50);
+check('Vision Off blocks describe images',!offDescription.body?.result?.content?.some(c=>c.type==='image'));
+await api('/control/workspace',{workspace:{vision:'on'}});
 const callDesc = await mcp('tools/call', { name: 'browser_describe_area', arguments: { conversation_id: conv, area_id: area.id } }, 5);
 const descContent = callDesc.body?.result?.content ?? [];
 const descImage = descContent.find((c) => c.type === 'image');

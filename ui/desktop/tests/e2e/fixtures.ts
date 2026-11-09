@@ -72,7 +72,16 @@ export const test = base.extend<GooseTestFixtures>({
         const electronRoot = join(devRoot, 'electron');
         mkdirSync(electronRoot, { recursive: true });
         writeFileSync(join(electronRoot, '.e2e-isolated'), 'isolated E2E instance\n');
-        const llama = discoverLlamaServer();
+        const fixtureProvider = process.env.LAD_E2E_PROVIDER_URL;
+        const llama = fixtureProvider
+          ? {
+              pid: 0,
+              port: Number(new URL(fixtureProvider).port),
+              apiKey: 'fixture-only-key',
+              modelAlias: 'fixture-model',
+              baseUrl: fixtureProvider,
+            }
+          : discoverLlamaServer();
         if (llama) {
           seedGooseBackend(devRoot, llama);
           console.log(
@@ -198,6 +207,15 @@ export const test = base.extend<GooseTestFixtures>({
           console.log(`[renderer:${level}] ${text}`);
         }
       });
+      page.on('response', async (response) => {
+        if (response.status() >= 400 && new URL(response.url()).hostname === '127.0.0.1')
+          console.log(
+            '[control-error]',
+            new URL(response.url()).pathname,
+            response.status(),
+            (await response.text().catch(() => '')).slice(0, 300)
+          );
+      });
       page.on('pageerror', (err) => {
         console.log(`[renderer:pageerror] ${err.message}`);
       });
@@ -209,7 +227,10 @@ export const test = base.extend<GooseTestFixtures>({
 
       // Close the CDP connection
       if (browser) {
-        await browser.close().catch(console.error);
+        await Promise.race([
+          browser.close().catch(console.error),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
       }
 
       // Kill the npm process tree

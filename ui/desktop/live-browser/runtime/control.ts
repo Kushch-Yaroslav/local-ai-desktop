@@ -49,7 +49,11 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 function json(res: ServerResponse, code: number, body: unknown): void {
   const data = JSON.stringify(body);
-  res.writeHead(code, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(data), 'cache-control': 'no-store' });
+  res.writeHead(code, {
+    'content-type': 'application/json',
+    'content-length': Buffer.byteLength(data),
+    'cache-control': 'no-store',
+  });
   res.end(data);
 }
 
@@ -74,7 +78,13 @@ export class LadControlServer {
     manager.on('lad', (event) => {
       const message: LadWsMessage | null =
         event.type === 'action'
-          ? { t: 'action', source: event.source, tool: event.tool, summary: event.summary, at: new Date().toISOString() }
+          ? {
+              t: 'action',
+              source: event.source,
+              tool: event.tool,
+              summary: event.summary,
+              at: new Date().toISOString(),
+            }
           : event.type === 'error'
             ? { t: 'error', code: event.code, message: event.message }
             : event.type === 'meta'
@@ -111,7 +121,12 @@ export class LadControlServer {
   private async pushState(conversationId: string): Promise<void> {
     const state = await this.deps.regions.list(conversationId).catch(() => null);
     if (!state) return;
-    const message: LadWsMessage = { t: 'state', areas: state.areas, regions: state.regions, workspace: state.workspace };
+    const message: LadWsMessage = {
+      t: 'state',
+      areas: state.areas,
+      regions: state.regions,
+      workspace: state.workspace,
+    };
     for (const client of this.clientsFor(conversationId)) this.writeSse(client, message);
   }
 
@@ -144,7 +159,11 @@ export class LadControlServer {
         await this.route(req, res);
       } catch (error) {
         log('control request error:', error instanceof Error ? error.stack : error);
-        if (!res.headersSent) json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+        if (!res.headersSent)
+          json(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
         else res.end();
       }
     });
@@ -168,7 +187,13 @@ export class LadControlServer {
     const method = req.method ?? 'GET';
 
     if (path === '/health') {
-      json(res, 200, { ok: true, service: 'local-ai-live-browser', version: '0.4.0', sessions: this.deps.manager.sessionIds, active: this.deps.activeConversation() });
+      json(res, 200, {
+        ok: true,
+        service: 'local-ai-live-browser',
+        version: '0.4.0',
+        sessions: this.deps.manager.sessionIds,
+        active: this.deps.activeConversation(),
+      });
       return;
     }
 
@@ -193,7 +218,7 @@ export class LadControlServer {
           activeConversation: this.deps.activeConversation,
         },
         req as IncomingMessage & { body?: unknown },
-        res,
+        res
       );
       return;
     }
@@ -210,6 +235,13 @@ export class LadControlServer {
     const conversationParam = url.searchParams.get('conversation') ?? undefined;
 
     switch (path) {
+      case '/control/adopt': {
+        const body = JSON.parse(await readBody(req)) as { from: string; to: string };
+        await this.deps.regions.adopt(body.from, body.to);
+        this.deps.manager.adopt(body.from, body.to);
+        json(res, 200, { ok: true });
+        return;
+      }
       case '/control/events': {
         if (method !== 'GET') {
           json(res, 405, { ok: false, error: 'use-get' });
@@ -220,6 +252,8 @@ export class LadControlServer {
           json(res, 400, { ok: false, error: 'missing-conversation' });
           return;
         }
+        // Reattach the surviving native Page before announcing a connected preview.
+        await this.deps.manager.get(conversationId);
         res.writeHead(200, {
           'content-type': 'text/event-stream',
           'cache-control': 'no-store',
@@ -231,7 +265,13 @@ export class LadControlServer {
         clients.add(res);
         // Screencast frames: the hub starts/stops production with clients.
         const unsubscribeFrames = this.deps.screencast.subscribe(conversationId, (frame) => {
-          this.writeSse(res, { t: 'frame', data: frame.data, width: frame.width, height: frame.height, ts: frame.ts });
+          this.writeSse(res, {
+            t: 'frame',
+            data: frame.data,
+            width: frame.width,
+            height: frame.height,
+            ts: frame.ts,
+          });
         });
         const heartbeat = setInterval(() => {
           if (!res.writableEnded) res.write(`: ping\n`);
@@ -243,7 +283,14 @@ export class LadControlServer {
         });
         // Immediate initial payload: last frame + state.
         const last = this.deps.screencast.lastFrame(conversationId);
-        if (last) this.writeSse(res, { t: 'frame', data: last.data, width: last.width, height: last.height, ts: last.ts });
+        if (last)
+          this.writeSse(res, {
+            t: 'frame',
+            data: last.data,
+            width: last.width,
+            height: last.height,
+            ts: last.ts,
+          });
         const meta = this.deps.manager.meta(conversationId);
         if (meta) this.writeSse(res, { t: 'meta', meta });
         await this.pushState(conversationId);
@@ -268,7 +315,7 @@ export class LadControlServer {
       }
 
       case '/control/active': {
-        const body = JSON.parse(await readBody(req) || '{}') as { conversationId?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as { conversationId?: string };
         if (!body.conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversationId' });
           return;
@@ -279,8 +326,9 @@ export class LadControlServer {
       }
 
       case '/control/ground': {
-        const body = JSON.parse(await readBody(req) || '{}') as LadGroundRequest;
-        const conversationId = body.conversationId || conversationParam || this.deps.activeConversation() || '';
+        const body = JSON.parse((await readBody(req)) || '{}') as LadGroundRequest;
+        const conversationId =
+          body.conversationId || conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
           return;
@@ -303,8 +351,9 @@ export class LadControlServer {
           json(res, 405, { ok: false, error: 'use-post' });
           return;
         }
-        const body = JSON.parse(await readBody(req) || '{}') as LadCreateAreaRequest;
-        const conversationId = body.conversationId || conversationParam || this.deps.activeConversation() || '';
+        const body = JSON.parse((await readBody(req)) || '{}') as LadCreateAreaRequest;
+        const conversationId =
+          body.conversationId || conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
           return;
@@ -323,7 +372,7 @@ export class LadControlServer {
       }
 
       case '/control/area/update': {
-        const body = JSON.parse(await readBody(req) || '{}') as LadUpdateAreaRequest;
+        const body = JSON.parse((await readBody(req)) || '{}') as LadUpdateAreaRequest;
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
@@ -340,7 +389,7 @@ export class LadControlServer {
       }
 
       case '/control/area/remove': {
-        const body = JSON.parse(await readBody(req) || '{}') as { areaId?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as { areaId?: string };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         await this.deps.regions.removeArea(conversationId, body.areaId ?? '');
         json(res, 200, { ok: true });
@@ -348,7 +397,7 @@ export class LadControlServer {
       }
 
       case '/control/region/remove': {
-        const body = JSON.parse(await readBody(req) || '{}') as { regionId?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as { regionId?: string };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         await this.deps.regions.removeRegion(conversationId, body.regionId ?? '');
         json(res, 200, { ok: true });
@@ -356,49 +405,70 @@ export class LadControlServer {
       }
 
       case '/control/region/attach': {
-        const body = JSON.parse(await readBody(req) || '{}') as { regionId?: string; areaId?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          regionId?: string;
+          areaId?: string;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
-        const { region, area } = await this.deps.regions.attachRegionToArea(conversationId, body.regionId ?? '', body.areaId ?? '');
+        const { region, area } = await this.deps.regions.attachRegionToArea(
+          conversationId,
+          body.regionId ?? '',
+          body.areaId ?? ''
+        );
         json(res, 200, { ok: true, region, area });
         return;
       }
 
       case '/control/workspace': {
-        const body = JSON.parse(await readBody(req) || '{}') as { workspace?: Record<string, unknown> };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          workspace?: Record<string, unknown>;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
-        const workspace = await this.deps.regions.setWorkspace(conversationId, body.workspace ?? {});
+        const workspace = await this.deps.regions.setWorkspace(
+          conversationId,
+          body.workspace ?? {}
+        );
         void this.deps.regions.setViewportForWorkspace(conversationId, workspace);
         json(res, 200, { ok: true, workspace });
         return;
       }
 
       case '/control/ownership': {
-        const body = JSON.parse(await readBody(req) || '{}') as { ownership?: 'user' | 'agent' };
+        const body = JSON.parse((await readBody(req)) || '{}') as { ownership?: 'user' | 'agent' };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
           return;
         }
-        this.deps.manager.setOwnership(conversationId, body.ownership ?? 'user');
+        await this.deps.manager.setOwnership(conversationId, body.ownership ?? 'user');
         json(res, 200, { ok: true });
         return;
       }
 
       case '/control/viewport': {
-        const body = JSON.parse(await readBody(req) || '{}') as { width?: number; height?: number; zoom?: number };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          width?: number;
+          height?: number;
+          zoom?: number;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         if (!body.width || !body.height) {
           json(res, 400, { ok: false, error: 'missing-size' });
           return;
         }
-        const result = await this.deps.manager.setViewport(conversationId, { width: body.width, height: body.height }, body.zoom ?? 1, 'user');
+        const result = await this.deps.manager.setViewport(
+          conversationId,
+          { width: body.width, height: body.height },
+          body.zoom ?? 1,
+          'user'
+        );
         if (!result.ok) json(res, 500, { ok: false, error: result.error });
         else json(res, 200, { ok: true });
         return;
       }
 
       case '/control/visibility': {
-        const body = JSON.parse(await readBody(req) || '{}') as { visible?: boolean };
+        const body = JSON.parse((await readBody(req)) || '{}') as { visible?: boolean };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
@@ -411,7 +481,10 @@ export class LadControlServer {
       }
 
       case '/control/navigate': {
-        const body = JSON.parse(await readBody(req) || '{}') as { action?: 'open' | 'back' | 'forward' | 'reload'; url?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          action?: 'open' | 'back' | 'forward' | 'reload';
+          url?: string;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         if (!conversationId) {
           json(res, 400, { ok: false, error: 'missing-conversation' });
@@ -438,28 +511,54 @@ export class LadControlServer {
       }
 
       case '/control/act': {
-        const body = JSON.parse(await readBody(req) || '{}') as { action?: string; selector?: string; value?: string; x?: number; y?: number };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          action?: string;
+          selector?: string;
+          value?: string;
+          x?: number;
+          y?: number;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         const page = conversationId ? this.deps.manager.pageOf(conversationId) : null;
         if (!page) {
+          if (body.action === 'selection' && body.value === 'off') {
+            json(res, 200, { ok: true });
+            return;
+          }
           json(res, 400, { ok: false, error: 'no-page' });
           return;
         }
         try {
-          if (body.action === 'click' && body.selector) {
+          if (body.action === 'detect') {
+            await this.deps.regions.detect(conversationId);
+            json(res, 200, { ok: true });
+          } else if (body.action === 'reveal') {
+            await this.deps.regions.reveal(conversationId, body.value ?? '');
+            json(res, 200, { ok: true });
+          } else if (body.action === 'selection') {
+            await this.deps.regions.setSelection(conversationId, body.value ?? 'off');
+            json(res, 200, { ok: true });
+          } else if (body.action === 'click' && body.selector) {
             await page.click(body.selector, { timeout: 10_000 });
             json(res, 200, { ok: true, summary: `clicked ${body.selector}` });
           } else if (body.action === 'fill' && body.selector) {
             await page.fill(body.selector, body.value ?? '', { timeout: 10_000 });
             json(res, 200, { ok: true, summary: `filled ${body.selector}` });
-          } else if (body.action === 'scroll' && typeof body.x === 'number' && typeof body.y === 'number') {
+          } else if (
+            body.action === 'scroll' &&
+            typeof body.x === 'number' &&
+            typeof body.y === 'number'
+          ) {
             await page.evaluate(([sx, sy]) => window.scrollTo(sx, sy), [body.x!, body.y!]);
             json(res, 200, { ok: true, summary: `scrolled to ${body.x},${body.y}` });
           } else {
             json(res, 400, { ok: false, error: 'unknown-action' });
           }
         } catch (error) {
-          json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          json(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
         return;
       }
@@ -467,7 +566,10 @@ export class LadControlServer {
       case '/control/capture': {
         const body =
           method === 'POST'
-            ? (JSON.parse(await readBody(req) || '{}') as { rect?: LadRectBody; maxEdge?: number })
+            ? (JSON.parse((await readBody(req)) || '{}') as {
+                rect?: LadRectBody;
+                maxEdge?: number;
+              })
             : {
                 rect: {
                   x: Number(url.searchParams.get('x') ?? 0),
@@ -483,16 +585,26 @@ export class LadControlServer {
           json(res, 400, { ok: false, error: rect.reason });
           return;
         }
-        const result = await this.deps.manager.captureCrop(conversationId, rect.rect, { maxEdge: body.maxEdge ?? 1280, quality: 80 });
+        const result = await this.deps.manager.captureCrop(conversationId, rect.rect, {
+          maxEdge: body.maxEdge ?? 1280,
+          quality: 80,
+        });
         if ('error' in result) json(res, 500, { ok: false, error: result.error });
-        else json(res, 200, { ok: true, mime: result.mime, data: result.data, width: result.width, height: result.height } satisfies LadCaptureResponse);
+        else
+          json(res, 200, {
+            ok: true,
+            mime: result.mime,
+            data: result.data,
+            width: result.width,
+            height: result.height,
+          } satisfies LadCaptureResponse);
         return;
       }
 
       case '/control/read': {
         const body =
           method === 'POST'
-            ? (JSON.parse(await readBody(req) || '{}') as LadReadRequest)
+            ? (JSON.parse((await readBody(req)) || '{}') as LadReadRequest)
             : {
                 maxChars: Number(url.searchParams.get('maxChars') ?? 12000) || undefined,
                 selector: url.searchParams.get('selector') ?? undefined,
@@ -507,21 +619,38 @@ export class LadControlServer {
         try {
           const result = await page.evaluate(
             (args: { selector: string | null; maxChars: number }) => {
-              const root: ParentNode = args.selector
+              const root = args.selector
                 ? (() => {
                     const el = document.querySelector(args.selector as string);
                     if (!el) throw new Error(`selector-not-found: ${args.selector}`);
                     return el;
                   })()
                 : document.body;
-              return { text: (((root as HTMLElement).innerText ?? (root as Element).textContent ?? '').slice(0, args.maxChars * 2)), url: location.href, title: document.title };
+              return {
+                text: (
+                  (root as HTMLElement).innerText ??
+                  (root as Element).textContent ??
+                  ''
+                ).slice(0, args.maxChars * 2),
+                url: window.location.href,
+                title: document.title,
+              };
             },
-            { selector: body.selector ?? null, maxChars: max },
+            { selector: body.selector ?? null, maxChars: max }
           );
           const truncated = (result.text ?? '').length >= max;
-          json(res, 200, { ok: true, url: result.url, title: result.title, text: (result.text ?? '').slice(0, max), truncated });
+          json(res, 200, {
+            ok: true,
+            url: result.url,
+            title: result.title,
+            text: (result.text ?? '').slice(0, max),
+            truncated,
+          });
         } catch (error) {
-          json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          json(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
         return;
       }
@@ -540,17 +669,20 @@ export class LadControlServer {
             viewportWidth: window.innerWidth,
             viewportHeight: window.innerHeight,
             dpr: window.devicePixelRatio,
-            url: location.href,
+            url: window.location.href,
           }));
           json(res, 200, { ok: true, ...snapshot });
         } catch (error) {
-          json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          json(res, 500, {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
         return;
       }
 
       case '/control/projection': {
-        const body = JSON.parse(await readBody(req) || '{}') as { regionId?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as { regionId?: string };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         const region = await this.deps.regions.liveProjection(conversationId, body.regionId ?? '');
         if (!region) json(res, 404, { ok: false, error: 'not-found' });
@@ -559,7 +691,12 @@ export class LadControlServer {
       }
 
       case '/control/check': {
-        const body = JSON.parse(await readBody(req) || '{}') as { areaId?: string; result?: string; reason?: string; newStatus?: string };
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          areaId?: string;
+          result?: string;
+          reason?: string;
+          newStatus?: string;
+        };
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         const area = await this.deps.regions.recordCheck(conversationId, body.areaId ?? '', {
           status: body.result ?? 'verified',

@@ -13,6 +13,7 @@ import type { LadArea, LadRegion, LadWorkspaceSettings } from './types';
 // ---------------------------------------------------------------------------
 
 export interface LadControlMeta {
+  native?: boolean;
   conversationId: string;
   url: string;
   title: string;

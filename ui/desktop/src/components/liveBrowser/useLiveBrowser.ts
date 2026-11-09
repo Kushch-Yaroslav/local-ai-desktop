@@ -313,14 +313,15 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
         // browser's retries if the runtime is gone.
         lbdbgWarn('sse-ERROR', conversationId, es?.readyState);
         setConnected(false);
-        if (!reconnectTimer) reconnectTimer = setTimeout(() => {
-          reconnectTimer = null;
-          void getRuntimeInfo().then(info => {
-            if (cancelled) return;
-            if (!info.running || !info.endpoint) retryRuntime();
-            else if (info.endpoint.url !== endpoint.url) setRuntime(info);
-          });
-        }, 2000);
+        if (!reconnectTimer)
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            void getRuntimeInfo().then((info) => {
+              if (cancelled) return;
+              if (!info.running || !info.endpoint) retryRuntime();
+              else if (info.endpoint.url !== endpoint.url) setRuntime(info);
+            });
+          }, 2000);
       };
       es.onmessage = (event) => {
         if (cancelled) return;
@@ -354,6 +355,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
 
     void client
       .setActive(conversationId)
+      .then(() => client.setVisible(conversationId, true))
       .then(() => {
         lbdbg('setActive-OK', conversationId);
         connect();
@@ -368,6 +370,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       es?.close();
+      void client.setVisible(conversationId, false).catch(() => undefined);
       clientRef.current = null;
       setConnected(false);
     };

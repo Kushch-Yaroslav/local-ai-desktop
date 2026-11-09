@@ -1,33 +1,12 @@
+import { resizeNativeWindow } from './native-window-shot';
 import { test, expect } from './fixtures';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Server } from 'node:http';
 import { discoverLlamaServer } from './goose-seed';
 
-/**
- * Live Browser E2E.
- *
- * Verifies the real Electron UI end to end:
- *  1. Browser icon toggles the right-side panel (split mode).
- *  2. The runtime canvas appears (runtime auto-started by Electron main).
- *  3. URL navigation loads a page and a live CDP screencast frame renders
- *     on the canvas (same Playwright Page the agent tools operate on).
- *  4. Region selection: draw a rectangle → grounded area appears with
- *     technical data (viewport/dpr/scroll/rect/anchors).
- *  5. Area rename + "→ agent" produces the pending selection context that
- *     is prepended to the next chat message.
- *  6. Agent round-trip: a message sent with a pending region reaches the
- *     local model (shared llama-server) and produces a reply.
- *
- * Isolation: the spec runs with LAD_E2E_ISOLATE=1 (see fixtures.ts), so the
- * test app instance gets a unique LOCAL_AI_DESKTOP_DEV_ROOT (unique userData
- * → no Electron single-instance lock collision with a running app) and a
- * fresh GOOSE_PATH_ROOT. The seeded goose config enables ONE provider that
- * points at the ALREADY-RUNNING local llama-server (discovered via /proc),
- * so the agent round-trip reuses the same inference endpoint without
- * loading a second model or touching the server's lifecycle. llama.cpp runs
- * with n_slots and a unified KV cache, so a second concurrent session is
- * memory-safe.
+/** Native Live Browser regression and optional real-model round trip.
+ * Runs only in a fresh isolated profile; never starts another model.
  */
 const llamaEndpoint = discoverLlamaServer();
 
@@ -79,90 +58,73 @@ function startTestServer(): Promise<{ url: string; close: () => Promise<void> }>
   });
 }
 
-/** True when the screencast canvas has non-black pixels (a frame arrived). */
-async function canvasHasContent(page: import('@playwright/test').Page): Promise<boolean> {
-  return page.evaluate(() => {
-    const canvas = document.querySelector(
-      '[data-testid="live-browser-canvas"]'
-    ) as HTMLCanvasElement | null;
-    if (!canvas || canvas.width === 0 || canvas.height === 0) return false;
+async function nativeHasContent(page: import('@playwright/test').Page): Promise<boolean> {
+  return page.evaluate(async () => {
     try {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return false;
-      const w = Math.max(1, Math.floor(canvas.width / 8));
-      const h = Math.max(1, Math.floor(canvas.height / 8));
-      const data = ctx.getImageData(0, 0, w, h).data;
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i] > 16 || data[i + 1] > 16 || data[i + 2] > 16) return true;
-      }
-      return false;
+      const result = (await window.electron.liveBrowserNativeTest(
+        window.sessionStorage.getItem('lad.browser.hubId')!,
+        'Runtime.evaluate',
+        {
+          expression: 'Boolean(document.getElementById("info-card"))',
+          returnByValue: true,
+        }
+      )) as { result: { value: boolean } };
+      return result.result.value;
     } catch {
       return false;
     }
   });
 }
-
 async function openPageAndCreateRegion(page: import('@playwright/test').Page, url: string) {
-  // Toggle the panel open (split mode).
-  const toggle = page.locator('[data-testid="browser-toggle"]');
-  await expect(toggle).toBeVisible({ timeout: 30000 });
-  await toggle.click();
-
-  const panel = page.locator('[data-testid="live-browser-panel"]');
-  await expect(panel).toBeVisible({ timeout: 30000 });
-  await expect(panel).toHaveAttribute('data-mode', 'split', { timeout: 30000 });
-
-  // Runtime canvas appears (Electron main auto-starts the runtime bundle).
-  const canvas = page.locator('[data-testid="live-browser-canvas"]');
-  await expect(canvas).toBeVisible({ timeout: 90000 });
-
-  // Navigate to the deterministic local page.
-  const urlInput = page.locator('[data-testid="live-browser-url-input"]');
-  await urlInput.fill(url);
-  await page.locator('[data-testid="live-browser-open"]').click();
-
-  // Wait for the live screencast: a frame with non-black content.
+  await resizeNativeWindow(page, 1600, 1000);
+  await page.getByTestId('browser-toggle').click();
+  const panel = page.getByTestId('live-browser-panel');
+  await expect(panel).toBeVisible();
+  await page.getByTestId('live-browser-url-input').fill(url);
+  await page.getByTestId('live-browser-open').click();
+  await expect.poll(() => nativeHasContent(page), { timeout: 60000 }).toBe(true);
+  await page.getByTestId('live-browser-new-area').click();
   await expect
-    .poll(() => canvasHasContent(page), {
-      timeout: 60000,
-      intervals: [1000],
-      message: 'screencast frame with page content',
-    })
+    .poll(() =>
+      page.evaluate(async () => {
+        const r = (await window.electron.liveBrowserNativeTest(
+          window.sessionStorage.getItem('lad.browser.hubId')!,
+          'Runtime.evaluate',
+          {
+            expression: 'Boolean(document.getElementById("__lad-selection"))',
+            returnByValue: true,
+          }
+        )) as { result: { value: boolean } };
+        return r.result.value;
+      })
+    )
     .toBe(true);
-
-  // Give the page a moment to fully paint (fonts/layout) before selection.
-  await page.waitForTimeout(1500);
-
-  // Enable selection mode and drag a rectangle over the canvas.
-  await page.locator('[data-testid="live-browser-new-area"]').click();
-  const box = (await canvas.boundingBox())!;
-  const x0 = box.x + box.width * 0.2;
-  const y0 = box.y + box.height * 0.15;
-  const x1 = box.x + box.width * 0.75;
-  const y1 = box.y + box.height * 0.75;
-  await page.mouse.move(x0, y0);
-  await page.mouse.down();
-  await page.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, { steps: 5 });
-  await page.mouse.move(x1, y1, { steps: 5 });
-  await page.mouse.up();
-
-  // The grounded area appears in the sidebar.
-  const area = page.locator('[data-testid="live-browser-area"]').first();
-  await expect(area).toBeVisible({ timeout: 30000 });
-  return { panel, canvas, area };
+  await page.evaluate(async () => {
+    for (const event of [
+      { type: 'mousePressed', button: 'left', clickCount: 1, x: 45, y: 90 },
+      { type: 'mouseMoved', buttons: 1, x: 365, y: 320 },
+      { type: 'mouseReleased', button: 'left', clickCount: 1, x: 365, y: 320 },
+    ])
+      await window.electron.liveBrowserNativeTest(
+        window.sessionStorage.getItem('lad.browser.hubId')!,
+        'Input.dispatchMouseEvent',
+        event
+      );
+  });
+  const area = page.getByTestId('live-browser-area');
+  await expect(area).toBeVisible();
+  return { panel, area };
 }
 
 test.describe('Live Browser E2E', () => {
   // Covers fixture setup (app launch) + test body. The agent round-trip test
   // needs minutes against the local 27B model.
   test.describe.configure({ timeout: 900_000 });
-  test('panel, navigation, screencast, region selection and pending context', async ({
-    goosePage,
-  }) => {
+  test('panel, navigation, native page, region selection and attachment', async ({ goosePage }) => {
     test.setTimeout(240_000);
     const server = await startTestServer();
     try {
-      await goosePage.setViewportSize({width:1600,height:1000});
+      await resizeNativeWindow(goosePage, 1600, 1000);
       await goosePage.waitForSelector('[data-testid="chat-input"]', { timeout: 60_000 });
 
       const { area } = await openPageAndCreateRegion(goosePage, server.url);
@@ -172,7 +134,6 @@ test.describe('Live Browser E2E', () => {
         expect(status.node?.replaceAll('\\', '/')).toContain('/resources/live-browser/bin/node');
         expect(status.error).toBeNull();
       }
-
 
       // Rename the area (name is persisted to the runtime store).
       const nameInput = area.locator('[data-testid="live-browser-area-name"]');
@@ -187,8 +148,8 @@ test.describe('Live Browser E2E', () => {
       await goosePage.waitForTimeout(700); // let the rename persist to the runtime store
 
       // The expanded technical data should show geometry + anchor info.
-      const technical = area.locator('text=rect');
-      await expect(technical).toBeVisible({ timeout: 10_000 });
+      await area.locator('summary').last().click();
+      await expect(area.locator('pre')).toContainText('rect');
 
       // Send the area to the agent: pending selection note appears in chat.
       await area.locator('[data-testid="live-browser-area-send"]').first().click();
@@ -210,16 +171,34 @@ test.describe('Live Browser E2E', () => {
       await separator.focus();
       await separator.press('ArrowLeft');
       expect((await panel.boundingBox())!.width).toBeGreaterThanOrEqual(widthBefore);
+      await goosePage.getByTestId('live-browser-url-input').fill(server.url + 'next');
+      await goosePage.getByTestId('live-browser-open').click();
+      await expect(goosePage.getByTestId('live-browser-url-input')).toHaveValue(
+        server.url + 'next'
+      );
+      await goosePage.getByTestId('live-browser-back').click();
+      await expect(goosePage.getByTestId('live-browser-url-input')).toHaveValue(server.url);
+      await goosePage.getByTestId('live-browser-forward').click();
+      await expect(goosePage.getByTestId('live-browser-url-input')).toHaveValue(
+        server.url + 'next'
+      );
+      await goosePage.getByTestId('live-browser-back').click();
+      await expect(goosePage.getByTestId('live-browser-url-input')).toHaveValue(server.url);
       await goosePage.locator('[data-testid="live-browser-reload"]').click();
-      await expect.poll(() => canvasHasContent(goosePage), { timeout: 30000 }).toBe(true);
+      await expect.poll(() => nativeHasContent(goosePage), { timeout: 30000 }).toBe(true);
       await goosePage.locator('[data-testid="live-browser-mode-close"]').click();
       await expect(panel).not.toBeVisible();
       await goosePage.locator('[data-testid="browser-toggle"]').click();
       await expect(panel).toBeVisible();
+      await goosePage.getByTestId('live-browser-tools-toggle').click();
+      await goosePage.getByTestId('live-browser-area-row').first().click();
       await expect(area).toBeVisible();
-      await expect.poll(() => canvasHasContent(goosePage), { timeout: 30000 }).toBe(true);
-      await goosePage.screenshot({path:test.info().outputPath('live-browser-wide.png'), fullPage:true});
-      await goosePage.setViewportSize({width:940,height:800});
+      await expect.poll(() => nativeHasContent(goosePage), { timeout: 30000 }).toBe(true);
+      await goosePage.screenshot({
+        path: test.info().outputPath('live-browser-wide.png'),
+        fullPage: true,
+      });
+      await resizeNativeWindow(goosePage, 940, 800);
       const bounds = (await panel.boundingBox())!;
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(941);
       await goosePage.screenshot({
@@ -261,6 +240,7 @@ test.describe('Live Browser E2E', () => {
         .locator('[data-testid="message-container"]')
         .count();
 
+      await goosePage.getByTestId('live-browser-mode-close').click();
       const chatInput = goosePage.locator('[data-testid="chat-input"]');
       await chatInput.fill(
         'Опиши коротко, что находится в выделенной области на странице Live Browser E2E Page. Упомяни текст карточки и цвет прямоугольника.'

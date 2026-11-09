@@ -1,5 +1,6 @@
+import type { Page } from 'playwright-core';
 import type { BrowserManager } from './browser';
-import { groundRegion, projectRegion } from './grounding';
+import { groundRegion, projectRegion, paintRegions } from './grounding';
 import { LadStore } from './store';
 import { newId, nowIso } from './util';
 import type {
@@ -34,6 +35,7 @@ export type LadEventEmitter = {
  * All mutations go through save() so the runtime is the single writer.
  */
 export class RegionService {
+  private selectionBindings = new WeakMap<Page, { conversationId: string }>();
   constructor(
     private readonly manager: BrowserManager,
     private readonly store: LadStore,
@@ -54,6 +56,26 @@ export class RegionService {
 
   list(conversationId: string): Promise<LadConversationState> {
     return this.stateOf(conversationId);
+  }
+
+  async adopt(from: string, to: string): Promise<void> {
+    const page = this.manager.pageOf(from);
+    const binding = page ? this.selectionBindings.get(page) : undefined;
+    if (binding) binding.conversationId = to;
+    const state = await this.stateOf(from);
+    const existing = await this.stateOf(to);
+    if (existing.areas.length || existing.regions.length)
+      throw new Error('Destination has browser evidence');
+    const next = {
+      ...state,
+      conversationId: to,
+      areas: state.areas.map((area) => ({ ...area, conversationId: to })),
+      regions: state.regions.map((region) => ({ ...region, conversationId: to })),
+    };
+    await this.save(to, next);
+    await this.save(from, { ...state, areas: [], regions: [] });
+    this.emitState(from);
+    this.emitState(to);
   }
 
   /**
@@ -131,6 +153,162 @@ export class RegionService {
     return { region, area };
   }
 
+  async detect(conversationId: string): Promise<void> {
+    const page = this.manager.pageOf(conversationId);
+    if (!page) throw new Error('No live page');
+    const boxes = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('main *,section,article,button,p,h1,h2'))
+        .slice(0, 4000)
+        .filter(
+          (element) =>
+            !element.closest('[id^=__lad-],input,textarea,[data-private],[data-sensitive]')
+        )
+        .filter(
+          (element) => element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 2
+        )
+        .map((element) => {
+          const r = element.getBoundingClientRect();
+          return {
+            x: Math.max(0, r.x),
+            y: Math.max(0, r.y),
+            width: Math.min(r.width, window.innerWidth - r.x),
+            height: Math.min(r.height, window.innerHeight - r.y),
+          };
+        })
+        .filter(
+          (r) =>
+            r.width >= 4 && r.height >= 4 && r.x < window.innerWidth && r.y < window.innerHeight
+        )
+        .slice(0, 12)
+    );
+    for (const rect of boxes)
+      await this.createRegion(conversationId, rect, {
+        note: 'DOM overflow candidate; intent and source mapping require confirmation.',
+      });
+  }
+  async reveal(conversationId: string, regionId: string): Promise<void> {
+    const page = this.manager.pageOf(conversationId);
+    const region = await this.getRegion(conversationId, regionId);
+    if (!page || !region) throw new Error('Region unavailable');
+    const projection = await projectRegion(page, region);
+    if (projection.stale) throw new Error('Region binding changed: ' + projection.reason);
+    if (projection.selector) await page.locator(projection.selector).scrollIntoViewIfNeeded();
+    else
+      await page.evaluate(
+        (rect) =>
+          window.scrollTo({ top: Math.max(0, rect.y - 60), left: Math.max(0, rect.x - 60) }),
+        region.rect
+      );
+    const state = await this.stateOf(conversationId);
+    const area = state.areas.find((a) => a.id === region.areaId);
+    await paintRegions(
+      page,
+      [{ id: region.id, color: area?.color ?? '#7292b7', label: area?.name ?? 'Area', region }],
+      true
+    );
+  }
+
+  /** Real in-page selection on the native Page (CSS coordinates). */
+  async setSelection(conversationId: string, areaId: string): Promise<void> {
+    const page = this.manager.pageOf(conversationId);
+    if (!page) throw new Error('Browser page is not ready');
+    if (areaId === 'off') {
+      await page
+        .evaluate(() => {
+          (window as unknown as { __ladSelectionStop?: () => void }).__ladSelectionStop?.();
+        })
+        .catch(() => undefined);
+      return;
+    }
+    let binding = this.selectionBindings.get(page);
+    if (!binding) {
+      binding = { conversationId };
+      const target = binding;
+      // A surviving native Page may still carry the previous runtime's function.
+      await page.evaluate(() => {
+        delete (window as unknown as { __ladCommitRegion?: unknown }).__ladCommitRegion;
+      });
+      await page.exposeFunction(
+        '__ladCommitRegion',
+        async (value: { rect: LadRect; areaId?: string }) => {
+          if (
+            !value?.rect ||
+            !['x', 'y', 'width', 'height'].every((key) =>
+              Number.isFinite(value.rect[key as keyof LadRect])
+            ) ||
+            value.rect.width < 4 ||
+            value.rect.height < 4 ||
+            value.rect.width > 8192 ||
+            value.rect.height > 8192
+          )
+            throw new Error('Invalid selection rectangle');
+          await this.createRegion(target.conversationId, value.rect, {
+            areaId: value.areaId === 'new' ? undefined : value.areaId,
+          });
+        }
+      );
+      this.selectionBindings.set(page, binding);
+    } else binding.conversationId = conversationId;
+    await page.evaluate((target) => {
+      const state = window as unknown as {
+        __ladSelectionStop?: () => void;
+        __ladCommitRegion?: (value: unknown) => Promise<void>;
+      };
+      state.__ladSelectionStop?.();
+      if (target === 'off') return;
+      const overlay = document.createElement('div');
+      overlay.id = '__lad-selection';
+      overlay.style.cssText =
+        'position:fixed;inset:0;z-index:2147483647;cursor:crosshair;touch-action:none;background:#6484a508';
+      const box = document.createElement('div');
+      box.style.cssText =
+        'position:absolute;border:2px solid #6d90b5;background:#6d90b522;pointer-events:none;display:none';
+      overlay.append(box);
+      document.documentElement.append(overlay);
+      let start: { x: number; y: number } | undefined;
+      const stop = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', key, true);
+      };
+      const key = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          stop();
+        }
+      };
+      document.addEventListener('keydown', key, true);
+      state.__ladSelectionStop = stop;
+      overlay.onpointerdown = (event) => {
+        event.preventDefault();
+        start = { x: event.clientX, y: event.clientY };
+        overlay.setPointerCapture(event.pointerId);
+      };
+      overlay.onpointermove = (event) => {
+        if (!start) return;
+        Object.assign(box.style, {
+          display: 'block',
+          left: Math.min(start.x, event.clientX) + 'px',
+          top: Math.min(start.y, event.clientY) + 'px',
+          width: Math.abs(start.x - event.clientX) + 'px',
+          height: Math.abs(start.y - event.clientY) + 'px',
+        });
+      };
+      overlay.onpointerup = (event) => {
+        if (!start) return;
+        const rect = {
+          x: Math.min(start.x, event.clientX),
+          y: Math.min(start.y, event.clientY),
+          width: Math.abs(start.x - event.clientX),
+          height: Math.abs(start.y - event.clientY),
+        };
+        start = undefined;
+        stop();
+        if (rect.width >= 4 && rect.height >= 4)
+          void state.__ladCommitRegion?.({ rect, areaId: target });
+      };
+    }, areaId);
+  }
+
   async getRegion(conversationId: string, regionId: string): Promise<LadRegion | null> {
     const state = await this.stateOf(conversationId);
     return state.regions.find((r) => r.id === regionId) ?? null;
@@ -174,6 +352,7 @@ export class RegionService {
     conversationId: string,
     input: { name: string; description?: string; status?: string }
   ): Promise<LadArea> {
+    if (input.status === 'Verified') throw new Error('Verified requires source revision evidence');
     const state = await this.stateOf(conversationId);
     const number = state.areas.length + 1;
     const area: LadArea = {
@@ -208,6 +387,7 @@ export class RegionService {
       statusSource?: 'user' | 'agent' | 'runtime';
     }
   ): Promise<LadArea> {
+    if (patch.status === 'Verified') throw new Error('Verified requires source revision evidence');
     const state = await this.stateOf(conversationId);
     const area = state.areas.find((a) => a.id === areaId);
     if (!area) throw new Error(`unknown-area: ${areaId}`);
@@ -330,7 +510,7 @@ export class RegionService {
       quality: 80,
     });
     if ('error' in result) return { error: result.error, reason: staleReason };
-    return { ...result, mime: 'image/jpeg' };
+    return result;
   }
 
   /**
@@ -359,6 +539,10 @@ export class RegionService {
         height: 0,
       },
     };
+    if (check.newStatus === 'Verified' || check.status === 'verified')
+      throw new Error(
+        'Verified requires source revision evidence; manual assertions cannot certify a fix'
+      );
     if (check.newStatus) {
       LadStore.setAreaStatus(area, check.newStatus, check.source, check.reason);
     }

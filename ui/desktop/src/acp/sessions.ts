@@ -1,5 +1,9 @@
 // Modified for Local AI Desktop: restore managed GGUF configuration on session operations.
-import { getSessionConfiguration, getSessionModeRevision, rememberSessionConfiguration } from './sessionConfiguration';
+import {
+  getSessionConfiguration,
+  getSessionModeRevision,
+  rememberSessionConfiguration,
+} from './sessionConfiguration';
 import {
   methods,
   type ForkSessionRequest,
@@ -20,6 +24,7 @@ interface GooseSessionInfoMeta {
   lastMessageAt?: string;
   archivedAt?: string;
   projectId?: string;
+  browserProjectRoot?: string;
   providerId?: string;
   modelId?: string;
   gooseMode?: Session['goose_mode'];
@@ -107,6 +112,7 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     goose_mode: getSessionConfiguration(String(s.sessionId))?.mode ?? meta.gooseMode,
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
+    browser_project_root: meta.browserProjectRoot,
     provider_name: meta.providerId,
     model_config: modelConfig,
     session_type: meta.sessionType,

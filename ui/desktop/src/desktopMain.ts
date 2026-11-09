@@ -1,10 +1,16 @@
+// Modified for Local AI Desktop: native shared browser surfaces and isolated test controls.
 import { StorageService, recoverInterruptedStorage, defaultLayout } from './storageService';
 import { registerStorageIpc } from './storageIpc';
 import { readStorageConfiguration, initializeDefaultStorage } from './storagePaths';
 import { sampleMemory } from './memoryTelemetry';
 // Modified for Local AI Desktop: isolated dev storage and managed GGUF inference.
 import { registerManagedGguf, shutdownManagedGguf } from './managedGguf';
-import type { IpcMainInvokeEvent, OpenDialogOptions, OpenDialogReturnValue } from 'electron';
+import type {
+  IpcMainInvokeEvent,
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+  Rectangle,
+} from 'electron';
 import {
   app,
   App,
@@ -545,7 +551,7 @@ let openUrlHandledLaunch = false;
 if (process.platform !== 'darwin') {
   gotTheLock = app.requestSingleInstanceLock();
   console.log(
-    `[Main] single-instance lock: ${gotTheLock ? 'ACQUIRED' : 'DENIED (another instance owns this userData)'} (userData=${app.getPath('userData')})`,
+    `[Main] single-instance lock: ${gotTheLock ? 'ACQUIRED' : 'DENIED (another instance owns this userData)'} (userData=${app.getPath('userData')})`
   );
 
   if (!gotTheLock) {
@@ -1959,7 +1965,8 @@ function parseRecipeDeeplink(url: string): RecipeDeeplinkData | undefined {
 const handleFatalError = (error: Error) => {
   const windows = BrowserWindow.getAllWindows();
   windows.forEach((win) => {
-    win.webContents.send('fatal-error', error.message || 'An unexpected error occurred');
+    if (!win.isDestroyed() && !win.webContents.isDestroyed())
+      win.webContents.send('fatal-error', error.message || 'An unexpected error occurred');
   });
 };
 
@@ -2125,6 +2132,48 @@ ipcMain.handle('live-browser:start', async () => {
   }
 });
 ipcMain.handle('live-browser:status', () => liveBrowserRuntime.status());
+if (process.env.ENABLE_PLAYWRIGHT)
+  ipcMain.handle('live-browser:test-window', (event, width: number, height: number) => {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width < 600 ||
+      height < 480 ||
+      width > 3840 ||
+      height > 2160
+    )
+      throw new Error('Invalid test window size');
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) throw new Error('Missing test window');
+    win.setContentSize(width, height);
+    win.center();
+    win.show();
+    win.focus();
+    return win.getContentBounds();
+  });
+if (process.env.ENABLE_PLAYWRIGHT)
+  ipcMain.handle('live-browser:test', (event, id, method, params) =>
+    liveBrowserRuntime.native.test(event.sender, id, method, params)
+  );
+ipcMain.handle('live-browser:adopt', async (event, from: string, to: string) => {
+  liveBrowserRuntime.native.adopt(event.sender, from, to);
+  const endpoint = await liveBrowserRuntime.start();
+  const response = await fetch(`${endpoint.url}/control/adopt`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${endpoint.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from, to }),
+  });
+  if (!response.ok) throw new Error('Browser transfer failed');
+});
+ipcMain.handle('live-browser:workspace-read', (event, id: string) =>
+  liveBrowserRuntime.native.snapshot(event.sender, id)
+);
+ipcMain.handle('live-browser:register', (event, id: string) =>
+  liveBrowserRuntime.native.register(event.sender, id)
+);
+ipcMain.handle('live-browser:view', (event, id: string, bounds: Rectangle | null, settings) =>
+  liveBrowserRuntime.native.configure(event.sender, id, bounds, settings)
+);
 ipcMain.handle('live-browser:stop', () => {
   liveBrowserRuntime.stop();
   return { ok: true };

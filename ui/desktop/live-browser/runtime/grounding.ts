@@ -25,7 +25,7 @@ const GROUND_REGION_SOURCE = /* js */ `
 (rect) => {
   const overlap=(b)=>Math.max(0,Math.min(b.right,rect.x+rect.width)-Math.max(b.x,rect.x))*Math.max(0,Math.min(b.bottom,rect.y+rect.height)-Math.max(b.y,rect.y));
   const visible=(e)=>{const b=e.getBoundingClientRect(),s=getComputedStyle(e);for(let parent=e.parentElement,depth=0;parent&&depth++<12;parent=parent.parentElement){const style=getComputedStyle(parent);if(style.display==='none'||style.visibility!=='visible'||Number(style.opacity)===0)return false;}return b.width>0&&b.height>0&&b.right>0&&b.bottom>0&&b.x<innerWidth&&b.y<innerHeight&&s.display!=='none'&&s.visibility==='visible'&&Number(s.opacity)>0&&!e.closest('[hidden],[aria-hidden=true],[inert]');};
-  const candidates=Array.from(document.querySelectorAll('body *')).slice(0,8000).filter(e=>!e.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive]') && !['SCRIPT','STYLE','NOSCRIPT'].includes(e.tagName)).map(e=>({e,b:e.getBoundingClientRect()})).filter(({e,b})=>b.width>0&&b.height>0&&overlap(b)>0&&visible(e)).sort((a,b)=>Math.abs(a.b.width*a.b.height-rect.width*rect.height)-Math.abs(b.b.width*b.b.height-rect.width*rect.height)).slice(0,4);
+  const candidates=Array.from(document.querySelectorAll('body *')).slice(0,8000).filter(e=>!e.closest('[id^=__lad-],input,textarea,select,[contenteditable],[data-private],[data-sensitive]') && !['SCRIPT','STYLE','NOSCRIPT'].includes(e.tagName)).map(e=>({e,b:e.getBoundingClientRect()})).filter(({e,b})=>b.width>0&&b.height>0&&overlap(b)>0&&visible(e)).sort((a,b)=>Math.abs(a.b.width*a.b.height-rect.width*rect.height)-Math.abs(b.b.width*b.b.height-rect.width*rect.height)).slice(0,4);
   const safeText=(root)=>{const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let text='',node,count=0;while((node=walker.nextNode())&&count++<200&&text.length<240)if(!node.parentElement?.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))text+=' '+node.textContent;return text.replace(/\\s+/g,' ').trim().slice(0,240);};
   const anchors=candidates.filter(({e})=>!['CANVAS','SVG'].includes(e.tagName.toUpperCase()) && !e.closest('canvas,svg')).map(({e,b})=>{
     let selector=e.id&&e.id.length<=128?'#'+CSS.escape(e.id):e.tagName.toLowerCase()+Array.from(e.classList).filter(c=>c.length<=128).slice(0,3).map(c=>'.'+CSS.escape(c)).join('');
@@ -95,8 +95,10 @@ export interface LadGroundEvidence {
  */
 export async function groundRegion(page: Page, rect: LadRect): Promise<LadGroundEvidence> {
   const evidence = await page.evaluate(
-    new Function('rect', `return (${GROUND_REGION_SOURCE})(rect);`) as unknown as (rect: LadRect) => Promise<LadGroundEvidence>,
-    rect,
+    new Function('rect', `return (${GROUND_REGION_SOURCE})(rect);`) as unknown as (
+      rect: LadRect
+    ) => Promise<LadGroundEvidence>,
+    rect
   );
   return evidence;
 }
@@ -176,7 +178,7 @@ export async function projectRegion(page: Page, region: LadRegion): Promise<LadP
   // inside the page world, exactly like the original browserProjectionSource.
   const project = new Function(
     'region',
-    `return (${PROJECT_REGION_SOURCE})(region, (${RESOLVE_ANCHOR_SOURCE}));`,
+    `return (${PROJECT_REGION_SOURCE})(region, (${RESOLVE_ANCHOR_SOURCE}));`
   ) as unknown as (region: LadRegion) => Promise<LadProjection>;
   return page.evaluate(project, region);
 }
@@ -189,7 +191,7 @@ export async function projectRegion(page: Page, region: LadRegion): Promise<LadP
 export async function paintRegions(
   page: Page,
   regions: Array<{ id: string; color: string; label: string; region: LadRegion }>,
-  enabled: boolean,
+  enabled: boolean
 ): Promise<void> {
   const source = /* js */ `
 (data) => {
@@ -233,7 +235,9 @@ export async function paintRegions(
   return {stop};
 }`;
   await page.evaluate(
-    new Function('data', `return (${source})(data);`) as unknown as (data: unknown) => Promise<unknown>,
-    { enabled, regions },
+    new Function('data', `return (${source})(data);`) as unknown as (
+      data: unknown
+    ) => Promise<unknown>,
+    { enabled, regions }
   );
 }

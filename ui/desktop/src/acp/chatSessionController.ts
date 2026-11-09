@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: preserve durable browser references when editing/retrying.
 import { v7 as uuidv7 } from 'uuid';
 import type { GooseExtension } from '@aaif/goose-acp-client';
 import { AppEvents } from '../constants/events';
@@ -322,6 +323,11 @@ async function updateMessage(
 
     const truncatedMessages = currentMessages.filter((m) => m.created < message.created);
     const updatedUserMessage = createUserMessage(newContent, retainedImages);
+    updatedUserMessage.content.push(
+      ...message.content.filter(
+        (block) => block.type === 'text' && block.text.startsWith('lad-browser-attachment:v1:')
+      )
+    );
 
     const messagesForUI = [...truncatedMessages, updatedUserMessage];
     acpChatSessionActions.setMessages(sessionId, messagesForUI);

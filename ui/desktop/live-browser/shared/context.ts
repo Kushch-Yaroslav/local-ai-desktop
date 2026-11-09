@@ -48,7 +48,14 @@ function styleString(styles: Record<string, string> | undefined): string {
   const parts: string[] = [];
   for (const [key, value] of Object.entries(styles)) {
     if (parts.length >= MAX_STYLE_KEYS) break;
-    if (value && value !== 'none' && value !== 'auto' && value !== 'normal' && value !== '0px' && value !== 'rgba(0, 0, 0, 0)') {
+    if (
+      value &&
+      value !== 'none' &&
+      value !== 'auto' &&
+      value !== 'normal' &&
+      value !== '0px' &&
+      value !== 'rgba(0, 0, 0, 0)'
+    ) {
       parts.push(`${key}:${value}`);
     }
   }
@@ -60,37 +67,47 @@ export function buildAreaContextText(input: LadContextInput): string {
   const regionsById = new Map(input.regions.map((r) => [r.id, r]));
 
   lines.push('[Local AI Desktop — Live Browser selection]');
-  lines.push('The user selected the areas below in the Live Browser and is referring to them in their message.');
+  lines.push(
+    'The user selected the areas below in the Live Browser and is referring to them in their message.'
+  );
   lines.push('Treat them as the target of the request. Coordinates are CSS pixels.');
   lines.push('');
 
   const areas = input.areas.slice(0, MAX_AREAS);
   for (const area of areas) {
-    const regionList = area.regionIds.map((id) => regionsById.get(id)).filter((r): r is LadRegion => Boolean(r));
+    const regionList = area.regionIds
+      .map((id) => regionsById.get(id))
+      .filter((r): r is LadRegion => Boolean(r));
     const first = regionList[0];
     const live = first ? input.live?.[first.id] : undefined;
 
     lines.push(`Area ${area.number} — "${area.name}" [${area.status}] (id: ${area.id})`);
+    if (area.status === 'Verified')
+      lines.push(
+        '  Legacy verification claim only: no source-revision ledger proof is attached. Do not treat this label as verified evidence.'
+      );
     if (area.description) lines.push(`  Task: ${area.description}`);
     if (first) {
       lines.push(`  Page URL: ${promptUrl(first.url)}`);
     }
     if (area.check) {
-      lines.push(`  Last check: ${area.check.status}${area.check.reason ? ` — ${area.check.reason}` : ''} (${area.check.at})`);
+      lines.push(
+        `  Last check: ${area.check.status}${area.check.reason ? ` — ${area.check.reason}` : ''} (${area.check.at})`
+      );
     }
 
     for (const region of regionList.slice(0, MAX_REGIONS_PER_AREA)) {
       lines.push(`  Region ${region.id}`);
       lines.push(`    Selection (document CSS px): ${fmtRect(region.rect)}`);
       lines.push(
-        `    Viewport at capture: ${fmtNum(region.viewport.width)}x${fmtNum(region.viewport.height)} · DPR ${fmtNum(region.dpr)} · scroll (${fmtNum(region.scroll.x)}, ${fmtNum(region.scroll.y)})`,
+        `    Viewport at capture: ${fmtNum(region.viewport.width)}x${fmtNum(region.viewport.height)} · DPR ${fmtNum(region.dpr)} · scroll (${fmtNum(region.scroll.x)}, ${fmtNum(region.scroll.y)})`
       );
 
       const anchors = region.anchors.slice(0, MAX_ANCHORS);
       if (anchors.length) {
         for (const anchor of anchors) {
           lines.push(
-            `    Anchor [${fmtNum(anchor.confidence)}]: <${anchor.tag}> selector="${anchor.selector}"${anchor.text ? ` text="${anchor.text.slice(0, 120)}"` : ''}`,
+            `    Anchor [${fmtNum(anchor.confidence)}]: <${anchor.tag}> selector="${anchor.selector}"${anchor.text ? ` text="${anchor.text.slice(0, 120)}"` : ''}`
           );
           const styles = styleString(anchor.styles);
           if (styles) lines.push(`      styles: ${styles.slice(0, 400)}`);
@@ -100,7 +117,9 @@ export function buildAreaContextText(input: LadContextInput): string {
           }
           const neighbors = (anchor.neighbors ?? []).slice(0, MAX_NEIGHBORS);
           if (neighbors.length) {
-            lines.push(`      nearby: ${neighbors.map((n) => `<${n.tag}>${n.intersects ? ' (overlaps)' : ''}`).join(', ')}`);
+            lines.push(
+              `      nearby: ${neighbors.map((n) => `<${n.tag}>${n.intersects ? ' (overlaps)' : ''}`).join(', ')}`
+            );
           }
         }
       } else {
@@ -110,7 +129,7 @@ export function buildAreaContextText(input: LadContextInput): string {
       if (region.surroundings && region.surroundings.relation === 'between-siblings') {
         const s = region.surroundings;
         lines.push(
-          `    Surroundings: between-siblings (${fmtNum(s.confidence)}) — above: <${s.above?.tag ?? '?'}>${s.above?.text ? ` "${s.above.text.slice(0, 80)}"` : ''}; below: <${s.below?.tag ?? '?'}>${s.below?.text ? ` "${s.below.text.slice(0, 80)}"` : ''}`,
+          `    Surroundings: between-siblings (${fmtNum(s.confidence)}) — above: <${s.above?.tag ?? '?'}>${s.above?.text ? ` "${s.above.text.slice(0, 80)}"` : ''}; below: <${s.below?.tag ?? '?'}>${s.below?.text ? ` "${s.below.text.slice(0, 80)}"` : ''}`
         );
       }
 
@@ -123,7 +142,7 @@ export function buildAreaContextText(input: LadContextInput): string {
         lines.push(
           liveInfo.stale
             ? `    Live check (${liveInfo.at}): binding STALE (${liveInfo.reason ?? 'unknown'}) — original data preserved; re-verify before editing`
-            : `    Live check (${liveInfo.at}): binding still valid`,
+            : `    Live check (${liveInfo.at}): binding still valid`
         );
       }
 
@@ -131,7 +150,9 @@ export function buildAreaContextText(input: LadContextInput): string {
         lines.push(`    Diagnostics: ${region.diagnostics.slice(0, 4).join(' | ')}`);
       }
       if (region.events.length) {
-        const lastEvents = region.events.slice(-3).map((e) => `${e.action}${e.status ? ` → ${e.status}` : ''}`);
+        const lastEvents = region.events
+          .slice(-3)
+          .map((e) => `${e.action}${e.status ? ` → ${e.status}` : ''}`);
         lines.push(`    History: ${lastEvents.join('; ')}`);
       }
     }
@@ -139,21 +160,30 @@ export function buildAreaContextText(input: LadContextInput): string {
   }
 
   if (input.project?.root) {
-    lines.push(`Project: ${input.project.name ? `"${input.project.name}" ` : ''}${input.project.root} — root directory for source investigation; Goose file permissions still apply.`);
+    lines.push(
+      `Project: ${input.project.name ? `"${input.project.name}" ` : ''}${input.project.root} — root directory for source investigation; Goose file permissions still apply.`
+    );
   } else {
-    lines.push('Project: none selected — analyze via URL/DOM/page data only; do not assume filesystem access.');
+    lines.push(
+      'Project: consult the bound Goose session scope. Browser metadata alone does not establish a filesystem root or grant filesystem access.'
+    );
   }
 
   if (input.vision === 'off') {
     lines.push('');
-    lines.push('VISION OFF: no image was sent for this selection. Rely on the text above (URL, DOM, geometry, CSS). If the region is Canvas/WebGL/SVG-only, you CANNOT see its visual content — say so instead of guessing.');
+    lines.push(
+      'VISION OFF: no image was sent for this selection. Rely on the text above (URL, DOM, geometry, CSS). If the region is Canvas/WebGL/SVG-only, you CANNOT see its visual content — say so instead of guessing.'
+    );
   } else if (input.vision === 'on') {
     lines.push('');
-    lines.push('VISION ON: a bounded image crop is attached to this message. If it is missing, the model provider dropped it — fall back to the text above.');
+    lines.push(
+      'VISION ON: a bounded image crop is attached to this message. If it is missing, the model provider dropped it — fall back to the text above.'
+    );
   }
 
   let text = lines.join('\n');
-  if (text.length > MAX_TOTAL_CHARS) text = `${text.slice(0, MAX_TOTAL_CHARS)}\n[context truncated]`;
+  if (text.length > MAX_TOTAL_CHARS)
+    text = `${text.slice(0, MAX_TOTAL_CHARS)}\n[context truncated]`;
   return text;
 }
 
@@ -162,11 +192,17 @@ export function buildAreaContextText(input: LadContextInput): string {
  * information at all. This explicit note is appended so the model does not
  * invent visual data.
  */
-export function visionLimitNote(area: LadArea, regions: LadRegion[], vision: 'on' | 'off' | 'unknown'): string | null {
+export function visionLimitNote(
+  area: LadArea,
+  regions: LadRegion[],
+  vision: 'on' | 'off' | 'unknown'
+): string | null {
   if (vision !== 'off') return null;
   const hasScreenshotOnly = area.regionIds.some((id) => {
     const region = regions.find((r) => r.id === id);
-    return region ? region.anchors.length === 0 || region.diagnostics.some((d) => d.includes('Screenshot-only')) : false;
+    return region
+      ? region.anchors.length === 0 || region.diagnostics.some((d) => d.includes('Screenshot-only'))
+      : false;
   });
   if (!hasScreenshotOnly) return null;
   return `Area "${area.name}" is Canvas/WebGL/SVG-only and Vision is OFF: the model receives coordinates and DOM context but no pixels. Ask the user for a screenshot or a Vision-capable model to analyze the visual content.`;

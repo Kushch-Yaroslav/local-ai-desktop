@@ -5,9 +5,9 @@
  * as a plain Node child process, parses its single JSON boot line and exposes the
  * loopback endpoint + bearer token to the renderer via IPC.
  *
- * The runtime owns ONE real Playwright Page per chat (system Chrome) that both the
- * Goose agent (via MCP browser_* tools) and the Live Browser UI (via the SSE
- * screencast) observe. Hiding the panel never stops the runtime.
+ * Electron owns one native Page per chat; the runtime attaches through the
+ * scoped CDP bridge for Goose MCP/grounding. SSE carries state in native mode.
+ * Standalone mode retains system Chromium/screencast. Hide preserves the Page.
  *
  * Node resolution order (first working wins, probed with `node -e`):
  *   1. LAD_LB_NODE env override (explicit node executable)
@@ -22,6 +22,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import { NativeBrowserHost } from './nativeBrowserHost';
 import { probeLiveBrowserNode } from './liveBrowserNode';
 
 export interface LiveBrowserEndpoint {
@@ -78,12 +79,14 @@ function bundledNodeLauncherPath(): string | null {
 }
 
 export class LiveBrowserRuntimeManager {
+  readonly native = new NativeBrowserHost();
   private child: ChildProcess | null = null;
   private endpoint: LiveBrowserEndpoint | null = null;
   private nodeCmd: string | null = null;
   private nodeEnv: Record<string, string> = {};
   private starting: Promise<LiveBrowserEndpoint> | null = null;
   private lastError: string | null = null;
+  private assignedPort: number | null = null;
   private readonly token: string;
   private readonly dataDir: string;
   private readonly log: (message: string) => void;
@@ -104,9 +107,19 @@ export class LiveBrowserRuntimeManager {
     if (override) {
       candidates.push({ label: 'LAD_LB_NODE', cmd: override, env: {}, needsArgs: false });
     }
-    const packagedNode = path.join(process.resourcesPath, 'live-browser', 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
+    const packagedNode = path.join(
+      process.resourcesPath,
+      'live-browser',
+      'bin',
+      process.platform === 'win32' ? 'node.exe' : 'node'
+    );
     if (app.isPackaged && existsSync(packagedNode)) {
-      candidates.push({label:'bundled-node-executable',cmd:packagedNode,env:{},needsArgs:false});
+      candidates.push({
+        label: 'bundled-node-executable',
+        cmd: packagedNode,
+        env: {},
+        needsArgs: false,
+      });
     }
     if (!app.isPackaged) {
       candidates.push({
@@ -124,7 +137,11 @@ export class LiveBrowserRuntimeManager {
     return candidates;
   }
 
-  private async resolveNode(): Promise<{ cmd: string; env: Record<string, string>; label: string }> {
+  private async resolveNode(): Promise<{
+    cmd: string;
+    env: Record<string, string>;
+    label: string;
+  }> {
     if (this.nodeCmd) {
       return { cmd: this.nodeCmd, env: this.nodeEnv, label: 'cached' };
     }
@@ -137,7 +154,9 @@ export class LiveBrowserRuntimeManager {
         return { cmd: candidate.cmd, env: candidate.env, label: candidate.label };
       }
     }
-    throw new Error('Live Browser requires Node.js 20 or newer; no compatible runtime found. Reinstall the complete application package.');
+    throw new Error(
+      'Live Browser requires Node.js 20 or newer; no compatible runtime found. Reinstall the complete application package.'
+    );
   }
 
   async start(): Promise<LiveBrowserEndpoint> {
@@ -150,16 +169,23 @@ export class LiveBrowserRuntimeManager {
       const node = await this.resolveNode();
       const script = this.scriptPath();
       if (!existsSync(script)) {
-        throw new Error(`live-browser runtime bundle missing: ${script} (run: pnpm --dir ui/desktop live-browser:build)`);
+        throw new Error(
+          `live-browser runtime bundle missing: ${script} (run: pnpm --dir ui/desktop live-browser:build)`
+        );
       }
+      const nativeEndpoint = await this.native.start(this.token);
       const child = spawn(node.cmd, [script], {
         env: {
           ...process.env,
           ...node.env,
           LAD_LB_TOKEN: this.token,
+          ...(this.assignedPort ? { LAD_LB_PORT: String(this.assignedPort) } : {}),
+          LAD_LB_NATIVE_ENDPOINT: nativeEndpoint,
           LAD_LB_DATA_DIR: this.dataDir,
           LAD_LB_HEADLESS: (process.env.LAD_LB_HEADLESS ?? 'true') as string,
-          ...(process.env.LAD_LB_CHROME_PATH ? { LAD_LB_CHROME_PATH: process.env.LAD_LB_CHROME_PATH } : {}),
+          ...(process.env.LAD_LB_CHROME_PATH
+            ? { LAD_LB_CHROME_PATH: process.env.LAD_LB_CHROME_PATH }
+            : {}),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -182,8 +208,10 @@ export class LiveBrowserRuntimeManager {
           settled = true;
           clearTimeout(bootTimeout);
           this.lastError = message;
-          this.endpoint = null;
-          this.child = null;
+          if (this.child === child) {
+            this.endpoint = null;
+            this.child = null;
+          }
           reject(new Error(message));
         };
         child.stdout?.on('data', (chunk: Buffer) => {
@@ -221,6 +249,7 @@ export class LiveBrowserRuntimeManager {
               if (settled) return;
               settled = true;
               clearTimeout(bootTimeout);
+              this.assignedPort = endpoint.port;
               this.endpoint = endpoint;
               this.log(`[live-browser] runtime ready at ${endpoint.url} (pid ${child.pid})`);
               resolve(endpoint);
@@ -238,21 +267,26 @@ export class LiveBrowserRuntimeManager {
         child.on('exit', (code, signal) => {
           this.log(`[live-browser] runtime exited code=${code} signal=${signal}`);
           if (!settled) fail(`runtime exited during boot (code=${code} signal=${signal})`);
-          this.endpoint = null;
-          this.child = null;
+          if (this.child === child) {
+            this.endpoint = null;
+            this.child = null;
+          }
         });
       });
-    })().catch((error) => {
-      this.lastError = error instanceof Error ? error.message : String(error);
-      throw error;
-    }).finally(() => {
-      this.starting = null;
-    });
+    })()
+      .catch((error) => {
+        this.lastError = error instanceof Error ? error.message : String(error);
+        throw error;
+      })
+      .finally(() => {
+        this.starting = null;
+      });
     return this.starting;
   }
 
   /** Stop the runtime (app quit / user request). Idempotent. */
   stop(): void {
+    this.native.stop();
     const child = this.child;
     this.child = null;
     this.endpoint = null;

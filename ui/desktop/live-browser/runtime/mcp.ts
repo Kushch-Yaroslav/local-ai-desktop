@@ -55,12 +55,13 @@ function errorResult(message: string): {
 export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
   const server = new McpServer({ name: 'local-ai-live-browser', version: '0.4.0' });
 
-  const target = (args: { conversation_id?: string }): string => {
+  const target = async (args: { conversation_id?: string }): Promise<string> => {
     const id = args.conversation_id?.trim() || '';
     if (!id)
       throw new Error(
         'no conversation: pass conversation_id explicitly; UI focus does not determine the agent session'
       );
+    await ctx.manager.get(id);
     return id;
   };
 
@@ -79,7 +80,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ url, conversation_id }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const result = await ctx.manager.navigate(conversationId, url, 'agent');
       return result.ok
         ? textResult(`ok: ${result.summary}`)
@@ -102,7 +103,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         },
       },
       async ({ conversation_id }) => {
-        const conversationId = target({ conversation_id });
+        const conversationId = await target({ conversation_id });
         const result = await fn(conversationId);
         return result.ok
           ? textResult(`ok: ${result.summary}`)
@@ -129,11 +130,11 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const state = ctx.manager.state(conversationId);
       if (!state) return textResult('no live page yet — open a URL with browser_open first');
       return textResult(
-        `url: ${state.url}\ntitle: ${state.title}\nready: ${state.ready}\nownership: ${state.ownership}\nactive chat: ${ctx.activeConversation() ?? 'none'}`
+        `url: ${state.url}\ntitle: ${state.title}\nready: ${state.ready}\nownership: ${state.ownership}\nvisible: ${state.visible}\nactive chat: ${ctx.activeConversation() ?? 'none'}`
       );
     }
   );
@@ -155,14 +156,14 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, max_chars, selector, html }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const max = Math.min(max_chars ?? 12_000, 40_000);
       const page = ctx.manager.pageOf(conversationId);
       if (!page) return errorResult('no live page');
       try {
         const result = await page.evaluate(
           (args: { selector: string | null; maxChars: number; withHtml: boolean }) => {
-            const root: ParentNode = args.selector
+            const root = args.selector
               ? (() => {
                   const el = document.querySelector(args.selector as string);
                   if (!el) throw new Error(`selector-not-found: ${args.selector}`);
@@ -177,7 +178,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
             const htmlOut = args.withHtml
               ? ((root as Element).outerHTML ?? '').slice(0, args.maxChars * 3)
               : undefined;
-            return { text, htmlOut, url: location.href, title: document.title };
+            return { text, htmlOut, url: window.location.href, title: document.title };
           },
           { selector: selector ?? null, maxChars: max, withHtml: Boolean(html) }
         );
@@ -207,7 +208,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, selector, max_chars }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const page = ctx.manager.pageOf(conversationId);
       if (!page) return errorResult('no live page');
       try {
@@ -215,7 +216,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
         const info = await page.evaluate((sel: string) => {
           const el = document.querySelector(sel);
           if (!el) return null;
-          const style = getComputedStyle(el);
+          const style = window.getComputedStyle(el);
           const styles: Record<string, string> = {};
           for (const key of [
             'display',
@@ -261,8 +262,8 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
               y: rect.y,
               width: rect.width,
               height: rect.height,
-              docX: rect.x + scrollX,
-              docY: rect.y + scrollY,
+              docX: rect.x + window.scrollX,
+              docY: rect.y + window.scrollY,
             },
             styles,
             accessibleName: acc?.name ?? el.getAttribute('aria-label'),
@@ -314,7 +315,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, selector, x, y, double }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const page = ctx.manager.pageOf(conversationId);
       if (!page) return errorResult('no live page');
       try {
@@ -345,7 +346,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, selector, value }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const page = ctx.manager.pageOf(conversationId);
       if (!page) return errorResult('no live page');
       try {
@@ -371,7 +372,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, x, y, dx, dy }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const page = ctx.manager.pageOf(conversationId);
       if (!page) return errorResult('no live page');
       try {
@@ -395,16 +396,16 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
     {
       title: 'Set viewport/zoom',
       description:
-        'Change the page viewport (CSS px) and page zoom (0.5..2). Affects layout — use deliberately.',
+        'Change the physical viewport (320..4096 px) and real page zoom (0.25..4). CSS viewport in native mode is physical size divided by zoom. Preview scale is independent.',
       inputSchema: {
         conversation_id: z.string().min(1),
-        width: z.number().int().min(320).max(7680),
-        height: z.number().int().min(240).max(7680),
+        width: z.number().int().min(320).max(4096),
+        height: z.number().int().min(240).max(4096),
         zoom: z.number().min(0.25).max(4).optional(),
       },
     },
     async ({ conversation_id, width, height, zoom }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const result = await ctx.manager.setViewport(
         conversationId,
         { width, height },
@@ -425,7 +426,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       title: 'Screenshot / crop',
       description:
         'Capture the current viewport, or a bounded crop (viewport CSS px). The image is included in the result; ' +
-        'if your model does not support vision the host will drop it — read the text context instead.',
+        'images are returned only when the user enabled Vision for this chat. With Vision Off use DOM text.',
       inputSchema: {
         conversation_id: z.string().min(1),
         x: z.number().min(0).max(100000).optional(),
@@ -436,7 +437,12 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, x, y, width, height, max_edge }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
+      const workspace = (await ctx.regions.list(conversationId)).workspace;
+      if (workspace.vision !== 'on')
+        return textResult(
+          'Vision is Off for this chat. No image captured or returned. Use browser_read/browser_inspect and DOM evidence, or ask the user to enable Vision.'
+        );
       const session = ctx.manager.meta(conversationId);
       if (!session) return errorResult('no live page');
       const useCrop =
@@ -499,12 +505,13 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, area_id, with_image }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const state = await ctx.regions.list(conversationId);
       const area = state.areas.find((a) => a.id === area_id);
       if (!area) return errorResult(`unknown-area: ${area_id}`);
       const text = buildAreaContextText({ areas: [area], regions: state.regions });
-      if (with_image === false) return textResult(text);
+      if (with_image === false || state.workspace.vision !== 'on')
+        return textResult(text + '\nVision Off: no image returned.');
       const firstRegion = state.regions.find((r) => r.areaId === area.id);
       if (!firstRegion) return textResult(text);
       const capture = await ctx.regions.captureRegion(conversationId, firstRegion, {
@@ -537,7 +544,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, x, y, width, height, area_name }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const rect = { x, y, width, height };
       const { region, area } = await ctx.regions.createRegion(conversationId, rect, {
         areaId: undefined,
@@ -570,7 +577,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, area_id, status, note }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const area = await ctx.regions.updateArea(conversationId, area_id, {
         status,
         statusSource: 'agent',
@@ -602,7 +609,7 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       },
     },
     async ({ conversation_id, area_id, result, reason, new_status }) => {
-      const conversationId = target({ conversation_id });
+      const conversationId = await target({ conversation_id });
       const area = await ctx.regions.recordCheck(conversationId, area_id, {
         status: result,
         reason,
@@ -627,8 +634,8 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
-      const conversationId = target({ conversation_id });
-      ctx.manager.setOwnership(conversationId, 'user', 'agent');
+      const conversationId = await target({ conversation_id });
+      await ctx.manager.setOwnership(conversationId, 'user', 'agent');
       return textResult('ok: ownership returned to user');
     }
   );
@@ -642,8 +649,8 @@ export function createLiveBrowserMcpServer(ctx: LadMcpContext): McpServer {
       inputSchema: { conversation_id: z.string().min(1) },
     },
     async ({ conversation_id }) => {
-      const conversationId = target({ conversation_id });
-      ctx.manager.setOwnership(conversationId, 'agent', 'agent');
+      const conversationId = await target({ conversation_id });
+      await ctx.manager.setOwnership(conversationId, 'agent', 'agent');
       return textResult('ok: ownership → agent');
     }
   );

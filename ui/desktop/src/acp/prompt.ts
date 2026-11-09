@@ -1,8 +1,10 @@
+// Modified for Local AI Desktop: durable visual payload and audience-aware ACP messages.
 import { methods, type ContentBlock, type PromptResponse } from '@agentclientprotocol/sdk';
 import type {
   SteerSessionRequest_unstable,
   SteerSessionResponse_unstable,
 } from '@aaif/goose-acp-client';
+import { browserPayloads } from '../components/liveBrowser/attachments';
 import type { Message } from '../types/message';
 import { getAcpClient } from './acpConnection';
 
@@ -10,10 +12,12 @@ export async function acpPromptSession(
   sessionId: string,
   message: Message
 ): Promise<PromptResponse> {
+  await window.electron?.liveBrowserRegister?.(sessionId);
   const client = await getAcpClient();
   return client.connection.agent.request(methods.agent.session.prompt, {
     sessionId,
     prompt: messageToAcpPromptContent(message),
+    _meta: { liveBrowserAttachments: browserPayloads(message) },
   });
 }
 
@@ -45,6 +49,17 @@ export function messageToAcpPromptContent(message: Message): ContentBlock[] {
           prompt.push({
             type: 'text',
             text: content.text,
+            ...(content._meta?.liveBrowserPayload
+              ? { _meta: { liveBrowserPayload: content._meta.liveBrowserPayload } }
+              : {}),
+            ...(content.text.startsWith('lad-browser-attachment:v1:')
+              ? { annotations: { audience: ['user' as const] } }
+              : content.annotations
+                ? {
+                    annotations:
+                      content.annotations as import('@agentclientprotocol/sdk').Annotations,
+                  }
+                : {}),
           });
         }
         break;

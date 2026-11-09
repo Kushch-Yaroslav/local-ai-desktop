@@ -178,6 +178,8 @@ export interface LadArea {
 }
 
 export interface LadWorkspaceSettings {
+  /** Explicit permission to return browser images through agent tools. Defaults off. */
+  vision?: 'on' | 'off';
   /** Split: chat left, browser right. Expanded: browser fills the view. chatOnly: hidden. */
   mode?: 'split' | 'expanded' | 'chatOnly';
   /** Panel width in px (split mode). */
@@ -222,6 +224,7 @@ export interface LadEvent {
 }
 
 export const LAD_DEFAULT_WORKSPACE: LadWorkspaceSettings = {
+  vision: 'off',
   mode: 'split',
   panelWidth: 560,
   viewport: 'auto',
@@ -234,12 +237,29 @@ export const LAD_DEFAULT_WORKSPACE: LadWorkspaceSettings = {
 export function ladAreaColor(number: number): string {
   const hue = (number * 137.508) % 360;
   const c = 0.75;
-  const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = 0.18;
   const rgb =
-    hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, x, c] : hue < 240 ? [0, c, x] : hue < 300 ? [x, 0, c] : [0, x, c];
+    hue < 60
+      ? [c, x, 0]
+      : hue < 120
+        ? [x, c, 0]
+        : hue < 180
+          ? [0, x, c]
+          : hue < 240
+            ? [0, c, x]
+            : hue < 300
+              ? [x, 0, c]
+              : [0, x, c];
   return (
-    '#' + rgb.map((n) => Math.round((n + m) * 255).toString(16).padStart(2, '0')).join('')
+    '#' +
+    rgb
+      .map((n) =>
+        Math.round((n + m) * 255)
+          .toString(16)
+          .padStart(2, '0')
+      )
+      .join('')
   );
 }
 
@@ -278,6 +298,7 @@ export function ladRoute(raw: string): string {
 export function ladValidateWorkspace(value: unknown): LadWorkspaceSettings {
   const s = (value ?? {}) as Partial<LadWorkspaceSettings>;
   const out: LadWorkspaceSettings = {
+    vision: s.vision === 'on' ? 'on' : 'off',
     mode: s.mode === 'expanded' || s.mode === 'chatOnly' ? s.mode : 'split',
     panelWidth:
       typeof s.panelWidth === 'number' && Number.isFinite(s.panelWidth)
@@ -287,13 +308,13 @@ export function ladValidateWorkspace(value: unknown): LadWorkspaceSettings {
       s.viewport === 'auto'
         ? 'auto'
         : s.viewport &&
-          typeof s.viewport.width === 'number' &&
-          typeof s.viewport.height === 'number' &&
-          s.viewport.width >= 240 &&
-          s.viewport.width <= 4096 &&
-          s.viewport.height >= 240 &&
-          s.viewport.height <= 4096 &&
-          s.viewport.width * s.viewport.height <= 8847360
+            typeof s.viewport.width === 'number' &&
+            typeof s.viewport.height === 'number' &&
+            s.viewport.width >= 240 &&
+            s.viewport.width <= 4096 &&
+            s.viewport.height >= 240 &&
+            s.viewport.height <= 4096 &&
+            s.viewport.width * s.viewport.height <= 8847360
           ? { width: Math.round(s.viewport.width), height: Math.round(s.viewport.height) }
           : 'auto',
     zoom:
