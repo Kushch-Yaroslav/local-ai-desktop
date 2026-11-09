@@ -629,3 +629,6 @@ See [P0_DOCK_QWEN.md](P0_DOCK_QWEN.md). The active build is now `.local-work/p0-
 
 
 P0 Dock acceptance correction: physical click initially failed with no_usable_sandbox/SIGTRAP because the old AppArmor userns attachment covered only ui/desktop/out. The user installed the prepared exact-active-build rule and confirmed Dock launch, minimized restore, and reopen after normal close all work. See P0_DOCK_QWEN.md. The kernel/AppArmor/Chromium sandbox protections remain enabled; future new-path activation now requires its exact policy attachment.
+
+
+Final P0 user acceptance: Dock launch, minimized-window restore and reopen after closing all passed by actual user clicks. Qwen3.6-35B loaded and replied in the ordinary profile at 32K/FP16/FA On after the user disabled MTP. Real discovery results FP16 65536 / Q8 106496 are for MTP Off, with preserved reserve settings. New login and the timed-out automated second-instance harness remain unverified/failed respectively.

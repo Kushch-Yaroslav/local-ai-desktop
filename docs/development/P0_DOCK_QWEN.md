@@ -1,6 +1,6 @@
 # P0 Dock and Qwen investigation (2026-11-10)
 
-Full completion is not claimed: physical Dock click/fresh-login acceptance is pending and the packaged second-instance E2E timed out.
+Physical Dock launch/minimize/reopen is now confirmed by the user after the exact-path AppArmor repair. A fresh login remains untested, the automated second-instance test timed out, and ordinary-profile Qwen MTP-Off acceptance is confirmed by the user; real isolated GPU tests passed.
 
 ## Dock
 
@@ -39,3 +39,6 @@ Physical Dock acceptance update: the user installed the exact-path rule and conf
 
 
 The user additionally confirmed both minimize → Dock restore and normal close → Dock reopen work on the active build after the rule installation. A fresh GNOME login has not been performed. scripts/dev/test-activation-policy.py passes and proves a new uncovered package cannot replace the existing selection.
+
+
+Final ordinary-profile acceptance: the user turned MTP off, selected 32K FP16 with Flash Attention On, loaded Qwen3.6-35B and confirmed a successful reply in the regular application. Thus both requested real user paths (Dock launch/restore/reopen and ordinary-profile Qwen generation) are confirmed. MTP On at full GPU offload is not claimed to fit; no maximum-context value for that configuration was invented.
