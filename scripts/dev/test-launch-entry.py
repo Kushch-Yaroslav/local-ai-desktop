@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+"""Regression check for the installed Goose Dev Desktop Entry and active build."""
+import configparser
+import os
+from pathlib import Path
+import subprocess
+
+repo = Path(__file__).resolve().parents[2]
+entry = Path(os.environ.get('LAD_GOOSE_DESKTOP_ENTRY', Path.home() / '.local/share/applications/local-ai-desktop-goose-dev.desktop'))
+launcher = repo / 'scripts/dev/launch-goose-dev.sh'
+activator = repo / 'scripts/dev/activate-packaged-build.sh'
+pointer = repo / '.local-work/desktop-selected.path'
+assert entry.is_file(), f'Desktop Entry not found: {entry}'
+assert os.access(launcher, os.X_OK) and os.access(activator, os.X_OK)
+config = configparser.ConfigParser(interpolation=None)
+config.read(entry)
+desktop = config['Desktop Entry']
+assert desktop.get('Type') == 'Application'
+assert Path(desktop['Exec']) == launcher
+assert Path(desktop['TryExec']) == launcher
+assert Path(desktop['Path']) == repo
+selected = Path(pointer.read_text().strip()).resolve(strict=True)
+assert selected.name == 'Local AI Desktop'
+assert selected.is_relative_to((repo / '.local-work').resolve())
+package = selected.parent
+for relative in ('resources/bin/goose', 'resources/live-browser/bin/node', 'resources/live-browser/dist/live-browser.js', 'resources/live-browser/package.json', 'resources/app.asar'):
+    path = package / relative
+    assert path.is_file() and os.access(path, os.R_OK), f'Missing resource: {path}'
+for relative in ('Local AI Desktop', 'resources/bin/goose', 'resources/live-browser/bin/node'):
+    assert os.access(package / relative, os.X_OK), f'Not executable: {package / relative}'
+subprocess.run(['bash', '-n', str(launcher), str(activator)], check=True)
+subprocess.run([str(activator), '--check', str(package)], check=True)
+print(f'PASS: {entry} -> {launcher} -> {selected}')
