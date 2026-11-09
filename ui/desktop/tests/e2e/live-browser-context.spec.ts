@@ -246,7 +246,6 @@ test('chosen React project and region reach model while history contains a compa
     area = initial.areas[0],
     region = initial.regions[0];
   expect(region.projectRoot).toBe(root);
-  await expect(page.getByTestId('live-browser-panel')).not.toContainText('No project');
   expect(region.history[0].cropId).toBeTruthy();
   const originalCrop = await control(`evidence?id=${region.history[0].cropId}`);
   expect(originalCrop.evidence.data.length).toBeGreaterThan(200);
@@ -287,6 +286,7 @@ test('chosen React project and region reach model while history contains a compa
     writeFileSync(join(root, 'src/App.tsx'), source);
   }
   await page.getByTestId('browser-toggle').click();
+  await expect(page.getByTestId('live-browser-panel')).not.toContainText('No project');
   if (!(await page.getByTestId('live-browser-area-row').first().isVisible()))
     await page.getByTestId('live-browser-tools-toggle').click();
   await page.getByTestId('live-browser-area-row').first().click();

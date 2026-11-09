@@ -1,3 +1,4 @@
+import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { browserHubId } from './liveBrowser/hubSession';
 import { consumePendingSelection, setPendingSelection } from './liveBrowser/pendingContext';
 import { PendingBrowserAttachments } from './liveBrowser/PendingBrowserAttachments';
@@ -212,7 +213,10 @@ export default function Hub({
       const configuredSession = await configureNewChatSession(session, newChatSettings);
       // The explicit scope was acknowledged above after session creation. Preserve
       // it in the initial UI snapshot as well as the backend extension state.
-      if (userSelectedWorkingDirRef.current) configuredSession.browser_project_root = dir;
+      if (userSelectedWorkingDirRef.current) {
+        configuredSession.browser_project_root = dir;
+        acpChatSessionActions.setSessionMetadata(configuredSession.id, configuredSession);
+      }
       const browserDraft = consumePendingSelection(hubId);
       const hasBrowser = Boolean(await window.electron.liveBrowserWorkspaceRead(hubId));
       if (browserDraft || hasBrowser) {
