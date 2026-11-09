@@ -148,8 +148,8 @@ test.describe('Live Browser E2E', () => {
       await goosePage.waitForTimeout(700); // let the rename persist to the runtime store
 
       // The expanded technical data should show geometry + anchor info.
-      await area.locator('summary').last().click();
-      await expect(area.locator('pre')).toContainText('rect');
+      await area.getByText('Evidence & history', { exact: true }).click();
+      await expect(area.locator('pre').last()).toContainText('rect');
 
       // Send the area to the agent: pending selection note appears in chat.
       await area.locator('[data-testid="live-browser-area-send"]').first().click();

@@ -77,6 +77,7 @@ from gi.repository import Gdk,GdkX11
 matches=re.findall(r'(0x[0-9a-f]+) "'+re.escape(sys.argv[1])+r'": \\("local-ai-desktop',subprocess.check_output(['xwininfo','-root','-tree'],text=True))
 if len(matches)!=1:raise RuntimeError('Isolated input window is not unique')
 display=Gdk.Display.get_default();window=GdkX11.X11Window.foreign_new_for_display(display,int(matches[0],16))
+window.raise_();window.focus(Gdk.CURRENT_TIME);display.flush();time.sleep(.15)
 origin=window.get_origin()[1:];size=json.loads(sys.argv[3]);points=json.loads(sys.argv[2]);offset=window.get_height()-size['height']
 if window.get_width()!=size['width'] or offset<0 or offset>100:raise RuntimeError('Native input geometry mismatch')
 old=display.get_default_seat().get_pointer().get_position()

@@ -1,5 +1,6 @@
+// Modified for Local AI Desktop: isolated packaged and Desktop Entry acceptance.
 import { spawn, spawnSync, ChildProcess } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 /**
@@ -27,7 +28,37 @@ import { join, resolve } from 'path';
 export function launchApp(cwd: string, env: Record<string, string | undefined>): ChildProcess {
   if (env.LAD_E2E_PACKAGED_EXECUTABLE) {
     if (env.LAD_E2E_ISOLATE !== '1') throw new Error('Packaged E2E requires an isolated profile');
-    const child = spawn(env.LAD_E2E_PACKAGED_EXECUTABLE, [], {
+    let command = env.LAD_E2E_PACKAGED_EXECUTABLE,
+      args: string[] = [];
+    if (env.LAD_E2E_DESKTOP_LAUNCH === '1') {
+      if (!env.LOCAL_AI_DESKTOP_DEV_ROOT)
+        throw new Error('Desktop Entry test requires isolated data root');
+      const entry = join(env.LOCAL_AI_DESKTOP_DEV_ROOT, 'isolated-live-browser.desktop');
+      const quoted = (value: string) =>
+        '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/%/g, '%%') + '"';
+      const keys = [
+        'LOCAL_AI_DESKTOP_DEV_ROOT',
+        'XDG_CONFIG_HOME',
+        'GOOSE_PATH_ROOT',
+        'GOOSE_DISABLE_KEYRING',
+        'PLAYWRIGHT_DEBUG_PORT',
+      ];
+      const exec = [
+        'env',
+        'ENABLE_PLAYWRIGHT=true',
+        ...keys.flatMap((key) => (env[key] ? [`${key}=${env[key]}`] : [])),
+        command,
+      ]
+        .map(quoted)
+        .join(' ');
+      writeFileSync(
+        entry,
+        `[Desktop Entry]\nType=Application\nName=Local AI Desktop isolated QA\nExec=${exec}\nPath=${cwd}\nTerminal=false\nDBusActivatable=false\n`
+      );
+      command = 'gio';
+      args = ['launch', entry];
+    }
+    const child = spawn(command, args, {
       cwd,
       env: { ...env, ENABLE_PLAYWRIGHT: 'true' },
       stdio: 'pipe',

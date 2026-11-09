@@ -5,7 +5,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 process.env.LAD_E2E_ISOLATE = '1';
 const html = `<!doctype html><title>Browser 2 QA</title><style>body{margin:0;padding:32px;background:#f3f5f7;font:16px system-ui;min-height:1600px}#product{width:260px;padding:24px;border:2px solid #6a8aaf;border-radius:12px;background:white}input{margin:20px 0}canvas{background:#d9ac75}</style><h1>Products</h1><section id="product"><h2>Product card</h2><p>Native browser evidence target</p><input id="name" aria-label="Product name"><button id="save" onclick="this.textContent='Saved'">Save</button></section><canvas width="200" height="100"></canvas>`;
 async function evaluateNative(page: import('@playwright/test').Page, expression: string) {
@@ -137,7 +137,7 @@ test('native page, independent zoom, compact inspector and attachment draft', as
         name: 'browser_click',
         arguments: { conversation_id: hub, selector: '#save' },
       });
-      expect(clicked.isError).not.toBe(true);
+      expect(clicked.isError, JSON.stringify(clicked.content)).not.toBe(true);
       expect(await evaluateNative(page, 'document.querySelector("#save").textContent')).toBe(
         'Saved'
       );
@@ -504,6 +504,69 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     });
     await expect(page.getByTestId('live-browser-area-row')).toHaveCount(2);
     await page.getByTestId('live-browser-tools-toggle').click();
+
+    const soakSeconds = Math.min(180, Number(process.env.LAD_E2E_SOAK_SECONDS) || 0);
+    if (soakSeconds > 0) {
+      const endpoint = (await page.evaluate(() => window.electron.liveBrowserStatus())).endpoint!;
+      const samples: unknown[] = [];
+      const stats = () =>
+        page.evaluate((hub) => window.electron.liveBrowserNativeTest(hub, 'LAD.stats', {}), hub);
+      const initial = (await stats()) as { pages: number; pending: number; shields: number };
+      const deadline = Date.now() + soakSeconds * 1000;
+      let cycles = 0;
+      while (Date.now() < deadline) {
+        const id = `soak-${cycles}`;
+        await page.evaluate((id) => window.electron.liveBrowserRegister(id), id);
+        const response = await fetch(`${endpoint.url}/control/navigate?conversation=${id}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${endpoint.token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'open', url }),
+        });
+        expect(response.ok).toBe(true);
+        const closed = await fetch(`${endpoint.url}/control/session/close?conversation=${id}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${endpoint.token}` },
+        });
+        expect(closed.ok).toBe(true);
+        const sample = (await stats()) as typeof initial;
+        expect(sample.pages).toBe(initial.pages);
+        expect(sample.pending).toBe(0);
+        expect(sample.shields).toBe(initial.shields);
+        samples.push(sample);
+        cycles++;
+        await page.waitForTimeout(1000);
+      }
+      console.log(
+        `SOAK: ${cycles} open/close cycles over ${soakSeconds}s; native page/shield counts stable`
+      );
+      writeFileSync(
+        test.info().outputPath('resource-soak.json'),
+        JSON.stringify({ seconds: soakSeconds, cycles, initial, samples })
+      );
+      await test.info().attach('resource-soak', {
+        body: JSON.stringify({ seconds: soakSeconds, cycles, initial, samples }),
+        contentType: 'application/json',
+      });
+    }
+
+    // Crash only the native page renderer of this isolated test application.
+    await page.evaluate(
+      (hub) =>
+        Promise.race([
+          window.electron.liveBrowserNativeTest(hub, 'Page.crash', {}).catch(() => undefined),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ]),
+      hub
+    );
+    await expect
+      .poll(() => evaluateNative(page, 'document.title').catch(() => ''), { timeout: 30000 })
+      .toBe('Browser 2 QA');
+    expect(await evaluateNative(page, 'document.cookie')).toContain('qa_scope=hub');
+    expect(await evaluateNative(page, 'localStorage.getItem("qa_scope")')).toBe('hub');
+    await expect(page.getByTestId('live-browser-url-input')).toHaveValue(url + '/');
 
     await resizeNativeWindow(page, 2560, 1300);
     await nativeWindowShot(page, test.info().outputPath('native-wide.png'));

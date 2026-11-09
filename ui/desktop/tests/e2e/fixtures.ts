@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: isolated packaged and Desktop Entry acceptance.
 import { test as base, Page, Browser, chromium } from '@playwright/test';
 import { exec, ChildProcess } from 'child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
@@ -72,13 +73,16 @@ export const test = base.extend<GooseTestFixtures>({
         const electronRoot = join(devRoot, 'electron');
         mkdirSync(electronRoot, { recursive: true });
         writeFileSync(join(electronRoot, '.e2e-isolated'), 'isolated E2E instance\n');
+        // Deterministic selectors without changing the user's system/app language.
+        writeFileSync(join(electronRoot, 'settings.json'), JSON.stringify({ language: 'en' }));
         const fixtureProvider = process.env.LAD_E2E_PROVIDER_URL;
         const llama = fixtureProvider
           ? {
               pid: 0,
               port: Number(new URL(fixtureProvider).port),
               apiKey: 'fixture-only-key',
-              modelAlias: 'fixture-model',
+              modelAlias: process.env.LAD_E2E_PROVIDER_MODEL || 'fixture-model',
+              contextLimit: Number(process.env.LAD_E2E_PROVIDER_CONTEXT) || undefined,
               baseUrl: fixtureProvider,
             }
           : discoverLlamaServer();

@@ -61,7 +61,7 @@ const pageServer = createServer((req, res) => {
 await new Promise((r) => pageServer.listen(45990, '127.0.0.1', r));
 
 // 2. Launch runtime.
-const runtime = spawn('node', [join(root, 'dist', 'live-browser.js')], {
+const runtime = spawn(process.execPath, [join(root, 'dist', 'live-browser.js')], {
   detached: false,
   env: {
     ...process.env,

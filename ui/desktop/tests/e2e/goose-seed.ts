@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { homedir } from 'node:os';
 import { chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -25,7 +27,11 @@ export interface LlamaServerEndpoint {
   apiKey: string;
   modelAlias: string;
   baseUrl: string;
+  contextLimit?: number;
 }
+
+export const inferenceDiscoveryDiagnostics: string[] = [];
+let managedSelectionFound = false;
 
 const PROVIDER_NAME = 'custom_e2e_local_qwen';
 const SECRET_KEY = 'CUSTOM_E2E_LOCAL_QWEN_API_KEY';
@@ -34,11 +40,89 @@ function splitNul(raw: string): string[] {
   return raw.split('\0').filter((part) => part.length > 0);
 }
 
+/** Inspect the selected managed gateway without activating a model. */
+function discoverManagedGateway(): LlamaServerEndpoint | null {
+  try {
+    const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+    const storage = JSON.parse(
+      readFileSync(join(configHome, 'local-ai-desktop-storage.json'), 'utf8')
+    ) as { dataRoot: string };
+    const profiles = JSON.parse(
+      readFileSync(join(storage.dataRoot, 'electron', 'gguf-profiles.json'), 'utf8')
+    ) as { id: string; name: string; model: string; providerId: string }[];
+    const endpoints = JSON.parse(
+      readFileSync(join(storage.dataRoot, 'electron', 'gguf-endpoints.json'), 'utf8')
+    ) as Record<string, { port: number; key: string }>;
+    const config = readFileSync(
+      join(storage.dataRoot, 'goose-backend', 'config', 'config.yaml'),
+      'utf8'
+    );
+    const selected = config.match(/^active_provider:\s*['"]?([^'"\s]+)['"]?\s*$/m)?.[1];
+    const profile = profiles.find((p) => p.providerId === selected);
+    managedSelectionFound = Boolean(profile);
+    const endpoint = profile && endpoints[profile.id];
+    if (
+      !profile ||
+      !endpoint ||
+      !Number.isInteger(endpoint.port) ||
+      endpoint.port < 1 ||
+      endpoint.port > 65535
+    )
+      return null;
+    // GET /models alone does not prove a model is resident: the gateway is lazy.
+    const pid = readdirSync('/proc')
+      .filter((p) => /^\d+$/.test(p))
+      .find((pid) => {
+        try {
+          const args = splitNul(readFileSync(`/proc/${pid}/cmdline`, 'utf8'));
+          return /(?:^|\/)llama-server$/.test(args[0] ?? '') && args.includes(profile.model);
+        } catch {
+          return false;
+        }
+      });
+    const baseUrl = `http://127.0.0.1:${endpoint.port}`;
+    const probe = execFileSync(
+      process.execPath,
+      [
+        '-e',
+        `const http=require('node:http');let text='';process.stdin.on('data',c=>text+=c);process.stdin.on('end',()=>{const e=JSON.parse(text);let done=false;const out=v=>{if(!done){done=true;process.stdout.write(JSON.stringify(v))}};const r=http.get(e.url+'/v1/models',{headers:{Authorization:'Bearer '+e.key}},s=>{let body='';s.on('data',c=>{body+=c;if(body.length>65536)r.destroy()});s.on('end',()=>{let limit;try{const model=JSON.parse(body).data?.[0];limit=Number(model?.context_window??model?.meta?.n_ctx)}catch{};out({status:s.statusCode,contextLimit:Number.isInteger(limit)&&limit>=512&&limit<=2000000?limit:undefined})})});r.setTimeout(2000,()=>r.destroy());r.on('error',()=>out({status:0}))});`,
+      ],
+      {
+        input: JSON.stringify({ url: baseUrl, key: endpoint.key }),
+        timeout: 3500,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      }
+    ).trim();
+    const details = JSON.parse(probe) as { status: number; contextLimit?: number };
+    inferenceDiscoveryDiagnostics.push(
+      `selected managed gateway ${baseUrl}: ${details.status || 'unreachable'}; matching resident llama-server: ${pid ? 'yes' : 'no'}`
+    );
+    if (details.status !== 200 || !pid) return null;
+    return {
+      pid: Number(pid),
+      port: endpoint.port,
+      apiKey: endpoint.key,
+      modelAlias: 'local-gguf',
+      contextLimit: details.contextLimit,
+      baseUrl,
+    };
+  } catch {
+    inferenceDiscoveryDiagnostics.push(
+      'Managed gateway discovery unavailable in this process/filesystem namespace'
+    );
+    return null;
+  }
+}
+
 /** Finds the running llama-server and its loopback OpenAI endpoint. */
 export function discoverLlamaServer(): LlamaServerEndpoint | null {
   if (process.platform === 'win32') {
     return null;
   }
+  const managed = discoverManagedGateway();
+  if (managed) return managed;
+  if (managedSelectionFound) return null;
   // Inspect executable names; pgrep -f can select the invoking shell or IDE prompt.
   const pid = readdirSync('/proc')
     .filter((name) => /^\d+$/.test(name))
@@ -114,12 +198,13 @@ export function seedGooseBackend(devRoot: string, endpoint: LlamaServerEndpoint)
     models: [
       {
         name: endpoint.modelAlias,
-        context_limit: null,
+        context_limit: endpoint.contextLimit ?? null,
         input_token_cost: null,
         output_token_cost: null,
         currency: null,
         supports_cache_control: null,
         reasoning: false,
+        supports_vision: process.env.LAD_E2E_PROVIDER_VISION === '1' ? true : undefined,
       },
     ],
     headers: {},
@@ -153,7 +238,7 @@ export function seedGooseBackend(devRoot: string, endpoint: LlamaServerEndpoint)
     `    model: ${endpoint.modelAlias}`,
     '    configured: true',
     `active_provider: ${PROVIDER_NAME}`,
-    'GOOSE_MODE: chat',
+    `GOOSE_MODE: ${process.env.LAD_E2E_AGENT_MODE === 'auto' ? 'auto' : 'chat'}`,
     'GOOSE_TELEMETRY_ENABLED: false',
     'GOOSE_AUTO_EFFORT_ENABLED: false',
     '',
