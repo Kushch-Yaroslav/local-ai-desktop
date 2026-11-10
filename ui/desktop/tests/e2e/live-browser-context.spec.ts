@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: visual submission recovery and provider mode boundaries.
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { resizeNativeWindow, nativeWindowShot } from './native-window-shot';
@@ -13,6 +14,8 @@ process.env.LAD_E2E_ISOLATE = '1';
 process.env.LAD_E2E_WITH_DEVELOPER = '1';
 let provider: Server, vite: ViteDevServer, root: string, url: string;
 const requests: unknown[] = [];
+let rejectProviderRequests = false;
+let rejectedProviderRequests = 0;
 test.beforeAll(async () => {
   // The scripted transport accepts image parts; this tests wire projection, not recognition.
   process.env.LAD_E2E_PROVIDER_VISION = '1';
@@ -51,6 +54,16 @@ test.beforeAll(async () => {
     }
     const body = text ? JSON.parse(text) : {};
     requests.push(body);
+    if (rejectProviderRequests) {
+      rejectedProviderRequests++;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      res.writeHead(503, { 'content-type': 'application/json' }).end(
+        JSON.stringify({
+          error: { message: 'Deliberate fixture transport failure', type: 'server_error' },
+        })
+      );
+      return;
+    }
     const message = 'Context accepted by fixture provider.';
     if (body.stream) {
       res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -587,4 +600,114 @@ test('Vision Off suppresses historical browser crops on follow-up and retry with
     .toContain('Опиши область повторно');
   expect(JSON.stringify(requests.slice(retryFrom))).not.toContain('image_url');
   await expect(page.getByTestId('browser-message-attachments').first()).toBeVisible();
+});
+
+test('multiple areas preserve identities and failed transport restores pending selection', async ({
+  goosePage: page,
+}) => {
+  test.setTimeout(180000);
+  requests.length = 0;
+  rejectProviderRequests = false;
+  rejectedProviderRequests = 0;
+  await resizeNativeWindow(page, 1700, 1000);
+  await chooseMode(page, 'chat');
+  await page.getByTestId('browser-toggle').click();
+  await page.getByTestId('live-browser-url-input').fill(url);
+  await page.getByTestId('live-browser-open').click();
+  const hub = await page.evaluate(() => window.sessionStorage.getItem('lad.browser.hubId')!);
+  await expect
+    .poll(() =>
+      page.evaluate(async (id) => {
+        const r = (await window.electron.liveBrowserNativeTest(id, 'Runtime.evaluate', {
+          expression: 'Boolean(document.getElementById("product"))',
+          returnByValue: true,
+        })) as { result: { value: boolean } };
+        return r.result.value;
+      }, hub)
+    )
+    .toBe(true);
+  const descriptions = ['First issue: padding.', 'Second issue: contrast.'];
+  for (let i = 0; i < 2; i++) {
+    await page.getByTestId('live-browser-new-area').click();
+    await expect
+      .poll(() =>
+        page.evaluate(async (id) => {
+          const r = (await window.electron.liveBrowserNativeTest(id, 'Runtime.evaluate', {
+            expression: 'Boolean(document.getElementById("__lad-selection"))',
+            returnByValue: true,
+          })) as { result: { value: boolean } };
+          return r.result.value;
+        }, hub)
+      )
+      .toBe(true);
+    await page.evaluate(
+      async ({ id, offset }) => {
+        for (const event of [
+          { type: 'mousePressed', button: 'left', clickCount: 1, x: 34 + offset, y: 34 },
+          { type: 'mouseMoved', buttons: 1, x: 210, y: 75 },
+          { type: 'mouseReleased', button: 'left', clickCount: 1, x: 210, y: 75 },
+        ])
+          await window.electron.liveBrowserNativeTest(id, 'Input.dispatchMouseEvent', event);
+      },
+      { id: hub, offset: i * 20 }
+    );
+    await expect(page.getByTestId('live-browser-area-row')).toHaveCount(i + 1);
+    await expect(page.getByTestId('live-browser-area-name')).toHaveValue(`Area ${i + 1}`);
+    await page.getByTestId('live-browser-area-desc').fill(descriptions[i]);
+    await page.getByTestId('live-browser-area-send').click();
+    await expect(page.getByTestId('pending-selection-note').locator('details')).toHaveCount(i + 1);
+  }
+  const workspace = (await page.evaluate(async (id) => {
+    const endpoint = (await window.electron.liveBrowserStatus()).endpoint!;
+    const response = await fetch(
+      `${endpoint.url}/control/state?conversation=${encodeURIComponent(id)}`,
+      { headers: { Authorization: `Bearer ${endpoint.token}` } }
+    );
+    return response.json();
+  }, hub)) as { areas: { id: string }[] };
+  await page.getByTestId('live-browser-mode-close').click();
+  await page
+    .getByTestId('chat-input')
+    .fill('Explain both selected issues without modifying files.');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByText('Context accepted by fixture provider.').first()).toBeVisible();
+  const sent = requests.find(
+    (r) =>
+      JSON.stringify((r as { messages?: unknown }).messages).includes('Region region_') &&
+      JSON.stringify(r).includes(descriptions[1])
+  ) as { messages: { role: string; content: unknown }[] };
+  expect(sent).toBeTruthy();
+  const user = JSON.stringify(sent.messages.filter((m) => m.role === 'user'));
+  for (const description of descriptions) expect(user.split(description).length - 1).toBe(1);
+  for (const area of workspace.areas) expect(user).toContain(area.id);
+  expect(user).toContain('Explain both selected issues');
+  expect(user).not.toContain(root);
+  await expect(page.getByTestId('pending-selection-note')).toHaveCount(0);
+  // Attach a fresh immutable snapshot for the failed request, without changing the old cards.
+  await page.getByTestId('browser-toggle').click();
+  if (!(await page.getByTestId('live-browser-areas').isVisible()))
+    await page.getByTestId('live-browser-tools-toggle').click();
+  await page.getByTestId('live-browser-area-row').last().click();
+  await page.getByTestId('live-browser-area-desc').fill('Transport failure task: padding.');
+  await page.getByTestId('live-browser-area-send').click();
+  await expect(page.getByTestId('pending-selection-note')).toContainText('Has description');
+  await page.getByTestId('live-browser-mode-close').click();
+  try {
+    rejectProviderRequests = true;
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByTestId('pending-selection-note')).toHaveCount(0);
+    await expect.poll(() => rejectedProviderRequests, { timeout: 60000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('pending-selection-note')).toBeVisible({ timeout: 90000 });
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
+    rejectProviderRequests = false;
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect
+      .poll(() => page.getByText('Context accepted by fixture provider.').count(), {
+        timeout: 60000,
+      })
+      .toBeGreaterThan(1);
+    await expect(page.getByTestId('pending-selection-note')).toHaveCount(0);
+  } finally {
+    rejectProviderRequests = false;
+  }
 });
