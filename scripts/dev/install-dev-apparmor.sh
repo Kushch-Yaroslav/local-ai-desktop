@@ -10,7 +10,14 @@ if [[ $EUID != 0 ]]; then
 fi
 selected="${1:-$(cat "$repo/.local-work/desktop-selected.path")}"
 selected="$(realpath -e -- "$selected")"
-case "$selected" in "$repo"/.local-work/*/'Local AI Desktop') ;; *) echo 'Invalid active executable' >&2; exit 1;; esac
+user_name="${SUDO_USER:-${USER:-}}"
+user_home="$(getent passwd "$user_name" | cut -d: -f6)"
+user_home="${user_home:-$HOME}"
+package_store="$(realpath -m -- "$user_home/.local/opt/local-ai-desktop-goose-dev/packages")"
+case "$selected" in
+  "$repo"/.local-work/*/'Local AI Desktop'|"$repo"/.local-work/*/local-ai-desktop|"$package_store"/*/'Local AI Desktop'|"$package_store"/*/local-ai-desktop) ;;
+  *) echo 'Invalid active executable' >&2; exit 1 ;;
+esac
 # AppArmor attachment syntax must never accept an injected pattern.
 [[ "$selected" != *['"{}*?\\']* && "$selected" != *$'\n'* ]] || exit 1
 temp="$(mktemp)"

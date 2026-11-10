@@ -14,16 +14,26 @@ This handoff adds the visible-region, findings and inspector UX work on top of t
 
 ## Final package and checks
 
-Fresh side-by-side package (not activated):
-`/tmp/lad-live-browser3-ux-rc5/forge-out/Local AI Desktop-linux-x64/local-ai-desktop`.
+Fresh persistent side-by-side package (not activated):
+`/home/yaroslav/.local/opt/local-ai-desktop-goose-dev/packages/live-browser3-ux-rc5/local-ai-desktop`.
+This directory is on the system filesystem, separate from the XDG data symlink that contains the Goose profile. The build was moved from `/tmp` on the same filesystem, so package contents and hashes are unchanged. `forge.config.ts` emitted the lowercase `local-ai-desktop` executable; activation, launcher and AppArmor validation now accept both supported Forge executable names. The package was validated with `scripts/dev/activate-packaged-build.sh --check`; it has not been selected or launched through the user's menu.
 
 RC5 resources: `resources/app.asar` SHA256 `722cd596da2dbad967b34f89a62d6511947da89c035196da568a0f55eb4e7b48`; `resources/live-browser/dist/live-browser.js` SHA256 `5cd0bbd4456f2a66e4d0cda1921221a343c474cea2e7f13a3cbbdd2996e1b175`; bundled Node 24 binary SHA256 `e32e2d16081cf644f88392934288086e7662529d0d43277c34f7aad2207cfafb`. `resources/bin/goose` remains SHA256 `90b8375a975172a5e0a0ab1f94359782912703fad540adc061beb7d1dd01ac3f`. Packaged executable is 221,064,440 bytes, mode 755; live-browser runtime, compatible Node, browser manifest and package metadata are present.
 
-The package contains the staged Node runtime and `resources/live-browser/dist/live-browser.js`; full-window X11 screenshots, including WebContentsView, are preserved in ignored `.local-work/live-browser3-ux-rc5/screenshots/`. They cover menu open, manual region, marked/stale findings, wide/expanded/narrow layouts, selected/empty/error and Russian UI. The active launcher remains untouched. To switch later, first close the active app normally, then run `scripts/dev/activate-packaged-build.sh --check` and `--activate` with the candidate directory. Do not copy it into the live profile while an instance is running.
+The package contains the staged Node runtime and `resources/live-browser/dist/live-browser.js`; full-window X11 screenshots, including WebContentsView, are preserved in ignored `.local-work/live-browser3-ux-rc5/screenshots/`. They cover menu open, manual region, marked/stale findings, wide/expanded/narrow layouts, selected/empty/error and Russian UI. The active launcher and pointer remain untouched. To switch later, first run the read-only check; only after you have normally closed the active app should you activate the candidate. If activation reports that its exact executable path lacks the user-namespace AppArmor attachment, install that one exact rule, then activate. No profile path or `XDG_DATA_HOME` setting is changed.
+
+```bash
+candidate="$HOME/.local/opt/local-ai-desktop-goose-dev/packages/live-browser3-ux-rc5"
+scripts/dev/activate-packaged-build.sh --check "$candidate"
+# Close Local AI Desktop normally before changing the launcher selection.
+scripts/dev/activate-packaged-build.sh --activate "$candidate"
+# Only if --activate prints the AppArmor command, run that exact command; then repeat --activate.
+```
 
 - Packaged native E2E `live-browser2.spec.ts`: **1 PASS** (~25 s), fresh RC5, isolated profile. Covers the same native Page for UI/MCP, native click/IME, selection bounds/labels, finding/recheck/reveal, visible page under dropdown and keyboard ArrowDown/Enter zoom selection, viewport/page zoom/preview scale/pan, delete-all, session isolation, hidden panel, Node reconnect, Chromium renderer crash with region re-projection, cookies/storage, protocol error and compact attachment draft.
 - Packaged context E2E `live-browser-context.spec.ts`: **3 PASS** (~27 s). A temporary React/Vite project is chosen through DirSwitcher; scripted provider verifies authoritative project root, DOM evidence and description, compact visible transcript and retry/regenerate context, plus Vision Off. **This does not invoke Qwen, issue an agent tool-call or edit the fixture.** Autonomous “Исправь это” is still unconfirmed.
 - Packaged Russian E2E `live-browser-i18n.spec.ts`: **1 PASS** (~8 s), including native region overlay. Vitest live-browser suite: **40/40 PASS**. Renderer/runtime TypeScript: PASS. Targeted ESLint for all changed app/component/E2E TS files (excluding one unchanged pre-existing fixture warning): PASS. `cargo fmt --all --check`: PASS; `cargo test -p goose --lib acp::server::live_browser --no-default-features`: **6 PASS**. `i18n-check`, `i18n-compile` and `i18n-validate-locale ru`: PASS (RU 2,121 messages).
+- Activation/launcher regression tests: **5 PASS** (3 policy checks, 2 launcher checks). Shell syntax, Python compile, `git diff --check` and persistent RC5 package `--check`: PASS. Package validation initially exposed that Forge emitted `local-ai-desktop` while the old selector required `Local AI Desktop`; activation, launcher, AppArmor and menu validation now accept either supported spelling and remain restricted to `.local-work` or `~/.local/opt/local-ai-desktop-goose-dev/packages`.
 - No soak was run for this UX iteration. Full OS file chooser matrix, long runtime/heap stability and DPI/display switching remain unverified. Arbitrary visual verification, deleted-reference history and several original workflow details remain partial. No full parity is claimed.
 
 The isolated E2Es intentionally kill only their own packaged runtime child and Chromium renderer. The final logs contain an expected chunked-transfer warning from runtime SIGKILL and a blocked `file:` navigation negative test; no transient `/control/display` failure remains. Test profiles and the React fixture are temporary and separate from the user's profile/projects.

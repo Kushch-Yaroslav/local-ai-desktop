@@ -2,7 +2,9 @@
 # Local AI Desktop development launcher; never builds on click.
 set -euo pipefail
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
-export LOCAL_AI_DESKTOP_DEV_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/local-ai-desktop-goose-dev"
+data_home="${XDG_DATA_HOME:-$HOME/.local/share}"
+[[ "$data_home" == /* ]] || { echo 'XDG_DATA_HOME must be an absolute path'; exit 1; }
+export LOCAL_AI_DESKTOP_DEV_ROOT="$data_home/local-ai-desktop-goose-dev"
 export GOOSE_PATH_ROOT="$LOCAL_AI_DESKTOP_DEV_ROOT/goose-backend"
 log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/local-ai-desktop-goose-dev"
 # Storage migration can leave an existing symlink whose destination has not
@@ -23,12 +25,16 @@ if [[ "${LOCAL_AI_DESKTOP_DEV_DETACHED:-0}" != 1 ]] && command -v setsid >/dev/n
 fi
 cd "$repo"
 executable="$repo/ui/desktop/out/Local AI Desktop-linux-x64/Local AI Desktop"
+package_store="$(realpath -m -- "$HOME/.local/opt/local-ai-desktop-goose-dev/packages")"
 # An explicitly selected permanent side-by-side package survives reboot.
 # The activation script validates resources; the launcher rechecks the paths.
 if [[ -f "$repo/.local-work/desktop-selected.path" ]]; then
   IFS= read -r selected < "$repo/.local-work/desktop-selected.path"
   selected="$(realpath -e -- "$selected")"
-  case "$selected" in "$repo"/.local-work/*/'Local AI Desktop') executable="$selected";; *) echo 'Invalid selected desktop path'; exit 1;; esac
+  case "$selected" in
+    "$repo"/.local-work/*/'Local AI Desktop'|"$repo"/.local-work/*/local-ai-desktop|"$package_store"/*/'Local AI Desktop'|"$package_store"/*/local-ai-desktop) executable="$selected" ;;
+    *) echo 'Invalid selected desktop path'; exit 1 ;;
+  esac
 fi
 if [[ ! -x "$executable" || ! -x "$(dirname "$executable")/resources/bin/goose" ]]; then
   echo "Missing packaged development app: $executable. See docs/development/advanced-local-inference.md for one-time build instructions."

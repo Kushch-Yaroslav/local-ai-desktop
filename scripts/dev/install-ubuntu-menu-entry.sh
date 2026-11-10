@@ -6,7 +6,11 @@ launcher="$repo/scripts/dev/launch-goose-dev.sh"
 pointer="$repo/.local-work/desktop-selected.path"
 [[ -x "$launcher" && -f "$pointer" ]] || { echo 'Activate and validate a package first.' >&2; exit 1; }
 selected="$(realpath -e -- "$(head -n 1 "$pointer")")"
-case "$selected" in "$repo"/.local-work/*/'Local AI Desktop') ;; *) echo 'Active package is outside this repository .local-work directory.' >&2; exit 1;; esac
+package_store="$(realpath -m -- "$HOME/.local/opt/local-ai-desktop-goose-dev/packages")"
+case "$selected" in
+  "$repo"/.local-work/*/'Local AI Desktop'|"$repo"/.local-work/*/local-ai-desktop|"$package_store"/*/'Local AI Desktop'|"$package_store"/*/local-ai-desktop) ;;
+  *) echo 'Active package is outside the approved side-by-side build directories.' >&2; exit 1 ;;
+esac
 package="$(dirname -- "$selected")"
 for file in "$selected" "$package/resources/bin/goose" "$package/resources/live-browser/bin/node" "$package/resources/live-browser/dist/live-browser.js" "$package/resources/app.asar"; do
   [[ -r "$file" ]] || { echo "Missing active package resource: $file" >&2; exit 1; }

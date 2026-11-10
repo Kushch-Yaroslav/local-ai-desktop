@@ -21,8 +21,12 @@ assert Path(desktop['Exec']) == launcher
 assert Path(desktop['TryExec']) == launcher
 assert Path(desktop['Path']) == repo
 selected = Path(pointer.read_text().strip()).resolve(strict=True)
-assert selected.name == 'Local AI Desktop'
-assert selected.is_relative_to((repo / '.local-work').resolve())
+assert selected.name in {'Local AI Desktop', 'local-ai-desktop'}
+approved_package_roots = [
+    (repo / '.local-work').resolve(),
+    (Path.home() / '.local/opt/local-ai-desktop-goose-dev/packages').resolve(),
+]
+assert any(selected.is_relative_to(root) for root in approved_package_roots)
 package = selected.parent
 for relative in ('resources/bin/goose', 'resources/live-browser/bin/node', 'resources/live-browser/dist/live-browser.js', 'resources/live-browser/package.json', 'resources/app.asar'):
     path = package / relative
