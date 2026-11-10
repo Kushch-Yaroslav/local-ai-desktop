@@ -1,5 +1,7 @@
 # Ordinary-profile MTP discovery: exhausted diagnostic log quota
 
+**Later repeatability fix and six ordinary-profile searches:** [MTP_DISCOVERY_REPEATABILITY.md](MTP_DISCOVERY_REPEATABILITY.md). Its current installation/acceptance status supersedes this historical report.
+
 Date: 2026-11-10. Follow-up to [MTP_CONTEXT_DISCOVERY.md](MTP_CONTEXT_DISCOVERY.md). This is a logging regression, distinct from CUDA OOM. The original repository remained read-only.
 
 ## Exact cause
