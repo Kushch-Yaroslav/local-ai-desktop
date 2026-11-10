@@ -1,3 +1,15 @@
+# Current follow-up — native menus and description-only tasks, 2026-11-10
+
+See parity audit section 22 for implementation and exact acceptance boundaries. Fresh candidate: `/media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/.local-work/live-browser3-refinement-final/local-ai-desktop`. Built from the writable standalone clone `.local-work/p0-launch-source`; the original repository and linked Git metadata remain untouched.
+
+Resources SHA256: app.asar `a6d29fb7aca9325ede74f67ebdcf2e5197b0ba91ccdd9c4693c04b4fa5f9c87e`; Live Browser JS `7dea4db31fa08a4c9e6a0152c08506d0cd82ef235b5965f4f0bc786e209b945a`; Goose `90b8375a975172a5e0a0ab1f94359782912703fad540adc061beb7d1dd01ac3f`; llama-server `77f54d96774645417affb2b382b574eb1ac1c126a0b9104d00657c2fb61f2691`. Goose and llama.cpp binaries are byte-identical to the prior MTP-verified package; inference/model settings were not modified.
+
+Installation status: exact-path AppArmor installer has requested normal PolicyKit authorization. Launcher selection has not yet changed. The final package rerun passed 8 E2E scenarios (including description-only provider dispatch and all findings count/size cases). Its native-menu test was blocked because the pending PolicyKit authentication dialog consumed the OS click; screenshots from that rerun are occluded and are not visual acceptance evidence. Before the final selected-finding details collapse, all 9 packaged E2E scenarios passed, including actual native menu keys and unchanged bounds. After authorization, rerun the final native screenshot/menu checks before activation. The source fix is commit 7fd7ac9. Do not treat this status as an activated build.
+
+Before cleanup (after build/test staging), the complete checkout measured 12 GiB and DATA had 35 GiB available (234 GiB filesystem). At work start the standalone source clone measured 2.0 GiB and DATA had 38 GiB available. Cleanup/result measurements follow after installation.
+
+---
+
 # Live Browser 3 UX refinement — current handoff, 2026-11-10
 
 This handoff adds the visible-region, findings and inspector UX work on top of the WebContentsView + Node runtime + Goose MCP + Rust typed attachment design below. The original repository was read-only. The active/installed application, Desktop Entry, AppArmor rules, ordinary profile, inference processes and MTP/context-discovery implementation were left unchanged.
