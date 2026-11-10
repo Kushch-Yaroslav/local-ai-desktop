@@ -5,25 +5,24 @@ import os
 from pathlib import Path
 import subprocess
 
-repo = Path(__file__).resolve().parents[2]
 entry = Path(os.environ.get('LAD_GOOSE_DESKTOP_ENTRY', Path.home() / '.local/share/applications/local-ai-desktop.desktop'))
-launcher = repo / 'scripts/dev/launch-goose-dev.sh'
-entry_installer = repo / 'scripts/dev/install-ubuntu-menu-entry.sh'
-activator = repo / 'scripts/dev/activate-packaged-build.sh'
-pointer = repo / '.local-work/desktop-selected.path'
 assert entry.is_file(), f'Desktop Entry not found: {entry}'
-assert os.access(launcher, os.X_OK) and os.access(activator, os.X_OK) and os.access(entry_installer, os.X_OK)
 config = configparser.ConfigParser(interpolation=None)
 config.read(entry)
 desktop = config['Desktop Entry']
 assert desktop.get('Type') == 'Application'
-assert Path(desktop['Exec']) == launcher
-assert Path(desktop['TryExec']) == launcher
-assert Path(desktop['Path']) == repo
+entry_repo = Path(desktop['Path']).resolve(strict=True)
+launcher = entry_repo / 'scripts/dev/launch-goose-dev.sh'
+entry_installer = entry_repo / 'scripts/dev/install-ubuntu-menu-entry.sh'
+activator = entry_repo / 'scripts/dev/activate-packaged-build.sh'
+pointer = entry_repo / '.local-work/desktop-selected.path'
+assert Path(desktop['Exec']).resolve(strict=True) == launcher.resolve(strict=True)
+assert Path(desktop['TryExec']).resolve(strict=True) == launcher.resolve(strict=True)
+assert os.access(launcher, os.X_OK) and os.access(activator, os.X_OK) and os.access(entry_installer, os.X_OK)
 selected = Path(pointer.read_text().strip()).resolve(strict=True)
 assert selected.name in {'Local AI Desktop', 'local-ai-desktop'}
 approved_package_roots = [
-    (repo / '.local-work').resolve(),
+    (entry_repo / '.local-work').resolve(),
     (Path.home() / '.local/opt/local-ai-desktop-goose-dev/packages').resolve(),
 ]
 assert any(selected.is_relative_to(root) for root in approved_package_roots)
