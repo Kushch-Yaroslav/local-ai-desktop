@@ -19,20 +19,25 @@ export function useNativeBrowserView(
       frame = 0;
       if (cancelled) return;
       const rect = element.getBoundingClientRect();
-      const overlays = [
-        ...document.querySelectorAll('[role="dialog"],[role="menu"],[role="listbox"]'),
-      ];
-      const covered = overlays.some((node) => {
-        const b = node.getBoundingClientRect();
-        return (
-          b.width &&
-          b.height &&
-          b.left < rect.right &&
-          b.right > rect.left &&
-          b.top < rect.bottom &&
-          b.bottom > rect.top
-        );
-      });
+      // Renderer menus/popovers cannot stack over a native WebContentsView.
+      // Live Browser menus are rendered inline in the chrome/inspector, so they
+      // never cover this surface. Only a true modal may temporarily cover it.
+      const modal = document.querySelector('[aria-modal="true"],dialog[open]');
+      const covered = Boolean(
+        modal &&
+        (() => {
+          const node = modal;
+          const b = node.getBoundingClientRect();
+          return (
+            b.width &&
+            b.height &&
+            b.left < rect.right &&
+            b.right > rect.left &&
+            b.top < rect.bottom &&
+            b.bottom > rect.top
+          );
+        })()
+      );
       void window.electron
         .liveBrowserView(
           id,
@@ -52,9 +57,26 @@ export function useNativeBrowserView(
     };
     const resize = new ResizeObserver(schedule);
     resize.observe(element);
-    const mutation = new MutationObserver(schedule);
-    mutation.observe(document.body, { childList: true, subtree: true });
+    const modalSelector = '[aria-modal="true"],dialog[open]';
+    const containsModal = (node: Node) =>
+      node instanceof Element &&
+      (node.matches(modalSelector) || Boolean(node.querySelector(modalSelector)));
+    const mutation = new MutationObserver((records) => {
+      const modalChanged = records.some((record) =>
+        record.type === 'attributes'
+          ? true
+          : [...record.addedNodes, ...record.removedNodes].some(containsModal)
+      );
+      if (modalChanged) schedule();
+    });
+    mutation.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['aria-modal', 'open'],
+    });
     window.addEventListener('resize', schedule);
+    document.addEventListener('scroll', schedule, true);
     document.addEventListener('visibilitychange', schedule);
     update();
     return () => {
@@ -64,6 +86,7 @@ export function useNativeBrowserView(
       resize.disconnect();
       mutation.disconnect();
       window.removeEventListener('resize', schedule);
+      document.removeEventListener('scroll', schedule, true);
       document.removeEventListener('visibilitychange', schedule);
       void window.electron.liveBrowserView(id, null, latestSettings.current).catch(() => undefined);
     };

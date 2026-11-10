@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useIntl } from 'react-intl';
 import { browserPageLabel } from './attachments';
+import { i18n } from './i18n';
 import { X, Layers } from 'lucide-react';
 import {
   peekPendingSelection,
@@ -7,6 +9,7 @@ import {
   setPendingSelection,
 } from './pendingContext';
 export function PendingBrowserAttachments({ conversationId }: { conversationId: string }) {
+  const intl = useIntl();
   const [draft, setDraft] = useState(() => peekPendingSelection(conversationId));
   useEffect(() => {
     setDraft(peekPendingSelection(conversationId));
@@ -24,21 +27,32 @@ export function PendingBrowserAttachments({ conversationId }: { conversationId: 
             <summary className="flex cursor-pointer items-center gap-2">
               <Layers size={13} />
               {attachment.name} · {browserPageLabel(attachment.url)}
-              <span className="text-text-secondary">{attachment.regionCount}</span>
+              <span className="text-text-secondary">
+                {intl.formatMessage(i18n.attachmentRegionsCount, { count: attachment.regionCount })}
+              </span>
+              {attachment.description && (
+                <span className="rounded bg-background-primary px-1.5 py-0.5 text-text-secondary">
+                  {intl.formatMessage(i18n.attachmentHasDescription)}
+                </span>
+              )}
             </summary>
             <div className="mt-2 max-w-sm break-all text-text-secondary">
               {attachment.url}
-              <p>Vision {attachment.vision ? 'On' : 'Off'}</p>
+              <p>
+                {intl.formatMessage(i18n.visionLabel)}{' '}
+                {intl.formatMessage(attachment.vision ? i18n.visionOn : i18n.visionOff)}
+              </p>
+              {attachment.description && <p>{attachment.description}</p>}
               <p>
                 {attachment.projectRoot ??
                   (attachment.projectBound
-                    ? 'Project linked in chat'
-                    : 'No project • choose a folder in chat')}
+                    ? intl.formatMessage(i18n.projectLinked)
+                    : intl.formatMessage(i18n.noProjectBound))}
               </p>
             </div>
           </details>
           <button
-            aria-label={`Remove ${attachment.name}`}
+            aria-label={intl.formatMessage(i18n.removeAttachment, { name: attachment.name })}
             onClick={() => {
               const attachments = draft.attachments!.filter((a) => a.id !== attachment.id);
               setPendingSelection(

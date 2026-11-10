@@ -154,8 +154,10 @@ test('chosen React project and region reach model while history contains a compa
         event
       );
   });
+  await page.getByTestId('live-browser-area-desc').fill('The product button needs more padding.');
   await page.getByTestId('live-browser-area-send').click();
   await expect(page.getByTestId('pending-selection-note')).toBeVisible();
+  await expect(page.getByTestId('pending-selection-note')).toContainText('Has description');
   // Narrow layouts intentionally prioritize the browser; hide it to compose.
   await page.getByTestId('live-browser-mode-close').click();
   await page.getByTestId('chat-input').fill('Исправь это');
@@ -166,6 +168,7 @@ test('chosen React project and region reach model while history contains a compa
   expect(sent).toContain('explicit-directory-selection');
   expect(sent).toContain('Region');
   expect(sent).toContain('product');
+  expect(sent).toContain('The product button needs more padding.');
   const shapes = (
     requests as { messages?: unknown; tools?: { function?: { name: string } }[] }[]
   ).map((r) => ({
@@ -195,6 +198,7 @@ test('chosen React project and region reach model while history contains a compa
   await expect(
     page.getByTestId('browser-message-attachments').filter({ hasText: 'Area' }).first()
   ).toBeVisible();
+  await expect(page.getByTestId('browser-message-attachments')).toContainText('Has description');
   const history = (await page.locator('[data-testid="message-list"]').count())
     ? page.locator('[data-testid="message-list"]')
     : page.locator('body');
@@ -206,6 +210,7 @@ test('chosen React project and region reach model while history contains a compa
     .filter((m) => m.role === 'user');
   expect(JSON.stringify(modelUser)).toContain(root);
   expect(JSON.stringify(modelUser)).toContain('product');
+  expect(JSON.stringify(modelUser)).toContain('The product button needs more padding.');
   expect(JSON.stringify(modelUser)).not.toContain('lad-browser-attachment:v1:');
   expect(JSON.stringify(modelUser)).not.toContain('image_url');
   // Editing/resending truncates the conversation, then resolves the durable attachment ID.
@@ -222,6 +227,7 @@ test('chosen React project and region reach model while history contains a compa
   const retry = JSON.stringify(requests.slice(count));
   expect(retry).toContain(root);
   expect(retry).toContain('product');
+  expect(retry).toContain('The product button needs more padding.');
   expect(retry).not.toContain('lad-browser-attachment:v1:');
   await expect(page.locator('.user-message-bubble').last()).toHaveText(
     'Исправь это, сохранив остальную страницу'
@@ -236,12 +242,21 @@ test('chosen React project and region reach model while history contains a compa
         method: body ? 'POST' : 'GET',
         headers: { Authorization: `Bearer ${endpoint.token}`, 'content-type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(30000),
       }
     );
     const value = await response.json();
     expect(response.ok, JSON.stringify(value)).toBe(true);
     return value;
   };
+  const currentProductHeight = () =>
+    page.evaluate(async (conversationId) => {
+      const result = (await window.electron.liveBrowserNativeTest(conversationId, 'Runtime.evaluate', {
+        expression: 'getComputedStyle(document.querySelector("#product")).height',
+        returnByValue: true,
+      })) as { result: { value: string } };
+      return result.result.value;
+    }, id);
   const initial = await control('state'),
     area = initial.areas[0],
     region = initial.regions[0];
@@ -255,6 +270,9 @@ test('chosen React project and region reach model while history contains a compa
   const source = readFileSync(join(root, 'src/App.tsx'), 'utf8');
   try {
     writeFileSync(join(root, 'src/App.tsx'), source.replace('height:24', 'height:120'));
+    // Wait for Vite's HMR navigation to settle before the verification reload.
+    // Navigating during HMR produces ERR_ABORTED even though the page is healthy.
+    await expect.poll(currentProductHeight, { timeout: 15000 }).toBe('120px');
     const passed = await control('act', { action: 'recheck', value: area.id });
     expect(passed.record.outcome, JSON.stringify(passed.record)).toBe('Verified');
     expect(passed.record.servedSources).toContain('src/App.tsx');
@@ -265,6 +283,7 @@ test('chosen React project and region reach model while history contains a compa
     await control('act', { action: 'workflow', value: `${area.id}:completed` });
     expect((await control('state')).areas[0].workflow.state).toBe('completed');
     writeFileSync(join(root, 'src/App.tsx'), source.replace('height:24', 'height:121'));
+    await expect.poll(currentProductHeight, { timeout: 15000 }).toBe('121px');
     const stale = await control('state');
     expect(stale.areas[0].status).toBe('Fixed');
     expect(stale.areas[0].verification.reason).toContain('changed');
@@ -284,6 +303,7 @@ test('chosen React project and region reach model while history contains a compa
     );
   } finally {
     writeFileSync(join(root, 'src/App.tsx'), source);
+    await expect.poll(currentProductHeight, { timeout: 15000 }).toBe('24px');
   }
   await page.getByTestId('browser-toggle').click();
   await expect(page.getByTestId('live-browser-panel')).not.toContainText('No project');

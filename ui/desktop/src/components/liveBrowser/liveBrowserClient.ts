@@ -11,11 +11,7 @@ import type {
   LadGroundResponse,
   LadReadResponse,
 } from '../../../live-browser/shared/api';
-import type {
-  LadArea,
-  LadRegion,
-  LadWorkspaceSettings,
-} from '../../../live-browser/shared/types';
+import type { LadArea, LadRegion, LadWorkspaceSettings } from '../../../live-browser/shared/types';
 
 export interface LiveBrowserEndpoint {
   url: string;
@@ -32,7 +28,7 @@ export interface LiveBrowserStateSnapshot {
 export class LiveBrowserApiError extends Error {
   constructor(
     message: string,
-    readonly status?: number,
+    readonly status?: number
   ) {
     super(message);
     this.name = 'LiveBrowserApiError';
@@ -59,7 +55,7 @@ export class LiveBrowserClient {
       });
     } catch (error) {
       throw new LiveBrowserApiError(
-        `live-browser runtime unreachable (${error instanceof Error ? error.message : String(error)})`,
+        `live-browser runtime unreachable (${error instanceof Error ? error.message : String(error)})`
       );
     }
     const text = await response.text();
@@ -94,115 +90,201 @@ export class LiveBrowserClient {
   ground(
     conversationId: string,
     rect: { x: number; y: number; width: number; height: number },
-    opts?: { areaId?: string; note?: string },
+    opts?: { areaId?: string; note?: string }
   ): Promise<LadGroundResponse> {
-    return this.request('POST', `/control/ground?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      rect,
-      areaId: opts?.areaId,
-      note: opts?.note,
-    });
+    return this.request(
+      'POST',
+      `/control/ground?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        rect,
+        areaId: opts?.areaId,
+        note: opts?.note,
+      }
+    );
   }
 
   createArea(
     conversationId: string,
-    body: { name: string; description?: string; status?: string },
+    body: { name: string; description?: string; status?: string }
   ): Promise<{ ok: boolean; area: LadArea }> {
-    return this.request('POST', `/control/area?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      ...body,
-    });
+    return this.request(
+      'POST',
+      `/control/area?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        ...body,
+      }
+    );
   }
 
   updateArea(
     conversationId: string,
     areaId: string,
-    body: { name?: string; description?: string; status?: string; statusSource?: string },
+    body: {
+      name?: string;
+      description?: string;
+      status?: string;
+      statusSource?: string;
+      origin?: 'manual' | 'detected';
+    }
   ): Promise<{ ok: boolean; area: LadArea }> {
-    return this.request('POST', `/control/area/update?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      areaId,
-      ...body,
-    });
+    return this.request(
+      'POST',
+      `/control/area/update?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        areaId,
+        ...body,
+      }
+    );
   }
 
   removeArea(conversationId: string, areaId: string): Promise<{ ok: boolean }> {
-    return this.request('POST', `/control/area/remove?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      areaId,
-    });
+    return this.request(
+      'POST',
+      `/control/area/remove?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        areaId,
+      }
+    );
+  }
+
+  removeAllAreas(
+    conversationId: string
+  ): Promise<{ ok: boolean; areaCount: number; regionCount: number; captureCount: number }> {
+    return this.request(
+      'POST',
+      `/control/area/remove-all?conversation=${encodeURIComponent(conversationId)}`,
+      { conversationId }
+    );
   }
 
   removeRegion(conversationId: string, regionId: string): Promise<{ ok: boolean }> {
     return this.request(
       'POST',
       `/control/region/remove?conversation=${encodeURIComponent(conversationId)}`,
-      { conversationId, regionId },
+      { conversationId, regionId }
     );
   }
 
   attachRegion(
     conversationId: string,
     regionId: string,
-    areaId: string,
+    areaId: string
   ): Promise<{ ok: boolean; region: LadRegion; area: LadArea }> {
-    return this.request('POST', `/control/region/attach?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      regionId,
-      areaId,
-    });
+    return this.request(
+      'POST',
+      `/control/region/attach?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        regionId,
+        areaId,
+      }
+    );
   }
 
   setWorkspace(
     conversationId: string,
-    workspace: Partial<LadWorkspaceSettings>,
+    workspace: Partial<LadWorkspaceSettings>
   ): Promise<{ ok: boolean; workspace: LadWorkspaceSettings }> {
-    return this.request('POST', `/control/workspace?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      workspace,
-    });
+    return this.request(
+      'POST',
+      `/control/workspace?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        workspace,
+      }
+    );
   }
 
   setOwnership(conversationId: string, ownership: 'user' | 'agent'): Promise<{ ok: boolean }> {
-    return this.request('POST', `/control/ownership?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      ownership,
-    });
+    return this.request(
+      'POST',
+      `/control/ownership?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        ownership,
+      }
+    );
   }
 
   setViewport(
     conversationId: string,
-    body: { width: number; height: number; zoom?: number },
+    body: { width: number; height: number; zoom?: number }
   ): Promise<{ ok: boolean }> {
-    return this.request('POST', `/control/viewport?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      ...body,
-    });
+    return this.request(
+      'POST',
+      `/control/viewport?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        ...body,
+      }
+    );
   }
 
   setVisible(conversationId: string, visible: boolean): Promise<{ ok: boolean }> {
-    return this.request('POST', `/control/visibility?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      visible,
-    });
+    return this.request(
+      'POST',
+      `/control/visibility?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        visible,
+      }
+    );
+  }
+
+  displayRegions(
+    conversationId: string,
+    body: {
+      visible?: boolean;
+      selectedAreaId?: string | null;
+      hoveredAreaId?: string | null;
+      staleLabel?: string;
+      areaPrefix?: string;
+    }
+  ): Promise<{ ok: boolean }> {
+    return this.request(
+      'POST',
+      `/control/display?conversation=${encodeURIComponent(conversationId)}`,
+      { conversationId, ...body }
+    );
   }
 
   navigate(
     conversationId: string,
     action: 'open' | 'back' | 'forward' | 'reload',
-    url?: string,
+    url?: string
   ): Promise<{ ok: boolean; summary?: string }> {
-    return this.request('POST', `/control/navigate?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      action,
-      url,
-    });
+    return this.request(
+      'POST',
+      `/control/navigate?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        action,
+        url,
+      }
+    );
   }
 
   act(
     conversationId: string,
-    body: { action: string; selector?: string; value?: string; x?: number; y?: number },
-  ): Promise<{ ok: boolean; summary?: string }> {
+    body: {
+      action: string;
+      selector?: string;
+      value?: string;
+      areaName?: string;
+      x?: number;
+      y?: number;
+    }
+  ): Promise<{
+    ok: boolean;
+    summary?: string;
+    count?: number;
+    regionIds?: string[];
+    areaIds?: string[];
+  }> {
     return this.request('POST', `/control/act?conversation=${encodeURIComponent(conversationId)}`, {
       conversationId,
       ...body,
@@ -212,27 +294,33 @@ export class LiveBrowserClient {
   captureCrop(
     conversationId: string,
     rect: { x: number; y: number; width: number; height: number },
-    maxEdge = 1280,
+    maxEdge = 1280
   ): Promise<LadCaptureResponse> {
-    return this.request('POST', `/control/capture?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      rect,
-      maxEdge,
-    });
+    return this.request(
+      'POST',
+      `/control/capture?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        rect,
+        maxEdge,
+      }
+    );
   }
 
   read(conversationId: string, maxChars = 12000, selector?: string): Promise<LadReadResponse> {
-    return this.request('POST', `/control/read?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      maxChars,
-      selector,
-    });
+    return this.request(
+      'POST',
+      `/control/read?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        maxChars,
+        selector,
+      }
+    );
   }
 
   /** Live page snapshot for coordinate mapping (document ↔ canvas). */
-  scrollSnapshot(
-    conversationId: string,
-  ): Promise<{
+  scrollSnapshot(conversationId: string): Promise<{
     ok: boolean;
     scrollX: number;
     scrollY: number;
@@ -241,32 +329,50 @@ export class LiveBrowserClient {
     dpr: number;
     url: string;
   }> {
-    return this.request('GET', `/control/scroll?conversation=${encodeURIComponent(conversationId)}`);
+    return this.request(
+      'GET',
+      `/control/scroll?conversation=${encodeURIComponent(conversationId)}`
+    );
   }
 
-  liveProjection(conversationId: string, regionId: string): Promise<{ ok: boolean; region: LadRegion }> {
-    return this.request('POST', `/control/projection?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      regionId,
-    });
+  liveProjection(
+    conversationId: string,
+    regionId: string
+  ): Promise<{ ok: boolean; region: LadRegion }> {
+    return this.request(
+      'POST',
+      `/control/projection?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        regionId,
+      }
+    );
   }
 
   recordCheck(
     conversationId: string,
     areaId: string,
-    body: { result?: string; reason?: string; newStatus?: string },
+    body: { result?: string; reason?: string; newStatus?: string }
   ): Promise<{ ok: boolean; area: LadArea }> {
-    return this.request('POST', `/control/check?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-      areaId,
-      ...body,
-    });
+    return this.request(
+      'POST',
+      `/control/check?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+        areaId,
+        ...body,
+      }
+    );
   }
 
   closeSession(conversationId: string): Promise<{ ok: boolean }> {
-    return this.request('POST', `/control/session/close?conversation=${encodeURIComponent(conversationId)}`, {
-      conversationId,
-    });
+    return this.request(
+      'POST',
+      `/control/session/close?conversation=${encodeURIComponent(conversationId)}`,
+      {
+        conversationId,
+      }
+    );
   }
 
   /** SSE URL (EventSource cannot set headers → token in query). */

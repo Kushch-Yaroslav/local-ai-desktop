@@ -102,6 +102,10 @@ export class LadControlServer {
     events.on('state', (event: { conversationId: string }) => {
       void this.pushState(event.conversationId);
     });
+    events.on('region-selected', (event: { conversationId: string; regionId: string }) => {
+      for (const client of this.sseClients.get(event.conversationId) ?? [])
+        this.writeSse(client, { t: 'region-selected', regionId: event.regionId });
+    });
   }
 
   private clientsFor(conversationId: string): Set<ServerResponse> {
@@ -395,6 +399,7 @@ export class LadControlServer {
           description: body.description,
           status: body.status,
           statusSource: body.statusSource,
+          origin: body.origin,
         });
         json(res, 200, { ok: true, area });
         return;
@@ -405,6 +410,21 @@ export class LadControlServer {
         const conversationId = conversationParam || this.deps.activeConversation() || '';
         await this.deps.regions.removeArea(conversationId, body.areaId ?? '');
         json(res, 200, { ok: true });
+        return;
+      }
+
+      case '/control/area/remove-all': {
+        if (method !== 'POST') {
+          json(res, 405, { ok: false, error: 'use-post' });
+          return;
+        }
+        const conversationId = conversationParam || this.deps.activeConversation() || '';
+        if (!conversationId) {
+          json(res, 400, { ok: false, error: 'missing-conversation' });
+          return;
+        }
+        const removed = await this.deps.regions.removeAllAreas(conversationId);
+        json(res, 200, { ok: true, ...removed });
         return;
       }
 
@@ -442,6 +462,36 @@ export class LadControlServer {
         );
         void this.deps.regions.setViewportForWorkspace(conversationId, workspace);
         json(res, 200, { ok: true, workspace });
+        return;
+      }
+
+      case '/control/display': {
+        if (method !== 'POST') {
+          json(res, 405, { ok: false, error: 'use-post' });
+          return;
+        }
+        const body = JSON.parse((await readBody(req)) || '{}') as {
+          visible?: boolean;
+          selectedAreaId?: string | null;
+          hoveredAreaId?: string | null;
+          staleLabel?: string;
+          areaPrefix?: string;
+        };
+        const conversationId = conversationParam || this.deps.activeConversation() || '';
+        if (!conversationId) {
+          json(res, 400, { ok: false, error: 'missing-conversation' });
+          return;
+        }
+        if (body.staleLabel && body.staleLabel.length > 120) {
+          json(res, 400, { ok: false, error: 'invalid-stale-label' });
+          return;
+        }
+        if (body.areaPrefix && body.areaPrefix.length > 40) {
+          json(res, 400, { ok: false, error: 'invalid-area-prefix' });
+          return;
+        }
+        await this.deps.regions.display(conversationId, body);
+        json(res, 200, { ok: true });
         return;
       }
 
@@ -527,6 +577,7 @@ export class LadControlServer {
           action?: string;
           selector?: string;
           value?: string;
+          areaName?: string;
           x?: number;
           y?: number;
         };
@@ -555,13 +606,17 @@ export class LadControlServer {
             if (!result.ok) throw new Error(result.error);
             json(res, 200, { ok: true });
           } else if (body.action === 'detect') {
-            await this.deps.regions.detect(conversationId);
-            json(res, 200, { ok: true });
+            const result = await this.deps.regions.detect(conversationId, {
+              areaNamePrefix: body.areaName?.slice(0, 120),
+            });
+            json(res, 200, { ok: true, ...result });
           } else if (body.action === 'reveal') {
             await this.deps.regions.reveal(conversationId, body.value ?? '');
             json(res, 200, { ok: true });
           } else if (body.action === 'selection') {
-            await this.deps.regions.setSelection(conversationId, body.value ?? 'off');
+            await this.deps.regions.setSelection(conversationId, body.value ?? 'off', {
+              areaName: body.areaName?.slice(0, 200),
+            });
             json(res, 200, { ok: true });
           } else if (body.action === 'click' && body.selector) {
             await page.click(body.selector, { timeout: 10_000 });

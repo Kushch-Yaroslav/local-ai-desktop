@@ -74,7 +74,10 @@ export const test = base.extend<GooseTestFixtures>({
         mkdirSync(electronRoot, { recursive: true });
         writeFileSync(join(electronRoot, '.e2e-isolated'), 'isolated E2E instance\n');
         // Deterministic selectors without changing the user's system/app language.
-        writeFileSync(join(electronRoot, 'settings.json'), JSON.stringify({ language: 'en' }));
+        writeFileSync(
+          join(electronRoot, 'settings.json'),
+          JSON.stringify({ language: process.env.LAD_E2E_LANGUAGE || 'en' })
+        );
         const fixtureProvider = process.env.LAD_E2E_PROVIDER_URL;
         const llama = fixtureProvider
           ? {
@@ -149,6 +152,11 @@ export const test = base.extend<GooseTestFixtures>({
           break;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
+          if (appProcess.exitCode !== null || appProcess.signalCode !== null) {
+            throw new Error(
+              `Electron exited before remote debugging was ready (code=${appProcess.exitCode} signal=${appProcess.signalCode}). Last CDP error: ${errorMessage}`
+            );
+          }
           if (attempt === maxRetries) {
             throw Object.assign(
               new Error(

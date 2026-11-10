@@ -37,6 +37,8 @@ export interface LadAnchorFinding {
     | 'unknown';
   fact: string;
   candidate: boolean;
+  /** Current DOM recheck state; missing means not rechecked yet. */
+  state?: 'current' | 'stale';
 }
 
 export interface LadAnchorNeighbor {
@@ -156,6 +158,8 @@ export interface LadArea {
   id: string;
   conversationId: string;
   name: string;
+  /** Areas created by automatic DOM analysis remain candidates until the user adopts them. */
+  origin?: 'manual' | 'detected';
   description?: string;
   status: LadRegionStatus;
   statusSource?: 'user' | 'agent' | 'runtime';

@@ -5926,5 +5926,440 @@
   },
   "visionQuick.reload": {
     "defaultMessage": "Применить Vision / перезагрузить модель"
+  },
+  "liveBrowser.areaDescriptionExample": {
+    "defaultMessage": "Например: кнопке не хватает внутренних отступов."
+  },
+  "liveBrowser.areaDescriptionHint": {
+    "defaultMessage": "Это описание будет передано AI вместе с выбранной областью."
+  },
+  "liveBrowser.areaDescriptionLabel": {
+    "defaultMessage": "Описание проблемы / что нужно исправить"
+  },
+  "liveBrowser.attachmentHasDescription": {
+    "defaultMessage": "Есть описание"
+  },
+  "liveBrowser.attachmentRegionsCount": {
+    "defaultMessage": "{count, plural, =0 {нет областей} one {# область} few {# области} many {# областей} other {# области}}"
+  },
+  "liveBrowser.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "liveBrowser.cannotUndo": {
+    "defaultMessage": "Это действие нельзя отменить."
+  },
+  "liveBrowser.defaultAreaName": {
+    "defaultMessage": "Область {number}"
+  },
+  "liveBrowser.deleteAll": {
+    "defaultMessage": "Удалить всё"
+  },
+  "liveBrowser.deleteAllAreas": {
+    "defaultMessage": "Удалить все области"
+  },
+  "liveBrowser.deleteAllAreasConfirm": {
+    "defaultMessage": "Удалить все области?"
+  },
+  "liveBrowser.deleteAllAreasHistory": {
+    "defaultMessage": "Также будут удалены {historyCount, plural, one {# запись истории} few {# записи истории} many {# записей истории} other {# записи истории}} и {captureCount, plural, one {# сохранённый снимок} few {# сохранённых снимка} many {# сохранённых снимков} other {# сохранённого снимка}}. Это действие нельзя отменить."
+  },
+  "liveBrowser.deleteAllAreasScope": {
+    "defaultMessage": "Из этого чата будут удалены {areaCount, plural, one {# область} few {# области} many {# областей} other {# области}} и {regionCount, plural, one {# регион} few {# региона} many {# регионов} other {# региона}}."
+  },
+  "liveBrowser.elementNotFound": {
+    "defaultMessage": "Элемент не найден или привязка устарела"
+  },
+  "liveBrowser.emptyAreas": {
+    "defaultMessage": "Пока нет областей. Выделите часть страницы, которую нужно показать AI."
+  },
+  "liveBrowser.evidenceRecheck": {
+    "defaultMessage": "Повторная проверка"
+  },
+  "liveBrowser.evidenceReselection": {
+    "defaultMessage": "Повторное выделение"
+  },
+  "liveBrowser.evidenceSelection": {
+    "defaultMessage": "Выделение"
+  },
+  "liveBrowser.findingElementOverlap": {
+    "defaultMessage": "Перекрытие элементов"
+  },
+  "liveBrowser.findingHorizontalOverflow": {
+    "defaultMessage": "Горизонтальное переполнение"
+  },
+  "liveBrowser.findingOutdated": {
+    "defaultMessage": "Больше не обнаруживается · перепроверьте"
+  },
+  "liveBrowser.findingTextClipping": {
+    "defaultMessage": "Обрезка текста"
+  },
+  "liveBrowser.findingVerticalOverflow": {
+    "defaultMessage": "Вертикальное переполнение"
+  },
+  "liveBrowser.hideRegionMarkers": {
+    "defaultMessage": "Скрыть маркеры областей"
+  },
+  "liveBrowser.inline.4k": {
+    "defaultMessage": "4K"
+  },
+  "liveBrowser.inline.active-task": {
+    "defaultMessage": "В работе"
+  },
+  "liveBrowser.inline.add-region": {
+    "defaultMessage": "Добавить выделение"
+  },
+  "liveBrowser.inline.agent-is-controlling-the-page": {
+    "defaultMessage": "Агент управляет страницей"
+  },
+  "liveBrowser.inline.apply-viewport": {
+    "defaultMessage": "Применить размер"
+  },
+  "liveBrowser.inline.area": {
+    "defaultMessage": "Область"
+  },
+  "liveBrowser.inline.area-name": {
+    "defaultMessage": "Название области"
+  },
+  "liveBrowser.inline.area-status": {
+    "defaultMessage": "Статус области"
+  },
+  "liveBrowser.inline.areas": {
+    "defaultMessage": "Области"
+  },
+  "liveBrowser.inline.attach-to-message": {
+    "defaultMessage": "Прикрепить к сообщению"
+  },
+  "liveBrowser.inline.auto": {
+    "defaultMessage": "Авто"
+  },
+  "liveBrowser.inline.back": {
+    "defaultMessage": "Назад"
+  },
+  "liveBrowser.inline.bottom-inspector": {
+    "defaultMessage": "Снизу"
+  },
+  "liveBrowser.inline.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "liveBrowser.inline.close-areas": {
+    "defaultMessage": "Закрыть области"
+  },
+  "liveBrowser.inline.complete-task": {
+    "defaultMessage": "Завершить задачу"
+  },
+  "liveBrowser.inline.completion-does-not-certify-a-fix": {
+    "defaultMessage": "Завершение не означает Verified"
+  },
+  "liveBrowser.inline.connected": {
+    "defaultMessage": "Подключён"
+  },
+  "liveBrowser.inline.connecting": {
+    "defaultMessage": "Подключение"
+  },
+  "liveBrowser.inline.delete-all": {
+    "defaultMessage": "Удалить всё"
+  },
+  "liveBrowser.inline.delete-all-areas": {
+    "defaultMessage": "Удалить все области"
+  },
+  "liveBrowser.inline.delete-all-areas-2": {
+    "defaultMessage": "Удалить все области?"
+  },
+  "liveBrowser.inline.desktop": {
+    "defaultMessage": "Компьютер"
+  },
+  "liveBrowser.inline.dispute-result": {
+    "defaultMessage": "Оспорить результат"
+  },
+  "liveBrowser.inline.drag-to-pan": {
+    "defaultMessage": "Перетаскивайте поверхность"
+  },
+  "liveBrowser.inline.drag-to-select-esc-to-cancel": {
+    "defaultMessage": "Выделите прямоугольник • Esc — отмена"
+  },
+  "liveBrowser.inline.element-not-found-or-binding-is-stale": {
+    "defaultMessage": "Элемент не найден или привязка устарела"
+  },
+  "liveBrowser.inline.evidence-history": {
+    "defaultMessage": "Данные и история"
+  },
+  "liveBrowser.inline.expand": {
+    "defaultMessage": "Развернуть"
+  },
+  "liveBrowser.inline.find-area": {
+    "defaultMessage": "Найти область"
+  },
+  "liveBrowser.inline.find-area-2": {
+    "defaultMessage": "Найти область…"
+  },
+  "liveBrowser.inline.find-layout-candidates": {
+    "defaultMessage": "Найти проблемы вёрстки"
+  },
+  "liveBrowser.inline.fit": {
+    "defaultMessage": "По размеру"
+  },
+  "liveBrowser.inline.for-example-the-button-needs-more-padding": {
+    "defaultMessage": "Например: кнопке не хватает внутренних отступов."
+  },
+  "liveBrowser.inline.forward": {
+    "defaultMessage": "Вперёд"
+  },
+  "liveBrowser.inline.full-hd": {
+    "defaultMessage": "Full HD"
+  },
+  "liveBrowser.inline.hide-browser": {
+    "defaultMessage": "Скрыть браузер"
+  },
+  "liveBrowser.inline.hide-region-markers": {
+    "defaultMessage": "Скрыть маркеры областей"
+  },
+  "liveBrowser.inline.historical-evidence-not-current-page-state": {
+    "defaultMessage": "Исторические данные, не текущее состояние страницы"
+  },
+  "liveBrowser.inline.historical-selection-not-current-page": {
+    "defaultMessage": "Историческое выделение, не текущая страница"
+  },
+  "liveBrowser.inline.include-current-crop": {
+    "defaultMessage": "Прикрепить изображение"
+  },
+  "liveBrowser.inline.inspector-position": {
+    "defaultMessage": "Положение инспектора"
+  },
+  "liveBrowser.inline.interact-with-page": {
+    "defaultMessage": "Работать со страницей"
+  },
+  "liveBrowser.inline.interaction-mode": {
+    "defaultMessage": "Режим взаимодействия"
+  },
+  "liveBrowser.inline.legacy-claim-unverified": {
+    "defaultMessage": "Старая запись • не проверено"
+  },
+  "liveBrowser.inline.mobile": {
+    "defaultMessage": "Телефон"
+  },
+  "liveBrowser.inline.no-areas-yet-select-the-part-of-the-page-you-want-the-ai-to-inspect": {
+    "defaultMessage": "Пока нет областей. Выделите часть страницы, которую нужно показать AI."
+  },
+  "liveBrowser.inline.no-matching-areas": {
+    "defaultMessage": "Подходящих областей нет."
+  },
+  "liveBrowser.inline.no-potential-overflow-candidates-found": {
+    "defaultMessage": "Потенциальных проблем переполнения не найдено."
+  },
+  "liveBrowser.inline.no-project": {
+    "defaultMessage": "Без проекта"
+  },
+  "liveBrowser.inline.no-project-bound-choose-a-project-in-session-settings": {
+    "defaultMessage": "Проект не привязан. Выберите проект в настройках чата."
+  },
+  "liveBrowser.inline.open-a-page-to-select": {
+    "defaultMessage": "Откройте страницу для выделения"
+  },
+  "liveBrowser.inline.open-an-address-above-select-a-region-when-you-need-the-agent-to-inspect-it": {
+    "defaultMessage": "Откройте адрес выше. Выделите область, когда нужна помощь агента."
+  },
+  "liveBrowser.inline.open-page": {
+    "defaultMessage": "Открыть страницу"
+  },
+  "liveBrowser.inline.open-saved-page": {
+    "defaultMessage": "Открыть сохранённую страницу"
+  },
+  "liveBrowser.inline.page-address": {
+    "defaultMessage": "Адрес страницы"
+  },
+  "liveBrowser.inline.page-interaction": {
+    "defaultMessage": "Управление страницей"
+  },
+  "liveBrowser.inline.page-zoom": {
+    "defaultMessage": "Масштаб страницы"
+  },
+  "liveBrowser.inline.page-zoom-changes-the-page-preview-changes-only-its-presentation-middle-drag-pans-the-whee": {
+    "defaultMessage": "Масштаб страницы меняет страницу; предпросмотр — только её показ. Средняя кнопка перемещает поверхность. В режиме руки колесо двигает предпросмотр, в режиме указателя — страницу."
+  },
+  "liveBrowser.inline.pan-preview-middle-drag-also-works": {
+    "defaultMessage": "Перемещать предпросмотр • также средней кнопкой"
+  },
+  "liveBrowser.inline.potential": {
+    "defaultMessage": "Возможная"
+  },
+  "liveBrowser.inline.potential-findings": {
+    "defaultMessage": "Возможные проблемы"
+  },
+  "liveBrowser.inline.potential-issue": {
+    "defaultMessage": "Кандидат вёрстки"
+  },
+  "liveBrowser.inline.potential-layout-issue-the-scan-found-a-measurable-condition-it-does-not-prove-a-visual-de": {
+    "defaultMessage": "Возможная проблема вёрстки. Поиск обнаружил измеримое условие, но оно не доказывает визуальный дефект."
+  },
+  "liveBrowser.inline.preview": {
+    "defaultMessage": "Предпросмотр"
+  },
+  "liveBrowser.inline.preview-scale": {
+    "defaultMessage": "Масштаб предпросмотра"
+  },
+  "liveBrowser.inline.problem-description-what-should-be-fixed": {
+    "defaultMessage": "Описание проблемы / что нужно исправить"
+  },
+  "liveBrowser.inline.recheck-text-fitting": {
+    "defaultMessage": "Перепроверить обрезку текста"
+  },
+  "liveBrowser.inline.reconnect": {
+    "defaultMessage": "Переподключить"
+  },
+  "liveBrowser.inline.reload": {
+    "defaultMessage": "Обновить"
+  },
+  "liveBrowser.inline.remove-area": {
+    "defaultMessage": "Удалить область"
+  },
+  "liveBrowser.inline.remove-region": {
+    "defaultMessage": "Удалить регион"
+  },
+  "liveBrowser.inline.reselect": {
+    "defaultMessage": "Выделить заново"
+  },
+  "liveBrowser.inline.reset-preview": {
+    "defaultMessage": "Сбросить положение"
+  },
+  "liveBrowser.inline.resize-areas": {
+    "defaultMessage": "Изменить размер списка областей"
+  },
+  "liveBrowser.inline.resize-browser": {
+    "defaultMessage": "Изменить ширину браузера"
+  },
+  "liveBrowser.inline.reveal": {
+    "defaultMessage": "Показать"
+  },
+  "liveBrowser.inline.select-a-region-for-ai": {
+    "defaultMessage": "Выделить область для AI"
+  },
+  "liveBrowser.inline.select-area": {
+    "defaultMessage": "Выделить область"
+  },
+  "liveBrowser.inline.show-on-page": {
+    "defaultMessage": "Показать на странице"
+  },
+  "liveBrowser.inline.show-region-markers": {
+    "defaultMessage": "Показать маркеры областей"
+  },
+  "liveBrowser.inline.show-this-element-on-the-page": {
+    "defaultMessage": "Показать этот элемент на странице"
+  },
+  "liveBrowser.inline.side-inspector": {
+    "defaultMessage": "Сбоку"
+  },
+  "liveBrowser.inline.split": {
+    "defaultMessage": "Разделить"
+  },
+  "liveBrowser.inline.tablet": {
+    "defaultMessage": "Планшет"
+  },
+  "liveBrowser.inline.task-workflow": {
+    "defaultMessage": "Состояние задачи"
+  },
+  "liveBrowser.inline.this-browser-is-attached-to-another-window-return-to-that-window-to-use-it": {
+    "defaultMessage": "Браузер этого чата открыт в другом окне. Перейдите в то окно."
+  },
+  "liveBrowser.inline.this-description-is-sent-to-ai-with-the-selected-area": {
+    "defaultMessage": "Это описание будет передано AI вместе с выбранной областью."
+  },
+  "liveBrowser.inline.use-as-area": {
+    "defaultMessage": "Сохранить как область"
+  },
+  "liveBrowser.inline.view-saved-crop": {
+    "defaultMessage": "Сохранённый снимок"
+  },
+  "liveBrowser.inline.viewport": {
+    "defaultMessage": "Размер области страницы"
+  },
+  "liveBrowser.inline.viewport-height": {
+    "defaultMessage": "Высота области страницы"
+  },
+  "liveBrowser.inline.viewport-preset": {
+    "defaultMessage": "Предустановки области страницы"
+  },
+  "liveBrowser.inline.viewport-width": {
+    "defaultMessage": "Ширина области страницы"
+  },
+  "liveBrowser.inline.your-browser-workspace": {
+    "defaultMessage": "Ваше браузерное пространство"
+  },
+  "liveBrowser.noMatchingAreas": {
+    "defaultMessage": "Подходящих областей нет."
+  },
+  "liveBrowser.noPotentialCandidates": {
+    "defaultMessage": "Потенциальных проблем переполнения не найдено."
+  },
+  "liveBrowser.noProjectBound": {
+    "defaultMessage": "К этому чату не привязан проект"
+  },
+  "liveBrowser.openPageToSelect": {
+    "defaultMessage": "Откройте страницу для выделения"
+  },
+  "liveBrowser.potential": {
+    "defaultMessage": "Возможная"
+  },
+  "liveBrowser.potentialAreaName": {
+    "defaultMessage": "Кандидат вёрстки"
+  },
+  "liveBrowser.potentialCandidateNotice": {
+    "defaultMessage": "Возможная проблема вёрстки. Поиск обнаружил измеримое условие, но оно не доказывает визуальный дефект."
+  },
+  "liveBrowser.potentialFindings": {
+    "defaultMessage": "Возможные проблемы"
+  },
+  "liveBrowser.projectLinked": {
+    "defaultMessage": "Проект привязан к этому чату"
+  },
+  "liveBrowser.removeAttachment": {
+    "defaultMessage": "Удалить {name}"
+  },
+  "liveBrowser.selectArea": {
+    "defaultMessage": "Выделить область"
+  },
+  "liveBrowser.showOnPage": {
+    "defaultMessage": "Показать на странице"
+  },
+  "liveBrowser.showRegionMarkers": {
+    "defaultMessage": "Показать маркеры областей"
+  },
+  "liveBrowser.statusActive": {
+    "defaultMessage": "Активно"
+  },
+  "liveBrowser.statusCompleted": {
+    "defaultMessage": "Завершено"
+  },
+  "liveBrowser.statusConfirmed": {
+    "defaultMessage": "Подтверждено"
+  },
+  "liveBrowser.statusDetected": {
+    "defaultMessage": "Обнаружено"
+  },
+  "liveBrowser.statusDisputed": {
+    "defaultMessage": "Оспорено"
+  },
+  "liveBrowser.statusFixed": {
+    "defaultMessage": "Исправлено"
+  },
+  "liveBrowser.statusInProgress": {
+    "defaultMessage": "В работе"
+  },
+  "liveBrowser.statusUnresolved": {
+    "defaultMessage": "Не решено"
+  },
+  "liveBrowser.statusVerified": {
+    "defaultMessage": "Проверено"
+  },
+  "liveBrowser.useAsArea": {
+    "defaultMessage": "Сохранить как область"
+  },
+  "liveBrowser.visionLabel": {
+    "defaultMessage": "Зрение"
+  },
+  "liveBrowser.visionOff": {
+    "defaultMessage": "Выключено"
+  },
+  "liveBrowser.visionOn": {
+    "defaultMessage": "Включено"
   }
 }

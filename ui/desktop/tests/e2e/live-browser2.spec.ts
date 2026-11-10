@@ -7,7 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 process.env.LAD_E2E_ISOLATE = '1';
-const html = `<!doctype html><title>Browser 2 QA</title><style>body{margin:0;padding:32px;background:#f3f5f7;font:16px system-ui;min-height:1600px}#product{width:260px;padding:24px;border:2px solid #6a8aaf;border-radius:12px;background:white}input{margin:20px 0}canvas{background:#d9ac75}</style><h1>Products</h1><section id="product"><h2>Product card</h2><p>Native browser evidence target</p><input id="name" aria-label="Product name"><button id="save" onclick="this.textContent='Saved'">Save</button></section><canvas width="200" height="100"></canvas>`;
+const html = `<!doctype html><title>Browser 2 QA</title><style>body{margin:0;padding:32px;background:#f3f5f7;font:16px system-ui;min-height:1600px}main{display:block}#product{width:260px;padding:24px;border:2px solid #6a8aaf;border-radius:12px;background:white}.candidate{width:120px;overflow:hidden;white-space:nowrap;margin:12px 0;padding:8px;background:#fff;border:1px solid #b34b4b}input{margin:20px 0}canvas{background:#d9ac75}</style><main><h1>Products</h1><section id="product"><h2>Rinnova Pro</h2><p>Native browser evidence target</p><input id="name" aria-label="Product name"><button id="save" onclick="this.textContent='Saved'">Save</button></section><article><div id="overflow-a" class="candidate">Rinnova Pro extended technical details that do not fit in this card</div><div id="overflow-b" class="candidate">Another product has a title that overflows its narrow card</div><div id="overflow-c" class="candidate">A third catalog card has overflowing text for scan testing</div></article><canvas width="200" height="100"></canvas></main>`;
 async function evaluateNative(page: import('@playwright/test').Page, expression: string) {
   return page.evaluate(async (expression) => {
     const result = (await window.electron.liveBrowserNativeTest(
@@ -20,6 +20,34 @@ async function evaluateNative(page: import('@playwright/test').Page, expression:
     )) as { result: { value: unknown } };
     return result.result.value;
   }, expression);
+}
+async function nativeRegionState(page: import('@playwright/test').Page, hub: string) {
+  return page.evaluate(async (conversationId) => {
+    const status = await window.electron.liveBrowserStatus();
+    if (!status.endpoint) throw new Error('Live Browser control endpoint is unavailable');
+    const response = await fetch(
+      `${status.endpoint.url}/control/state?conversation=${encodeURIComponent(conversationId)}`,
+      { headers: { Authorization: `Bearer ${status.endpoint.token}` } }
+    );
+    if (!response.ok) throw new Error(`Live Browser state returned ${response.status}`);
+    return response.json() as Promise<{
+      areas: { id: string; origin?: string }[];
+      regions: {
+        id: string;
+        areaId: string;
+        url: string;
+        anchors: {
+          selector: string;
+          tag: string;
+          confidence: number;
+          text?: string;
+          identity?: { text: string; context?: string };
+          rect?: { x: number; y: number; width: number; height: number };
+          findings?: { candidate: boolean; category: string; state?: string }[];
+        }[];
+      }[];
+    }>;
+  }, hub);
 }
 test('native page, independent zoom, compact inspector and attachment draft', async ({
   goosePage: page,
@@ -59,6 +87,14 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     expect(await evaluateNative(page, 'window.location.search')).toBe('');
     await second.close();
     await resizeNativeWindow(page, 1600, 1000);
+
+    // The native page remains visible while inline controls are expanded.
+    await page.getByTestId('live-browser-display').click();
+    await page.getByRole('button', { name: 'Page zoom', exact: true }).click();
+    await expect(page.getByRole('menu')).toBeVisible();
+    expect(await evaluateNative(page, 'document.title')).toBe('Browser 2 QA');
+    await nativeWindowShot(page, test.info().outputPath('native-menu-open.png'));
+    await page.getByRole('menuitemradio', { name: '100%', exact: true }).click();
 
     await nativeWindowShot(page, test.info().outputPath('native-medium.png'));
     if (process.env.LAD_E2E_VISUAL === '1') {
@@ -207,7 +243,6 @@ test('native page, independent zoom, compact inspector and attachment draft', as
       await client.close();
     }
 
-    await page.getByTestId('live-browser-display').click();
     await nativeWindowShot(page, test.info().outputPath('native-display.png'));
     await page.getByLabel('Viewport width', { exact: true }).fill('1280');
     await page.getByLabel('Viewport height', { exact: true }).fill('800');
@@ -219,14 +254,18 @@ test('native page, independent zoom, compact inspector and attachment draft', as
       w: number;
       dpr: number;
     };
-    await page.getByRole('button', { name: 'Page zoom', exact: true }).click();
-    await page.getByRole('menuitem', { name: '125%', exact: true }).click();
+    await page.getByRole('button', { name: 'Page zoom', exact: true }).press('ArrowDown');
+    await expect(page.getByRole('menu')).toBeVisible();
+    for (let index = 0; index < 5; index++) await page.keyboard.press('ArrowDown');
+    const zoom125 = page.getByRole('menuitemradio', { name: '125%', exact: true });
+    await expect(zoom125).toBeFocused();
+    await page.keyboard.press('Enter');
     await expect
       .poll(async () => (await evaluateNative(page, 'window.innerWidth')) as number)
       .toBeLessThan(before.w);
     if (process.env.LAD_E2E_VISUAL === '1') {
       await page.getByRole('button', { name: 'Preview scale', exact: true }).click();
-      await page.getByRole('menuitem', { name: '200%', exact: true }).click();
+      await page.getByRole('menuitemradio', { name: '200%', exact: true }).click();
       await page.getByRole('button', { name: /Pan preview/ }).click();
       await expect
         .poll(
@@ -353,6 +392,137 @@ test('native page, independent zoom, compact inspector and attachment draft', as
         }
       );
     });
+    await expect(page.getByTestId('live-browser-area-row')).toHaveCount(1);
+    await expect
+      .poll(() =>
+        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+      )
+      .toBe('1');
+    await nativeWindowShot(page, test.info().outputPath('native-manual-region.png'));
+    await resizeNativeWindow(page, 2560, 1300);
+    await nativeWindowShot(page, test.info().outputPath('native-wide.png'));
+    await page.getByTestId('live-browser-mode-expanded').click();
+    await nativeWindowShot(page, test.info().outputPath('native-expanded.png'));
+    await page.getByTestId('live-browser-mode-split').click();
+    await resizeNativeWindow(page, 940, 800);
+    await expect(page.getByTestId('live-browser-panel')).toBeVisible();
+    const narrowBounds = (await page.getByTestId('live-browser-panel').boundingBox())!;
+    expect(narrowBounds.x + narrowBounds.width).toBeLessThanOrEqual(941);
+    await nativeWindowShot(page, test.info().outputPath('native-narrow.png'));
+    await resizeNativeWindow(page, 1600, 1000);
+    await page.getByRole('button', { name: 'Find layout candidates', exact: true }).click();
+    const candidates = page.getByTestId('live-browser-finding');
+    // Each numbered row represents an element. Multiple measured facts about
+    // one element are grouped together instead of looking like duplicate hits.
+    await expect(candidates).toHaveCount(3, { timeout: 30000 });
+    const detectedState = await nativeRegionState(page, hub);
+    const detectedAreaIds = new Set(
+      detectedState.areas.filter((area) => area.origin === 'detected').map((area) => area.id)
+    );
+    const detectedRegions = detectedState.regions.filter((region) =>
+      detectedAreaIds.has(region.areaId)
+    );
+    expect(detectedRegions).toHaveLength(3);
+    await expect(page.getByTestId('live-browser-all-findings')).toBeVisible();
+    const areaRows = page.getByTestId('live-browser-area-row');
+    const areaCountBeforeRepeat = await areaRows.count();
+    await areaRows.first().hover();
+    await expect
+      .poll(() => evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.hoveredAreaId'))
+      .not.toBe('');
+    await areaRows.first().click();
+    await expect
+      .poll(() => evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.selectedAreaId'))
+      .not.toBe('');
+    await page.getByRole('button', { name: 'Find layout candidates', exact: true }).click();
+    await expect(areaRows).toHaveCount(areaCountBeforeRepeat);
+    await expect
+      .poll(() =>
+        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+      )
+      .toBe('4');
+    await candidates.first().click();
+    await nativeWindowShot(page, test.info().outputPath('native-findings-marked.png'));
+    const currentFindingRegion = () =>
+      nativeRegionState(page, hub).then((state) =>
+        state.regions.find(
+          (region) =>
+            state.areas.some((area) => area.id === region.areaId && area.origin === 'detected') &&
+            region.anchors.some((anchor) =>
+              (anchor.findings ?? []).some(
+                (finding) => finding.candidate && finding.state === 'current'
+              )
+            )
+        )
+      );
+    await expect.poll(currentFindingRegion, { timeout: 10000 }).toBeTruthy();
+    const detected = (await currentFindingRegion())!;
+    const staleSelector = detected!.anchors.find((anchor) =>
+      (anchor.findings ?? []).some((finding) => finding.candidate)
+    )!.selector;
+    await evaluateNative(
+      page,
+      `document.querySelector(${JSON.stringify(staleSelector)})?.remove()`
+    );
+    await expect
+      .poll(
+        async () => {
+          const state = await nativeRegionState(page, hub);
+          return state.regions
+            .find((region) => region.id === detected.id)
+            ?.anchors.flatMap((anchor) => anchor.findings ?? [])
+            .some((finding) => finding.candidate && finding.state === 'stale');
+        },
+        { timeout: 10000 }
+      )
+      .toBe(true);
+    await expect(page.getByTestId('live-browser-all-findings')).toContainText('No longer detected');
+    await nativeWindowShot(page, test.info().outputPath('native-findings-stale.png'));
+    await page.getByTestId('live-browser-delete-all').click();
+    await expect(page.getByRole('alertdialog')).toContainText('this chat only');
+    await page.getByTestId('live-browser-delete-all-confirm').click();
+    await expect(page.getByTestId('live-browser-area-row')).toHaveCount(0);
+    await expect(page.getByTestId('live-browser-all-findings')).toHaveCount(0);
+    await expect
+      .poll(() =>
+        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.regionCount')
+      )
+      .toBeUndefined();
+    await page.getByTestId('live-browser-empty-select').click();
+    await expect
+      .poll(() => evaluateNative(page, 'Boolean(document.getElementById("__lad-selection"))'))
+      .toBe(true);
+    await page.evaluate(async () => {
+      const hub = window.sessionStorage.getItem('lad.browser.hubId')!;
+      await window.electron.liveBrowserNativeTest(hub, 'Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        button: 'left',
+        clickCount: 1,
+        x: 35,
+        y: 100,
+      });
+      await window.electron.liveBrowserNativeTest(hub, 'Input.dispatchMouseEvent', {
+        type: 'mouseMoved',
+        buttons: 1,
+        x: 260,
+        y: 270,
+      });
+      await window.electron.liveBrowserNativeTest(hub, 'Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        button: 'left',
+        clickCount: 1,
+        x: 260,
+        y: 270,
+      });
+    });
+    await expect(page.getByTestId('live-browser-area-row')).toHaveCount(1);
+    await expect
+      .poll(() =>
+        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+      )
+      .toBe('1');
+    await page.getByRole('button', { name: 'Interact with page', exact: true }).click();
+
     const area = page.getByTestId('live-browser-area');
     await expect(area).toBeVisible({ timeout: 30000 });
     await nativeWindowShot(page, test.info().outputPath('native-selected.png'));
@@ -568,17 +738,18 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     expect(await evaluateNative(page, 'localStorage.getItem("qa_scope")')).toBe('hub');
     await expect(page.getByTestId('live-browser-url-input')).toHaveValue(url + '/');
 
-    await resizeNativeWindow(page, 2560, 1300);
-    await nativeWindowShot(page, test.info().outputPath('native-wide.png'));
-    await page.getByTestId('live-browser-mode-expanded').click();
-    await nativeWindowShot(page, test.info().outputPath('native-expanded.png'));
-    await page.getByTestId('live-browser-mode-split').click();
-    await page.screenshot({ path: test.info().outputPath('browser2-wide-renderer.png') });
-    await resizeNativeWindow(page, 940, 800);
-    await expect(page.getByTestId('live-browser-panel')).toBeVisible();
-    const bounds = (await page.getByTestId('live-browser-panel').boundingBox())!;
-    expect(bounds.x + bounds.width).toBeLessThanOrEqual(941);
-    await nativeWindowShot(page, test.info().outputPath('native-narrow.png'));
+    // A successful operation after Chromium recovery should clear its transient
+    // connection error before continuing with normal browser actions.
+    await page.getByTestId('live-browser-reload').click();
+    await expect(page.getByRole('alert')).not.toBeVisible();
+    await expect
+      .poll(() =>
+        evaluateNative(
+          page,
+          '(()=>{const h=document.getElementById("__lad-live-regions");return {regions:h?.dataset.regionCount,visible:h?.dataset.visibleRegionCount,stale:h?.dataset.staleRegionCount}})()'
+        )
+      )
+      .toEqual({ regions: '2', visible: '1', stale: '1' });
     await page.getByTestId('live-browser-url-input').fill('file:///not-allowed');
     await page.getByTestId('live-browser-open').click();
     await expect(page.getByRole('alert')).toContainText('protocol-not-allowed');

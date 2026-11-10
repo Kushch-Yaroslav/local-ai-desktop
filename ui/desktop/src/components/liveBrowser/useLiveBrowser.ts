@@ -73,6 +73,7 @@ export interface UseLiveBrowser {
   meta: LadControlMeta | null;
   areas: LadArea[];
   regions: LadRegion[];
+  selectedRegionId: string | null;
   workspace: LadWorkspaceSettings;
   lastError: string | null;
   /** Register the canvas that receives screencast frames. */
@@ -87,22 +88,37 @@ export interface UseLiveBrowser {
   createArea: (body: { name: string; description?: string; status?: string }) => Promise<LadArea>;
   updateArea: (
     areaId: string,
-    body: { name?: string; description?: string; status?: string }
+    body: { name?: string; description?: string; status?: string; origin?: 'manual' | 'detected' }
   ) => Promise<LadArea>;
   removeArea: (areaId: string) => Promise<void>;
+  removeAllAreas: () => Promise<{ areaCount: number; regionCount: number; captureCount: number }>;
   removeRegion: (regionId: string) => Promise<void>;
   attachRegion: (regionId: string, areaId: string) => Promise<void>;
   setWorkspacePatch: (patch: Partial<LadWorkspaceSettings>) => Promise<void>;
   setOwnership: (ownership: 'user' | 'agent') => Promise<void>;
   setViewportSize: (body: { width: number; height: number; zoom?: number }) => Promise<void>;
   setVisible: (visible: boolean) => Promise<void>;
+  displayRegions: (body: {
+    visible?: boolean;
+    selectedAreaId?: string | null;
+    hoveredAreaId?: string | null;
+    staleLabel?: string;
+    areaPrefix?: string;
+  }) => Promise<void>;
   act: (body: {
     action: string;
     selector?: string;
     value?: string;
+    areaName?: string;
     x?: number;
     y?: number;
-  }) => Promise<void>;
+  }) => Promise<{
+    ok: boolean;
+    summary?: string;
+    count?: number;
+    regionIds?: string[];
+    areaIds?: string[];
+  }>;
   captureRegionCrop: (
     rect: { x: number; y: number; width: number; height: number },
     maxEdge?: number
@@ -172,6 +188,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   const [meta, setMeta] = useState<LadControlMeta | null>(null);
   const [areas, setAreas] = useState<LadArea[]>([]);
   const [regions, setRegions] = useState<LadRegion[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<LadWorkspaceSettings>({
     mode: 'split',
     panelWidth: 560,
@@ -197,6 +214,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
     setMeta(null);
     setAreas([]);
     setRegions([]);
+    setSelectedRegionId(null);
     const canvas = canvasRef.current;
     canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }, [conversationId]);
@@ -335,6 +353,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
             areas?: LadArea[];
             regions?: LadRegion[];
             workspace?: LadWorkspaceSettings;
+            regionId?: string;
           };
           if (message.t === 'frame' && message.data) {
             if (frameCount < 3)
@@ -346,6 +365,8 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
             setAreas(message.areas);
             setRegions(message.regions ?? []);
             if (message.workspace) setWorkspace(message.workspace);
+          } else if (message.t === 'region-selected' && message.regionId) {
+            setSelectedRegionId(message.regionId);
           }
         } catch {
           // ignore malformed SSE payloads
@@ -455,7 +476,10 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
   );
 
   const updateArea = useCallback(
-    (areaId: string, body: { name?: string; description?: string; status?: string }) => {
+    (
+      areaId: string,
+      body: { name?: string; description?: string; status?: string; origin?: 'manual' | 'detected' }
+    ) => {
       const c = client();
       const conversation = conversationIdRef.current;
       if (!c || !conversation) return Promise.reject(new Error('live-browser not connected'));
@@ -480,6 +504,22 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
     },
     [client, guard, refreshState]
   );
+
+  const removeAllAreas = useCallback(() => {
+    const c = client();
+    const conversation = conversationIdRef.current;
+    if (!c || !conversation) return Promise.reject(new Error('live-browser not connected'));
+    return guard(async () => {
+      const result = await c.removeAllAreas(conversation);
+      await refreshState(c, conversation);
+      setSelectedRegionId(null);
+      return {
+        areaCount: result.areaCount,
+        regionCount: result.regionCount,
+        captureCount: result.captureCount,
+      };
+    });
+  }, [client, guard, refreshState]);
 
   const removeRegion = useCallback(
     (regionId: string) => {
@@ -560,16 +600,43 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
     [client, guard]
   );
 
+  const displayRegions = useCallback(
+    (body: {
+      visible?: boolean;
+      selectedAreaId?: string | null;
+      hoveredAreaId?: string | null;
+      staleLabel?: string;
+    }) => {
+      const c = client();
+      const conversation = conversationIdRef.current;
+      if (!c || !conversation) return Promise.resolve();
+      return guard(async () => {
+        await c.displayRegions(conversation, body);
+      });
+    },
+    [client, guard]
+  );
+
   const act = useCallback(
-    (body: { action: string; selector?: string; value?: string; x?: number; y?: number }) => {
+    (body: {
+      action: string;
+      selector?: string;
+      value?: string;
+      areaName?: string;
+      x?: number;
+      y?: number;
+    }) => {
       const c = client();
       const conversation = conversationIdRef.current;
       if (!c || !conversation) return Promise.reject(new Error('live-browser not connected'));
       return guard(async () => {
-        await c.act(conversation, body);
+        const result = await c.act(conversation, body);
+        if (['detect', 'reveal', 'recheck'].includes(body.action))
+          await refreshState(c, conversation);
+        return result;
       });
     },
-    [client, guard]
+    [client, guard, refreshState]
   );
 
   const captureRegionCrop = useCallback(
@@ -654,6 +721,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       meta,
       areas,
       regions,
+      selectedRegionId,
       workspace,
       lastError,
       attachCanvas,
@@ -663,12 +731,14 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       createArea,
       updateArea,
       removeArea,
+      removeAllAreas,
       removeRegion,
       attachRegion,
       setWorkspacePatch,
       setOwnership,
       setViewportSize,
       setVisible,
+      displayRegions,
       act,
       captureRegionCrop,
       readPage,
@@ -685,6 +755,7 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       meta,
       areas,
       regions,
+      selectedRegionId,
       workspace,
       lastError,
       attachCanvas,
@@ -694,12 +765,14 @@ export function useLiveBrowser(conversationId: string | null): UseLiveBrowser {
       createArea,
       updateArea,
       removeArea,
+      removeAllAreas,
       removeRegion,
       attachRegion,
       setWorkspacePatch,
       setOwnership,
       setViewportSize,
       setVisible,
+      displayRegions,
       act,
       captureRegionCrop,
       readPage,

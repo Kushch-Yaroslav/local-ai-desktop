@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicWrite, readJson, nowIso } from './util';
 import type { LadArea, LadRegion, LadRegionStatus, LadWorkspaceSettings } from '../shared/types';
@@ -81,6 +81,19 @@ export class LadStore {
   async evidence(conversationId: string, id: string): Promise<unknown> {
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id)) throw new Error('Invalid evidence ID');
     return readJson(join(this.convDir(conversationId), 'evidence', id + '.json'), null);
+  }
+
+  async removeEvidence(conversationId: string, ids: string[]): Promise<void> {
+    const unique = [...new Set(ids)].filter((id) => /^[a-zA-Z0-9_-]{1,80}$/.test(id));
+    await Promise.all(
+      unique.map((id) =>
+        unlink(join(this.convDir(conversationId), 'evidence', id + '.json')).catch(
+          (error: unknown) => {
+            if ((error as { code?: string }).code !== 'ENOENT') throw error;
+          }
+        )
+      )
+    );
   }
 
   /** In-memory helper used by the runtime to mutate consistently. */

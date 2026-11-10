@@ -4,6 +4,8 @@ export const BROWSER_CARD_PREFIX = 'lad-browser-attachment:v1:';
 export interface BrowserAttachment {
   id: string;
   name: string;
+  /** Immutable area description captured with the selected regions. */
+  description?: string;
   regionCount: number;
   url?: string;
   vision: boolean;

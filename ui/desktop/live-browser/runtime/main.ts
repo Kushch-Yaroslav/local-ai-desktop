@@ -29,7 +29,9 @@ async function main(): Promise<void> {
   const env = process.env;
   const port = Number(env.LAD_LB_PORT ?? 0) || 0;
   const token = env.LAD_LB_TOKEN?.trim() || randomBytes(24).toString('hex');
-  const dataDir = env.LAD_LB_DATA_DIR?.trim() || (typeof __dirname !== 'undefined' ? `${__dirname}/data` : './live-browser-data');
+  const dataDir =
+    env.LAD_LB_DATA_DIR?.trim() ||
+    (typeof __dirname !== 'undefined' ? `${__dirname}/data` : './live-browser-data');
   const chromePath = env.LAD_LB_CHROME_PATH?.trim() || undefined;
   const headless = (env.LAD_LB_HEADLESS ?? 'true') !== 'false';
 
@@ -38,7 +40,8 @@ async function main(): Promise<void> {
   const store = new LadStore(dataDir);
   const screencast = new ScreencastHub(manager);
   const regions = new RegionService(manager, store, {
-    emit: (event) => events.emit('state', event),
+    emit: (event) =>
+      events.emit(event.type === 'select-region' ? 'region-selected' : 'state', event),
   });
 
   let activeConversation: string | null = null;
@@ -86,7 +89,7 @@ async function main(): Promise<void> {
       dataDir,
       headless,
       chrome: chromePath ?? 'auto',
-    }) + '\n',
+    }) + '\n'
   );
   log(`ready: http://127.0.0.1:${boundPort} (mcp + control + sse)`);
 }

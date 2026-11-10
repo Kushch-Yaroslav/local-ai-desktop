@@ -185,24 +185,41 @@ export async function projectRegion(page: Page, region: LadRegion): Promise<LadP
 }
 
 /**
- * Render region annotations (boxes + binding badges) into the live page,
- * port of the original visualRegionsOverlay. Pointer-transparent; rAF-driven
- * redraw keeps boxes glued to live anchors. Returns the current bindings.
+ * Render region annotations in the same native Page the user and agent share.
+ * The page-side overlay only intercepts clicks on its small label buttons.
+ * Geometry is recalculated on scroll/resize/DOM changes; animation frames are
+ * used only while a CSS transition or animation is actually running.
  */
 export async function paintRegions(
   page: Page,
-  regions: Array<{ id: string; color: string; label: string; region: LadRegion }>,
-  enabled: boolean
+  regions: Array<{
+    id: string;
+    areaId: string;
+    color: string;
+    label: string;
+    region: LadRegion;
+  }>,
+  enabled: boolean,
+  presentation: {
+    selectedAreaId?: string | null;
+    hoveredAreaId?: string | null;
+    staleLabel?: string;
+  } = {}
 ): Promise<void> {
   const source = /* js */ `
 (data) => {
   const state=window;
   if(state.__ladPaint){state.__ladPaint.stop();delete state.__ladPaint;}
-  if(!data.enabled) return;
+  if(!data.enabled||!data.regions.length){state.__ladFindingPaintState?.clear();return;}
   const host=document.createElement('div');host.id='__lad-live-regions';
+  host.dataset.regionCount=String(data.regions.length);host.dataset.selectedAreaId=data.selectedAreaId??'';host.dataset.hoveredAreaId=data.hoveredAreaId??'';
   host.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none;';
-  const shadow=host.attachShadow({mode:'closed'});const layer=document.createElement('div');shadow.append(layer);
-  const box=(rect,label,color)=>{const node=document.createElement('div');node.style.cssText='position:absolute;pointer-events:none;box-sizing:border-box;border:3px solid '+color+';box-shadow:0 0 0 1px #fff,0 0 0 2px #111;background:'+color+'22;left:'+rect.x+'px;top:'+rect.y+'px;width:'+rect.width+'px;height:'+rect.height+'px;';const badge=document.createElement('span');badge.style.cssText='background:#111;color:#fff;border:2px solid '+color+';padding:2px 4px;font:bold 12px sans-serif;white-space:nowrap;';badge.textContent=label;node.append(badge);layer.append(node);};
+  const shadow=host.attachShadow({mode:'closed'});const layer=document.createElement('div');const staleLayer=document.createElement('div');staleLayer.style.cssText='position:fixed;right:8px;top:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-end;max-width:min(360px,90vw);';shadow.append(layer,staleLayer);
+  const selected=(item)=>item.areaId===data.selectedAreaId;
+  const highlighted=(item)=>selected(item)||item.areaId===data.hoveredAreaId;
+  const button=(label,item,color)=>{const badge=document.createElement('button');badge.type='button';badge.setAttribute('aria-label',label);badge.style.cssText='all:initial;pointer-events:auto;cursor:pointer;box-sizing:border-box;display:block;background:#171b22;color:#fff;border:1px solid '+color+';border-radius:5px;padding:3px 6px;font:600 11px/1.25 sans-serif;white-space:nowrap;box-shadow:0 1px 4px #0008;';badge.textContent=label;badge.addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();void state.__ladSelectRegion?.(item.id);});badge.addEventListener('keydown',(event)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();void state.__ladSelectRegion?.(item.id);}});return badge;};
+  const box=(rect,item)=>{const color=/^#[0-9a-fA-F]{6}$/.test(item.color)?item.color:'#7292b7';const active=highlighted(item);const node=document.createElement('div');node.style.cssText='position:absolute;pointer-events:none;box-sizing:border-box;border:'+(active?'4px':'2px')+' solid '+color+';border-radius:3px;box-shadow:0 0 0 '+(active?'2px':'1px')+' #fff,0 0 0 3px #111;background:'+color+(active?'30':'18')+';left:'+rect.x+'px;top:'+rect.y+'px;width:'+Math.max(8,rect.width)+'px;height:'+Math.max(8,rect.height)+'px;opacity:'+(active?'1':'.8')+';';const badge=button(item.label,item,color);badge.style.cssText+='position:absolute;left:0;top:'+(rect.y<28?'0':'-27px')+';';node.append(badge);layer.append(node);};
+  const staleBadge=(item)=>{const color=/^#[0-9a-fA-F]{6}$/.test(item.color)?item.color:'#7292b7';const wrapper=document.createElement('div');wrapper.style.cssText='pointer-events:auto;';const badge=button('⚠ '+item.label+' · '+data.staleLabel,item,color);wrapper.append(badge);staleLayer.append(wrapper);};
   const project=(r)=>{
     try{
       if(document.readyState==='loading')return null;
@@ -219,26 +236,56 @@ export async function paintRegions(
         const element=nodes[0],b=element.getBoundingClientRect(),style=getComputedStyle(element);
         if(!b.width||!b.height||style.visibility!=='visible'||style.display==='none'||Number(style.opacity)===0)return null;
         if(!anchor.rect.width||!anchor.rect.height)return null;
-        return {rect:{x:b.x+(r.rect.x-anchor.rect.x)*b.width/anchor.rect.width,y:b.y+(r.rect.y-anchor.rect.y)*b.height/anchor.rect.height,width:r.rect.width*b.width/anchor.rect.width,height:r.rect.height*b.height/anchor.rect.height}};
+        return {element,anchor,rect:{x:b.x+(r.rect.x-anchor.rect.x)*b.width/anchor.rect.width,y:b.y+(r.rect.y-anchor.rect.y)*b.height/anchor.rect.height,width:r.rect.width*b.width/anchor.rect.width,height:r.rect.height*b.height/anchor.rect.height}};
       }
       if(r.anchors.length)return null;
       if(r.viewport.width!==innerWidth||r.viewport.height!==innerHeight||Math.abs(r.dpr-devicePixelRatio)>0.01)return null;
       if(r.snapshot&&!r.snapshot.startsWith(performance.timeOrigin+':'))return null;
-      return {rect:Object.assign({},r.rect,{x:r.rect.x-scrollX,y:r.rect.y-scrollY})};
+      return {element:null,rect:Object.assign({},r.rect,{x:r.rect.x-scrollX,y:r.rect.y-scrollY})};
     }catch{return null;}
   };
-  let frame=0;
-  const draw=()=>{layer.replaceChildren();for(const item of data.regions){const p=project(item);if(p)box(p.rect,item.label,item.color);}frame=requestAnimationFrame(draw);};
-  const stop=()=>{cancelAnimationFrame(frame);host.remove();};
+  const liveFindingStates=(item,projectionValid,projectedAnchor,projectedElement)=>{
+    const known=new Set(['text-clipping','horizontal-overflow','vertical-overflow','element-overlap']);
+    const readText=(root)=>{const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let result='',node,count=0;while((node=walker.nextNode())&&count++<200&&result.length<240)if(!node.parentElement?.closest('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))result+=' '+node.textContent;return result.replace(/\\s+/g,' ').trim().slice(0,240);};
+    return item.region.anchors.flatMap(anchor=>{
+      const findings=(anchor.findings||[]).filter(finding=>finding.candidate&&known.has(finding.category));if(!findings.length)return[];if(!projectionValid)return findings.map(finding=>({selector:anchor.selector,category:finding.category,state:'stale'}));
+      let element=null;try{const nodes=document.querySelectorAll(anchor.selector);if(nodes.length===1&&nodes[0].tagName.toLowerCase()===anchor.tag){const candidate=nodes[0];const identity=anchor.identity??(anchor.text?{text:anchor.text,context:''}:undefined);if(!identity||(readText(candidate)===identity.text&&(!identity.context||readText(candidate.parentElement??candidate)===identity.context)))element=candidate;}else if(anchor===projectedAnchor)element=projectedElement;}catch{}
+      return findings.map(finding=>{
+        if(!element)return{selector:anchor.selector,category:finding.category,state:'stale'};
+        let current=false;const style=getComputedStyle(element);
+        if(finding.category==='horizontal-overflow')current=element.clientWidth>0&&element.scrollWidth>element.clientWidth+1;
+        else if(finding.category==='vertical-overflow')current=element.clientHeight>0&&element.scrollHeight>element.clientHeight+1;
+        else if(finding.category==='text-clipping')current=element.clientWidth>0&&element.scrollWidth>element.clientWidth+1&&['hidden','clip'].includes(style.overflowX);
+        else if(finding.category==='element-overlap')current=Array.from(element.parentElement?.children??[]).some(other=>{if(other===element||other.matches('input,textarea,select,[contenteditable],[data-private],[data-sensitive],script,style'))return false;const b=element.getBoundingClientRect(),r=other.getBoundingClientRect();if(!b.width||!b.height||!r.width||!r.height)return false;const left=Math.max(b.left,r.left),top=Math.max(b.top,r.top),right=Math.min(b.right,r.right),bottom=Math.min(b.bottom,r.bottom);if(right-left<=1||bottom-top<=1)return false;const hit=document.elementFromPoint((left+right)/2,(top+bottom)/2);return Boolean(hit&&(hit===other||other.contains(hit)));});
+        return{selector:anchor.selector,category:finding.category,state:current?'current':'stale'};
+      });
+    });
+  };
+  const reportFindingState=(item,projection)=>{const results=liveFindingStates(item,Boolean(projection),projection?.anchor,projection?.element);if(!results.length)return;const signature=JSON.stringify(results);state.__ladFindingPaintState??=new Map();if(state.__ladFindingPaintState.get(item.id)===signature)return;state.__ladFindingPaintState.set(item.id,signature);void Promise.resolve(state.__ladReportFindings?.({regionId:item.id,findings:results})).catch(()=>{});};
+  let frame=0;const moving=new Set();const observed=new Set();
+  const resizeObserver=new ResizeObserver(schedule);
+  const mutationObserver=new MutationObserver((records)=>{if(records.some(record=>{if(host.contains(record.target))return false;if(record.type==='attributes')return true;return [...record.addedNodes,...record.removedNodes].some(node=>node!==host&&!(node instanceof Element&&host.contains(node)));}))schedule();});
+  const draw=()=>{frame=0;layer.replaceChildren();staleLayer.replaceChildren();const targets=new Set();const regionIds=new Set(data.regions.map(item=>item.id));let visibleCount=0,staleCount=0;for(const item of data.regions){const p=project(item.region);reportFindingState(item,p);if(p){visibleCount++;box(p.rect,item);if(p.element)targets.add(p.element);}else{staleCount++;staleBadge(item);}}state.__ladFindingPaintState??=new Map();for(const id of state.__ladFindingPaintState.keys())if(!regionIds.has(id))state.__ladFindingPaintState.delete(id);host.dataset.visibleRegionCount=String(visibleCount);host.dataset.staleRegionCount=String(staleCount);for(const element of observed)if(!targets.has(element))resizeObserver.unobserve(element);for(const element of targets)if(!observed.has(element))resizeObserver.observe(element);observed.clear();for(const element of targets)observed.add(element);if(moving.size)schedule();};
+  function schedule(){if(!frame)frame=requestAnimationFrame(draw);}
+  const motionStart=(event)=>{if(event.target instanceof Element&&host.contains(event.target))return;if(event.target instanceof Element)moving.add(event.target);schedule();};
+  const motionEnd=(event)=>{if(event.target instanceof Element&&!event.target.getAnimations().some(animation=>animation.playState==='running'))moving.delete(event.target);schedule();};
+  const stop=()=>{if(frame)cancelAnimationFrame(frame);resizeObserver.disconnect();mutationObserver.disconnect();removeEventListener('scroll',schedule,true);removeEventListener('resize',schedule);removeEventListener('transitionrun',motionStart,true);removeEventListener('transitionend',motionEnd,true);removeEventListener('transitioncancel',motionEnd,true);removeEventListener('animationstart',motionStart,true);removeEventListener('animationend',motionEnd,true);removeEventListener('animationcancel',motionEnd,true);host.remove();};
   state.__ladPaint={stop,draw};
+  document.documentElement.append(host);
+  mutationObserver.observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+  addEventListener('scroll',schedule,true);addEventListener('resize',schedule);addEventListener('transitionrun',motionStart,true);addEventListener('transitionend',motionEnd,true);addEventListener('transitioncancel',motionEnd,true);addEventListener('animationstart',motionStart,true);addEventListener('animationend',motionEnd,true);addEventListener('animationcancel',motionEnd,true);
   draw();
-  addEventListener('scroll',draw,true);addEventListener('resize',draw);
   return {stop};
 }`;
   await page.evaluate(
     new Function('data', `return (${source})(data);`) as unknown as (
       data: unknown
     ) => Promise<unknown>,
-    { enabled, regions }
+    {
+      enabled,
+      regions,
+      ...presentation,
+      staleLabel: presentation.staleLabel ?? 'Element not found or binding is stale',
+    }
   );
 }

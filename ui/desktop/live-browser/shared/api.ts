@@ -77,6 +77,10 @@ export type LadControlEvent =
       request: string;
       ok: boolean;
       error?: string;
+    }
+  | {
+      t: 'region-selected';
+      regionId: string;
     };
 
 export type LadWsMessage = LadFrame | LadControlEvent;
@@ -127,6 +131,7 @@ export interface LadUpdateAreaRequest {
   status?: string;
   /** Explicit source of a status change (user vs agent check). */
   statusSource?: 'user' | 'agent' | 'runtime';
+  origin?: 'manual' | 'detected';
 }
 
 export interface LadCaptureRequest {

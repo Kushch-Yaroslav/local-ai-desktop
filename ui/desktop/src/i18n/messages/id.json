@@ -5158,5 +5158,440 @@
   },
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Hapus gambar dari pesan"
+  },
+  "liveBrowser.areaDescriptionExample": {
+    "defaultMessage": "For example: the button needs more padding."
+  },
+  "liveBrowser.areaDescriptionHint": {
+    "defaultMessage": "This description is sent to AI with the selected area."
+  },
+  "liveBrowser.areaDescriptionLabel": {
+    "defaultMessage": "Problem description / what should be fixed"
+  },
+  "liveBrowser.attachmentHasDescription": {
+    "defaultMessage": "Has description"
+  },
+  "liveBrowser.attachmentRegionsCount": {
+    "defaultMessage": "{count,plural,=0{no regions} one{# region} other{# regions}}"
+  },
+  "liveBrowser.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "liveBrowser.cannotUndo": {
+    "defaultMessage": "This cannot be undone."
+  },
+  "liveBrowser.defaultAreaName": {
+    "defaultMessage": "Area {number}"
+  },
+  "liveBrowser.deleteAll": {
+    "defaultMessage": "Delete all"
+  },
+  "liveBrowser.deleteAllAreas": {
+    "defaultMessage": "Delete all areas"
+  },
+  "liveBrowser.deleteAllAreasConfirm": {
+    "defaultMessage": "Delete all areas?"
+  },
+  "liveBrowser.deleteAllAreasHistory": {
+    "defaultMessage": "{historyCount,plural,one{{captureCount,plural,one{It also removes {historyCount, number} history record and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history record and # saved screenshots. This cannot be undone.}}} other{{captureCount,plural,one{It also removes {historyCount, number} history records and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history records and # saved screenshots. This cannot be undone.}}}}"
+  },
+  "liveBrowser.deleteAllAreasScope": {
+    "defaultMessage": "{areaCount,plural,one{{regionCount,plural,one{This removes {areaCount, number} area and # region from this chat only.} other{This removes {areaCount, number} area and # regions from this chat only.}}} other{{regionCount,plural,one{This removes {areaCount, number} areas and # region from this chat only.} other{This removes {areaCount, number} areas and # regions from this chat only.}}}}"
+  },
+  "liveBrowser.elementNotFound": {
+    "defaultMessage": "Element not found or binding is stale"
+  },
+  "liveBrowser.emptyAreas": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
+  },
+  "liveBrowser.evidenceRecheck": {
+    "defaultMessage": "Recheck"
+  },
+  "liveBrowser.evidenceReselection": {
+    "defaultMessage": "Reselection"
+  },
+  "liveBrowser.evidenceSelection": {
+    "defaultMessage": "Selection"
+  },
+  "liveBrowser.findingElementOverlap": {
+    "defaultMessage": "Element overlap"
+  },
+  "liveBrowser.findingHorizontalOverflow": {
+    "defaultMessage": "Horizontal overflow"
+  },
+  "liveBrowser.findingOutdated": {
+    "defaultMessage": "No longer detected · recheck"
+  },
+  "liveBrowser.findingTextClipping": {
+    "defaultMessage": "Text clipping"
+  },
+  "liveBrowser.findingVerticalOverflow": {
+    "defaultMessage": "Vertical overflow"
+  },
+  "liveBrowser.hideRegionMarkers": {
+    "defaultMessage": "Hide region markers"
+  },
+  "liveBrowser.inline.4k": {
+    "defaultMessage": "4K"
+  },
+  "liveBrowser.inline.active-task": {
+    "defaultMessage": "Active task"
+  },
+  "liveBrowser.inline.add-region": {
+    "defaultMessage": "Add region"
+  },
+  "liveBrowser.inline.agent-is-controlling-the-page": {
+    "defaultMessage": "Agent is controlling the page"
+  },
+  "liveBrowser.inline.apply-viewport": {
+    "defaultMessage": "Apply viewport"
+  },
+  "liveBrowser.inline.area": {
+    "defaultMessage": "Area"
+  },
+  "liveBrowser.inline.area-name": {
+    "defaultMessage": "Area name"
+  },
+  "liveBrowser.inline.area-status": {
+    "defaultMessage": "Area status"
+  },
+  "liveBrowser.inline.areas": {
+    "defaultMessage": "Areas"
+  },
+  "liveBrowser.inline.attach-to-message": {
+    "defaultMessage": "Attach to message"
+  },
+  "liveBrowser.inline.auto": {
+    "defaultMessage": "Auto"
+  },
+  "liveBrowser.inline.back": {
+    "defaultMessage": "Back"
+  },
+  "liveBrowser.inline.bottom-inspector": {
+    "defaultMessage": "Bottom inspector"
+  },
+  "liveBrowser.inline.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "liveBrowser.inline.close-areas": {
+    "defaultMessage": "Close areas"
+  },
+  "liveBrowser.inline.complete-task": {
+    "defaultMessage": "Complete task"
+  },
+  "liveBrowser.inline.completion-does-not-certify-a-fix": {
+    "defaultMessage": "Completion does not certify a fix"
+  },
+  "liveBrowser.inline.connected": {
+    "defaultMessage": "Connected"
+  },
+  "liveBrowser.inline.connecting": {
+    "defaultMessage": "Connecting"
+  },
+  "liveBrowser.inline.delete-all": {
+    "defaultMessage": "Delete all"
+  },
+  "liveBrowser.inline.delete-all-areas": {
+    "defaultMessage": "Delete all areas"
+  },
+  "liveBrowser.inline.delete-all-areas-2": {
+    "defaultMessage": "Delete all areas?"
+  },
+  "liveBrowser.inline.desktop": {
+    "defaultMessage": "Desktop"
+  },
+  "liveBrowser.inline.dispute-result": {
+    "defaultMessage": "Dispute result"
+  },
+  "liveBrowser.inline.drag-to-pan": {
+    "defaultMessage": "Drag to pan"
+  },
+  "liveBrowser.inline.drag-to-select-esc-to-cancel": {
+    "defaultMessage": "Drag to select • Esc to cancel"
+  },
+  "liveBrowser.inline.element-not-found-or-binding-is-stale": {
+    "defaultMessage": "Element not found or binding is stale"
+  },
+  "liveBrowser.inline.evidence-history": {
+    "defaultMessage": "Evidence & history"
+  },
+  "liveBrowser.inline.expand": {
+    "defaultMessage": "Expand"
+  },
+  "liveBrowser.inline.find-area": {
+    "defaultMessage": "Find area"
+  },
+  "liveBrowser.inline.find-area-2": {
+    "defaultMessage": "Find area…"
+  },
+  "liveBrowser.inline.find-layout-candidates": {
+    "defaultMessage": "Find layout candidates"
+  },
+  "liveBrowser.inline.fit": {
+    "defaultMessage": "Fit"
+  },
+  "liveBrowser.inline.for-example-the-button-needs-more-padding": {
+    "defaultMessage": "For example: the button needs more padding."
+  },
+  "liveBrowser.inline.forward": {
+    "defaultMessage": "Forward"
+  },
+  "liveBrowser.inline.full-hd": {
+    "defaultMessage": "Full HD"
+  },
+  "liveBrowser.inline.hide-browser": {
+    "defaultMessage": "Hide browser"
+  },
+  "liveBrowser.inline.hide-region-markers": {
+    "defaultMessage": "Hide region markers"
+  },
+  "liveBrowser.inline.historical-evidence-not-current-page-state": {
+    "defaultMessage": "Historical evidence, not current page state"
+  },
+  "liveBrowser.inline.historical-selection-not-current-page": {
+    "defaultMessage": "Historical selection, not current page"
+  },
+  "liveBrowser.inline.include-current-crop": {
+    "defaultMessage": "Include current crop"
+  },
+  "liveBrowser.inline.inspector-position": {
+    "defaultMessage": "Inspector position"
+  },
+  "liveBrowser.inline.interact-with-page": {
+    "defaultMessage": "Interact with page"
+  },
+  "liveBrowser.inline.interaction-mode": {
+    "defaultMessage": "Interaction mode"
+  },
+  "liveBrowser.inline.legacy-claim-unverified": {
+    "defaultMessage": "Legacy claim • unverified"
+  },
+  "liveBrowser.inline.mobile": {
+    "defaultMessage": "Mobile"
+  },
+  "liveBrowser.inline.no-areas-yet-select-the-part-of-the-page-you-want-the-ai-to-inspect": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
+  },
+  "liveBrowser.inline.no-matching-areas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.inline.no-potential-overflow-candidates-found": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.inline.no-project": {
+    "defaultMessage": "No project"
+  },
+  "liveBrowser.inline.no-project-bound-choose-a-project-in-session-settings": {
+    "defaultMessage": "No project bound. Choose a project in session settings."
+  },
+  "liveBrowser.inline.open-a-page-to-select": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.inline.open-an-address-above-select-a-region-when-you-need-the-agent-to-inspect-it": {
+    "defaultMessage": "Open an address above. Select a region when you need the agent to inspect it."
+  },
+  "liveBrowser.inline.open-page": {
+    "defaultMessage": "Open page"
+  },
+  "liveBrowser.inline.open-saved-page": {
+    "defaultMessage": "Open saved page"
+  },
+  "liveBrowser.inline.page-address": {
+    "defaultMessage": "Page address"
+  },
+  "liveBrowser.inline.page-interaction": {
+    "defaultMessage": "Page interaction"
+  },
+  "liveBrowser.inline.page-zoom": {
+    "defaultMessage": "Page zoom"
+  },
+  "liveBrowser.inline.page-zoom-changes-the-page-preview-changes-only-its-presentation-middle-drag-pans-the-whee": {
+    "defaultMessage": "Page zoom changes the page. Preview changes only its presentation. Middle drag pans; the wheel pans in Hand mode and scrolls the site in Interact mode."
+  },
+  "liveBrowser.inline.pan-preview-middle-drag-also-works": {
+    "defaultMessage": "Pan preview • middle drag also works"
+  },
+  "liveBrowser.inline.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.inline.potential-findings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.inline.potential-issue": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.inline.potential-layout-issue-the-scan-found-a-measurable-condition-it-does-not-prove-a-visual-de": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.inline.preview": {
+    "defaultMessage": "Preview"
+  },
+  "liveBrowser.inline.preview-scale": {
+    "defaultMessage": "Preview scale"
+  },
+  "liveBrowser.inline.problem-description-what-should-be-fixed": {
+    "defaultMessage": "Problem description / what should be fixed"
+  },
+  "liveBrowser.inline.recheck-text-fitting": {
+    "defaultMessage": "Recheck text fitting"
+  },
+  "liveBrowser.inline.reconnect": {
+    "defaultMessage": "Reconnect"
+  },
+  "liveBrowser.inline.reload": {
+    "defaultMessage": "Reload"
+  },
+  "liveBrowser.inline.remove-area": {
+    "defaultMessage": "Remove area"
+  },
+  "liveBrowser.inline.remove-region": {
+    "defaultMessage": "Remove region"
+  },
+  "liveBrowser.inline.reselect": {
+    "defaultMessage": "Reselect"
+  },
+  "liveBrowser.inline.reset-preview": {
+    "defaultMessage": "Reset preview"
+  },
+  "liveBrowser.inline.resize-areas": {
+    "defaultMessage": "Resize areas"
+  },
+  "liveBrowser.inline.resize-browser": {
+    "defaultMessage": "Resize browser"
+  },
+  "liveBrowser.inline.reveal": {
+    "defaultMessage": "Reveal"
+  },
+  "liveBrowser.inline.select-a-region-for-ai": {
+    "defaultMessage": "Select a region for AI"
+  },
+  "liveBrowser.inline.select-area": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.inline.show-on-page": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.inline.show-region-markers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.inline.show-this-element-on-the-page": {
+    "defaultMessage": "Show this element on the page"
+  },
+  "liveBrowser.inline.side-inspector": {
+    "defaultMessage": "Side inspector"
+  },
+  "liveBrowser.inline.split": {
+    "defaultMessage": "Split"
+  },
+  "liveBrowser.inline.tablet": {
+    "defaultMessage": "Tablet"
+  },
+  "liveBrowser.inline.task-workflow": {
+    "defaultMessage": "Task workflow"
+  },
+  "liveBrowser.inline.this-browser-is-attached-to-another-window-return-to-that-window-to-use-it": {
+    "defaultMessage": "This browser is attached to another window. Return to that window to use it."
+  },
+  "liveBrowser.inline.this-description-is-sent-to-ai-with-the-selected-area": {
+    "defaultMessage": "This description is sent to AI with the selected area."
+  },
+  "liveBrowser.inline.use-as-area": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.inline.view-saved-crop": {
+    "defaultMessage": "View saved crop"
+  },
+  "liveBrowser.inline.viewport": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.inline.viewport-height": {
+    "defaultMessage": "Viewport height"
+  },
+  "liveBrowser.inline.viewport-preset": {
+    "defaultMessage": "Viewport preset"
+  },
+  "liveBrowser.inline.viewport-width": {
+    "defaultMessage": "Viewport width"
+  },
+  "liveBrowser.inline.your-browser-workspace": {
+    "defaultMessage": "Your browser workspace"
+  },
+  "liveBrowser.noMatchingAreas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.noPotentialCandidates": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.noProjectBound": {
+    "defaultMessage": "No project linked to this chat"
+  },
+  "liveBrowser.openPageToSelect": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.potentialAreaName": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.potentialCandidateNotice": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.potentialFindings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.projectLinked": {
+    "defaultMessage": "Project linked to this chat"
+  },
+  "liveBrowser.removeAttachment": {
+    "defaultMessage": "Remove {name}"
+  },
+  "liveBrowser.selectArea": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.showOnPage": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.showRegionMarkers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.statusActive": {
+    "defaultMessage": "Active"
+  },
+  "liveBrowser.statusCompleted": {
+    "defaultMessage": "Completed"
+  },
+  "liveBrowser.statusConfirmed": {
+    "defaultMessage": "Confirmed"
+  },
+  "liveBrowser.statusDetected": {
+    "defaultMessage": "Detected"
+  },
+  "liveBrowser.statusDisputed": {
+    "defaultMessage": "Disputed"
+  },
+  "liveBrowser.statusFixed": {
+    "defaultMessage": "Fixed"
+  },
+  "liveBrowser.statusInProgress": {
+    "defaultMessage": "In progress"
+  },
+  "liveBrowser.statusUnresolved": {
+    "defaultMessage": "Unresolved"
+  },
+  "liveBrowser.statusVerified": {
+    "defaultMessage": "Verified"
+  },
+  "liveBrowser.useAsArea": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.visionLabel": {
+    "defaultMessage": "Vision"
+  },
+  "liveBrowser.visionOff": {
+    "defaultMessage": "Off"
+  },
+  "liveBrowser.visionOn": {
+    "defaultMessage": "On"
   }
 }

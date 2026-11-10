@@ -25,12 +25,13 @@ import { promptUrl } from './util';
 
 export type LadEventEmitter = {
   emit: (event: {
-    type: 'state' | 'region' | 'area';
+    type: 'state' | 'region' | 'area' | 'select-region';
     conversationId: string;
     region?: LadRegion;
     area?: LadArea;
     removedRegionId?: string;
     removedAreaId?: string;
+    regionId?: string;
   }) => void;
 };
 
@@ -41,6 +42,20 @@ export type LadEventEmitter = {
 export class RegionService {
   private transactions = new AsyncLocalStorage<Set<string>>();
   private queues = new Map<string, Promise<unknown>>();
+  private displayState = new Map<
+    string,
+    {
+      visible: boolean;
+      selectedAreaId?: string;
+      hoveredAreaId?: string;
+      staleLabel?: string;
+      areaPrefix?: string;
+    }
+  >();
+  private highlightBindings = new WeakMap<Page, { conversationId: string; ready: Promise<void> }>();
+  private paintQueues = new Map<string, Promise<void>>();
+  private paintRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private paintRetryAttempts = new Map<string, number>();
   private atomic<T>(id: string, work: () => Promise<T>): Promise<T> {
     if (this.transactions.getStore()?.has(id)) return work();
     const previous = this.queues.get(id) ?? Promise.resolve();
@@ -57,7 +72,7 @@ export class RegionService {
       .catch(() => undefined);
     return next;
   }
-  private selectionBindings = new WeakMap<Page, { conversationId: string }>();
+  private selectionBindings = new WeakMap<Page, { conversationId: string; areaName?: string }>();
   constructor(
     private readonly manager: BrowserManager,
     private readonly store: LadStore,
@@ -73,6 +88,7 @@ export class RegionService {
       'attachRegionToArea',
       'removeRegion',
       'removeArea',
+      'removeAllAreas',
       'setWorkspace',
       'liveProjection',
       'replaceRegion',
@@ -95,6 +111,10 @@ export class RegionService {
       const [first, second] = [from, to].sort();
       return this.atomic(first, () => this.atomic(second, () => adopt(from, to)));
     };
+    this.manager.on('lad', (event) => {
+      if (event.type === 'meta' || event.type === 'session')
+        this.schedulePaint(event.conversationId);
+    });
   }
 
   private async stateOf(conversationId: string): Promise<LadConversationState> {
@@ -102,7 +122,182 @@ export class RegionService {
   }
 
   private save(conversationId: string, state: LadConversationState): Promise<void> {
-    return this.store.save(conversationId, state);
+    return this.store.save(conversationId, state).then(() => {
+      this.schedulePaint(conversationId, state);
+    });
+  }
+
+  private schedulePaint(conversationId: string, state?: LadConversationState): void {
+    const previous = this.paintQueues.get(conversationId) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() => this.paintConversation(conversationId, state));
+    this.paintQueues.set(conversationId, next);
+    void next
+      .finally(() => {
+        if (this.paintQueues.get(conversationId) === next) this.paintQueues.delete(conversationId);
+      })
+      .catch((error) => {
+        if (this.isTransientPageTransition(error)) this.retryPaint(conversationId);
+      })
+      .catch(() => undefined);
+  }
+
+  private isTransientPageTransition(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /execution context was destroyed|frame was detached|target closed|target crashed|navigation.*interrupted/i.test(
+      message
+    );
+  }
+
+  private retryPaint(conversationId: string): void {
+    if (this.paintRetryTimers.has(conversationId)) return;
+    const attempt = this.paintRetryAttempts.get(conversationId) ?? 0;
+    if (attempt >= 8) {
+      this.paintRetryAttempts.delete(conversationId);
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.paintRetryTimers.delete(conversationId);
+      this.paintRetryAttempts.set(conversationId, attempt + 1);
+      void this.stateOf(conversationId)
+        .then((state) => this.paintConversation(conversationId, state))
+        .then(() => this.paintRetryAttempts.delete(conversationId))
+        .catch((error) => {
+          if (this.isTransientPageTransition(error)) this.retryPaint(conversationId);
+          else this.paintRetryAttempts.delete(conversationId);
+        });
+    }, Math.min(150 * (attempt + 1), 1000));
+    timer.unref?.();
+    this.paintRetryTimers.set(conversationId, timer);
+  }
+
+  private async bindRegionSelection(page: Page, conversationId: string): Promise<void> {
+    let binding = this.highlightBindings.get(page);
+    if (binding) {
+      binding.conversationId = conversationId;
+      try {
+        await binding.ready;
+      } catch (error) {
+        if (this.highlightBindings.get(page) === binding) this.highlightBindings.delete(page);
+        throw error;
+      }
+      return;
+    }
+    binding = { conversationId, ready: Promise.resolve() };
+    const target = binding;
+    this.highlightBindings.set(page, binding);
+    binding.ready = (async () => {
+      await page.evaluate(() => {
+        const target = window as unknown as {
+          __ladSelectRegion?: unknown;
+          __ladReportFindings?: unknown;
+        };
+        delete target.__ladSelectRegion;
+        delete target.__ladReportFindings;
+      });
+      await page.exposeFunction('__ladSelectRegion', async (value: unknown) => {
+        const regionId = typeof value === 'string' ? value : '';
+        const currentConversation = target.conversationId;
+        if (!regionId || this.manager.pageOf(currentConversation) !== page) return;
+        const state = await this.stateOf(currentConversation).catch(() => null);
+        if (!state?.regions.some((region) => region.id === regionId)) return;
+        this.events.emit({ type: 'select-region', conversationId: currentConversation, regionId });
+      });
+      await page.exposeFunction('__ladReportFindings', async (value: unknown) => {
+        const report = value as {
+          regionId?: unknown;
+          findings?: Array<{ selector?: unknown; category?: unknown; state?: unknown }>;
+        };
+        const currentConversation = target.conversationId;
+        if (
+          !report ||
+          typeof report.regionId !== 'string' ||
+          this.manager.pageOf(currentConversation) !== page
+        )
+          return;
+        const findings = (report.findings ?? []).filter(
+          (finding) =>
+            typeof finding.selector === 'string' &&
+            [
+              'text-clipping',
+              'horizontal-overflow',
+              'vertical-overflow',
+              'element-overlap',
+            ].includes(String(finding.category)) &&
+            (finding.state === 'current' || finding.state === 'stale')
+        ) as Array<{
+          selector: string;
+          category:
+            'text-clipping' | 'horizontal-overflow' | 'vertical-overflow' | 'element-overlap';
+          state: 'current' | 'stale';
+        }>;
+        if (!findings.length) return;
+        await this.atomic(currentConversation, async () => {
+          const state = await this.stateOf(currentConversation);
+          const region = state.regions.find((item) => item.id === report.regionId);
+          if (!region) return;
+          let changed = false;
+          for (const anchor of region.anchors) {
+            for (const finding of anchor.findings ?? []) {
+              const observed = findings.find(
+                (item) => item.selector === anchor.selector && item.category === finding.category
+              );
+              if (observed && finding.state !== observed.state) {
+                finding.state = observed.state;
+                changed = true;
+              }
+            }
+          }
+          if (changed) {
+            region.updatedAt = nowIso();
+            await this.save(currentConversation, state);
+            this.emitState(currentConversation);
+          }
+        });
+      });
+    })();
+    try {
+      await binding.ready;
+    } catch (error) {
+      if (this.highlightBindings.get(page) === binding) this.highlightBindings.delete(page);
+      throw error;
+    }
+  }
+
+  private async paintConversation(
+    conversationId: string,
+    providedState?: LadConversationState
+  ): Promise<void> {
+    const page = this.manager.pageOf(conversationId);
+    if (!page || page.isClosed()) return;
+    const state = providedState ?? (await this.stateOf(conversationId));
+    const display = this.displayState.get(conversationId) ?? { visible: true };
+    const areas = new Map(state.areas.map((area) => [area.id, area]));
+    const regionPositions = new Map<string, number>();
+    const regions = state.regions.map((region) => {
+      const area = areas.get(region.areaId);
+      const position = (regionPositions.get(region.areaId) ?? 0) + 1;
+      regionPositions.set(region.areaId, position);
+      const legacyName = /^Area (\d+)$/u.exec(area?.name ?? '');
+      return {
+        id: region.id,
+        areaId: region.areaId,
+        color: area?.color ?? '#7292b7',
+        label: `${
+          legacyName && display.areaPrefix
+            ? `${display.areaPrefix} ${legacyName[1]}`
+            : (area?.name ?? display.areaPrefix ?? 'Area')
+        } · ${position}`,
+        region,
+      };
+    });
+    await this.bindRegionSelection(page, conversationId);
+    await paintRegions(page, regions, display.visible, {
+      selectedAreaId: display.selectedAreaId,
+      hoveredAreaId: display.hoveredAreaId,
+      staleLabel: display.staleLabel,
+    });
   }
 
   private emitState(conversationId: string): void {
@@ -138,6 +333,7 @@ export class RegionService {
         }
       if (changed) await this.save(conversationId, state);
     }
+    this.schedulePaint(conversationId, state);
     return state;
   }
 
@@ -172,7 +368,13 @@ export class RegionService {
   async createRegion(
     conversationId: string,
     rect: LadRect,
-    opts: { areaId?: string; note?: string } = {}
+    opts: {
+      areaId?: string;
+      note?: string;
+      areaName?: string;
+      areaDescription?: string;
+      origin?: 'manual' | 'detected';
+    } = {}
   ): Promise<{ region: LadRegion; area: LadArea | null }> {
     const page = this.manager.pageOf(conversationId);
     if (!page) throw new Error('no live page for this conversation; open a URL first');
@@ -187,6 +389,7 @@ export class RegionService {
           r.url === evidence.url &&
           r.viewport.width === evidence.viewport.width &&
           r.viewport.height === evidence.viewport.height &&
+          state.areas.find((area) => area.id === r.areaId)?.origin === 'detected' &&
           r.anchors[0]?.confidence >= 0.8 &&
           r.anchors[0].selector === evidence.anchors[0]?.selector
       );
@@ -203,15 +406,32 @@ export class RegionService {
       area = {
         id: newId('area'),
         conversationId,
-        name: `Area ${number}`,
+        name: opts.areaName?.trim().slice(0, 200) || `Area ${number}`,
+        description: (
+          opts.areaDescription ??
+          (opts.origin === 'detected'
+            ? evidence.anchors
+                .flatMap((anchor) => anchor.findings ?? [])
+                .map((finding) => finding.fact)
+                .filter(Boolean)
+                .join('; ')
+            : undefined)
+        )?.slice(0, 2000),
+        origin: opts.origin ?? 'manual',
         status: 'Detected',
-        statusSource: 'user',
+        statusSource: opts.origin === 'detected' ? 'runtime' : 'user',
         regionIds: [],
         number,
         color: ladAreaColor(number),
         createdAt: nowIso(),
         updatedAt: nowIso(),
-        events: [{ at: nowIso(), source: 'user', action: 'created' }],
+        events: [
+          {
+            at: nowIso(),
+            source: opts.origin === 'detected' ? 'runtime' : 'user',
+            action: opts.origin === 'detected' ? 'potential layout candidate detected' : 'created',
+          },
+        ],
       };
       state.areas.push(area);
     }
@@ -239,10 +459,13 @@ export class RegionService {
       events: [
         {
           at: nowIso(),
-          source: 'user',
-          action: evidence.diagnostics[0]?.includes('Screenshot-only')
-            ? 'selected (screenshot-only Canvas/SVG)'
-            : 'selected (DOM grounding)',
+          source: opts.origin === 'detected' ? 'runtime' : 'user',
+          action:
+            opts.origin === 'detected'
+              ? 'potential layout candidate grounded in the DOM'
+              : evidence.diagnostics[0]?.includes('Screenshot-only')
+                ? 'selected (screenshot-only Canvas/SVG)'
+                : 'selected (DOM grounding)',
         },
       ],
     };
@@ -250,7 +473,10 @@ export class RegionService {
     this.invalidate(area, 'selection added');
     area.regionIds.push(region.id);
     area.updatedAt = nowIso();
-    LadStore.appendEvent(area, { source: 'user', action: `region added (${region.id})` });
+    LadStore.appendEvent(area, {
+      source: opts.origin === 'detected' ? 'runtime' : 'user',
+      action: `region added (${region.id})`,
+    });
     state.regions.push(region);
 
     await this.save(conversationId, state);
@@ -259,7 +485,10 @@ export class RegionService {
     return { region, area };
   }
 
-  async detect(conversationId: string): Promise<void> {
+  async detect(
+    conversationId: string,
+    options: { areaNamePrefix?: string } = {}
+  ): Promise<{ count: number; regionIds: string[]; areaIds: string[] }> {
     const page = this.manager.pageOf(conversationId);
     if (!page) throw new Error('No live page');
     const boxes = await page.evaluate(() =>
@@ -287,17 +516,53 @@ export class RegionService {
         )
         .slice(0, 12)
     );
-    for (const rect of boxes)
-      await this.createRegion(conversationId, rect, {
+    const candidates = new Map<string, { regionId: string; areaId: string }>();
+    for (const rect of boxes) {
+      const state = await this.stateOf(conversationId);
+      const nextNumber = state.areas.length + 1;
+      const result = await this.createRegion(conversationId, rect, {
         note: 'DOM overflow candidate; intent and source mapping require confirmation.',
+        origin: 'detected',
+        areaName: options.areaNamePrefix ? `${options.areaNamePrefix} ${nextNumber}` : undefined,
       });
+      const key =
+        result.region.anchors[0]?.selector ||
+        `${result.region.url}|${result.region.viewport.width}x${result.region.viewport.height}|${Math.round(result.region.rect.x)}:${Math.round(result.region.rect.y)}:${Math.round(result.region.rect.width)}:${Math.round(result.region.rect.height)}`;
+      if (!candidates.has(key))
+        candidates.set(key, { regionId: result.region.id, areaId: result.region.areaId });
+    }
+    const values = [...candidates.values()];
+    return {
+      count: values.length,
+      regionIds: values.map((item) => item.regionId),
+      areaIds: [...new Set(values.map((item) => item.areaId))],
+    };
   }
   async reveal(conversationId: string, regionId: string): Promise<void> {
     const page = this.manager.pageOf(conversationId);
     const region = await this.getRegion(conversationId, regionId);
     if (!page || !region) throw new Error('Region unavailable');
     const projection = await projectRegion(page, region);
-    if (projection.stale) throw new Error('Region binding changed: ' + projection.reason);
+    if (projection.stale) {
+      region.live = {
+        url: region.url,
+        viewport: region.viewport,
+        dpr: region.dpr,
+        scroll: region.scroll,
+        stale: true,
+        reason: projection.reason ?? 'Element not found or binding is stale',
+        observedAt: nowIso(),
+      };
+      region.updatedAt = nowIso();
+      const staleState = await this.stateOf(conversationId);
+      const staleIndex = staleState.regions.findIndex((item) => item.id === region.id);
+      if (staleIndex >= 0) staleState.regions[staleIndex] = region;
+      await this.save(conversationId, staleState);
+      this.emitState(conversationId);
+      throw new Error(
+        'Element not found or binding is stale: ' + (projection.reason ?? 'reselect this region')
+      );
+    }
     if (projection.selector) await page.locator(projection.selector).scrollIntoViewIfNeeded();
     else
       await page.evaluate(
@@ -306,16 +571,63 @@ export class RegionService {
         region.rect
       );
     const state = await this.stateOf(conversationId);
-    const area = state.areas.find((a) => a.id === region.areaId);
-    await paintRegions(
-      page,
-      [{ id: region.id, color: area?.color ?? '#7292b7', label: area?.name ?? 'Area', region }],
-      true
-    );
+    this.displayState.set(conversationId, {
+      ...this.displayState.get(conversationId),
+      visible: true,
+      selectedAreaId: region.areaId,
+    });
+    try {
+      await this.paintConversation(conversationId, state);
+    } catch (error) {
+      if (!this.isTransientPageTransition(error)) throw error;
+      this.retryPaint(conversationId);
+    }
+  }
+
+  async display(
+    conversationId: string,
+    input: {
+      visible?: boolean;
+      selectedAreaId?: string | null;
+      hoveredAreaId?: string | null;
+      staleLabel?: string;
+      areaPrefix?: string;
+    }
+  ): Promise<void> {
+    const state = await this.stateOf(conversationId);
+    const areaIds = new Set(state.areas.map((area) => area.id));
+    const previous = this.displayState.get(conversationId) ?? { visible: true };
+    this.displayState.set(conversationId, {
+      visible: input.visible ?? previous.visible,
+      selectedAreaId:
+        input.selectedAreaId === null
+          ? undefined
+          : input.selectedAreaId && areaIds.has(input.selectedAreaId)
+            ? input.selectedAreaId
+            : previous.selectedAreaId,
+      hoveredAreaId:
+        input.hoveredAreaId === null
+          ? undefined
+          : input.hoveredAreaId && areaIds.has(input.hoveredAreaId)
+            ? input.hoveredAreaId
+            : previous.hoveredAreaId,
+      staleLabel: input.staleLabel ?? previous.staleLabel,
+      areaPrefix: input.areaPrefix?.slice(0, 40) ?? previous.areaPrefix,
+    });
+    try {
+      await this.paintConversation(conversationId, state);
+    } catch (error) {
+      if (!this.isTransientPageTransition(error)) throw error;
+      this.retryPaint(conversationId);
+    }
   }
 
   /** Real in-page selection on the native Page (CSS coordinates). */
-  async setSelection(conversationId: string, areaId: string): Promise<void> {
+  async setSelection(
+    conversationId: string,
+    areaId: string,
+    options: { areaName?: string } = {}
+  ): Promise<void> {
     const page = this.manager.pageOf(conversationId);
     if (!page) throw new Error('Browser page is not ready');
     if (areaId === 'off') {
@@ -328,7 +640,7 @@ export class RegionService {
     }
     let binding = this.selectionBindings.get(page);
     if (!binding) {
-      binding = { conversationId };
+      binding = { conversationId, areaName: options.areaName };
       const target = binding;
       // A surviving native Page may still carry the previous runtime's function.
       await page.evaluate(() => {
@@ -354,11 +666,15 @@ export class RegionService {
           }
           await this.createRegion(target.conversationId, value.rect, {
             areaId: value.areaId === 'new' ? undefined : value.areaId,
+            areaName: target.areaName,
           });
         }
       );
       this.selectionBindings.set(page, binding);
-    } else binding.conversationId = conversationId;
+    } else {
+      binding.conversationId = conversationId;
+      binding.areaName = options.areaName;
+    }
     await page.evaluate((target) => {
       const state = window as unknown as {
         __ladSelectionStop?: () => void;
@@ -469,6 +785,7 @@ export class RegionService {
       id: newId('area'),
       conversationId,
       name: input.name.slice(0, 200),
+      origin: 'manual',
       description: input.description?.slice(0, 2000),
       status: (input.status as LadRegionStatus) ?? 'Detected',
       statusSource: 'user',
@@ -495,6 +812,7 @@ export class RegionService {
       description?: string;
       status?: string;
       statusSource?: 'user' | 'agent' | 'runtime';
+      origin?: 'manual' | 'detected';
     }
   ): Promise<LadArea> {
     if (patch.status === 'Verified') throw new Error('Verified requires source revision evidence');
@@ -511,6 +829,16 @@ export class RegionService {
       LadStore.appendEvent(area, {
         source: patch.statusSource ?? 'user',
         action: 'description changed',
+      });
+    }
+    if (patch.origin !== undefined && patch.origin !== area.origin) {
+      area.origin = patch.origin;
+      LadStore.appendEvent(area, {
+        source: 'user',
+        action:
+          patch.origin === 'manual'
+            ? 'candidate adopted as an area'
+            : 'marked as detected candidate',
       });
     }
     if (patch.status !== undefined) {
@@ -578,6 +906,39 @@ export class RegionService {
     await this.save(conversationId, state);
     this.events.emit({ type: 'area', conversationId, removedAreaId: areaId });
     this.emitState(conversationId);
+  }
+
+  async removeAllAreas(conversationId: string): Promise<{
+    areaCount: number;
+    regionCount: number;
+    captureCount: number;
+  }> {
+    return this.atomic(conversationId, async () => {
+      const state = await this.stateOf(conversationId);
+      const areaCount = state.areas.length;
+      const regionCount = state.regions.length;
+      const evidenceIds = [
+        ...new Set(
+          state.regions.flatMap((region) =>
+            (region.history ?? [])
+              .map((item) => item.cropId)
+              .filter((id): id is string => Boolean(id))
+          )
+        ),
+      ];
+      state.areas = [];
+      state.regions = [];
+      const display = this.displayState.get(conversationId);
+      if (display) {
+        display.selectedAreaId = undefined;
+        display.hoveredAreaId = undefined;
+      }
+      await this.save(conversationId, state);
+      await this.store.removeEvidence(conversationId, evidenceIds);
+      this.events.emit({ type: 'area', conversationId, removedAreaId: '*' });
+      this.emitState(conversationId);
+      return { areaCount, regionCount, captureCount: evidenceIds.length };
+    });
   }
 
   async setWorkspace(
