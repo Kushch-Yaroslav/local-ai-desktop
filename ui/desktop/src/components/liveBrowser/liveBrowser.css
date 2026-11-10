@@ -777,6 +777,6 @@
   }
 }
 
-.lb2-inspector:has(.lb2-candidate-notice) .lb2-area-list { display: none; }
+.lb2-inspector:has(.lb2-candidate-notice) .lb2-area-list { max-height: 32px; min-height: 32px; }
 .lb2-findings > summary { cursor: pointer; font-size: 10px; font-weight: 600; }
 .lb2-area-editor details.lb2-findings { flex-shrink: 0; }
