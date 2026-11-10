@@ -145,13 +145,20 @@ export function useChatSession({
   );
 
   const submitToAcpSession = useCallback(
-    async (targetSessionId: string, userMessage: Message) => {
+    async (
+      targetSessionId: string,
+      userMessage: Message,
+      pending?: import('../components/liveBrowser/pendingContext').PendingSelection | null
+    ) => {
       await acpChatSessionController.submitMessage(targetSessionId, userMessage, {
         getCurrentSnapshot: () =>
           targetSessionId === sessionId
             ? getCurrentSnapshot()
             : acpChatSessionStore.getSnapshot(targetSessionId),
-        onFinish,
+        onFinish: (outcome) => {
+          if (outcome.status === 'failed' && pending) setPendingSelection(pending, targetSessionId);
+          return onFinish(outcome);
+        },
       });
     },
     [getCurrentSnapshot, onFinish, sessionId]
@@ -251,7 +258,12 @@ export function useChatSession({
         acpChatSessionActions.setMessages(sessionId, messagesForStore);
       }
 
-      await submitToAcpSession(sessionId, newMessage);
+      try {
+        await submitToAcpSession(sessionId, newMessage, pendingSelection);
+      } catch (error) {
+        if (pendingSelection) setPendingSelection(pendingSelection, sessionId);
+        throw error;
+      }
     },
     [getCurrentSnapshot, sessionId, submitToAcpSession]
   );

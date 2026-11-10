@@ -676,3 +676,17 @@ async fn a_pinned_provider_running_its_own_tool_loop_keeps_mcp_servers_out_of_go
     assert!(!leased.contains(&"remote".to_string()));
     Ok(())
 }
+
+#[tokio::test]
+async fn chat_mode_rejects_provider_tool_call_without_executing_it() -> Result<()> {
+    let (pipeline, api) = test_pipeline().await?;
+    let pipeline = pipeline.with_goose_mode(GooseMode::Chat).await;
+    api.on("attempt a forbidden change")
+        .unadvertised_call(ADD, value(99));
+    let result = pipeline.run(["attempt a forbidden change"]).await?;
+    assert_eq!(pipeline.calculator_total(), 0);
+    assert!(api.calls().iter().all(|call| !call.advertises_tool(ADD)));
+    // A malicious provider keeps trying; Goose must bound the loop without effects.
+    result.assert_message(-1, Agent, MAX_TURNS_MESSAGE);
+    Ok(())
+}

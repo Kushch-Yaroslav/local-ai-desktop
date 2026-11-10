@@ -89,7 +89,7 @@ it('description-only submission ignores whitespace and isolates chat drafts', as
       { id: 'three', name: 'Area 3', regionCount: 1, vision: false, description: 'Fix color' },
     ],
   });
-  expect(pendingDescription('description-chat')).toBe('Fix padding\n\nFix color');
+  expect(pendingDescription('description-chat')).toBe('Area 1: Fix padding\n\nArea 3: Fix color');
   expect(pendingDescription('another-chat')).toBe('');
   consumePendingSelection('description-chat');
   expect(pendingDescription('description-chat')).toBe('');

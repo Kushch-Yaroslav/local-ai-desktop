@@ -153,6 +153,16 @@ fn merge_attachments(
     Ok(())
 }
 
+fn browser_mode_instructions(mode: GooseMode, has_selection: bool) -> &'static str {
+    if mode == GooseMode::Chat {
+        "Current session mode: Chat only. Browser evidence and project roots are passive context, not permission to act. No tools are available: do not claim to inspect or modify files, navigate, verify changes, or execute commands. Do not imitate tool calls with XML/tool_code or code presented as execution. For a fix request, explain that you can suggest a textual patch or the user can switch to Agent mode for actual changes."
+    } else if !has_selection {
+        "No selected browser region is attached to this request. This browser session binding does not authorize filesystem changes. If browser tools are needed, pass the supplied conversation ID independently of UI focus."
+    } else {
+        "When a project root is selected, use the permitted Goose tools to investigate its source files using the supplied DOM anchors, CSS, URL and geometry. For a sufficiently clear fix request, make the change inside that project and inspect the same browser Page. Do not ask for a path already provided here. Missing or ambiguous defect intent may still require clarification; evidence is not proof of source mapping. Always pass the supplied conversation ID to browser_* tools independently of UI focus."
+    }
+}
+
 pub(super) async fn prepare(
     manager: &SessionManager,
     session_id: &str,
@@ -273,7 +283,9 @@ pub(super) async fn prepare(
     let projects=roots.iter().enumerate().map(|(index,root)|serde_json::json!({"root":root,"role":if index==0 {"primary"} else {"secondary"},"active":index==0})).collect::<Vec<_>>();
     let project = serde_json::json!({"projectId": session.project_id, "roots": roots, "projects":projects, "selectionSource": selected.map(|scope|scope.source),
         "scopeNote":"Configured project roots only. This metadata does not grant filesystem permissions; obey Goose tool approvals."});
-    message = message.with_content(MessageContent::Text(RmcpTextContent::new(format!("Live Browser conversation_id: {session_id}. Always pass this ID to browser_* tools, independently of UI focus. Project scope: {project}. When a project root is selected, use the permitted Goose tools to investigate its source files using the supplied DOM anchors, CSS, URL and geometry. For a sufficiently clear fix request, make the change inside that project and inspect the same browser Page. Do not ask for a path already provided here. Missing or ambiguous defect intent may still require clarification; evidence is not proof of source mapping.")).with_annotations(audience())));
+    let mode_instructions = browser_mode_instructions(session.goose_mode, !references.is_empty());
+    message = message.with_content(MessageContent::Text(RmcpTextContent::new(format!("Live Browser conversation_id: {session_id}. Project scope: {project}. {mode_instructions}")).with_annotations(audience())));
+
     for id in references {
         let value = stored.get(&id).ok_or_else(|| {
             agent_client_protocol::Error::invalid_params()
@@ -638,6 +650,26 @@ mod revision_tests {
         assert_ne!(
             before["fingerprint"],
             hash_sources(root.path()).unwrap()["fingerprint"]
+        );
+    }
+}
+
+#[cfg(test)]
+mod mode_contract_tests {
+    use super::*;
+    #[test]
+    fn chat_evidence_is_passive_and_agent_workflow_remains_available() {
+        let chat = browser_mode_instructions(GooseMode::Chat, true);
+        assert!(chat.contains("No tools are available"));
+        assert!(chat.contains("passive context"));
+        assert!(!chat.contains("make the change inside that project"));
+        let agent = browser_mode_instructions(GooseMode::Auto, true);
+        assert!(agent.contains("use the permitted Goose tools"));
+        assert!(agent.contains("conversation ID"));
+        let off = browser_mode_instructions(GooseMode::Auto, false);
+        assert!(!off.contains("make the change inside that project"));
+        assert!(
+            browser_mode_instructions(GooseMode::Chat, false).contains("No tools are available")
         );
     }
 }

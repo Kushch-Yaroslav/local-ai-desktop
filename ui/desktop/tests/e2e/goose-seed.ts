@@ -232,6 +232,16 @@ export function seedGooseBackend(devRoot: string, endpoint: LlamaServerEndpoint)
   );
 
   const configYaml = [
+    ...(process.env.LAD_E2E_WITH_DEVELOPER === '1'
+      ? [
+          'extensions:',
+          '  developer:',
+          '    enabled: true',
+          '    type: builtin',
+          '    name: developer',
+          '    bundled: true',
+        ]
+      : []),
     'providers:',
     `  ${PROVIDER_NAME}:`,
     '    enabled: true',

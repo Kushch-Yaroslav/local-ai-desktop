@@ -50,8 +50,14 @@ export function onPendingSelectionChange(listener: () => void): () => void {
 
 /** Stable snapshot for composer validation; no page prose is treated as a task. */
 export function pendingDescription(conversationId?: string): string {
-  return (peekPendingSelection(conversationId)?.attachments ?? [])
-    .map((attachment) => attachment.description?.trim() ?? '')
-    .filter(Boolean)
+  const attachments = (peekPendingSelection(conversationId)?.attachments ?? []).filter(
+    (attachment) => Boolean(attachment.description?.trim())
+  );
+  return attachments
+    .map((attachment) =>
+      attachments.length === 1
+        ? attachment.description!.trim()
+        : `${attachment.name}: ${attachment.description!.trim()}`
+    )
     .join('\n\n');
 }

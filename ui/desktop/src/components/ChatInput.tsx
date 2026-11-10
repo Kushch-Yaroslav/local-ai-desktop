@@ -1160,13 +1160,13 @@ export default function ChatInput({
     () => ''
   );
 
-  const canSubmit =
-    !isSubmissionBusy &&
-    !queueProcessingBlocked &&
-    (displayValue.trim() ||
-      browserDescription ||
-      pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
-      allDroppedFiles.some((file) => !file.error && !file.isLoading));
+  const hasSubmittableContent = Boolean(
+    displayValue.trim() ||
+    browserDescription ||
+    pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
+    allDroppedFiles.some((file) => !file.error && !file.isLoading)
+  );
+  const canSubmit = !isSubmissionBusy && !queueProcessingBlocked && hasSubmittableContent;
 
   const performSubmit = useCallback(
     (text?: string) => {
@@ -1289,12 +1289,6 @@ export default function ChatInput({
       handleInterruptionAndQueue();
       return;
     }
-    const canSubmit =
-      !isSubmissionBusy &&
-      !queueProcessingBlocked &&
-      (displayValue.trim() ||
-        pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
-        allDroppedFiles.some((file) => !file.error && !file.isLoading));
     if (canSubmit) {
       performSubmit();
     }
@@ -1394,11 +1388,6 @@ export default function ChatInput({
     }, 0);
   };
 
-  const hasSubmittableContent =
-    displayValue.trim() ||
-    browserDescription ||
-    pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
-    allDroppedFiles.some((file) => !file.error && !file.isLoading);
   const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
   const isAnyDroppedFileLoading = allDroppedFiles.some((file) => file.isLoading);
   const isSubmitButtonDisabled =
