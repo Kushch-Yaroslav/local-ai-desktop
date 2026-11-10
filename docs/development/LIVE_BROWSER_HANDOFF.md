@@ -38,6 +38,12 @@ scripts/dev/activate-packaged-build.sh --activate "$candidate"
 
 The isolated E2Es intentionally kill only their own packaged runtime child and Chromium renderer. The final logs contain an expected chunked-transfer warning from runtime SIGKILL and a blocked `file:` navigation negative test; no transient `/control/display` failure remains. Test profiles and the React fixture are temporary and separate from the user's profile/projects.
 
+## Workspace cleanup — 2026-11-10
+
+Before cleanup, `du` reported about 47 GiB in this checkout and the DATA filesystem had 206 MiB free. Removed ignored Cargo `target/` output (19.6 GB), obsolete Electron package snapshots/backups and QA package copies (including the old `.local-work` and `ui/desktop/out-*` trees), stale test-results/cache output and four isolated QA profile/log directories. The post-cleanup checkout is 6.9 GiB and DATA has about 40 GB free. A scan found no remaining `*.log` files in `.local-work`.
+
+Preserved the selected package `.local-work/mtp-discovery-mtp-on/`, its pointer `.local-work/desktop-selected.path`, the current `ui/desktop/out/` fallback, the fresh RC5 package under `~/.local/opt/local-ai-desktop-goose-dev/packages/`, application sources, and all runtime/llama.cpp files. Both selected and RC5 packages pass the read-only activation validator. No model, regular user profile, chat data, current launcher, AppArmor rule, or running process was changed or stopped. Cargo/test builds will be regenerated under `target/` if development tests are run later.
+
 # Repeated unloaded MTP discovery — current handoff, 2026-11-10
 
 Latest regression after `4ec7ec8` was **generation-time CUDA graph OOM**, not truncated logs or a requirement to preload Qwen. The user's Q8 probe at 94,208 loaded/initialized MTP, then failed in cudaGraphInstantiate. The classifier missed `CUDA error: out of memory`, labelled it unexpected-exit and aborted search; UI hid the primary reason. Exact OOM is now a search boundary; other CUDA failures remain fatal. Supervisor drains the owned child's streams before classification/next launch, each probe has a separate log, and each search has a bounded receipt with initial/effective state, stage, arguments, PID, evidence and actual restoration. Primary and restore failures are both retained. UI shows concrete failure/recovery and explicitly labels old measurements after a failed new search. See [MTP_DISCOVERY_REPEATABILITY.md](MTP_DISCOVERY_REPEATABILITY.md).
