@@ -1,3 +1,4 @@
+import { pendingDescription } from '../components/liveBrowser/pendingContext';
 // Modified for Local AI Desktop: scope Live Browser context to its chat.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { defineMessages, useIntl } from '../i18n';
@@ -185,8 +186,10 @@ export function useChatSession({
       // geometry, viewport/DPR, scroll, DOM anchors, diagnostics and the
       // Canvas/SVG screenshot-only limits, so the agent understands what
       // "fix this" refers to even with Vision Off.
+      const description = pendingDescription(sessionId);
       const pendingSelection = consumePendingSelection(sessionId);
-      const effectiveMessage = userMessage;
+      const descriptionOnly = !userMessage.trim() && Boolean(description);
+      const effectiveMessage = descriptionOnly ? description : userMessage;
       const effectiveImages = images;
 
       const currentSnapshot = getCurrentSnapshot();
@@ -229,6 +232,11 @@ export function useChatSession({
       const newMessage = hasNewMessage
         ? createUserMessage(effectiveMessage, effectiveImages)
         : lastMessage;
+      if (descriptionOnly && hasNewMessage) {
+        // Persist visible user prose, while the registry projects the task once.
+        for (const block of newMessage.content)
+          if (block.type === 'text') block.annotations = { audience: ['user'] };
+      }
       if (pendingSelection && hasNewMessage) {
         for (const attachment of pendingSelection.attachments ?? [])
           newMessage.content.push(attachmentBlock(attachment));

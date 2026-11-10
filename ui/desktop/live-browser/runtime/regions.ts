@@ -157,17 +157,20 @@ export class RegionService {
       this.paintRetryAttempts.delete(conversationId);
       return;
     }
-    const timer = setTimeout(() => {
-      this.paintRetryTimers.delete(conversationId);
-      this.paintRetryAttempts.set(conversationId, attempt + 1);
-      void this.stateOf(conversationId)
-        .then((state) => this.paintConversation(conversationId, state))
-        .then(() => this.paintRetryAttempts.delete(conversationId))
-        .catch((error) => {
-          if (this.isTransientPageTransition(error)) this.retryPaint(conversationId);
-          else this.paintRetryAttempts.delete(conversationId);
-        });
-    }, Math.min(150 * (attempt + 1), 1000));
+    const timer = setTimeout(
+      () => {
+        this.paintRetryTimers.delete(conversationId);
+        this.paintRetryAttempts.set(conversationId, attempt + 1);
+        void this.stateOf(conversationId)
+          .then((state) => this.paintConversation(conversationId, state))
+          .then(() => this.paintRetryAttempts.delete(conversationId))
+          .catch((error) => {
+            if (this.isTransientPageTransition(error)) this.retryPaint(conversationId);
+            else this.paintRetryAttempts.delete(conversationId);
+          });
+      },
+      Math.min(150 * (attempt + 1), 1000)
+    );
     timer.unref?.();
     this.paintRetryTimers.set(conversationId, timer);
   }
@@ -514,7 +517,7 @@ export class RegionService {
           (r) =>
             r.width >= 4 && r.height >= 4 && r.x < window.innerWidth && r.y < window.innerHeight
         )
-        .slice(0, 12)
+        .slice(0, 32)
     );
     const candidates = new Map<string, { regionId: string; areaId: string }>();
     for (const rect of boxes) {

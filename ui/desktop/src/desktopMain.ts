@@ -1,3 +1,4 @@
+import { setImmediate } from 'node:timers';
 import { revealWindow } from './windowActivation';
 // Modified for Local AI Desktop: native shared browser surfaces and isolated test controls.
 import { StorageService, recoverInterruptedStorage, defaultLayout } from './storageService';
@@ -2167,6 +2168,46 @@ ipcMain.handle('live-browser:adopt', async (event, from: string, to: string) => 
 ipcMain.handle('live-browser:workspace-read', (event, id: string) =>
   liveBrowserRuntime.native.snapshot(event.sender, id)
 );
+// Native menus compose above WebContentsView without hiding or resizing it.
+ipcMain.handle('live-browser:choice', async (event, choice) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (
+    !window ||
+    window.webContents !== event.sender ||
+    !choice ||
+    !Number.isFinite(choice.x) ||
+    !Number.isFinite(choice.y) ||
+    !Array.isArray(choice.options) ||
+    choice.options.length > 40 ||
+    choice.options.some(
+      (item: { value: string; label: string }) =>
+        typeof item?.value !== 'string' ||
+        typeof item?.label !== 'string' ||
+        item.value.length > 200 ||
+        item.label.length > 200
+    )
+  )
+    return null;
+  return new Promise<string | null>((resolve) => {
+    const menu = Menu.buildFromTemplate(
+      choice.options.map((item: { value: string; label: string }) => ({
+        label: item.label,
+        type: 'radio' as const,
+        checked: item.value === choice.value,
+        click: () => resolve(item.value),
+      }))
+    );
+    const [width, height] = window.getContentSize();
+    menu.popup({
+      window,
+      x: Math.max(0, Math.min(width - 1, choice.x)),
+      y: Math.max(0, Math.min(height - 1, choice.y)),
+      callback: () => {
+        setImmediate(() => resolve(null));
+      },
+    });
+  });
+});
 ipcMain.handle('live-browser:register', (event, id: string) =>
   liveBrowserRuntime.native.register(event.sender, id)
 );

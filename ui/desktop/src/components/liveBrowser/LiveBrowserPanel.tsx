@@ -1,6 +1,6 @@
 /** Local AI Desktop: compact workspace around the real shared native Page. */
 import './liveBrowser.css';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   ArrowLeft,
@@ -87,12 +87,24 @@ function Choice({
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
-  const items = useRef<Array<HTMLButtonElement | null>>([]);
-  useEffect(() => {
-    if (open) items.current[0]?.focus();
-  }, [open]);
+  const showMenu = async () => {
+    if (open || !trigger.current) return;
+    const bounds = trigger.current.getBoundingClientRect();
+    setOpen(true);
+    try {
+      const chosen = await window.electron.liveBrowserChoice({
+        x: Math.round(bounds.left),
+        y: Math.round(bounds.bottom),
+        value,
+        options,
+      });
+      if (chosen !== null) onChange(chosen);
+    } finally {
+      setOpen(false);
+      trigger.current?.focus();
+    }
+  };
   return (
     <div className="lb2-choice-control">
       <button
@@ -101,62 +113,18 @@ function Choice({
         className="lb2-choice"
         aria-label={label}
         aria-haspopup="menu"
-        aria-controls={menuId}
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => void showMenu()}
         onKeyDown={(event) => {
-          if (event.key === 'Escape') setOpen(false);
-          if (event.key === 'ArrowDown' && !open) {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault();
-            setOpen(true);
+            void showMenu();
           }
         }}
       >
         <span>{displayValue ?? value}</span>
         <ChevronDown size={12} />
       </button>
-      {open && (
-        <div className="lb2-choice-options" id={menuId} role="menu" aria-label={label}>
-          {options.map((option, index) => (
-            <button
-              type="button"
-              key={option.value}
-              ref={(node) => {
-                items.current[index] = node;
-              }}
-              role="menuitemradio"
-              aria-checked={option.value === value}
-              onKeyDown={(event) => {
-                const last = options.length - 1;
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setOpen(false);
-                  trigger.current?.focus();
-                } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  const next =
-                    (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) %
-                    options.length;
-                  items.current[next]?.focus();
-                } else if (event.key === 'Home') {
-                  event.preventDefault();
-                  items.current[0]?.focus();
-                } else if (event.key === 'End') {
-                  event.preventDefault();
-                  items.current[last]?.focus();
-                }
-              }}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-                trigger.current?.focus();
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -1138,6 +1106,7 @@ export function LiveBrowserPanel({
                       <button
                         key={finding.regionId}
                         data-testid="live-browser-finding"
+                        aria-pressed={selected === finding.areaId}
                         onClick={() =>
                           void action(async () => {
                             if (findingArea) setSelected(findingArea.id);
@@ -1152,7 +1121,7 @@ export function LiveBrowserPanel({
                         <span>{index + 1}</span>
                         <span>
                           <b>{findingSummary(finding.findings)}</b>
-                          <small>
+                          <small title={findingFacts(finding.findings)}>
                             {findingArea ? `${displayAreaName(findingArea)} · ` : ''}
                             {findingFacts(finding.findings)}
                           </small>
@@ -1262,10 +1231,10 @@ export function LiveBrowserPanel({
                     </div>
                   )}
                   {areaFindings.length > 0 && (
-                    <div className="lb2-findings" data-testid="live-browser-findings">
-                      <strong>
+                    <details className="lb2-findings" data-testid="live-browser-findings">
+                      <summary>
                         {t('Potential findings', 'Возможные проблемы')} · {areaFindings.length}
-                      </strong>
+                      </summary>
                       {areaFindings.map((finding, index) => (
                         <button
                           key={`${finding.regionId}-${index}`}
@@ -1290,7 +1259,7 @@ export function LiveBrowserPanel({
                           <LocateFixed size={13} />
                         </button>
                       ))}
-                    </div>
+                    </details>
                   )}
                   <label className="lb2-description-field" htmlFor={`lb2-description-${area.id}`}>
                     <span>

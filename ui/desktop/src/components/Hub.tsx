@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: description-only visual task submission.
+import { pendingDescription } from './liveBrowser/pendingContext';
 import { acpChatSessionActions } from '../acp/chatSessionStore';
 import { browserHubId } from './liveBrowser/hubSession';
 import { consumePendingSelection, setPendingSelection } from './liveBrowser/pendingContext';
@@ -255,7 +257,7 @@ export default function Hub({
 
   const handleSubmit = async (input: UserInput) => {
     const { msg: userMessage, images } = input;
-    if (!(images.length > 0 || userMessage.trim())) return;
+    if (!(images.length > 0 || userMessage.trim() || pendingDescription(hubId))) return;
 
     const draftAtSubmit = draftRef.current;
     const session = await createHubSession();

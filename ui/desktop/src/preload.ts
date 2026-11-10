@@ -324,6 +324,12 @@ type ElectronAPI = {
     callback: (value: { requestId: string; conversationId: string }) => void
   ) => () => void;
   liveBrowserSourceRevisionResult: (requestId: string, result: unknown) => void;
+  liveBrowserChoice: (choice: {
+    x: number;
+    y: number;
+    value: string;
+    options: { value: string; label: string }[];
+  }) => Promise<string | null>;
   liveBrowserRegister: (id: string) => Promise<void>;
   liveBrowserView: (
     id: string,
@@ -585,6 +591,7 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.removeListener('live-browser:pan', listener);
     };
   },
+  liveBrowserChoice: (choice) => ipcRenderer.invoke('live-browser:choice', choice),
   liveBrowserRegister: (id) => ipcRenderer.invoke('live-browser:register', id),
   liveBrowserView: (id, bounds, settings) =>
     ipcRenderer.invoke('live-browser:view', id, bounds, settings),

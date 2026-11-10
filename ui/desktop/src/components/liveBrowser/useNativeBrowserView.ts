@@ -20,7 +20,7 @@ export function useNativeBrowserView(
       if (cancelled) return;
       const rect = element.getBoundingClientRect();
       // Renderer menus/popovers cannot stack over a native WebContentsView.
-      // Live Browser menus are rendered inline in the chrome/inspector, so they
+      // Live Browser menus use native Electron popups, so they
       // never cover this surface. Only a true modal may temporarily cover it.
       const modal = document.querySelector('[aria-modal="true"],dialog[open]');
       const covered = Boolean(

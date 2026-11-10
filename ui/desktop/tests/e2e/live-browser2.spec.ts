@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { test, expect } from './fixtures';
-import { nativeWindowShot, resizeNativeWindow, nativePointer } from './native-window-shot';
+import {
+  nativeWindowShot,
+  resizeNativeWindow,
+  nativePointer,
+  nativeKey,
+} from './native-window-shot';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -49,6 +54,10 @@ async function nativeRegionState(page: import('@playwright/test').Page, hub: str
     }>;
   }, hub);
 }
+async function openNativeChoice(page: import('@playwright/test').Page, name: string) {
+  const box = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
+  await nativePointer(page, [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }]);
+}
 test('native page, independent zoom, compact inspector and attachment draft', async ({
   goosePage: page,
 }) => {
@@ -90,11 +99,18 @@ test('native page, independent zoom, compact inspector and attachment draft', as
 
     // The native page remains visible while inline controls are expanded.
     await page.getByTestId('live-browser-display').click();
-    await page.getByRole('button', { name: 'Page zoom', exact: true }).click();
-    await expect(page.getByRole('menu')).toBeVisible();
+    const beforeMenu = await page.getByTestId('live-browser-display-settings').boundingBox();
+    await openNativeChoice(page, 'Page zoom');
+    await expect(page.getByRole('button', { name: 'Page zoom', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    );
+    expect(await page.getByTestId('live-browser-display-settings').boundingBox()).toEqual(
+      beforeMenu
+    );
     expect(await evaluateNative(page, 'document.title')).toBe('Browser 2 QA');
     await nativeWindowShot(page, test.info().outputPath('native-menu-open.png'));
-    await page.getByRole('menuitemradio', { name: '100%', exact: true }).click();
+    await nativeKey(page, ['Escape']);
 
     await nativeWindowShot(page, test.info().outputPath('native-medium.png'));
     if (process.env.LAD_E2E_VISUAL === '1') {
@@ -254,18 +270,14 @@ test('native page, independent zoom, compact inspector and attachment draft', as
       w: number;
       dpr: number;
     };
-    await page.getByRole('button', { name: 'Page zoom', exact: true }).press('ArrowDown');
-    await expect(page.getByRole('menu')).toBeVisible();
-    for (let index = 0; index < 5; index++) await page.keyboard.press('ArrowDown');
-    const zoom125 = page.getByRole('menuitemradio', { name: '125%', exact: true });
-    await expect(zoom125).toBeFocused();
-    await page.keyboard.press('Enter');
+    await openNativeChoice(page, 'Page zoom');
+    await nativeKey(page, ['Home', 'Down', 'Down', 'Down', 'Down', 'Down', 'Return']);
     await expect
       .poll(async () => (await evaluateNative(page, 'window.innerWidth')) as number)
       .toBeLessThan(before.w);
     if (process.env.LAD_E2E_VISUAL === '1') {
-      await page.getByRole('button', { name: 'Preview scale', exact: true }).click();
-      await page.getByRole('menuitemradio', { name: '200%', exact: true }).click();
+      await openNativeChoice(page, 'Preview scale');
+      await nativeKey(page, ['End', 'Return']);
       await page.getByRole('button', { name: /Pan preview/ }).click();
       await expect
         .poll(
@@ -395,7 +407,10 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     await expect(page.getByTestId('live-browser-area-row')).toHaveCount(1);
     await expect
       .poll(() =>
-        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+        evaluateNative(
+          page,
+          'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount'
+        )
       )
       .toBe('1');
     await nativeWindowShot(page, test.info().outputPath('native-manual-region.png'));
@@ -428,17 +443,27 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     const areaCountBeforeRepeat = await areaRows.count();
     await areaRows.first().hover();
     await expect
-      .poll(() => evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.hoveredAreaId'))
+      .poll(() =>
+        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.hoveredAreaId')
+      )
       .not.toBe('');
     await areaRows.first().click();
     await expect
-      .poll(() => evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.selectedAreaId'))
+      .poll(() =>
+        evaluateNative(
+          page,
+          'document.getElementById("__lad-live-regions")?.dataset.selectedAreaId'
+        )
+      )
       .not.toBe('');
     await page.getByRole('button', { name: 'Find layout candidates', exact: true }).click();
     await expect(areaRows).toHaveCount(areaCountBeforeRepeat);
     await expect
       .poll(() =>
-        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+        evaluateNative(
+          page,
+          'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount'
+        )
       )
       .toBe('4');
     await candidates.first().click();
@@ -518,7 +543,10 @@ test('native page, independent zoom, compact inspector and attachment draft', as
     await expect(page.getByTestId('live-browser-area-row')).toHaveCount(1);
     await expect
       .poll(() =>
-        evaluateNative(page, 'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount')
+        evaluateNative(
+          page,
+          'document.getElementById("__lad-live-regions")?.dataset.visibleRegionCount'
+        )
       )
       .toBe('1');
     await page.getByRole('button', { name: 'Interact with page', exact: true }).click();

@@ -160,7 +160,7 @@ test('chosen React project and region reach model while history contains a compa
   await expect(page.getByTestId('pending-selection-note')).toContainText('Has description');
   // Narrow layouts intentionally prioritize the browser; hide it to compose.
   await page.getByTestId('live-browser-mode-close').click();
-  await page.getByTestId('chat-input').fill('Исправь это');
+  await expect(page.getByTestId('chat-input')).toHaveValue('');
   await page.getByTestId('chat-input').press('Enter');
   await expect.poll(() => JSON.stringify(requests), { timeout: 60000 }).toContain('DOM');
   const sent = JSON.stringify(requests);
@@ -213,9 +213,20 @@ test('chosen React project and region reach model while history contains a compa
   expect(JSON.stringify(modelUser)).toContain('The product button needs more padding.');
   expect(JSON.stringify(modelUser)).not.toContain('lad-browser-attachment:v1:');
   expect(JSON.stringify(modelUser)).not.toContain('image_url');
+  const firstUserPayload = JSON.stringify(
+    (requests[0] as { messages: { role: string; content: unknown }[] }).messages.filter(
+      (m) => m.role === 'user'
+    )
+  );
+  expect(firstUserPayload.split('The product button needs more padding.').length - 1).toBe(1);
   // Editing/resending truncates the conversation, then resolves the durable attachment ID.
   const count = requests.length;
-  await page.getByRole('button', { name: 'Edit message: Исправь это', exact: true }).click();
+  await page
+    .getByRole('button', {
+      name: 'Edit message: The product button needs more padding.',
+      exact: true,
+    })
+    .click();
   await page
     .getByRole('textbox', { name: 'Edit message content' })
     .fill('Исправь это, сохранив остальную страницу');
@@ -251,10 +262,14 @@ test('chosen React project and region reach model while history contains a compa
   };
   const currentProductHeight = () =>
     page.evaluate(async (conversationId) => {
-      const result = (await window.electron.liveBrowserNativeTest(conversationId, 'Runtime.evaluate', {
-        expression: 'getComputedStyle(document.querySelector("#product")).height',
-        returnByValue: true,
-      })) as { result: { value: string } };
+      const result = (await window.electron.liveBrowserNativeTest(
+        conversationId,
+        'Runtime.evaluate',
+        {
+          expression: 'getComputedStyle(document.querySelector("#product")).height',
+          returnByValue: true,
+        }
+      )) as { result: { value: string } };
       return result.result.value;
     }, id);
   const initial = await control('state'),

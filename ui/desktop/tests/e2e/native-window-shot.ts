@@ -23,7 +23,8 @@ if len(matches)!=1: raise RuntimeError('Isolated test window not uniquely identi
 display=Gdk.Display.get_default()
 window=GdkX11.X11Window.foreign_new_for_display(display,int(matches[0],16))
 width,height=window.get_width(),window.get_height()
-pixels=Gdk.pixbuf_get_from_window(window,0,0,width,height)
+origin=window.get_origin()[1:]
+pixels=Gdk.pixbuf_get_from_window(Gdk.get_default_root_window(),origin[0],origin[1],width,height)
 if not pixels: raise RuntimeError('Native window capture unavailable')
 pixels.savev(sys.argv[2],'png',[],[])
 `,
@@ -103,4 +104,38 @@ finally:
     { timeout: 10000, stdio: 'inherit' }
   );
   await page.waitForTimeout(200);
+}
+
+/** Real X11 keyboard input, including native Electron popup menus. */
+export async function nativeKey(page: Page, keys: string[]): Promise<void> {
+  const title = `LAD2-isolated-visual-${process.pid}`;
+  await page.evaluate((title) => {
+    document.title = title;
+  }, title);
+  execFileSync(
+    '/usr/bin/python3',
+    [
+      '-c',
+      `
+import ctypes,re,subprocess,sys,json,time
+from ctypes import c_void_p,c_char_p,c_ulong,c_uint,c_int
+matches=re.findall(r'(0x[0-9a-f]+) "'+re.escape(sys.argv[1])+r'": \\("local-ai-desktop',subprocess.check_output(['xwininfo','-root','-tree'],text=True))
+if len(matches)!=1:raise RuntimeError('Isolated keyboard target is not unique')
+active=re.findall(r'0x[0-9a-f]+',subprocess.check_output(['xprop','-root','_NET_ACTIVE_WINDOW'],text=True))
+if not active or int(active[-1],16)!=int(matches[0],16):raise RuntimeError('Refusing OS input: isolated window is not active')
+x=ctypes.CDLL('libX11.so.6');xt=ctypes.CDLL('libXtst.so.6')
+x.XOpenDisplay.argtypes=[c_char_p];x.XOpenDisplay.restype=c_void_p;d=x.XOpenDisplay(None)
+x.XStringToKeysym.argtypes=[c_char_p];x.XStringToKeysym.restype=c_ulong
+x.XKeysymToKeycode.argtypes=[c_void_p,c_ulong];x.XKeysymToKeycode.restype=c_uint
+x.XFlush.argtypes=[c_void_p];xt.XTestFakeKeyEvent.argtypes=[c_void_p,c_uint,c_int,c_ulong]
+for name in json.loads(sys.argv[2]):
+ code=x.XKeysymToKeycode(d,x.XStringToKeysym(name.encode()))
+ if not code:raise RuntimeError('Unknown keysym')
+ xt.XTestFakeKeyEvent(d,code,1,0);xt.XTestFakeKeyEvent(d,code,0,0);x.XFlush(d);time.sleep(.12)
+`,
+      title,
+      JSON.stringify(keys),
+    ],
+    { timeout: 10000 }
+  );
 }

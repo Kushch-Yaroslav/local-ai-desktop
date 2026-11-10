@@ -1,3 +1,7 @@
+// Modified for Local AI Desktop: description-only visual task submission.
+import { useSyncExternalStore } from 'react';
+import { pendingDescription, onPendingSelectionChange } from './liveBrowser/pendingContext';
+import { browserHubId } from './liveBrowser/hubSession';
 // Modified for Local AI Desktop: unified model access and session controls; Goose submission remains intact.
 import SessionSettingsPopover, { type NewChatSettings } from './SessionSettingsPopover';
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
@@ -350,22 +354,36 @@ export default function ChatInput({
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
-      const [profiles, runtime] = await Promise.all([window.electron.ggufList(), window.electron.ggufState()]);
-      const selected = profiles.find((entry) => entry.profile.providerId === effectiveProvider && entry.profile.backend !== 'native');
+      const [profiles, runtime] = await Promise.all([
+        window.electron.ggufList(),
+        window.electron.ggufState(),
+      ]);
+      const selected = profiles.find(
+        (entry) =>
+          entry.profile.providerId === effectiveProvider && entry.profile.backend !== 'native'
+      );
       let limit: number | null = null;
       if (selected) {
         if (runtime.phase === 'ready' && runtime.profileId === selected.profile.id) {
           const index = runtime.args?.indexOf('--ctx-size') ?? -1;
           limit = index >= 0 ? Number(runtime.args![index + 1]) : selected.profile.context;
         } else {
-          limit = (await window.electron.ggufDiscoveryCatalog(selected.profile.id!)).selectedContext;
+          limit = (await window.electron.ggufDiscoveryCatalog(selected.profile.id!))
+            .selectedContext;
         }
       }
       if (alive) setManagedContextLimit(limit);
     };
-    void refresh().catch(() => { if (alive) setManagedContextLimit(null); });
-    const off = window.electron.ggufOnState(() => { void refresh().catch(() => {}); });
-    return () => { alive = false; off(); };
+    void refresh().catch(() => {
+      if (alive) setManagedContextLimit(null);
+    });
+    const off = window.electron.ggufOnState(() => {
+      void refresh().catch(() => {});
+    });
+    return () => {
+      alive = false;
+      off();
+    };
   }, [effectiveProvider]);
   const [tokenLimit, setTokenLimit] = useState<number>(TOKEN_LIMIT_DEFAULT);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
@@ -1136,10 +1154,17 @@ export default function ChatInput({
     return true;
   };
 
+  const browserDescription = useSyncExternalStore(
+    onPendingSelectionChange,
+    () => pendingDescription(sessionId ?? browserHubId()),
+    () => ''
+  );
+
   const canSubmit =
     !isSubmissionBusy &&
     !queueProcessingBlocked &&
     (displayValue.trim() ||
+      browserDescription ||
       pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
       allDroppedFiles.some((file) => !file.error && !file.isLoading));
 
@@ -1148,7 +1173,7 @@ export default function ChatInput({
       const imageData = convertImagesToImageData();
       const textToSend = appendDroppedFilePaths(text ?? displayValue.trim());
 
-      if (textToSend || imageData.length > 0) {
+      if (textToSend || browserDescription || imageData.length > 0) {
         // Store original message in history
         if (displayValue.trim()) {
           LocalMessageStorage.addMessage(displayValue);
@@ -1184,6 +1209,7 @@ export default function ChatInput({
       }
     },
     [
+      browserDescription,
       convertImagesToImageData,
       appendDroppedFilePaths,
       displayValue,
@@ -1370,6 +1396,7 @@ export default function ChatInput({
 
   const hasSubmittableContent =
     displayValue.trim() ||
+    browserDescription ||
     pastedImages.some((img) => img.dataUrl && !img.error && !img.isLoading) ||
     allDroppedFiles.some((file) => !file.error && !file.isLoading);
   const isAnyImageLoading = pastedImages.some((img) => img.isLoading);
@@ -1723,7 +1750,15 @@ export default function ChatInput({
         </Tooltip>
 
         {/* Left: working directory (leaf folder name only) */}
-        {isBottomBarNarrow && <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />}
+        {isBottomBarNarrow && (
+          <SessionSettingsPopover
+            sessionId={sessionId}
+            provider={effectiveProvider}
+            model={effectiveModel}
+            draft={newChatSettings}
+            onDraftChange={onNewChatSettingsChange}
+          />
+        )}
         {!isBottomBarNarrow && (
           <DirSwitcher
             className=""
@@ -1743,7 +1778,15 @@ export default function ChatInput({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {isBottomBarNarrow && <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />}
+        {isBottomBarNarrow && (
+          <SessionSettingsPopover
+            sessionId={sessionId}
+            provider={effectiveProvider}
+            model={effectiveModel}
+            draft={newChatSettings}
+            onDraftChange={onNewChatSettingsChange}
+          />
+        )}
         {!isBottomBarNarrow && (
           <>
             {/* Right: cost tracker (when enabled) */}
@@ -1757,7 +1800,13 @@ export default function ChatInput({
               />
             )}
 
-            <SessionSettingsPopover sessionId={sessionId} provider={effectiveProvider} model={effectiveModel} draft={newChatSettings} onDraftChange={onNewChatSettingsChange} />
+            <SessionSettingsPopover
+              sessionId={sessionId}
+              provider={effectiveProvider}
+              model={effectiveModel}
+              draft={newChatSettings}
+              onDraftChange={onNewChatSettingsChange}
+            />
 
             {/* Right: context window indicator */}
             <ContextWindowIndicator

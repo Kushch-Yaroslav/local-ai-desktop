@@ -37,7 +37,7 @@ describe('pendingContext', () => {
   });
 
   it('does not consume another conversation selection', () => {
-    const s = {...selection(), conversationId: 'chat-a'};
+    const s = { ...selection(), conversationId: 'chat-a' };
     setPendingSelection(s);
     expect(consumePendingSelection('chat-b')).toBeNull();
     expect(consumePendingSelection('chat-a')).toBe(s);
@@ -73,4 +73,24 @@ describe('pendingContext', () => {
     setPendingSelection(second);
     expect(peekPendingSelection()).toBe(second);
   });
+});
+
+it('description-only submission ignores whitespace and isolates chat drafts', async () => {
+  const { pendingDescription } = await import('./pendingContext');
+  setPendingSelection({
+    text: '',
+    images: [],
+    areaNames: [],
+    createdAt: 1,
+    conversationId: 'description-chat',
+    attachments: [
+      { id: 'one', name: 'Area 1', regionCount: 1, vision: false, description: '  Fix padding  ' },
+      { id: 'two', name: 'Area 2', regionCount: 1, vision: false, description: '   ' },
+      { id: 'three', name: 'Area 3', regionCount: 1, vision: false, description: 'Fix color' },
+    ],
+  });
+  expect(pendingDescription('description-chat')).toBe('Fix padding\n\nFix color');
+  expect(pendingDescription('another-chat')).toBe('');
+  consumePendingSelection('description-chat');
+  expect(pendingDescription('description-chat')).toBe('');
 });

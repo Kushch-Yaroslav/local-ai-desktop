@@ -47,3 +47,11 @@ export function onPendingSelectionChange(listener: () => void): () => void {
     listeners.delete(listener);
   };
 }
+
+/** Stable snapshot for composer validation; no page prose is treated as a task. */
+export function pendingDescription(conversationId?: string): string {
+  return (peekPendingSelection(conversationId)?.attachments ?? [])
+    .map((attachment) => attachment.description?.trim() ?? '')
+    .filter(Boolean)
+    .join('\n\n');
+}

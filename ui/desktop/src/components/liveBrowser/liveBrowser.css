@@ -711,3 +711,72 @@
 .lb2-history-capture summary {
   overflow-wrap: anywhere;
 }
+
+/* Bounded independent inspector panes; wheel gestures stay in their list. */
+.lb2-inspector {
+  overflow: hidden;
+}
+.lb2-inspector-heading {
+  flex-shrink: 0;
+}
+.lb2-findings-all {
+  flex: 1 1 160px;
+  min-height: 64px;
+  max-height: min(280px, 38vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.lb2-inspector:has(.lb2-area-editor) .lb2-findings-all {
+  flex: 0 1 140px;
+  max-height: 26%;
+}
+.lb2-findings-all > strong {
+  position: sticky;
+  top: -8px;
+  background: var(--color-background-primary, #fff);
+  z-index: 1;
+}
+.lb2-findings-all > button {
+  flex-shrink: 0;
+}
+.lb2-findings-all > button[aria-pressed='true'] {
+  background: #6a8aaf25;
+}
+.lb2-findings-all small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lb2-area-list {
+  max-height: 22%;
+  min-height: 28px;
+  overscroll-behavior: contain;
+}
+.lb2-area-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.lb2-description-field textarea {
+  min-height: 56px;
+  max-height: 140px;
+}
+@media (max-height: 720px) {
+  .lb2-findings-all {
+    padding: 5px;
+    gap: 2px;
+  }
+  .lb2-findings > button {
+    padding: 3px;
+  }
+  .lb2-area-editor {
+    padding-top: 5px;
+  }
+}
+
+.lb2-inspector:has(.lb2-candidate-notice) .lb2-area-list { display: none; }
+.lb2-findings > summary { cursor: pointer; font-size: 10px; font-weight: 600; }
+.lb2-area-editor details.lb2-findings { flex-shrink: 0; }
