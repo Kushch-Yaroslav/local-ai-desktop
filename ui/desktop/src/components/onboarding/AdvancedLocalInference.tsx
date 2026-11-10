@@ -25,6 +25,10 @@ const flags: Partial<Record<keyof GgufProfile, string>> = {
   cacheK: '--cache-type-k',
   cacheV: '--cache-type-v',
   flashAttention: '--flash-attn',
+  parallel: '--parallel',
+  draftCacheK: '--cache-type-k-draft',
+  draftCacheV: '--cache-type-v-draft',
+  draftUbatch: '--spec-draft-n-ubatch',
   threads: '--threads',
   batch: '--batch-size',
   ubatch: '--ubatch-size',
@@ -107,6 +111,10 @@ export default function AdvancedLocalInference({
           'cacheK',
           'cacheV',
           'ubatch',
+          'parallel',
+          'draftCacheK',
+          'draftCacheV',
+          'draftUbatch',
           'cpuMoe',
           'nCpuMoe',
           'tensorOverride',
@@ -167,7 +175,7 @@ export default function AdvancedLocalInference({
     </label>
   );
   const number = (
-    key: 'gpuLayers' | 'context' | 'threads' | 'batch' | 'ubatch' | 'nCpuMoe' | 'moeCacheMiB'
+    key: 'gpuLayers' | 'context' | 'threads' | 'batch' | 'ubatch' | 'parallel' | 'draftUbatch' | 'nCpuMoe' | 'moeCacheMiB'
   ) => (
     <label key={key} className="block space-y-2 text-sm">
       <span>{t(key)}</span>
@@ -184,7 +192,7 @@ export default function AdvancedLocalInference({
       {!supported(key) && <p className="text-text-danger">{t('unsupported')}</p>}
     </label>
   );
-  const choice = (key: 'cacheK' | 'cacheV' | 'flashAttention', values: string[]) => (
+  const choice = (key: 'cacheK' | 'cacheV' | 'draftCacheK' | 'draftCacheV' | 'flashAttention', values: string[]) => (
     <label key={key} className="block space-y-2 text-sm">
       <span>{t(key)}</span>
       <select
@@ -403,15 +411,28 @@ export default function AdvancedLocalInference({
                 {present('cacheK') && choice('cacheK', ['f16', 'q8_0', 'q4_0'])}
                 {present('cacheV') && choice('cacheV', ['f16', 'q8_0', 'q4_0'])}
                 {present('flashAttention') && choice('flashAttention', ['auto', 'on', 'off'])}
+                {profile.speculativeMode?.startsWith('mtp-') && present('draftCacheK') && choice('draftCacheK', ['f16', 'q8_0'])}
+                {profile.speculativeMode?.startsWith('mtp-') && present('draftCacheV') && choice('draftCacheV', ['f16', 'q8_0'])}
               </div>
             )}
             {section(
               'cpu',
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {number('threads')}
+                {present('parallel') && number('parallel')}
+                {profile.speculativeMode?.startsWith('mtp-') && present('draftUbatch') && number('draftUbatch')}
                 {number('batch')}
                 {present('ubatch') && number('ubatch')}
               </div>
+            )}
+            {profile.speculativeMode?.startsWith('mtp-') && probe?.flags.includes('--parallel') && probe?.flags.includes('--spec-draft-n-ubatch') && (
+              <Button variant="outline" disabled={busy} onClick={() => {
+                setProfile(p => ({
+                  ...p, parallel: 1, batch: 512, ubatch: 128, draftUbatch: 128, draftTokens: 1,
+                  draftMinTokens: p.draftMinTokens === undefined ? undefined : Math.min(p.draftMinTokens, 1),
+                }));
+                setNotice(undefined);
+              }}>{t('mtpMemoryPreset')}</Button>
             )}
             {profile.backend !== 'native' && section('vision', <div className="space-y-2">{text('projector', true)}{toggle('projectorCpu')}</div>)}
             {section(

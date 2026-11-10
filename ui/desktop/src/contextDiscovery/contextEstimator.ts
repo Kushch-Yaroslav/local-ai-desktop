@@ -85,6 +85,10 @@ export interface ContextDiscoveryOption {
 }
 
 export interface ContextProbeRecord {
+  speculativeEvidence?: { mode: string; drafted: number; accepted: number };
+  allocationEvidence?: RuntimeContextEstimate['allocationEvidence'];
+  residentBytes?: number;
+  deviceResidentBytes?: number;
   vramBudget?: import('./vramBudget').VramBudget;
   kvCacheType: 'f16' | 'q8_0';
   contextWindow: number;

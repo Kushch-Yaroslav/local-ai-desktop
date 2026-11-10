@@ -439,6 +439,7 @@ export class ManagedGguf {
       hardLimit,
       gpu,
       hostReserveBytes: this.contextReserves().host,
+      deviceReserveBytes: this.contextReserves().device,
     });
     const key = contextDiscoveryKey(identity);
     const saved = await loadDiscoveryOptions(path.join(this.root, discoveryOptionsFile), {
@@ -539,6 +540,9 @@ export class ManagedGguf {
     try {
       const result = await discoverContextBoundary({
         modelId: selected.model,
+        minimumContextTokens: selected.speculativeMode?.startsWith('mtp-') ? 4096 : undefined,
+        retainEquivalentKvOptions: selected.speculativeMode?.startsWith('mtp-'),
+        measureInitialGrowth: selected.speculativeMode?.startsWith('mtp-'),
         hardLimit: metadata.context,
         kvOffload: selected.kvOffload !== false,
         kvModes: capabilities.cacheTypes.filter(
@@ -596,14 +600,24 @@ export class ManagedGguf {
               },
               body: JSON.stringify({
                 model: 'local-gguf',
-                messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
-                max_tokens: 2,
+                messages: [{ role: 'user', content: selected.speculativeMode?.startsWith('mtp-') ? 'Describe a sunrise over a lake in simple English. Write several sentences.' : 'Reply with the single word OK.' }],
+                max_tokens: selected.speculativeMode?.startsWith('mtp-') ? 64 : 2,
+                temperature: 0,
+                seed: 42,
+                cache_prompt: false,
+                chat_template_kwargs: { enable_thinking: false },
                 stream: false,
               }),
               signal: controller.signal,
             });
             if (!response.ok) throw runtimeError('discoveryInference', String(response.status));
-            await response.arrayBuffer();
+            const completion = await response.json();
+            if (selected.speculativeMode?.startsWith('mtp-')) {
+              const drafted = completion.timings?.draft_n;
+              if (!Number.isFinite(drafted) || drafted <= 0 || !completion.choices?.[0])
+                throw runtimeError('discoveryMtpInactive', 'No actual draft tokens generated; result cannot certify MTP On');
+              record.speculativeEvidence = { mode: selected.speculativeMode, drafted, accepted: completion.timings.draft_n_accepted ?? 0 };
+            }
             record.inference = true;
             const child = this.owned;
             if (!child?.pid) throw runtimeError('discoveryProcessMissing');
@@ -613,6 +627,8 @@ export class ManagedGguf {
               currentResidentBytes(child.pid),
               fs.stat(selected.model).then((stat) => stat.size),
             ]);
+            record.residentBytes = residentBytes;
+            record.deviceResidentBytes = vramBudget.llmBytes;
             record.hardware = {
               ramTotalBytes: hardware.ramTotalBytes,
               ramUsedBytes: hardware.ramUsedBytes,
@@ -645,6 +661,7 @@ export class ManagedGguf {
               deviceReserveBytes: vramEstimatorMarginBytes,
               runtimeArguments: endpoint.args,
             }, async () => ({ text: (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8') }));
+            record.allocationEvidence = estimate.allocationEvidence;
             if (estimate.unknownReasons.length) record.reason = estimate.unknownReasons.join("; ");
             if (estimate.memoryHeadroom) record.headroom = estimate.memoryHeadroom;
             if (estimate.memoryBaseline) record.memoryBaseline = estimate.memoryBaseline;
@@ -654,7 +671,7 @@ export class ManagedGguf {
             record.reason = discoveryProbeError(error);
             const diagnostic = await fs.readFile(logPath).then(data => data.subarray(this.logStarts.get(profileId) ?? data.length).toString('utf8')).catch(() => '');
             const failureKind = classifyProbeRuntimeFailure(diagnostic + '\n' + record.reason);
-            record.reason = `${failureKind}: ${record.reason}${/failed to create MTP context/i.test(diagnostic) ? ' MTP draft context could not fit; disable MTP or reduce GPU offload before retrying.' : ''}`;
+            record.reason = `${failureKind}: ${record.reason}${/failed to create MTP context/i.test(diagnostic) ? ' MTP draft context could not fit; try one parallel slot, smaller microbatches or explicit partial CPU offload, then rerun with MTP still enabled.' : ''}`;
             record.elapsedMs = Date.now() - started;
             return { record, estimate: null, failureKind };
           }

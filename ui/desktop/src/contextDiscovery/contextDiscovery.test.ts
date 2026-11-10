@@ -24,16 +24,16 @@ function fixture(context: number, mode: 'f16' | 'q8_0', phase: 'base' | 'search'
 }
 
 describe('ported donor context discovery core', () => {
-  it('preserves the v0.3.2.0 reserve and candidate decisions for identical measured probes', async () => {
+  it('preserves donor search decisions while enforcing the explicit VRAM reserve', async () => {
     const result = await discoverContextBoundary({ modelId: 'model', hardLimit: 262144, kvOffload: true,
       hostReserveBytes: 8 * GiB, deviceReserveBytes: 2 * GiB,
       probe: async (context, mode, phase) => fixture(context, mode, phase), restore: async () => undefined,
       progress: () => undefined });
     expect(result.options.map(({ contextWindow, kvCacheType }) => ({ contextWindow, kvCacheType }))).toEqual([
       { contextWindow: 81920, kvCacheType: 'f16' },
-      { contextWindow: 155648, kvCacheType: 'q8_0' },
+      { contextWindow: 151552, kvCacheType: 'q8_0' },
     ]);
-    expect(result.options.every((option) => option.vramBudget!.llmBytes <= option.vramBudget!.availableLlmBytes)).toBe(true);
+    expect(result.options.every((option) => option.vramBudget!.llmBytes <= option.vramBudget!.availableLlmBytes && option.measuredHeadroom.deviceBytes >= 2 * GiB)).toBe(true);
     expect(result.probes!.some((probe) => !probe.startup && probe.reason?.includes('Пропущено'))).toBe(true);
   });
 
@@ -78,4 +78,26 @@ it('stops infrastructure failures after one probe and restores without claiming 
  let calls=0, restores=0;
  await expect(discoverContextBoundary({ modelId:'broken', hardLimit:65536, kvOffload:true, hostReserveBytes:8*GiB, deviceReserveBytes:2*GiB, progress:()=>{}, restore:async()=>{restores++;}, probe:async(context,mode,phase)=>{calls++;return {failureKind:'arguments',estimate:null,record:{contextWindow:context,kvCacheType:mode,phase,startup:false,health:false,inference:false,fits:false,reason:'unknown argument',elapsedMs:1,headroom:null,memoryBaseline:null}};} })).rejects.toThrow('Discovery stopped (arguments)');
  expect(calls).toBe(1);expect(restores).toBe(1);
+});
+
+it('MTP search starts below the old 16K floor and retains independently verified Q8', async()=>{
+ const seen:number[]=[];
+ const result=await discoverContextBoundary({modelId:'mtp',hardLimit:16384,minimumContextTokens:4096,retainEquivalentKvOptions:true,kvOffload:true,hostReserveBytes:8*GiB,deviceReserveBytes:2*GiB,progress:()=>{},restore:async()=>{},probe:async(context,mode,phase)=>{seen.push(context);return fixture(context,mode,phase);}});
+ expect(seen[0]).toBe(4096);
+ expect(result.probeContextTokens).toBe(4096);
+ expect(result.options.map(o=>o.kvCacheType)).toEqual(['f16','q8_0']);
+});
+
+it('measures fixed MTP compute overhead at a second nearby context instead of stopping at the calibration floor',async()=>{
+ const seen:number[]=[];
+ const result=await discoverContextBoundary({modelId:'fixed-mtp',hardLimit:32768,minimumContextTokens:4096,measureInitialGrowth:true,retainEquivalentKvOptions:true,kvOffload:true,hostReserveBytes:8*GiB,deviceReserveBytes:2*GiB,progress:()=>{},restore:async()=>{},probe:async(context,mode,phase)=>{seen.push(context);const probe=fixture(context,mode,phase);probe.estimate!.allocationEvidence!.allocations.speculativeCompute={device:2*GiB};return probe;}});
+ expect(seen.slice(0,2)).toEqual([4096,8192]);
+ expect(result.options.every(o=>o.contextWindow>4096)).toBe(true);
+});
+
+it('preserves an explicitly larger VRAM reserve even when a process budget is available',async()=>{
+ const reserve=4*GiB;
+ const result=await discoverContextBoundary({modelId:'reserved-mtp',hardLimit:262144,minimumContextTokens:4096,measureInitialGrowth:true,retainEquivalentKvOptions:true,kvOffload:true,hostReserveBytes:8*GiB,deviceReserveBytes:reserve,progress:()=>{},restore:async()=>{},probe:async(context,mode,phase)=>fixture(context,mode,phase)});
+ expect(result.options).toHaveLength(2);
+ expect(result.options.every(option=>option.measuredHeadroom.deviceBytes>=reserve)).toBe(true);
 });

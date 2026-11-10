@@ -24,7 +24,7 @@ beforeEach(async () => {
   await writeFile(
     executable,
     `#!/usr/bin/env node
-if(process.argv.includes('--help')){console.log('LLAMA_API_KEY --model --host --port --gpu-layers --ctx-size --alias --api-key --list-devices --threads --batch-size --ubatch-size --cache-type-k --cache-type-v f16 q8_0 --flash-attn --mmproj --cpu-moe --n-cpu-moe --override-tensor --jinja --chat-template --spec-type none,draft-simple,draft-mtp --spec-draft-n-max --spec-draft-n-min --spec-draft-model --gpu-layers-draft');process.exit(0);}
+if(process.argv.includes('--help')){console.log('LLAMA_API_KEY --verbose --model --host --port --gpu-layers --ctx-size --alias --api-key --list-devices --threads --batch-size --ubatch-size --cache-type-k --cache-type-v f16 q8_0 --flash-attn --mmproj --cpu-moe --n-cpu-moe --override-tensor --jinja --chat-template --spec-type none,draft-simple,draft-mtp --spec-draft-n-max --spec-draft-n-min --spec-draft-model --gpu-layers-draft');process.exit(0);}
 if(process.argv.includes('--version')){console.log('fixture 1');process.exit(0);}
 if(process.argv.includes('--list-devices')){console.log('Available devices: (none)');process.exit(0);}
 require('fs').appendFileSync(${JSON.stringify(marker)},'start\\n');
@@ -34,6 +34,7 @@ const server=http.createServer((req,res)=>{
  if(req.url==='/health'){res.end('{}');return;}
  if(req.url==='/v1/chat/completions'){
   const chunks=[];req.on('data',b=>chunks.push(b));req.on('end',()=>{const body=Buffer.concat(chunks);const parsed=JSON.parse(body);
+  if(parsed.max_tokens===64&&parsed.seed===42&&parsed.cache_prompt===false){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'synthetic, no actual MTP'}}]}));return;}
   if(parsed.testScenario==='echo'){res.setHeader('Content-Type','application/json');res.end(body);return;}
   if(parsed.testScenario==='stream-protocol'){res.writeHead(200,{'Content-Type':'text/event-stream'});const bytes=Buffer.from(parsed.fixtureSse);let i=0;const timer=setInterval(()=>{if(i>=bytes.length){clearInterval(timer);res.end();return;}res.write(bytes.subarray(i,i+7));i+=7;},1);return;}
   if(parsed.testScenario==='broken-stream'){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write('data: {"choices":[{"delta":{"content":"synthetic"}}]}\\n\\n');setTimeout(()=>res.destroy(),50);return;}
@@ -449,4 +450,12 @@ it('does not advertise or accept embedded MTP for a target without a validated h
   expect((await service.capabilities(p.id!)).embeddedMtp).toBe(false);
   await expect(service.setEmbeddedMtp(p.id!,true)).rejects.toThrow('specBackend');
   await expect(access(marker)).rejects.toThrow();
+});
+
+it('never certifies MTP context when inference returned no actual draft activity',async()=>{
+ await writeFile(base.model,speculativeFixture());
+ const profile=await service.save({...base,context:4096,speculativeMode:'mtp-embedded',flashAttention:'on'});
+ const lease=await service.acquireRuntimeLease({id:999,once:()=>{}} as never);
+ await expect(service.runContextDiscovery(profile.id!,lease)).rejects.toThrow('No actual draft tokens generated');
+ expect(service.state.phase).toBe('idle');
 });

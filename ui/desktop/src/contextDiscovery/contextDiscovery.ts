@@ -17,6 +17,9 @@ export type DiscoveryProbe = {
 
 export type DiscoveryDependencies = {
   modelId: string;
+  minimumContextTokens?: number;
+  retainEquivalentKvOptions?: boolean;
+  measureInitialGrowth?: boolean;
   hardLimit: number;
   kvOffload: boolean;
   kvModes?: Array<'f16' | 'q8_0'>;
@@ -59,7 +62,7 @@ function predictionFits(samples: readonly RuntimeContextEstimate[], context: num
   const predicted = predictContextHeadroom(samples, context);
   const budget = samples.at(-1)?.vramBudget;
   const reserve = budget
-    ? Math.max(vramProbeGuardBytes, budget.freeBytes + budget.llmBytes - budget.availableLlmBytes - (finalPolicy ? 0 : budget.marginBytes))
+    ? Math.max(deviceReserve, vramProbeGuardBytes, budget.freeBytes + budget.llmBytes - budget.availableLlmBytes - (finalPolicy ? 0 : budget.marginBytes))
     : deviceReserve;
   return predicted !== null && predicted.hostBytes >= hostReserve + predictionUncertaintyBytes
     && predicted.deviceBytes >= reserve;
@@ -90,7 +93,7 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
   const unsupported: ContextDiscoveryResult['unsupported'] = [];
   const probes: ContextProbeRecord[] = [];
   const hardLimit = Math.floor(deps.hardLimit / bucket) * bucket;
-  const baseContext = Math.min(16_384, hardLimit);
+  const baseContext = Math.min(deps.minimumContextTokens ?? 16_384, hardLimit);
   if (hardLimit < bucket) throw new Error('Предел контекста модели и llama.cpp ниже минимального шага поиска.');
   const runProbe = async (context: number, mode: 'f16' | 'q8_0', phase: ContextProbeRecord['phase']) => {
     deps.signal?.throwIfAborted();
@@ -121,11 +124,15 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
       let latestGood = base;
       let boundaryReason: ContextDiscoveryOption['boundaryReason'] = 'bounded-search';
       let failedContextTokens: number | undefined;
-      let candidate = predictedCeiling(samples, hardLimit, emergencyHostReserve, 0);
-      for (let attempt = 0; attempt < maxSearchProbes && high - low > granularity; attempt += 1) {
+      let candidate = deps.measureInitialGrowth ? Math.min(low + bucket, hardLimit) : predictedCeiling(samples, hardLimit, emergencyHostReserve, 0);
+      for (let attempt = 0; attempt < maxSearchProbes && high - low > (deps.measureInitialGrowth ? bucket : granularity); attempt += 1) {
         candidate = Math.min(candidate, high - bucket, hardLimit);
         if (candidate <= low) break;
-        if (!predictionFits(samples, candidate, emergencyHostReserve, 0)) {
+        // A second nearby measurement distinguishes fixed MTP buffers from
+        // context-proportional allocations. Never assume an entire compute graph
+        // grows linearly just because the first calibration context is small.
+        const measuringGrowth = deps.measureInitialGrowth && samples.length === 1 && candidate === low + bucket;
+        if (!measuringGrowth && !predictionFits(samples, candidate, emergencyHostReserve, 0)) {
           probes.push({ kvCacheType: mode, contextWindow: candidate, phase: 'search', startup: false, health: false, inference: false, fits: false,
             reason: 'Пропущено до запуска: расчётная память выходит за общий бюджет VRAM или за защитный порог фактически свободной памяти.',
             headroom: predictContextHeadroom(samples, candidate), memoryBaseline: null, elapsedMs: 0 });
@@ -155,12 +162,13 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
       // KV multipliers or arbitrary percentage reductions of context.
       let finalContext = Math.min(low, predictedCeiling(samples, low, deps.hostReserveBytes, deps.deviceReserveBytes, true));
       if (finalContext < baseContext) {
-        unsupported.push({ kvCacheType: mode, reason: 'Ни один размер контекста не оставляет требуемый запас RAM/VRAM.' });
+        unsupported.push({ kvCacheType: mode, reason: deps.minimumContextTokens ? `Минимальный контекст ${baseContext}: загрузка и генерация выполнены, но измеренный остаток VRAM ${Math.floor(base.estimate.memoryHeadroom!.deviceBytes / 1024 ** 2)} MiB не удовлетворяет резерву/бюджету процесса. Сохраните MTP и явно уменьшите slots/microbatch или GPU offload перед повторным поиском.` : 'Ни один размер контекста не оставляет требуемый запас RAM/VRAM.' });
         continue;
       }
       let final = finalContext === low ? latestGood : await runProbe(finalContext, mode, 'final');
       const finalFits = (probe: DiscoveryProbe, context: number) => completeSample(probe, context, mode, deps.kvOffload)
         && probe.estimate.memoryHeadroom!.hostBytes >= deps.hostReserveBytes
+        && probe.estimate.memoryHeadroom!.deviceBytes >= deps.deviceReserveBytes
         && (probe.estimate.vramBudget ? probe.estimate.vramBudget.llmBytes <= probe.estimate.vramBudget.availableLlmBytes
           : probe.estimate.memoryHeadroom!.deviceBytes >= deps.deviceReserveBytes);
       if (!finalFits(final, finalContext) && finalContext > baseContext) {
@@ -186,7 +194,7 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
     }
     const f16 = options.find((option) => option.kvCacheType === 'f16');
     const q8 = options.find((option) => option.kvCacheType === 'q8_0');
-    if (q8 && (!f16 || q8.contextWindow < f16.contextWindow + granularity)) {
+    if (!deps.retainEquivalentKvOptions && q8 && (!f16 || q8.contextWindow < f16.contextWindow + granularity)) {
       options.splice(options.indexOf(q8), 1);
       unsupported.push({ kvCacheType: 'q8_0', reason: 'Q8 не дал подтверждённого выигрыша хотя бы в 8K по сравнению с FP16.' });
     }

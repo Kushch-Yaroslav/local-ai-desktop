@@ -1401,7 +1401,7 @@
     "defaultMessage": "Управляйте существующими GGUF. Сохранение не загружает веса. Выберите профиль в списке моделей чата — загрузка начнётся при первом запросе."
   },
   "gguf.deviceMemory": {
-    "defaultMessage": "Недостаточно VRAM. Уменьшите контекст/выгрузку на GPU или включите CPU для проектора, затем перезагрузите модель."
+    "defaultMessage": "Не удалось выделить VRAM. Уменьшите контекст/GPU offload или перенесите vision projector на CPU. Для MTP попробуйте один slot и меньшие microbatch основной/draft модели, затем повторите поиск."
   },
   "gguf.devicesInaccessible": {
     "defaultMessage": "Этот runtime не видит GPU. Проверьте библиотеки CUDA, доступ к устройствам и sandbox. Для CPU задайте 0 слоёв GPU."
@@ -5875,5 +5875,20 @@
   },
   "visionQuick.reload": {
     "defaultMessage": "Применить Vision / перезагрузить модель"
+  },
+  "gguf.parallel": {
+    "defaultMessage": "Параллельные чаты (1 экономит память MTP)"
+  },
+  "gguf.draftCacheK": {
+    "defaultMessage": "KV K для MTP/draft (по умолчанию FP16)"
+  },
+  "gguf.draftCacheV": {
+    "defaultMessage": "KV V для MTP/draft (по умолчанию FP16)"
+  },
+  "gguf.draftUbatch": {
+    "defaultMessage": "Microbatch для MTP/draft"
+  },
+  "gguf.mtpMemoryPreset": {
+    "defaultMessage": "Подготовить MTP: 1 чат, 1 draft-токен, batch 512, microbatch 128 — проверьте и сохраните"
   }
 }

@@ -1401,13 +1401,19 @@
     "defaultMessage": "Manage existing GGUF files. Saving never loads weights. Select a profile in the chat model selector; the first request loads it."
   },
   "gguf.deviceMemory": {
-    "defaultMessage": "GPU memory allocation failed. Lower context/GPU offload, or run the vision projector on CPU, then reload."
+    "defaultMessage": "GPU memory allocation failed. Lower context/GPU offload or run the vision projector on CPU. For MTP, try one slot and smaller target/draft microbatches before rerunning discovery."
   },
   "gguf.devicesInaccessible": {
     "defaultMessage": "No GPU is visible to this executable. Check its CUDA libraries, device access and sandbox. CPU fallback: set GPU layers to 0."
   },
   "gguf.draft": {
     "defaultMessage": "Draft/MTP requires matching architecture, tokenizer, dimensions and backend validation. Not enabled in this version."
+  },
+  "gguf.draftCacheK": {
+    "defaultMessage": "MTP / draft KV K (default FP16)"
+  },
+  "gguf.draftCacheV": {
+    "defaultMessage": "MTP / draft KV V (default FP16)"
   },
   "gguf.draftCompatibility": {
     "defaultMessage": "Draft/MTP compatibility has not been verified; remove the draft setting to continue."
@@ -1423,6 +1429,9 @@
   },
   "gguf.draftTokens": {
     "defaultMessage": "Maximum draft tokens (1–16)"
+  },
+  "gguf.draftUbatch": {
+    "defaultMessage": "MTP / draft microbatch"
   },
   "gguf.duplicate": {
     "defaultMessage": "Duplicate"
@@ -1496,6 +1505,9 @@
   "gguf.moeNote": {
     "defaultMessage": "GPU Layers controls ordinary layers; CPU MoE controls expert weights. The GPU cache keeps selected CPU-resident experts in VRAM; speed depends on the model and workload."
   },
+  "gguf.mtpMemoryPreset": {
+    "defaultMessage": "Prepare MTP preset: 1 slot, 1 draft token, batch 512, microbatches 128 — review and save"
+  },
   "gguf.nCpuMoe": {
     "defaultMessage": "First N MoE layers on CPU"
   },
@@ -1528,6 +1540,9 @@
   },
   "gguf.on": {
     "defaultMessage": "On"
+  },
+  "gguf.parallel": {
+    "defaultMessage": "Parallel chat slots (1 uses less MTP memory)"
   },
   "gguf.placementIdentity": {
     "defaultMessage": "The GGUF identity for this placement is not confirmed. Review the inspected model and confirm it in Advanced settings."
