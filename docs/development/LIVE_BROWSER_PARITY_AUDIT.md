@@ -217,3 +217,14 @@ Ubuntu launch follow-up (2026-11-10): the user's permanent Desktop Entry was ins
 
 
 GNOME menu issue resolved at the actual application ID: the visible canonical `local-ai-desktop.desktop` had remained system-bound to `/opt/local-ai-desktop/local-ai-desktop`; activating the app changed only the Goose Dev ID. A user override now points the canonical ID to the active-build launcher, the old user aliases and redundant Goose Dev ID are backed up and hidden, and favorites target the canonical ID. `gtk-launch local-ai-desktop` started the active package twice with clean targeted close between runs. Physical app-grid click and a fresh login were unavailable for automation and are called out in the handoff.
+
+
+## 17. MTP On discovery follow-up — 2026-11-10
+
+This is an inference/runtime acceptance update; it does not upgrade unverified Live Browser autonomous repair to PASS. See [MTP_CONTEXT_DISCOVERY.md](MTP_CONTEXT_DISCOVERY.md) for the complete source audit and measured evidence.
+
+Discovery now calibrates actual MTP runtime from 4K, distinguishes fixed speculative/recurrent state through a second measured point, requires positive drafted tokens, retains independently measured FP16/Q8 and honors explicit reserves. Settings expose slots, independent draft KV and draft microbatch. The explicit one-slot/one-draft memory preset requires review/save and preserves MTP/placement. Persistence policy v2 accepts 4K/8K and separates changed reserves/placement.
+
+Real Qwen3.6-35B RTX3090 tests confirm full-GPU preset 45,056 FP16 / 69,632 Q8; explicit CPU experts for first one/two blocks confirm 57,344/90,112 and 81,920/118,784 respectively. Ordinary activation generated at each returned size with actual draft acceptance. Fresh packaged Electron's UI save → actual bundled runtime discovery → ordinary max-context generation PASS, native-window screenshot checked. 100 targeted regressions PASS; TSC/targeted lint/EN extraction/RU placeholders PASS; all-locale completeness remains FAIL. Tests used isolated profiles and no concurrent model; primary application and original repository remained untouched.
+
+Candidate `.local-work/mtp-discovery-mtp-on/Local AI Desktop-linux-x64` is checked but not activated. Exact-path AppArmor permission and explicit safe activation are required before the existing Dock launcher uses it. No claim is made about filled long-context quality, exhaustive CPU tradeoffs or a new real Qwen3.8-27B test.

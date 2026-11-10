@@ -1,3 +1,17 @@
+# MTP On context discovery — current handoff, 2026-11-10
+
+This follow-up supersedes the earlier advice to disable MTP as a workaround. **MTP remains On in every new discovery result.** Detailed audit, memory allocations, controls, exact tests and safe activation: [MTP_CONTEXT_DISCOVERY.md](MTP_CONTEXT_DISCOVERY.md).
+
+Confirmed cause: default parallel/speculative state plus an extra MTP context consumed the remaining GPU space; discovery began at 16K and could miss working small contexts, extrapolated fixed buffers from one point, and persistence discarded sub-16K options. MTP search now starts at 4K with two measured calibration points, real draft-token generation, independent FP16/Q8 results and explicit reserve checks. Policy v2 separates old calibrations and device-reserve/placement identities. Profiles gain explicit slots, draft microbatch and draft KV; the opt-in preset uses one slot/one draft token/batch512/microbatches128, preserving MTP and offload. CPU placement is never changed silently.
+
+Real RTX3090/Qwen3.6-35B acceptance (same read-only GGUF, runtime `5047748`, sequential isolated tests): full GPU preset **45,056 FP16 / 69,632 Q8**; explicit `nCpuMoe=1`: **57,344 / 90,112**; `nCpuMoe=2`: **81,920 / 118,784**. Draft KV stays FP16 in these Q8 results. Both discovered modes subsequently generated through ordinary profile activation with positive drafted/accepted tokens. Default four-slot/two-draft settings now return **8,192 / 16,384**, surviving supervisor restart. Manual 512-token minimum also generated with MTP. These are policy-confirmed bounded-search values with short inference, not exhaustive OOM limits or full-context quality tests.
+
+100 targeted tests PASS; real GPU discovery/normal-start matrix PASS; fresh packaged UI + real bundled GPU discovery/normal generation PASS (45,056 / 69,632), native-window screenshot inspected. TSC, targeted ESLint, extraction and RU validation PASS. Full all-locale validation FAIL due incomplete non-RU GGUF/Live Browser catalogs. Other models were not reloaded in this follow-up. No primary processes/user data changed.
+
+**Fresh candidate, not yet activated:** `.local-work/mtp-discovery-mtp-on/Local AI Desktop-linux-x64/`. Evidence: ignored `.local-work/mtp-verification/`, including native screenshots and packaged GPU JSON. Current launcher still selects the previous p0-dock-qwen package. Close the application yourself, install the candidate's exact-path AppArmor rule and activate it using commands in the MTP report. The existing canonical Dock/menu ID is `local-ai-desktop.desktop`; do not recreate aliases or disable Chromium sandboxing.
+
+---
+
 # Live Browser 3 continuation — current handoff, 2026-11-09
 
 This section supersedes the historical Live Browser 2 snapshot below. **Full parity and real Qwen autonomous repair are not confirmed.** Original repository remained read-only; no primary application, inference worker or proxy was stopped. User profiles, chats, settings and GGUF were not replaced.
