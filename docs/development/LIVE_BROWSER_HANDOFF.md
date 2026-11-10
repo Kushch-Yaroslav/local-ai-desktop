@@ -1,3 +1,15 @@
+# Ordinary-profile MTP log regression — current handoff, 2026-11-10
+
+The user's latest missing-MTP/allocation-evidence failure was **not OOM**. The append-only runtime log was 16,773,843 bytes, and the per-child diagnostic quota incorrectly started at the entire historical file size. Later probes initialized/generated but lost their startup records. Quota now starts at zero for each child, preserving the current-child offset and inter-launch rotation. Incomplete capped diagnostics stop with `diagnostics-truncated`; missing allocations are never fabricated. See [MTP_DISCOVERY_LOG_REGRESSION.md](MTP_DISCOVERY_LOG_REGRESSION.md).
+
+Old packaged saturated-log reproduction: expected FAIL despite actual MTP generation. Fixed packaged saturated-log regression: PASS. **Actual ordinary saved profile**, unchanged parameters/registry, actual Session settings → Find maximum → select FP16/Q8 → Apply → ordinary model generation: PASS, **45,056 FP16 / 69,632 Q8**, drafted/accepted 31/23 and 30/23. Results persisted; original context selection restored. No preset was reapplied. 74 targeted tests PASS, TSC/targeted lint PASS.
+
+Fresh full Forge candidate: `.local-work/mtp-log-regression-checked/Local AI Desktop-linux-x64/`. **Existing activated package has already been updated safely:** `.local-work/mtp-discovery-mtp-on/Local AI Desktop-linux-x64/` now has the same fixed app.asar, atomically installed only after checking no main application process was running. All other package files were verified identical. Previous asar backed up under ignored `.local-work/mtp-log-regression/`. Existing canonical Desktop Entry/pointer/AppArmor preserved; **no sudo or reactivation needed for this installation**. The permanent Desktop Entry was launched via gio with the real ordinary profile and the full search/apply/generate sequence passed; Electron closed normally. Physical Dock click/new GNOME login were not repeated.
+
+The preserved user selection was an older 65,536 FP16 override. Choose a newly discovered option for MTP use; the test deliberately restored that original setting rather than silently changing user preferences. No chats, profile registry, GGUF or global CUDA settings were reset, and no pre-existing runtime/app process was stopped.
+
+---
+
 # MTP On context discovery — current handoff, 2026-11-10
 
 This follow-up supersedes the earlier advice to disable MTP as a workaround. **MTP remains On in every new discovery result.** Detailed audit, memory allocations, controls, exact tests and safe activation: [MTP_CONTEXT_DISCOVERY.md](MTP_CONTEXT_DISCOVERY.md).

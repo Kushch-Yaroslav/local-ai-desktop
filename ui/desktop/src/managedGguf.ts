@@ -638,6 +638,7 @@ export class ManagedGguf {
             };
             record.vramBudget = vramBudget;
             record.args = endpoint.args;
+            const currentLog = (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8');
             const estimate = await collectRuntimeContextEstimate({
               backend: 'llama-cpp',
               modelId: selected.model,
@@ -660,7 +661,9 @@ export class ManagedGguf {
               hostReserveBytes: defaultContextHostReserveBytes,
               deviceReserveBytes: vramEstimatorMarginBytes,
               runtimeArguments: endpoint.args,
-            }, async () => ({ text: (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8') }));
+            }, async () => ({ text: currentLog }));
+            if (estimate.unknownReasons.length && currentLog.includes('[Local AI Desktop: runtime diagnostic limit reached]'))
+              throw runtimeError('discoveryDiagnosticsTruncated', 'Startup allocation evidence was truncated by the diagnostic log limit; this is not a memory rejection.');
             record.allocationEvidence = estimate.allocationEvidence;
             if (estimate.unknownReasons.length) record.reason = estimate.unknownReasons.join("; ");
             if (estimate.memoryHeadroom) record.headroom = estimate.memoryHeadroom;
@@ -1174,7 +1177,10 @@ export class ManagedGguf {
         closeSync(fd);
         throw error;
       }
-      let logBytes = logStart;
+      // The quota belongs to this child, not the append-only history. A previous
+      // launch near the limit must not consume the next probe's startup evidence.
+      // Rotation above bounds the current append log to two launch budgets.
+      let logBytes = 0;
       let logStopped = false;
       const recordLog = (chunk: Buffer) => {
         if (logStopped) return;

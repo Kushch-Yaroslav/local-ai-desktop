@@ -44,6 +44,7 @@ const server=http.createServer((req,res)=>{
  res.writeHead(404).end();
 });
 const delay=process.argv.includes('--threads')&&process.argv[process.argv.indexOf('--threads')+1]==='2'?2500:0;
+if(process.argv.includes('--threads')&&process.argv[process.argv.indexOf('--threads')+1]==='3')console.error('current-child-startup-evidence:'+ 'x'.repeat(1024));
 setTimeout(()=>server.listen(Number(process.argv[process.argv.indexOf('--port')+1]),'127.0.0.1'),delay);
 `,
     { mode: 0o700 }
@@ -84,6 +85,23 @@ async function writeValidGguf(file: string, context = 131072) {
   await writeFile(file, Buffer.concat([Buffer.from('GGUF'), u32(3), u64(0), u64(fields.length), ...fields]));
 }
 describe('profile registry', () => {
+  it.each([16 * 1024 ** 2 - 64, 16 * 1024 ** 2, 16 * 1024 ** 2 + 64])(
+    'retains current-child startup evidence with %i bytes of existing diagnostic history',
+    async (previousBytes) => {
+      await writeValidGguf(base.model);
+      const profile = await service.save({ ...base, threads: 3 });
+      const log = join(dir, `gguf-${profile.id}.log`);
+      await writeFile(log, Buffer.alloc(previousBytes, '.'));
+      const endpoint = await service.activate(profile.id!);
+      expect(service.state.phase).toBe('ready');
+      expect(endpoint.args).toContain('--threads');
+      expect(await readFile(log, 'utf8')).toContain('current-child-startup-evidence:');
+      if (previousBytes > 16 * 1024 ** 2) expect((await readFile(log + '.1')).length).toBe(previousBytes);
+      await service.unload();
+      await service.activate(profile.id!);
+      expect((await readFile(log, 'utf8')).match(/current-child-startup-evidence:/g)?.length).toBe(previousBytes > 16 * 1024 ** 2 ? 2 : 1);
+    }
+  );
   it('saves multiple profiles without spawning weights, migrates legacy and never deletes external weights', async () => {
     const a = await service.save(base);
     const b = await service.save({ ...base, name: 'Second' });

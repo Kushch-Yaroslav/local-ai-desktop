@@ -6,6 +6,8 @@ export function classifyRuntimeFailure(log: string): string {
     )
   )
     return 'cuda-oom';
+  if (/runtime diagnostic limit reached|discoveryDiagnosticsTruncated/.test(log))
+    return 'diagnostics-truncated';
   if (/flash.attention.*(?:not supported|unsupported|failed|requires)/i.test(log))
     return 'flash-attention';
   if (/(?:cache.type|KV cache).*(?:unsupported|not supported|invalid)/i.test(log)) return 'kv-type';

@@ -1,5 +1,7 @@
 # MTP-aware Maximum Context Discovery — acceptance, 2026-11-10
 
+**Later ordinary-profile log regression is fixed and the activated package is updated.** See [MTP_DISCOVERY_LOG_REGRESSION.md](MTP_DISCOVERY_LOG_REGRESSION.md); its installation/acceptance instructions supersede the historical not-yet-activated state below.
+
 This follow-up addresses Qwen3.6-35B with **MTP On**, independently of the earlier successful MTP Off and Dock checks. No user model, profile, chat, GGUF, primary Electron, proxy or inference process was stopped or replaced. Tests cloned the existing profile into isolated directories and refused to run while a llama-server was resident. All GPU experiments were sequential.
 
 ## Confirmed causes and runtime contract

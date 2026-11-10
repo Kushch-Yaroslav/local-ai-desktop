@@ -9,4 +9,5 @@ it.each([
   ['error while loading shared libraries', 'runtime'],
   ['readiness timeout', 'timeout'],
   ['process exited code=1', 'unexpected-exit'],
+  ['[Local AI Desktop: runtime diagnostic limit reached]', 'diagnostics-truncated'],
 ])('classifies %s as %s', (log, kind) => expect(classifyRuntimeFailure(log)).toBe(kind));

@@ -2,6 +2,8 @@
 import { test, expect } from './fixtures';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { nativeWindowShot, resizeNativeWindow } from './native-window-shot';
 process.env.LAD_E2E_ISOLATE = '1';
 test('packaged MTP preset and optional real GPU discovery', async ({ goosePage: page }) => {
@@ -62,20 +64,27 @@ test('packaged MTP preset and optional real GPU discovery', async ({ goosePage: 
     }
     expect(resident).toBe('');
     try {
+      if (process.env.LAD_E2E_MTP_SATURATED_LOG === '1') {
+        const initial = await page.evaluate((id) => window.electron.ggufStart(id), id);
+        await page.evaluate(() => window.electron.ggufStop());
+        // Seed only this fixture's own log, never the ordinary profile's history.
+        expect(initial.logPath?.startsWith(join(tmpdir(), 'lad-e2e-'))).toBe(true);
+        writeFileSync(initial.logPath!, Buffer.alloc(16 * 1024 ** 2 - 64, '.'));
+      }
       const discovery = await page.evaluate(async (id) => {
         const token = await window.electron.ggufDiscoveryAcquire();
         return await window.electron.ggufDiscoveryRun(id, token);
       }, id);
+      writeFileSync(
+        test.info().outputPath('packaged-mtp-discovery.json'),
+        JSON.stringify(discovery, null, 2)
+      );
       expect(discovery.result.options.map((o) => o.kvCacheType).sort()).toEqual(['f16', 'q8_0']);
       expect(
         discovery.result
           .probes!.filter((p) => p.inference)
           .every((p) => (p.speculativeEvidence?.drafted ?? 0) > 0)
       ).toBe(true);
-      writeFileSync(
-        test.info().outputPath('packaged-mtp-discovery.json'),
-        JSON.stringify(discovery, null, 2)
-      );
       const runs = [];
       for (const option of discovery.result.options) {
         await page.evaluate(() => window.electron.ggufStop());
