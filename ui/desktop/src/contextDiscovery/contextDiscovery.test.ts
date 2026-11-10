@@ -101,3 +101,20 @@ it('preserves an explicitly larger VRAM reserve even when a process budget is av
  expect(result.options).toHaveLength(2);
  expect(result.options.every(option=>option.measuredHeadroom.deviceBytes>=reserve)).toBe(true);
 });
+
+it('treats a generation-time CUDA graph OOM as a search boundary and continues with smaller MTP probes', async () => {
+ let restored=0;
+ const result=await discoverContextBoundary({modelId:'mtp-graph',hardLimit:262144,minimumContextTokens:4096,measureInitialGrowth:true,retainEquivalentKvOptions:true,kvOffload:true,hostReserveBytes:8*GiB,deviceReserveBytes:2*GiB,progress:()=>{},restore:async()=>{restored++;},probe:async(context,mode,phase)=>{
+  const sample=fixture(context,mode,phase);
+  if(context>=98304)return {...sample,estimate:null,failureKind:'cuda-oom',record:{...sample.record,inference:false,reason:'CUDA error: out of memory in cudaGraphInstantiate'}};
+  return sample;
+ }});
+ expect(result.options).toHaveLength(2);
+ expect(result.options.every(o=>o.contextWindow<98304)).toBe(true);
+ expect(result.probes!.some(p=>p.reason?.includes('cudaGraphInstantiate'))).toBe(true);
+ expect(restored).toBe(1);
+});
+
+it('retains the primary failure when restoring the original runtime also fails',async()=>{
+ await expect(discoverContextBoundary({modelId:'restore-failure',hardLimit:131072,kvOffload:true,hostReserveBytes:8*GiB,deviceReserveBytes:2*GiB,progress:()=>{},probe:async()=>{throw Error('primary probe failure');},restore:async()=>{throw Error('restore allocation failed');}})).rejects.toThrow(/Primary failure:.*primary probe failure; Runtime restoration failed:.*restore allocation failed/);
+});

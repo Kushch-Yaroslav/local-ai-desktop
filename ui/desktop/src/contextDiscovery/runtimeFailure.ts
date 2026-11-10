@@ -1,7 +1,7 @@
 // Local AI Desktop: startup errors are not memory measurements.
 export function classifyRuntimeFailure(log: string): string {
   if (
-    /cudaMalloc failed: out of memory|CUDA out of memory|failed to allocate.*(?:CUDA|buffer)/i.test(
+    /cudaMalloc failed: out of memory|CUDA(?: error)?:?\s+out of memory|cudaErrorMemoryAllocation|failed to allocate.*(?:CUDA|buffer)/i.test(
       log
     )
   )

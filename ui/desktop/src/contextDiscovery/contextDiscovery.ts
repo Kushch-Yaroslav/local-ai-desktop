@@ -92,6 +92,8 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
   const options: ContextDiscoveryOption[] = [];
   const unsupported: ContextDiscoveryResult['unsupported'] = [];
   const probes: ContextProbeRecord[] = [];
+  let primaryFailure: unknown;
+  let failed = false;
   const hardLimit = Math.floor(deps.hardLimit / bucket) * bucket;
   const baseContext = Math.min(deps.minimumContextTokens ?? 16_384, hardLimit);
   if (hardLimit < bucket) throw new Error('Предел контекста модели и llama.cpp ниже минимального шага поиска.');
@@ -103,7 +105,7 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
     deps.signal?.throwIfAborted();
     probes.push(probe.record);
     if (probe.failureKind && probe.failureKind !== 'cuda-oom') {
-      throw new Error(`Discovery stopped (${probe.failureKind}): ${probe.record.reason ?? 'runtime probe failed before valid memory measurement'}`);
+      throw new Error(`Discovery stopped (${probe.failureKind}) at ${phase}, ${mode}, context=${context}: ${probe.record.reason ?? 'runtime probe failed before valid memory measurement'}`);
     }
     return probe;
   };
@@ -198,9 +200,16 @@ export async function discoverContextBoundary(deps: DiscoveryDependencies): Prom
       options.splice(options.indexOf(q8), 1);
       unsupported.push({ kvCacheType: 'q8_0', reason: 'Q8 не дал подтверждённого выигрыша хотя бы в 8K по сравнению с FP16.' });
     }
-  } finally {
+  } catch (error) {
+    primaryFailure = error;
+    failed = true;
+  }
+  try {
     deps.progress('Восстановление исходной конфигурации llama.cpp…', probes.length);
     await deps.restore();
+  } catch (error) {
+    throw new Error(`${failed ? `Primary failure: ${String(primaryFailure)}; ` : ''}Runtime restoration failed: ${String(error)}`, { cause: error });
   }
+  if (failed) throw primaryFailure;
   return { modelId: deps.modelId, probeContextTokens: baseContext, hardLimit, options, unsupported, restored: true, probes };
 }

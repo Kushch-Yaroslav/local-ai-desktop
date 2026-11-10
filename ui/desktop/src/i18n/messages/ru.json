@@ -1409,6 +1409,12 @@
   "gguf.draft": {
     "defaultMessage": "Draft/MTP требует проверки архитектуры, токенизатора, размерностей и backend. В этой версии не включён."
   },
+  "gguf.draftCacheK": {
+    "defaultMessage": "KV K для MTP/draft (по умолчанию FP16)"
+  },
+  "gguf.draftCacheV": {
+    "defaultMessage": "KV V для MTP/draft (по умолчанию FP16)"
+  },
   "gguf.draftCompatibility": {
     "defaultMessage": "Совместимость draft/MTP не проверена; удалите настройку draft для продолжения."
   },
@@ -1423,6 +1429,9 @@
   },
   "gguf.draftTokens": {
     "defaultMessage": "Максимум draft-токенов (1–16)"
+  },
+  "gguf.draftUbatch": {
+    "defaultMessage": "Microbatch для MTP/draft"
   },
   "gguf.duplicate": {
     "defaultMessage": "Дублировать"
@@ -1496,6 +1505,9 @@
   "gguf.moeNote": {
     "defaultMessage": "GPU Layers задаёт размещение обычных слоёв, а CPU MoE — весов экспертов. Кэш GPU хранит выбранные эксперты с CPU в видеопамяти; скорость зависит от модели и нагрузки."
   },
+  "gguf.mtpMemoryPreset": {
+    "defaultMessage": "Подготовить MTP: 1 чат, 1 draft-токен, batch 512, microbatch 128 — проверьте и сохраните"
+  },
   "gguf.nCpuMoe": {
     "defaultMessage": "Первые N слоёв MoE на CPU"
   },
@@ -1528,6 +1540,9 @@
   },
   "gguf.on": {
     "defaultMessage": "Вкл."
+  },
+  "gguf.parallel": {
+    "defaultMessage": "Параллельные чаты (1 экономит память MTP)"
   },
   "gguf.placementIdentity": {
     "defaultMessage": "Идентичность GGUF для этого размещения не подтверждена. Проверьте модель и подтвердите её в дополнительных настройках."
@@ -4650,7 +4665,7 @@
     "defaultMessage": "Для {kv} не хватило измерений памяти или подтверждения работы runtime."
   },
   "sessionSettings.discoveryFailed": {
-    "defaultMessage": "Не удалось найти контекст. Исходная конфигурация runtime восстановлена, если это было возможно."
+    "defaultMessage": "Не удалось завершить поиск контекста."
   },
   "sessionSettings.discoveryMemoryChanged": {
     "defaultMessage": "Во время измерений память изменилась; безопасный размер не подтверждён."
@@ -4673,14 +4688,32 @@
   "sessionSettings.exactContext": {
     "defaultMessage": "{tokens} токенов · {status}"
   },
+  "sessionSettings.failedRestore": {
+    "defaultMessage": "Восстановление не удалось: {reason}"
+  },
+  "sessionSettings.failureDetails": {
+    "defaultMessage": "{stage} · {kv} · {context} токенов\n{reason}\nRuntime: {restoration}\nДиагностика: {log}"
+  },
   "sessionSettings.fp16": {
     "defaultMessage": "FP16"
+  },
+  "sessionSettings.generationStage": {
+    "defaultMessage": "Пробная генерация"
+  },
+  "sessionSettings.healthStage": {
+    "defaultMessage": "Проверка готовности runtime"
   },
   "sessionSettings.high": {
     "defaultMessage": "Высокий"
   },
   "sessionSettings.kvCache": {
     "defaultMessage": "Точность контекста (KV)"
+  },
+  "sessionSettings.loadStage": {
+    "defaultMessage": "Загрузка probe"
+  },
+  "sessionSettings.loadedRestore": {
+    "defaultMessage": "Восстановлена исходная загруженная конфигурация."
   },
   "sessionSettings.low": {
     "defaultMessage": "Низкий"
@@ -4691,6 +4724,9 @@
   "sessionSettings.max": {
     "defaultMessage": "Максимальный"
   },
+  "sessionSettings.measurementStage": {
+    "defaultMessage": "Измерение памяти"
+  },
   "sessionSettings.medium": {
     "defaultMessage": "Средний"
   },
@@ -4700,6 +4736,9 @@
   "sessionSettings.modeScope": {
     "defaultMessage": "Применяется к этому сеансу"
   },
+  "sessionSettings.mtpStage": {
+    "defaultMessage": "Проверка MTP"
+  },
   "sessionSettings.noResults": {
     "defaultMessage": "Проверка памяти не подтвердила ни один размер контекста."
   },
@@ -4708,6 +4747,12 @@
   },
   "sessionSettings.off": {
     "defaultMessage": "Выкл."
+  },
+  "sessionSettings.olderResults": {
+    "defaultMessage": "Последний поиск завершился ошибкой. Показаны результаты предыдущих измерений."
+  },
+  "sessionSettings.preparationStage": {
+    "defaultMessage": "Подготовка поиска"
   },
   "sessionSettings.providerDefault": {
     "defaultMessage": "По умолчанию у провайдера"
@@ -4766,8 +4811,14 @@
   "sessionSettings.unavailable": {
     "defaultMessage": "Не удалось применить настройку"
   },
+  "sessionSettings.unchangedRestore": {
+    "defaultMessage": "Исходный runtime не изменён."
+  },
   "sessionSettings.unconfirmed": {
     "defaultMessage": "Сохранённый результат · условия нужно проверить"
+  },
+  "sessionSettings.unloadedRestore": {
+    "defaultMessage": "Модель оставлена выгруженной, как до поиска."
   },
   "sessionSettings.unsupportedMode": {
     "defaultMessage": "{kv}: {reason}"
@@ -5875,20 +5926,5 @@
   },
   "visionQuick.reload": {
     "defaultMessage": "Применить Vision / перезагрузить модель"
-  },
-  "gguf.parallel": {
-    "defaultMessage": "Параллельные чаты (1 экономит память MTP)"
-  },
-  "gguf.draftCacheK": {
-    "defaultMessage": "KV K для MTP/draft (по умолчанию FP16)"
-  },
-  "gguf.draftCacheV": {
-    "defaultMessage": "KV V для MTP/draft (по умолчанию FP16)"
-  },
-  "gguf.draftUbatch": {
-    "defaultMessage": "Microbatch для MTP/draft"
-  },
-  "gguf.mtpMemoryPreset": {
-    "defaultMessage": "Подготовить MTP: 1 чат, 1 draft-токен, batch 512, microbatch 128 — проверьте и сохраните"
   }
 }

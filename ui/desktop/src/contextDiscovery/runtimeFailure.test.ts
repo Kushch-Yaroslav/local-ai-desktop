@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import { classifyRuntimeFailure } from './runtimeFailure';
 it.each([
   ['cudaMalloc failed: out of memory', 'cuda-oom'],
+  ['CUDA error: out of memory\ncudaGraphInstantiate(&graph->instances[idx], cuda_graph, nullptr, nullptr, 0)', 'cuda-oom'],
+  ['CUDA error: illegal memory access', 'unexpected-exit'],
   ['unknown argument --flash-attn', 'arguments'],
   ['Flash Attention not supported', 'flash-attention'],
   ['KV cache unsupported', 'kv-type'],

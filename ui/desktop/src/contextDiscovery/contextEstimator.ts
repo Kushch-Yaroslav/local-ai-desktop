@@ -85,6 +85,9 @@ export interface ContextDiscoveryOption {
 }
 
 export interface ContextProbeRecord {
+  logPath?: string;
+  runtimePid?: number;
+  stage?: 'loading' | 'health' | 'generation' | 'mtp' | 'measurement';
   speculativeEvidence?: { mode: string; drafted: number; accepted: number };
   allocationEvidence?: RuntimeContextEstimate['allocationEvidence'];
   residentBytes?: number;

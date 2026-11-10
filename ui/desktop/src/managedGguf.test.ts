@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 // Local AI Desktop: real process/HTTP integration without allocating model weights.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, writeFile, rm, access, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, access, mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 vi.mock('electron', () => ({ app: {}, ipcMain: {}, BrowserWindow: { getAllWindows: () => [] } }));
 import { ManagedGguf } from './managedGguf';
@@ -476,4 +476,31 @@ it('never certifies MTP context when inference returned no actual draft activity
  const lease=await service.acquireRuntimeLease({id:999,once:()=>{}} as never);
  await expect(service.runContextDiscovery(profile.id!,lease)).rejects.toThrow('No actual draft tokens generated');
  expect(service.state.phase).toBe('idle');
+});
+
+it.each([false,true])('restores the original loaded=%s state after repeated failed probes and retains separate receipts',async(loaded)=>{
+ await writeFile(base.model,speculativeFixture());
+ const profile=await service.save({...base,context:4096,speculativeMode:'mtp-embedded',flashAttention:'on'});
+ if(loaded)await service.activate(profile.id!);
+ const originalArgs=service.state.args;
+ for(let i=0;i<3;i++){
+  const token=await service.acquireRuntimeLease({id:999,once:()=>{}} as never);
+  await expect(service.runContextDiscovery(profile.id!,token)).rejects.toThrow('No actual draft tokens generated');
+  expect(service.state.phase).toBe(loaded?'ready':'idle');
+  if(loaded){
+   const withoutPort=(args:string[]|undefined)=>args?.map((arg,index)=>args[index-1]==='--port'?'ephemeral-port':arg);
+   expect(withoutPort(service.state.args)).toEqual(withoutPort(originalArgs));
+  }
+ }
+ const runs=await readdir(join(dir,'discovery'));
+ expect(runs).toHaveLength(3);
+ const logs=new Set<string>();
+ for(const run of runs){
+  const receipt=JSON.parse(await readFile(join(dir,'discovery',run,'result.json'),'utf8'));
+  expect(receipt.initialState.phase).toBe(loaded?'ready':'idle');
+  expect(receipt.restoration).toBe(loaded?'reloaded':'left-unloaded');
+  expect(receipt.probes[0].stage).toBe('mtp');
+  logs.add(receipt.probes[0].logPath);
+ }
+ expect(logs.size).toBe(3);
 });

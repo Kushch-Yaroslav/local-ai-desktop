@@ -4665,7 +4665,7 @@
     "defaultMessage": "{kv} could not be verified because runtime memory or inference evidence was incomplete."
   },
   "sessionSettings.discoveryFailed": {
-    "defaultMessage": "Context search failed. The previous runtime configuration was restored where possible."
+    "defaultMessage": "Context search failed."
   },
   "sessionSettings.discoveryMemoryChanged": {
     "defaultMessage": "Memory changed during probing; no safe context remained."
@@ -4688,14 +4688,32 @@
   "sessionSettings.exactContext": {
     "defaultMessage": "{tokens} tokens · {status}"
   },
+  "sessionSettings.failedRestore": {
+    "defaultMessage": "Restoration failed: {reason}"
+  },
+  "sessionSettings.failureDetails": {
+    "defaultMessage": "{stage} · {kv} · {context} tokens {reason} Runtime: {restoration} Diagnostics: {log}"
+  },
   "sessionSettings.fp16": {
     "defaultMessage": "FP16"
+  },
+  "sessionSettings.generationStage": {
+    "defaultMessage": "Probe generation"
+  },
+  "sessionSettings.healthStage": {
+    "defaultMessage": "Runtime health check"
   },
   "sessionSettings.high": {
     "defaultMessage": "High"
   },
   "sessionSettings.kvCache": {
     "defaultMessage": "KV Cache Precision"
+  },
+  "sessionSettings.loadStage": {
+    "defaultMessage": "Loading probe"
+  },
+  "sessionSettings.loadedRestore": {
+    "defaultMessage": "The previous loaded configuration was restored."
   },
   "sessionSettings.low": {
     "defaultMessage": "Low"
@@ -4706,6 +4724,9 @@
   "sessionSettings.max": {
     "defaultMessage": "Max"
   },
+  "sessionSettings.measurementStage": {
+    "defaultMessage": "Memory measurement"
+  },
   "sessionSettings.medium": {
     "defaultMessage": "Medium"
   },
@@ -4715,6 +4736,9 @@
   "sessionSettings.modeScope": {
     "defaultMessage": "Applies to this session"
   },
+  "sessionSettings.mtpStage": {
+    "defaultMessage": "MTP validation"
+  },
   "sessionSettings.noResults": {
     "defaultMessage": "No context size passed the memory checks."
   },
@@ -4723,6 +4747,12 @@
   },
   "sessionSettings.off": {
     "defaultMessage": "Off"
+  },
+  "sessionSettings.olderResults": {
+    "defaultMessage": "The last search failed. The results shown are from earlier measurements."
+  },
+  "sessionSettings.preparationStage": {
+    "defaultMessage": "Preparing discovery"
   },
   "sessionSettings.providerDefault": {
     "defaultMessage": "Provider default"
@@ -4781,8 +4811,14 @@
   "sessionSettings.unavailable": {
     "defaultMessage": "Could not apply this setting"
   },
+  "sessionSettings.unchangedRestore": {
+    "defaultMessage": "The original runtime was not changed."
+  },
   "sessionSettings.unconfirmed": {
     "defaultMessage": "Saved result · conditions need confirmation"
+  },
+  "sessionSettings.unloadedRestore": {
+    "defaultMessage": "Left unloaded, as before the search."
   },
   "sessionSettings.unsupportedMode": {
     "defaultMessage": "{kv}: {reason}"

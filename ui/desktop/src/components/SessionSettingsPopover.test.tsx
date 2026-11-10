@@ -86,6 +86,20 @@ const RussianWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('SessionSettingsPopover', () => {
+  it('shows the primary stage, actual restoration outcome and labels older measurements after failure', async () => {
+    window.electron.ggufList = vi.fn().mockResolvedValue([{profile, available:true}]);
+    window.electron.ggufDiscoveryCatalog = vi.fn().mockResolvedValue({...catalog, options:[discoveredOption]});
+    window.electron.ggufDiscoveryRun = vi.fn().mockRejectedValue(new Error('GGUF:discoveryFailed:'+JSON.stringify({runId:'failed-run',stage:'generation',context:94208,kv:'q8_0',reason:'CUDA graph failure',restoration:'left-unloaded',receiptPath:'/logs/discovery/result.json'})));
+    render(<SessionSettingsPopover sessionId={null} provider="managed-provider" />, {wrapper:IntlTestWrapper});
+    await userEvent.click(screen.getByRole('button',{name:'Session settings'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Find maximum'}));
+    const error=await screen.findByRole('alert');
+    expect(error).toHaveTextContent('Probe generation');
+    expect(error).toHaveTextContent('94208');
+    expect(error).toHaveTextContent('CUDA graph failure');
+    expect(error).toHaveTextContent('Left unloaded');
+    expect(await screen.findByText('The last search failed. The results shown are from earlier measurements.')).toBeVisible();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     readDefault.mockResolvedValue('auto');

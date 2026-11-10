@@ -1,5 +1,6 @@
 import { acpReadConfig } from '../acp/config';
 import { contextChoices } from '../contextDiscovery/contextChoices';
+import { parseDiscoveryFailure, safeDiscoveryError } from '../contextDiscovery/discoveryFailure';
 // Modified for Local AI Desktop: portal-based collision-aware session controls.
 import * as Popover from '@radix-ui/react-popover';
 import { rememberSessionConfiguration, useSessionConfiguration } from '../acp/sessionConfiguration';
@@ -96,8 +97,20 @@ const messages = defineMessages({
   discoveryFailed: {
     id: 'sessionSettings.discoveryFailed',
     defaultMessage:
-      'Context search failed. The previous runtime configuration was restored where possible.',
+      'Context search failed.',
   },
+  failureDetails: { id: 'sessionSettings.failureDetails', defaultMessage: '{stage} · {kv} · {context} tokens\n{reason}\nRuntime: {restoration}\nDiagnostics: {log}' },
+  olderResults: { id: 'sessionSettings.olderResults', defaultMessage: 'The last search failed. The results shown are from earlier measurements.' },
+  unloadedRestore: { id: 'sessionSettings.unloadedRestore', defaultMessage: 'Left unloaded, as before the search.' },
+  loadedRestore: { id: 'sessionSettings.loadedRestore', defaultMessage: 'The previous loaded configuration was restored.' },
+  failedRestore: { id: 'sessionSettings.failedRestore', defaultMessage: 'Restoration failed: {reason}' },
+  unchangedRestore: { id: 'sessionSettings.unchangedRestore', defaultMessage: 'The original runtime was not changed.' },
+  loadStage: { id: 'sessionSettings.loadStage', defaultMessage: 'Loading probe' },
+  healthStage: { id: 'sessionSettings.healthStage', defaultMessage: 'Runtime health check' },
+  generationStage: { id: 'sessionSettings.generationStage', defaultMessage: 'Probe generation' },
+  mtpStage: { id: 'sessionSettings.mtpStage', defaultMessage: 'MTP validation' },
+  measurementStage: { id: 'sessionSettings.measurementStage', defaultMessage: 'Memory measurement' },
+  preparationStage: { id: 'sessionSettings.preparationStage', defaultMessage: 'Preparing discovery' },
   candidate: {
     id: 'sessionSettings.candidate',
     defaultMessage: 'Checking {kv} at {context}K · probe {count}',
@@ -251,6 +264,7 @@ export default function SessionSettingsPopover({
   const [unsupported, setUnsupported] = useState<
     Array<{ kvCacheType: 'f16' | 'q8_0'; reason: string }>
   >([]);
+  const [lastSearchFailed, setLastSearchFailed] = useState(false);
   const snapshot = useAcpChatSessionSnapshot(sessionId ?? '');
   const session = snapshot?.session;
   const configuration = useSessionConfiguration(sessionId ?? '');
@@ -423,6 +437,7 @@ export default function SessionSettingsPopover({
   useEffect(() => {
     const changedProfile = catalogProfile.current !== localProfile?.id;
     catalogProfile.current = localProfile?.id;
+    if (changedProfile) setLastSearchFailed(false);
     if (!localProfile?.id) {
       setCatalog(null);
       setSelectedContext(null);
@@ -544,6 +559,8 @@ export default function SessionSettingsPopover({
   const startDiscovery = async () => {
     if (!localProfile?.id) return;
     setOperationError(null);
+    setLastSearchFailed(false);
+    setUnsupported([]);
     setBusyElsewhere(false);
     if (runtimeSessionsBusy()) {
       setBusyElsewhere(true);
@@ -571,10 +588,25 @@ export default function SessionSettingsPopover({
         setOperationError(intl.formatMessage(messages.noResults));
     } catch (error) {
       const text = String(error);
+      const failure = parseDiscoveryFailure(error);
+      setLastSearchFailed(true);
+      const stages = { loading: messages.loadStage, health: messages.healthStage, generation: messages.generationStage, mtp: messages.mtpStage, measurement: messages.measurementStage };
+      const restoration = failure?.restoration === 'reloaded'
+        ? intl.formatMessage(messages.loadedRestore)
+        : failure?.restoration === 'left-unloaded'
+          ? intl.formatMessage(messages.unloadedRestore)
+          : failure?.restoration === 'failed'
+            ? intl.formatMessage(messages.failedRestore, { reason: safeDiscoveryError(failure.restoreError) })
+            : intl.formatMessage(messages.unchangedRestore);
       setOperationError(
         text.includes('runtimeBusy')
           ? intl.formatMessage(messages.busy)
-          : intl.formatMessage(messages.discoveryFailed)
+          : `${intl.formatMessage(messages.discoveryFailed)}\n${failure ? intl.formatMessage(messages.failureDetails, {
+            stage: intl.formatMessage(stages[failure.stage as keyof typeof stages] ?? messages.preparationStage),
+            kv: failure.kv === 'q8_0' ? 'Q8' : failure.kv === 'f16' ? 'FP16' : '—',
+            context: failure.context ?? '—', reason: safeDiscoveryError(failure.reason), restoration,
+            log: failure.receiptPath ?? failure.logPath ?? '—',
+          }) : safeDiscoveryError(error)}`
       );
     } finally {
       if (token) await window.electron.ggufDiscoveryRelease(token).catch(() => {});
@@ -974,9 +1006,12 @@ export default function SessionSettingsPopover({
                     </p>
                   ))}
                   {operationError && (
-                    <p role="alert" className="mt-2 text-[11px] text-status-error">
+                    <p role="alert" className="mt-2 whitespace-pre-line break-words text-[11px] text-status-error">
                       {operationError}
                     </p>
+                  )}
+                  {lastSearchFailed && catalog.options.length > 0 && (
+                    <p role="status" className="mt-2 text-[11px] text-text-secondary">{intl.formatMessage(messages.olderResults)}</p>
                   )}
                   {selectedContext !== null &&
                     (selectedContext !== effectiveContext || selectedKv !== effectiveKv) && (
