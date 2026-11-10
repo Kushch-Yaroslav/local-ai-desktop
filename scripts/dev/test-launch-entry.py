@@ -31,7 +31,8 @@ package = selected.parent
 for relative in ('resources/bin/goose', 'resources/live-browser/bin/node', 'resources/live-browser/dist/live-browser.js', 'resources/live-browser/package.json', 'resources/app.asar'):
     path = package / relative
     assert path.is_file() and os.access(path, os.R_OK), f'Missing resource: {path}'
-for relative in ('Local AI Desktop', 'resources/bin/goose', 'resources/live-browser/bin/node'):
+assert selected.is_file() and os.access(selected, os.X_OK), f'Not executable: {selected}'
+for relative in ('resources/bin/goose', 'resources/live-browser/bin/node'):
     assert os.access(package / relative, os.X_OK), f'Not executable: {package / relative}'
 subprocess.run(['bash', '-n', str(launcher), str(activator), str(entry_installer)], check=True)
 assert desktop.get('Name') == 'Local AI Desktop'

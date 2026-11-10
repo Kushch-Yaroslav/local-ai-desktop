@@ -52,6 +52,34 @@ class ActivationPolicyTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn(str(package/'local-ai-desktop'), result.stdout)
 
+    def test_packaged_e2e_launcher_accepts_both_forge_executable_names(self):
+        source = Path(__file__).with_name('check-live-browser.sh')
+        for executable_name in ('Local AI Desktop', 'local-ai-desktop'):
+            with self.subTest(executable_name=executable_name), tempfile.TemporaryDirectory(prefix='lad-e2e-launcher-test-') as temp:
+                root = Path(temp)
+                scripts = root/'repo/scripts/dev'
+                scripts.mkdir(parents=True)
+                launcher = scripts/source.name
+                shutil.copy2(source, launcher)
+                (root/'repo/ui/desktop').mkdir(parents=True)
+                package = root/'.local-work/build'
+                executable = package/executable_name
+                node = package/'resources/live-browser/bin/node'
+                executable.parent.mkdir(parents=True, exist_ok=True)
+                node.parent.mkdir(parents=True, exist_ok=True)
+                executable.write_text('#!/bin/sh\nexit 0\n')
+                executable.chmod(0o755)
+                node.write_text('#!/bin/sh\nprintf "%s\\n" "$LAD_E2E_PACKAGED_EXECUTABLE" > "$LAD_TEST_RESULT"\n')
+                node.chmod(0o755)
+                result_file = root/'result'
+                result = subprocess.run(
+                    [str(launcher), str(package), '--desktop-entry'],
+                    capture_output=True, text=True,
+                    env={**os.environ, 'DISPLAY': ':0', 'LAD_TEST_RESULT': str(result_file)},
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result_file.read_text().strip(), str(executable))
+
     @unittest.skipUnless(Path('/proc/sys/kernel/apparmor_restrict_unprivileged_userns').exists() and Path('/proc/sys/kernel/apparmor_restrict_unprivileged_userns').read_text().strip() == '1', 'Ubuntu userns restriction required')
     def test_uncovered_path_does_not_replace_existing_selection(self):
         with tempfile.TemporaryDirectory(prefix='lad-policy-test-') as temp:
