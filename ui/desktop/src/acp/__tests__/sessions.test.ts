@@ -7,6 +7,7 @@ import {
   acpLoadSession,
   acpNewSession,
   sessionInfoToSession,
+  parseLoadMeta,
 } from '../sessions';
 
 vi.mock('../acpConnection', () => ({
@@ -48,6 +49,16 @@ function newSessionClient() {
 describe('ACP sessions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('restores explicit browser scope from load response without treating cwd as a project', () => {
+    const meta = parseLoadMeta({ _meta: { browserProjectRoot: '/selected/project' } } as Parameters<
+      typeof parseLoadMeta
+    >[0]);
+    expect(sessionInfoToSession(sessionInfo(), meta).browser_project_root).toBe(
+      '/selected/project'
+    );
+    expect(sessionInfoToSession(sessionInfo()).browser_project_root).toBeUndefined();
   });
 
   it('preserves session type from ACP session info metadata', () => {

@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: replay explicit project-selection provenance.
+// Modified for Local AI Desktop: preserve per-session mode in serialized session metadata.
 use crate::agents::{ExtensionLoadResult, StateMachineServices};
 use crate::config::{Config, GooseMode};
 use crate::providers::inventory::{ProviderInventoryEntry, ProviderInventoryService};
@@ -29,6 +31,7 @@ pub(super) fn session_provider_selection(session: &Session) -> &str {
 #[serde(rename_all = "camelCase")]
 struct SessionMeta<'a> {
     message_count: usize,
+    goose_mode: GooseMode,
     created_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_message_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -51,6 +54,7 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
     fn from(session: &'a Session) -> Self {
         Self {
             message_count: session.message_count,
+            goose_mode: session.goose_mode,
             created_at: session.created_at,
             last_message_at: session.last_message_at,
             archived_at: session.archived_at,
@@ -69,10 +73,19 @@ impl<'a> From<&'a Session> for SessionMeta<'a> {
 }
 
 pub(super) fn session_meta(session: &Session) -> serde_json::Map<String, serde_json::Value> {
-    match serde_json::to_value(SessionMeta::from(session)) {
+    let mut meta = match serde_json::to_value(SessionMeta::from(session)) {
         Ok(serde_json::Value::Object(meta)) => meta,
         _ => serde_json::Map::new(),
+    };
+    if let Some(root) = session
+        .extension_data
+        .extension_states
+        .get("live_browser_project.v1")
+        .and_then(|value| value.get("root"))
+    {
+        meta.insert("browserProjectRoot".to_owned(), root.clone());
     }
+    meta
 }
 
 pub(super) fn session_response_meta(
@@ -80,6 +93,9 @@ pub(super) fn session_response_meta(
     extension_results: &[ExtensionLoadResult],
 ) -> serde_json::Map<String, serde_json::Value> {
     let mut meta = serde_json::Map::new();
+    if let Some(root) = session_meta(session).remove("browserProjectRoot") {
+        meta.insert("browserProjectRoot".to_owned(), root);
+    }
     if let Some(recipe) = &session.recipe {
         if let Ok(v) = serde_json::to_value(recipe) {
             meta.insert("recipe".to_string(), v);
@@ -537,6 +553,36 @@ mod tests {
     use agent_client_protocol::schema::v1::SessionConfigKind;
     use goose_providers::thinking::ThinkingEffortOption;
     use test_case::test_case;
+
+    #[tokio::test]
+    async fn load_response_preserves_explicit_project_without_inventing_cwd_scope() {
+        use crate::config::GooseMode;
+        use crate::session::{SessionManager, SessionType};
+        let data = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let manager = SessionManager::new(data.path().to_path_buf());
+        let mut session = manager
+            .create_session(
+                root.path().to_path_buf(),
+                "scope".into(),
+                SessionType::User,
+                GooseMode::Approve,
+            )
+            .await
+            .unwrap();
+        assert!(session_response_meta(&session, &[])
+            .get("browserProjectRoot")
+            .is_none());
+        session.extension_data.set_extension_state(
+            "live_browser_project",
+            "v1",
+            serde_json::json!({"root":root.path().to_string_lossy(),"source":"directory-picker"}),
+        );
+        assert_eq!(
+            session_response_meta(&session, &[]).get("browserProjectRoot"),
+            Some(&serde_json::json!(root.path().to_string_lossy()))
+        );
+    }
 
     fn model_selection(current: &str, models: &[&str]) -> ModelSelection {
         ModelSelection {

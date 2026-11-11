@@ -1,14 +1,17 @@
 // Regression fixture uses sanitized real 5047748 startup allocation lines.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseLlamaAllocationLog } from './contextEstimate';
 import { buildArguments } from '../ggufConfig';
-const text = readFileSync('src/contextDiscovery/fixtures/qwen35-text-mtp-5047748.log', 'utf8');
+const fixturePath = 'src/contextDiscovery/fixtures/qwen35-text-mtp-5047748.log';
+const hasLocalEvidence = existsSync(fixturePath);
+const text = hasLocalEvidence ? readFileSync(fixturePath, 'utf8') : '';
 const projector = '/models/mmproj.gguf';
 const args = ['--spec-type', 'draft-mtp'];
 const visionLines = `clip_model_loader: has vision encoder\nload_hparams: model size: 888.00 MiB\nreserve_compute_meta: CPU compute buffer size = 32.00 MiB\nsrv load_model: loaded multimodal model, '${projector}'\n`;
 const vision = text.replace(/(?=^.*srv\s+load_model: initializing,)/m, visionLines);
-describe('discovery Vision launch evidence', () => {
+// Sanitized host-run evidence logs are local-only and intentionally ignored by Git.
+describe.skipIf(!hasLocalEvidence)('discovery Vision launch evidence', () => {
   it('accepts Vision Off without any projector mention and recognizes the renamed completion marker', () => {
     expect(text).not.toMatch(/mmproj|vision encoder/);
     const evidence = parseLlamaAllocationLog(text, args);

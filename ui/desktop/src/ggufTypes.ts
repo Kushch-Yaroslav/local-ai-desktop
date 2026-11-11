@@ -16,10 +16,14 @@ export interface GgufProfile {
   draftTokens?: number;
   draftMinTokens?: number;
   draftGpuLayers?: number;
+  draftCacheK?: string;
+  draftCacheV?: string;
+  draftUbatch?: number;
   cacheK?: string;
   cacheV?: string;
   kvOffload?: boolean;
   flashAttention?: 'auto' | 'on' | 'off';
+  parallel?: number;
   threads?: number;
   batch?: number;
   ubatch?: number;

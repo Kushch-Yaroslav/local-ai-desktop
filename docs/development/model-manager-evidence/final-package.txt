@@ -1,0 +1,3 @@
+Final package locale ru
+Final idle { phase: 'idle' }
+Standard profile selected; still idle { phase: 'idle' }

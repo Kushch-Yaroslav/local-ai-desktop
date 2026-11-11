@@ -8,9 +8,10 @@ import SessionSettingsPopover, { type NewChatSettings } from './SessionSettingsP
 import { IntlTestWrapper } from '../i18n/test-utils';
 import russianMessages from '../i18n/compiled/ru.json';
 
-const { request, sessionInfo, snapshot, setSessionMetadata, activitySnapshots } = vi.hoisted(
+const { request, sessionInfo, snapshot, setSessionMetadata, activitySnapshots, readDefault } = vi.hoisted(
   () => ({
     request: vi.fn(),
+    readDefault: vi.fn(),
     sessionInfo: vi.fn(),
     snapshot: vi.fn(),
     setSessionMetadata: vi.fn(),
@@ -29,6 +30,7 @@ let emitDiscoveryProgress:
       };
     }) => void)
   | null = null;
+vi.mock('../acp/config', () => ({ acpReadConfig: readDefault }));
 vi.mock('@agentclientprotocol/sdk', () => ({
   methods: {
     agent: {
@@ -84,8 +86,23 @@ const RussianWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('SessionSettingsPopover', () => {
+  it('shows the primary stage, actual restoration outcome and labels older measurements after failure', async () => {
+    window.electron.ggufList = vi.fn().mockResolvedValue([{profile, available:true}]);
+    window.electron.ggufDiscoveryCatalog = vi.fn().mockResolvedValue({...catalog, options:[discoveredOption]});
+    window.electron.ggufDiscoveryRun = vi.fn().mockRejectedValue(new Error('GGUF:discoveryFailed:'+JSON.stringify({runId:'failed-run',stage:'generation',context:94208,kv:'q8_0',reason:'CUDA graph failure',restoration:'left-unloaded',receiptPath:'/logs/discovery/result.json'})));
+    render(<SessionSettingsPopover sessionId={null} provider="managed-provider" />, {wrapper:IntlTestWrapper});
+    await userEvent.click(screen.getByRole('button',{name:'Session settings'}));
+    await userEvent.click(await screen.findByRole('button',{name:'Find maximum'}));
+    const error=await screen.findByRole('alert');
+    expect(error).toHaveTextContent('Probe generation');
+    expect(error).toHaveTextContent('94208');
+    expect(error).toHaveTextContent('CUDA graph failure');
+    expect(error).toHaveTextContent('Left unloaded');
+    expect(await screen.findByText('The last search failed. The results shown are from earlier measurements.')).toBeVisible();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
+    readDefault.mockResolvedValue('auto');
     Object.assign(window.electron, {
       ggufCapabilities: vi.fn().mockResolvedValue({ thinking: false, vision: false }),
       ggufList: vi.fn().mockResolvedValue([]),
@@ -554,4 +571,26 @@ describe('SessionSettingsPopover', () => {
     expect(screen.getByLabelText('Reasoning effort')).toHaveValue('high');
   });
 
+});
+
+it('shows the actual persisted Chat default and preserves explicit Autonomous across delayed hydration and model changes', async () => {
+  let resolve!: (value: string) => void;
+  readDefault.mockReturnValue(new Promise<string>(r => { resolve = r; }));
+  const props = { sessionId: null, draft: { mode: 'auto' as const }, provider: 'local-one' };
+  const { rerender } = render(<SessionSettingsPopover {...props} />, { wrapper: IntlTestWrapper });
+  await userEvent.click(screen.getByRole('button', { name: 'Session settings' }));
+  expect(screen.getByLabelText('Agent mode')).toHaveValue('auto');
+  resolve('chat');
+  await waitFor(() => expect(readDefault).toHaveBeenCalled());
+  rerender(<SessionSettingsPopover {...props} model="reloaded-model" />);
+  expect(screen.getByLabelText('Agent mode')).toHaveValue('auto');
+});
+it('hydrates the real global mode before a new-chat mode can be selected', async () => {
+  let resolve!: (value: string) => void;
+  readDefault.mockReturnValue(new Promise<string>(r => { resolve = r; }));
+  render(<SessionSettingsPopover sessionId={null} draft={{}} />, { wrapper: IntlTestWrapper });
+  await userEvent.click(screen.getByRole('button', { name: 'Session settings' }));
+  expect(screen.getByLabelText('Agent mode')).toBeDisabled();
+  resolve('chat');
+  await waitFor(() => expect(screen.getByLabelText('Agent mode')).toHaveValue('chat'));
 });

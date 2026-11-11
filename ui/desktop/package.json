@@ -2,8 +2,8 @@
   "name": "local-ai-desktop-app",
   "productName": "Local AI Desktop",
   "desktopName": "local-ai-desktop.desktop",
-  "version": "0.4.0-alpha.1",
-  "description": "Local AI Desktop \u2014 independent desktop AI agent",
+  "version": "0.4.0",
+  "description": "Local AI Desktop — independent desktop AI agent",
   "engines": {
     "node": "^24.10.0",
     "pnpm": ">=10.30.0"
@@ -14,12 +14,13 @@
     "typecheck": "tsc --noEmit",
     "build-goose-acp-client": "pnpm --filter @aaif/goose-acp-client run build && pnpm run clean-vite-cache",
     "clean-vite-cache": "node scripts/clean-vite-cache.js",
-    "start-gui": "pnpm run build-goose-acp-client && pnpm run i18n:compile && electron-forge start",
+    "build:live-browser": "node live-browser/build.mjs",
+    "start-gui": "pnpm run build-goose-acp-client && pnpm run i18n:compile && pnpm run build:live-browser && electron-forge start",
     "start-gui-debug": "pnpm run build-goose-acp-client && pnpm run i18n:compile && electron-forge start -- --inspect=9229",
     "start": "cd ../.. && just run-ui",
     "start:test-error": "GOOSE_TEST_ERROR=true electron-forge start",
-    "package": "pnpm run build-goose-acp-client && pnpm run i18n:compile && electron-forge package",
-    "make": "pnpm run build-goose-acp-client && pnpm run i18n:compile && electron-forge make",
+    "package": "pnpm run build-goose-acp-client && pnpm run i18n:compile && LIVE_BROWSER_NO_SOURCEMAP=1 pnpm run build:live-browser && electron-forge package",
+    "make": "pnpm run build-goose-acp-client && pnpm run i18n:compile && LIVE_BROWSER_NO_SOURCEMAP=1 pnpm run build:live-browser && electron-forge make",
     "make:win32-installer": "electron-builder --win --config electron-builder.nsis.yml --publish never --prepackaged",
     "bundle:default": "node scripts/prepare-platform-binaries.js && pnpm run make && BUNDLE_NAME=\"${GOOSE_BUNDLE_NAME:-Local AI Desktop}\" && APP_DIR=\"out/${BUNDLE_NAME}-darwin-arm64\" && APP_BUNDLE=\"${APP_DIR}/${BUNDLE_NAME}.app\" && (cd \"$APP_DIR\" && ditto -c -k --sequesterRsrc --keepParent \"${BUNDLE_NAME}.app\" \"${BUNDLE_NAME}.zip\")",
     "bundle:intel": "node scripts/prepare-platform-binaries.js && pnpm run make --arch=x64 && BUNDLE_NAME=\"${GOOSE_BUNDLE_NAME:-Local AI Desktop}\" && APP_DIR=\"out/${BUNDLE_NAME}-darwin-x64\" && APP_BUNDLE=\"${APP_DIR}/${BUNDLE_NAME}.app\" && (cd \"$APP_DIR\" && ditto -c -k --sequesterRsrc --keepParent \"${BUNDLE_NAME}.app\" \"${BUNDLE_NAME}_intel_mac.zip\")",
@@ -108,6 +109,7 @@
     "tw-animate-css": "^1.4.0",
     "unist-util-visit": "^5.1.0",
     "uuid": "^13.0.0",
+    "ws": "8.18.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -141,6 +143,7 @@
     "@types/react-dom": "^19.2.4",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/turndown": "^5.0.6",
+    "@types/ws": "8.18.1",
     "@types/yauzl": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",

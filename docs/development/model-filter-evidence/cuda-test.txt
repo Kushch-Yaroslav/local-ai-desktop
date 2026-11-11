@@ -1,0 +1,13 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:2:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /media/yaroslav/DATA/GUI-DEVELOP/local-ai-desktop-goose-040/ui/desktop
+
+ ✓ src/ggufFlashAttention.gpu.integration.test.ts > validates FA, Q8 discovery, embedded MTP and a read-only Goose MCP call on host CUDA 69975ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  18:20:05
+   Duration  70.73s (transform 119ms, setup 136ms, import 115ms, tests 69.98s, environment 395ms)
+

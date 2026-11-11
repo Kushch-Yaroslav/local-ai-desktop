@@ -91,5 +91,11 @@ Object.defineProperty(window, 'electron', {
     logError: vi.fn(),
     on: vi.fn(),
     off: vi.fn(),
+    // Keep Live Browser wiring inert in renderer tests unless a test opts in.
+    liveBrowserStatus: vi.fn(() => Promise.resolve({ running: false })),
+    liveBrowserStart: vi.fn(() => Promise.resolve({ ok: false })),
+    liveBrowserRegister: vi.fn(() => Promise.resolve()),
+    liveBrowserWorkspaceRead: vi.fn(() => Promise.resolve(null)),
+    liveBrowserAdopt: vi.fn(() => Promise.resolve()),
   },
 });

@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: attachment references are not title prose.
 use std::path::Path;
 use std::sync::LazyLock;
 
@@ -80,7 +81,11 @@ fn get_initial_user_messages(messages: &Conversation) -> Vec<String> {
             m.content
                 .iter()
                 .filter_map(|c| c.filter_for_audience(rmcp::model::Role::User))
-                .filter_map(|c| c.as_text().map(|s| s.to_string()))
+                .filter_map(|c| {
+                    c.as_text()
+                        .filter(|text| !text.starts_with("lad-browser-attachment:v1:"))
+                        .map(|s| s.to_string())
+                })
                 .collect::<Vec<_>>()
                 .join("\n")
         })

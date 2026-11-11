@@ -1,0 +1,4 @@
+PASS dark 360px: portal outside clipping ancestor, visible hit target, viewport fit, RU interaction, Escape/focus, outside click, scrollable unified menu
+PASS dark 1280px: portal outside clipping ancestor, visible hit target, viewport fit, RU interaction, Escape/focus, outside click, scrollable unified menu
+PASS light 360px: portal outside clipping ancestor, visible hit target, viewport fit, RU interaction, Escape/focus, outside click, scrollable unified menu
+PASS light 1280px: portal outside clipping ancestor, visible hit target, viewport fit, RU interaction, Escape/focus, outside click, scrollable unified menu

@@ -1,3 +1,4 @@
+import ApplicationStorage from './ApplicationStorage';
 import { memoryMessages, useMemoryMonitoringPreference } from '../localInference/MemoryMonitor';
 // Modified for Local AI Desktop: live persisted UI language selection.
 import { useState, useEffect, useRef } from 'react';
@@ -509,6 +510,7 @@ export default function AppSettingsSection({ scrollToSection }: AppSettingsSecti
           </DropdownMenu>
         </CardContent>
       </Card>
+      <ApplicationStorage />
       <TelemetrySettings />
 
       <Card className="rounded-lg">

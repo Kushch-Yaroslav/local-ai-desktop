@@ -15,7 +15,7 @@ export const ggufMessages = defineMessages({
   specActive: { id: 'gguf.specActive', defaultMessage: 'Active CLI mode' },
   reloadRequired: { id: 'gguf.reloadRequired', defaultMessage: 'Reload required to apply changes.' },
   projectorCpu: { id: 'gguf.projectorCpu', defaultMessage: 'Run vision projector on CPU' },
-  deviceMemory: { id: 'gguf.deviceMemory', defaultMessage: 'GPU memory allocation failed. Lower context/GPU offload, or run the vision projector on CPU, then reload.' },
+  deviceMemory: { id: 'gguf.deviceMemory', defaultMessage: 'GPU memory allocation failed. Lower context/GPU offload or run the vision projector on CPU. For MTP, try one slot and smaller target/draft microbatches before rerunning discovery.' },
   specDraftGpuEmbedded: {
     id: 'gguf.specDraftGpuEmbedded',
     defaultMessage:
@@ -196,6 +196,11 @@ export const ggufMessages = defineMessages({
   cacheK: { id: 'gguf.cacheK', defaultMessage: 'KV cache K' },
   cacheV: { id: 'gguf.cacheV', defaultMessage: 'KV cache V' },
   flashAttention: { id: 'gguf.flashAttention', defaultMessage: 'Flash attention' },
+  parallel: { id: 'gguf.parallel', defaultMessage: 'Parallel chat slots (1 uses less MTP memory)' },
+  draftCacheK: { id: 'gguf.draftCacheK', defaultMessage: 'MTP / draft KV K (default FP16)' },
+  draftCacheV: { id: 'gguf.draftCacheV', defaultMessage: 'MTP / draft KV V (default FP16)' },
+  draftUbatch: { id: 'gguf.draftUbatch', defaultMessage: 'MTP / draft microbatch' },
+  mtpMemoryPreset: { id: 'gguf.mtpMemoryPreset', defaultMessage: 'Prepare MTP preset: 1 slot, 1 draft token, batch 512, microbatches 128 — review and save' },
   threads: { id: 'gguf.threads', defaultMessage: 'CPU threads' },
   batch: { id: 'gguf.batch', defaultMessage: 'Batch size' },
   ubatch: { id: 'gguf.ubatch', defaultMessage: 'Microbatch size' },

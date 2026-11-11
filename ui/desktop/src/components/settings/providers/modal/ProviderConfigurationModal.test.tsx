@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+// Modified for Local AI Desktop: drain Radix deferred unmount events before the jsdom realm is disposed.
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   acpEnableProvider,
   acpRefreshProviderDetails,
@@ -9,6 +10,11 @@ import {
 import { IntlTestWrapper } from '../../../../i18n/test-utils';
 import type { ProviderDetails } from '../../../../types/providers';
 import ProviderConfigurationModal from './ProviderConfigurationModal';
+
+afterEach(async () => {
+  cleanup();
+  await new Promise(resolve => setTimeout(resolve, 0));
+});
 
 vi.mock('../../../ModelAndProviderContext', () => ({
   useModelAndProvider: () => ({

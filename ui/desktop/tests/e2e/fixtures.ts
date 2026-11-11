@@ -1,7 +1,12 @@
+// Modified for Local AI Desktop: isolated packaged and Desktop Entry acceptance.
 import { test as base, Page, Browser, chromium } from '@playwright/test';
-import { exec, spawn, ChildProcess } from 'child_process';
+import { exec, ChildProcess } from 'child_process';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 import { promisify } from 'util';
+import { launchApp } from './app-launcher';
+import { discoverLlamaServer, seedGooseBackend } from './goose-seed';
 
 const execAsync = promisify(exec);
 
@@ -38,24 +43,87 @@ export const test = base.extend<GooseTestFixtures>({
     try {
       // Assign a unique debug port for this test to enable parallel execution
       // Base port 9222, offset by worker index * 100 + parallel slot
-      const debugPort = 9222 + (testInfo.parallelIndex * 10);
+      const debugPort = 9222 + testInfo.parallelIndex * 10;
       console.log(`Using debug port ${debugPort} for parallel test execution`);
 
-      // Start the electron-forge process with Playwright remote debugging enabled
-      // Use detached mode on Unix to create a process group we can kill together
-      appProcess = spawn('pnpm', ['run', 'start-gui'], {
-        cwd: join(__dirname, '../..'),
-        stdio: 'pipe',
-        detached: process.platform !== 'win32',
-        env: {
-          ...process.env,
-          ELECTRON_IS_DEV: '1',
-          NODE_ENV: 'development',
-          GOOSE_ALLOWLIST_BYPASS: 'true',
-          ENABLE_PLAYWRIGHT: 'true',
-          PLAYWRIGHT_DEBUG_PORT: debugPort.toString(), // Unique port per test for parallel execution
-          RUST_LOG: 'info', // Enable info-level logging for goosed backend
+      // Isolated app instance (opt-in via LAD_E2E_ISOLATE=1, set by specs
+      // that must not collide with an already-running Local AI Desktop):
+      //   - LOCAL_AI_DESKTOP_DEV_ROOT: unique userData + GOOSE_PATH_ROOT,
+      //     which also bypasses Electron's single-instance lock.
+      //   - GOOSE_DISABLE_KEYRING: goose reads provider secrets from the
+      //     seeded <devRoot>/goose-backend/config/secrets.yaml file.
+      //   - the seeded goose config points at the ALREADY-RUNNING local
+      //     llama-server (no second model load, server lifecycle untouched).
+      const isolate = process.env.LAD_E2E_ISOLATE === '1';
+      let isolatedEnv: Record<string, string> = {};
+      if (isolate) {
+        const devRoot = mkdtempSync(join(tmpdir(), 'lad-e2e-'));
+        // Isolate XDG_CONFIG_HOME so desktopMain.ts's storage-config block
+        // cannot find the global ~/.config/local-ai-desktop-storage.json
+        // (which would otherwise point userData at the REAL app's directory
+        // and clobber LOCAL_AI_DESKTOP_DEV_ROOT, causing the single-instance
+        // lock to be denied by the already-running Local AI Desktop).
+        const xdgHome = mkdtempSync(join(tmpdir(), 'lad-e2e-xdg-'));
+        // Make <devRoot>/electron a non-empty legacy storage root so that
+        // initializeDefaultStorage() (which auto-creates a default storage
+        // config ONLY when no legacy root exists) bails out early and leaves
+        // LOCAL_AI_DESKTOP_DEV_ROOT untouched. The dev-root block then sets
+        // userData to the unique <devRoot>/electron, so the single-instance
+        // lock is acquirable even with the real app running.
+        const electronRoot = join(devRoot, 'electron');
+        mkdirSync(electronRoot, { recursive: true });
+        writeFileSync(join(electronRoot, '.e2e-isolated'), 'isolated E2E instance\n');
+        // Deterministic selectors without changing the user's system/app language.
+        writeFileSync(
+          join(electronRoot, 'settings.json'),
+          JSON.stringify({ language: process.env.LAD_E2E_LANGUAGE || 'en' })
+        );
+        const fixtureProvider = process.env.LAD_E2E_PROVIDER_URL;
+        const llama = fixtureProvider
+          ? {
+              pid: 0,
+              port: Number(new URL(fixtureProvider).port),
+              apiKey: 'fixture-only-key',
+              modelAlias: process.env.LAD_E2E_PROVIDER_MODEL || 'fixture-model',
+              contextLimit: Number(process.env.LAD_E2E_PROVIDER_CONTEXT) || undefined,
+              baseUrl: fixtureProvider,
+            }
+          : discoverLlamaServer();
+        if (llama) {
+          seedGooseBackend(devRoot, llama);
+          console.log(
+            `E2E: seeded isolated goose config -> ${llama.baseUrl} (llama pid ${llama.pid})`
+          );
+        } else {
+          console.log(
+            'E2E: no inference endpoint; UI-only tests use a placeholder provider, model test skips'
+          );
+          seedGooseBackend(devRoot, {
+            pid: 0,
+            port: 9,
+            apiKey: 'ui-only-placeholder',
+            modelAlias: 'ui-only',
+            baseUrl: 'http://127.0.0.1:9',
+          });
         }
+        isolatedEnv = {
+          LOCAL_AI_DESKTOP_DEV_ROOT: devRoot,
+          GOOSE_DISABLE_KEYRING: 'true',
+          XDG_CONFIG_HOME: xdgHome,
+          // Explicit goose config root (the dev-root block sets the same value);
+          // kept explicit so the seeded config is always discovered.
+          GOOSE_PATH_ROOT: join(devRoot, 'goose-backend'),
+        };
+      }
+
+      // Start the electron-forge process with Playwright remote debugging enabled
+      // Use detached mode on Unix to create a process group we can kill together.
+      // launchApp() falls back to a direct-node chain when pnpm's engines
+      // check rejects the local pnpm/Node pair (see app-launcher.ts).
+      appProcess = launchApp(join(__dirname, '../..'), {
+        ...process.env,
+        PLAYWRIGHT_DEBUG_PORT: debugPort.toString(), // Unique port per test for parallel execution
+        ...isolatedEnv,
       });
 
       // Log process output for debugging
@@ -72,21 +140,33 @@ export const test = base.extend<GooseTestFixtures>({
       // Wait for the app to start and remote debugging to be available
       // Retry connection until it succeeds (app is ready) or timeout
       console.log(`Waiting for Electron app to start on port ${debugPort}...`);
-      const maxRetries = 100; // 100 retries * 100ms = 10 seconds max
-      const retryDelay = 100; // 100ms between retries
+      const maxRetries = 360; // 360 retries * 500ms = up to 3 minutes (cold start)
+      const retryDelay = 500; // 500ms between retries
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
-          console.log(`Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`);
+          console.log(
+            `Connected to Electron app on attempt ${attempt} (~${(attempt * retryDelay) / 1000}s)`
+          );
           break;
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
+          if (appProcess.exitCode !== null || appProcess.signalCode !== null) {
+            throw new Error(
+              `Electron exited before remote debugging was ready (code=${appProcess.exitCode} signal=${appProcess.signalCode}). Last CDP error: ${errorMessage}`
+            );
+          }
           if (attempt === maxRetries) {
-            throw new Error(`Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`);
+            throw Object.assign(
+              new Error(
+                `Failed to connect to Electron app after ${maxRetries} attempts (${(maxRetries * retryDelay) / 1000}s). Last error: ${errorMessage}`
+              ),
+              { cause: error }
+            );
           }
           // Wait before next retry
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
         }
       }
 
@@ -120,22 +200,49 @@ export const test = base.extend<GooseTestFixtures>({
       }
 
       // Wait for React app to be ready
-      await page.waitForFunction(() => {
-        const root = document.getElementById('root');
-        return root && root.children.length > 0;
-      }, { timeout: 30000 });
+      await page.waitForFunction(
+        () => {
+          const root = document.getElementById('root');
+          return root && root.children.length > 0;
+        },
+        { timeout: 30000 }
+      );
 
       console.log('App ready, starting test...');
 
+      // Capture renderer console + uncaught errors so Live Browser renderer
+      // diagnostics (EventSource, drawFrame, attachCanvas) are visible in logs.
+      page.on('console', (msg) => {
+        const text = msg.text();
+        const level = msg.type();
+        if (text.includes('LBDBG') || level === 'error' || level === 'warning') {
+          console.log(`[renderer:${level}] ${text}`);
+        }
+      });
+      page.on('response', async (response) => {
+        if (response.status() >= 400 && new URL(response.url()).hostname === '127.0.0.1')
+          console.log(
+            '[control-error]',
+            new URL(response.url()).pathname,
+            response.status(),
+            (await response.text().catch(() => '')).slice(0, 300)
+          );
+      });
+      page.on('pageerror', (err) => {
+        console.log(`[renderer:pageerror] ${err.message}`);
+      });
+
       // Provide the page to the test
       await providePage(page);
-
     } finally {
       console.log('Cleaning up Electron app for this test...');
 
       // Close the CDP connection
       if (browser) {
-        await browser.close().catch(console.error);
+        await Promise.race([
+          browser.close().catch(console.error),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
       }
 
       // Kill the npm process tree
@@ -149,7 +256,7 @@ export const test = base.extend<GooseTestFixtures>({
             try {
               // First try SIGTERM for graceful shutdown
               process.kill(-appProcess.pid, 'SIGTERM');
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise((resolve) => setTimeout(resolve, 2000));
             } catch {
               // Process might already be dead
             }

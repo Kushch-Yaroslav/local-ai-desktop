@@ -73,6 +73,10 @@ const settingsFlags: Partial<Record<keyof GgufProfile, string>> = {
   cacheK: '--cache-type-k',
   cacheV: '--cache-type-v',
   flashAttention: '--flash-attn',
+  parallel: '--parallel',
+  draftCacheK: '--cache-type-k-draft',
+  draftCacheV: '--cache-type-v-draft',
+  draftUbatch: '--spec-draft-n-ubatch',
   threads: '--threads',
   batch: '--batch-size',
   ubatch: '--ubatch-size',
@@ -127,6 +131,8 @@ export async function validateProfile(
     ['gpuLayers', 0, 999],
     ['context', 512, 1048576],
     ['threads', 1, 1024],
+    ['parallel', 1, 64],
+    ['draftUbatch', 1, 65536],
     ['batch', 1, 65536],
     ['ubatch', 1, 65536],
     ['nCpuMoe', 0, 999],
@@ -136,9 +142,11 @@ export async function validateProfile(
     if (value !== undefined && (!Number.isInteger(value) || value < min || value > max))
       throw runtimeError('invalidValue', key);
   }
+  if ((cacheRequested || profile.gpuBlockIds !== undefined) && profile.parallel !== undefined && profile.parallel !== 1)
+    throw runtimeError('invalidValue', 'MoE cache/placement requires parallel=1');
   if (profile.gpuLayers === undefined || profile.context === undefined)
     throw runtimeError('invalidValue', 'gpuLayers/context');
-  for (const key of ['cacheK', 'cacheV'] as const)
+  for (const key of ['cacheK', 'cacheV', 'draftCacheK', 'draftCacheV'] as const)
     if (profile[key] && !['f16', 'q8_0', 'q4_0'].includes(profile[key]!))
       throw runtimeError('invalidValue', key);
   if (profile.flashAttention && !['auto', 'on', 'off'].includes(profile.flashAttention))
@@ -243,7 +251,7 @@ export async function validateProfile(
   }
   if (effectiveCpuMoe(profile) && !capabilities.flags.includes('--cpu-moe'))
     throw runtimeError('unsupportedFlag', '--cpu-moe');
-  for (const key of ['cacheK', 'cacheV'] as const) {
+  for (const key of ['cacheK', 'cacheV', 'draftCacheK', 'draftCacheV'] as const) {
     const value = profile[key];
     if (value && !capabilities.cacheTypes.includes(value)) throw runtimeError('unsupportedValue', `${key}=${value}`);
   }
@@ -301,7 +309,8 @@ export function buildArguments(profile: GgufProfile, port: number): string[] {
     if (value !== true) args.push(String(value));
   }
   if (effectiveProfile.moeCacheMiB || profile.gpuBlockIds !== undefined) {
-    args.push('--fit','off','--load-mode','mmap','--parallel','1');
+    args.push('--fit','off','--load-mode','mmap');
+    if (profile.parallel === undefined) args.push('--parallel','1');
     args.push('--no-host', '--no-repack', '--lazy-mode', 'off');
     if (!profile.batch) args.push('--batch-size', '512');
     if (!profile.ubatch) args.push('--ubatch-size', '128');

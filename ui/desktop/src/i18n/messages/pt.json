@@ -1,4 +1,25 @@
 {
+  "acpReadinessPanel.adapterFound": {
+    "defaultMessage": "Adaptador ACP encontrado"
+  },
+  "acpReadinessPanel.adapterNotFound": {
+    "defaultMessage": "Adaptador ACP não encontrado"
+  },
+  "acpReadinessPanel.authenticationHelp": {
+    "defaultMessage": "Inicie sessão através da CLI do fornecedor e verifique novamente."
+  },
+  "acpReadinessPanel.checkAgain": {
+    "defaultMessage": "Verificar novamente"
+  },
+  "acpReadinessPanel.checking": {
+    "defaultMessage": "A verificar..."
+  },
+  "acpReadinessPanel.connected": {
+    "defaultMessage": "Ligação efetuada com sucesso"
+  },
+  "acpReadinessPanel.connectionNotChecked": {
+    "defaultMessage": "Verifique a ligação da sua conta antes de continuar."
+  },
   "announcementModal.gotIt": {
     "defaultMessage": "Entendido!"
   },
@@ -307,6 +328,63 @@
   },
   "confirmationModal.processing": {
     "defaultMessage": "A processar..."
+  },
+  "contextWindowIndicator.open": {
+    "defaultMessage": "{used} de {limit} tokens usados. Mostrar o que está na janela de contexto"
+  },
+  "contextXray.autoCompactionPending": {
+    "defaultMessage": "Limite de compactação automática ultrapassado: a conversa é compactada antes de o próximo pedido ser enviado."
+  },
+  "contextXray.category.additionalInstructions": {
+    "defaultMessage": "Instruções e dicas"
+  },
+  "contextXray.category.compactionSummary": {
+    "defaultMessage": "Resumo da compactação"
+  },
+  "contextXray.category.extensionInstructions": {
+    "defaultMessage": "Instruções das extensões"
+  },
+  "contextXray.category.messages": {
+    "defaultMessage": "Conversa"
+  },
+  "contextXray.category.systemPrompt": {
+    "defaultMessage": "Prompt do sistema"
+  },
+  "contextXray.category.toolDefinitions": {
+    "defaultMessage": "Definições de ferramentas"
+  },
+  "contextXray.category.turnContext": {
+    "defaultMessage": "Contexto do turno"
+  },
+  "contextXray.compactNow": {
+    "defaultMessage": "Compactar agora"
+  },
+  "contextXray.free": {
+    "defaultMessage": "Livre"
+  },
+  "contextXray.loadError": {
+    "defaultMessage": "Não foi possível carregar o relatório de contexto."
+  },
+  "contextXray.modelSummary": {
+    "defaultMessage": "{model} · janela de contexto de {limit} tokens"
+  },
+  "contextXray.providerManagesContext": {
+    "defaultMessage": "{provider} mantém o próprio histórico de conversa e recebe do goose apenas o prompt mais recente, portanto não há pedido para detalhar."
+  },
+  "contextXray.refresh": {
+    "defaultMessage": "Atualizar"
+  },
+  "contextXray.retry": {
+    "defaultMessage": "Tentar novamente"
+  },
+  "contextXray.title": {
+    "defaultMessage": "Janela de contexto"
+  },
+  "contextXray.tokenizerNote": {
+    "defaultMessage": "A contagem de tokens é estimada com o tokenizador o200k."
+  },
+  "contextXray.usage": {
+    "defaultMessage": "de {limit} tokens · {percent} da janela de contexto"
   },
   "conversationLimitsDropdown.conversationLimits": {
     "defaultMessage": "Limites da conversa"
@@ -911,11 +989,11 @@
   "dirSwitcher.enterPath": {
     "defaultMessage": "Enter path"
   },
-  "dirSwitcher.enterPathPlaceholder": {
-    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
-  },
   "dirSwitcher.enterPathInvalid": {
     "defaultMessage": "Working directory must be an absolute path"
+  },
+  "dirSwitcher.enterPathPlaceholder": {
+    "defaultMessage": "Enter an absolute path (e.g. /home/goose/workspace)"
   },
   "dirSwitcher.failedToUpdateWorkingDir": {
     "defaultMessage": "Falha ao atualizar o diretório de trabalho"
@@ -931,18 +1009,6 @@
   },
   "dirSwitcher.recentDirectories": {
     "defaultMessage": "Diretórios recentes"
-  },
-  "gitBranchIndicator.failedToSwitch": {
-    "defaultMessage": "Falha ao mudar para {branch}"
-  },
-  "gitBranchIndicator.noBranchesFound": {
-    "defaultMessage": "Nenhum ramo encontrado"
-  },
-  "gitBranchIndicator.searchBranches": {
-    "defaultMessage": "Pesquisar ramos…"
-  },
-  "gitBranchIndicator.uncommittedChanges": {
-    "defaultMessage": "Pode haver alterações sem commit."
   },
   "elicitationRequest.accept": {
     "defaultMessage": "Aceitar"
@@ -1252,6 +1318,18 @@
   },
   "externalBackendSection.workingDirPlaceholder": {
     "defaultMessage": "/home/goose/workspace"
+  },
+  "gitBranchIndicator.failedToSwitch": {
+    "defaultMessage": "Falha ao mudar para {branch}"
+  },
+  "gitBranchIndicator.noBranchesFound": {
+    "defaultMessage": "Nenhum ramo encontrado"
+  },
+  "gitBranchIndicator.searchBranches": {
+    "defaultMessage": "Pesquisar ramos…"
+  },
+  "gitBranchIndicator.uncommittedChanges": {
+    "defaultMessage": "Pode haver alterações sem commit."
   },
   "goosehintsModal.close": {
     "defaultMessage": "Fechar"
@@ -1727,6 +1805,192 @@
   "launcher.placeholder": {
     "defaultMessage": "Pergunte qualquer coisa ao goose..."
   },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "Ação do agente: {detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "O agente está trabalhando"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,=0{sem âncoras DOM} one{# âncora DOM} other{# âncoras DOM}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "Tarefa / descrição"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "Nome"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "Auto"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "Voltar"
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "Não foi possível capturar a área: {error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "Fechar a sessão do navegador"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "Ocultar painel (o navegador continua em execução)"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "Confiança"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "Conectando ao runtime do navegador…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "Criada"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "Nenhuma"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "Diagnósticos"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "Ajustar"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "Avançar"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "Não foi possível salvar a seleção: {error}"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "Histórico"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "Mostrar / ocultar o painel Live Browser"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "Incluir na próxima mensagem"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "Última verificação"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "Reverificar a vinculação"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "Marcar como corrigida"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "Marcar como não resolvida"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "Marcar como verificada"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "Apenas chat"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "Expandido"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "Dividido"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "Nova área"
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "Nenhuma página aberta ainda — insira uma URL acima."
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser está disponível no aplicativo desktop."
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "Abrir"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "Controle do agente"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "Seu controle"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "Zoom da página"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} será incluído na próxima mensagem ao agente"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "Escala de pré-visualização"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "Área salva"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,=0{sem seleções} one{# seleção} other{# seleções}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "Recarregar"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "Remover área"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "Remover seleção"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "Tentar novamente"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "Erro do runtime do navegador: {error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "Rolar"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "Todas"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "Arraste um retângulo sobre a página para selecionar uma área"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "A próxima mensagem incluirá: {names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "Sessão do navegador encerrada"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "A vinculação está desatualizada — os dados da seleção original foram preservados"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "Estado"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "Dados técnicos"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL não permitida: {error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "Visão desativada: o modelo recebe o contexto de texto (DOM, geometria, CSS, URL), não a imagem."
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "Visão ativada: o modelo também recebe a captura da área."
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "Ampliação"
+  },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
   },
@@ -1987,6 +2251,18 @@
   },
   "messageCopyLink.copy": {
     "defaultMessage": "Copiar"
+  },
+  "messageList.hiddenMessages": {
+    "defaultMessage": "{count, plural, one {# mensagem oculta} other {# mensagens ocultas}}"
+  },
+  "messageList.modelChanged": {
+    "defaultMessage": "Modelo alterado: {previousModel} → {currentModel}"
+  },
+  "messageList.requestedModel": {
+    "defaultMessage": "{model} (solicitado)"
+  },
+  "messageList.showAllMessages": {
+    "defaultMessage": "Mostrar tudo"
   },
   "messageQueue.cancel": {
     "defaultMessage": "Cancelar"
@@ -2339,6 +2615,9 @@
   "modelsBottomBar.localModelSettingsTitle": {
     "defaultMessage": "Configurações do Modelo Local — {modelName}"
   },
+  "modelsBottomBar.recentModels": {
+    "defaultMessage": "Recentes"
+  },
   "modelsBottomBar.resolvedModel": {
     "defaultMessage": "Modelo resolvido"
   },
@@ -2627,18 +2906,6 @@
   "privacyInfoModal.whatWeCollect": {
     "defaultMessage": "O que recolhemos:"
   },
-  "messageList.hiddenMessages": {
-    "defaultMessage": "{count, plural, one {# mensagem oculta} other {# mensagens ocultas}}"
-  },
-  "messageList.modelChanged": {
-    "defaultMessage": "Modelo alterado: {previousModel} → {currentModel}"
-  },
-  "messageList.requestedModel": {
-    "defaultMessage": "{model} (solicitado)"
-  },
-  "messageList.showAllMessages": {
-    "defaultMessage": "Mostrar tudo"
-  },
   "promptsSettings.allPromptsReset": {
     "defaultMessage": "Todos os prompts repostos para as predefinições"
   },
@@ -2717,6 +2984,9 @@
   "promptsSettings.unsavedChanges": {
     "defaultMessage": "Tem alterações por guardar"
   },
+  "providerCard.deprecatedReplacement": {
+    "defaultMessage": "Obsoleto — use {replacement} em vez disso."
+  },
   "providerCard.unknownProvider": {
     "defaultMessage": "Fornecedor desconhecido"
   },
@@ -2765,8 +3035,17 @@
   "providerConfigForm.continue": {
     "defaultMessage": "Continuar"
   },
+  "providerConfigForm.deviceCodeAndEnter": {
+    "defaultMessage": "e insira:"
+  },
+  "providerConfigForm.deviceCodeCopy": {
+    "defaultMessage": "Copiar"
+  },
   "providerConfigForm.deviceCodeFlowHint": {
     "defaultMessage": "Será aberta uma janela do navegador. O código de verificação aparecerá aqui para que possa introduzi-lo e concluir o início de sessão."
+  },
+  "providerConfigForm.deviceCodeVisit": {
+    "defaultMessage": "Acesse"
   },
   "providerConfigForm.noApiKey": {
     "defaultMessage": "Não tem uma chave de API?"
@@ -2792,6 +3071,9 @@
   "providerConfigurationModal.checkConfigAgain": {
     "defaultMessage": "Verifique novamente a sua configuração para utilizar este fornecedor."
   },
+  "providerConfigurationModal.chooseModel": {
+    "defaultMessage": "Escolher modelo"
+  },
   "providerConfigurationModal.close": {
     "defaultMessage": "Fechar"
   },
@@ -2804,8 +3086,17 @@
   "providerConfigurationModal.deleteConfirmation": {
     "defaultMessage": "Isto irá eliminar permanentemente a configuração atual do fornecedor."
   },
+  "providerConfigurationModal.deviceCodeAndEnter": {
+    "defaultMessage": "e insira:"
+  },
+  "providerConfigurationModal.deviceCodeCopy": {
+    "defaultMessage": "Copiar"
+  },
   "providerConfigurationModal.deviceCodeFlowHint": {
     "defaultMessage": "Será aberta uma janela do navegador. O código de verificação aparecerá aqui para que possa introduzi-lo e concluir o início de sessão."
+  },
+  "providerConfigurationModal.deviceCodeVisit": {
+    "defaultMessage": "Acesse"
   },
   "providerConfigurationModal.errorCheckingConfig": {
     "defaultMessage": "Ocorreu um erro ao verificar a configuração deste fornecedor."
@@ -3920,6 +4211,96 @@
   "sessions.toast.updated": {
     "defaultMessage": "Descrição da sessão atualizada com êxito"
   },
+  "settings.agentLoop.operations.auto.placeholder": {
+    "defaultMessage": "Automático"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
+    "defaultMessage": "Configurada"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.label": {
+    "defaultMessage": "Chave de API da TypeSafe"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
+    "defaultMessage": "Insira a chave de API"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
+    "defaultMessage": "Remover chave"
+  },
+  "settings.agentLoop.operations.autoEffort.apiKey.save": {
+    "defaultMessage": "Salvar chave"
+  },
+  "settings.agentLoop.operations.autoEffort.description": {
+    "defaultMessage": "Usa o Jev para escolher o nível de raciocínio de cada solicitação. O texto é enviado à TypeSafe AI; comandos de barra de habilidades e receitas incluem suas instruções locais expandidas."
+  },
+  "settings.agentLoop.operations.autoEffort.title": {
+    "defaultMessage": "Nível de raciocínio automático"
+  },
+  "settings.agentLoop.operations.blockLimit.label": {
+    "defaultMessage": "Limite de bloqueios"
+  },
+  "settings.agentLoop.operations.contextCompaction.description": {
+    "defaultMessage": "Resume o histórico da conversa antes que a janela de contexto fique cheia."
+  },
+  "settings.agentLoop.operations.contextCompaction.title": {
+    "defaultMessage": "Compactação de contexto"
+  },
+  "settings.agentLoop.operations.cutoff.label": {
+    "defaultMessage": "Limite"
+  },
+  "settings.agentLoop.operations.enable": {
+    "defaultMessage": "Ativar {operation}"
+  },
+  "settings.agentLoop.operations.failureTimeout.label": {
+    "defaultMessage": "Tempo limite de falha"
+  },
+  "settings.agentLoop.operations.heading": {
+    "defaultMessage": "Operações configuráveis"
+  },
+  "settings.agentLoop.operations.maxTurns.description": {
+    "defaultMessage": "Interrompe o trabalho autônomo e pergunta ao usuário antes de continuar."
+  },
+  "settings.agentLoop.operations.maxTurns.title": {
+    "defaultMessage": "Máximo de turnos"
+  },
+  "settings.agentLoop.operations.recipeRetry.description": {
+    "defaultMessage": "Executa novamente as verificações da receita quando uma verificação de sucesso configurada falha."
+  },
+  "settings.agentLoop.operations.recipeRetry.title": {
+    "defaultMessage": "Repetir receita"
+  },
+  "settings.agentLoop.operations.retryTimeout.label": {
+    "defaultMessage": "Tempo limite de nova tentativa"
+  },
+  "settings.agentLoop.operations.slashCommands.description": {
+    "defaultMessage": "Reconhece comandos como /compact, /skills e atalhos de receitas."
+  },
+  "settings.agentLoop.operations.slashCommands.title": {
+    "defaultMessage": "Comandos de barra"
+  },
+  "settings.agentLoop.operations.stopHooks.description": {
+    "defaultMessage": "Permite que hooks bloqueiem a conclusão, evitando ciclos de parada infinitos."
+  },
+  "settings.agentLoop.operations.stopHooks.title": {
+    "defaultMessage": "Hooks de parada"
+  },
+  "settings.agentLoop.operations.threshold.label": {
+    "defaultMessage": "Limite %"
+  },
+  "settings.agentLoop.operations.tokenLimit.label": {
+    "defaultMessage": "Limite de tokens"
+  },
+  "settings.agentLoop.operations.toolPairCompaction.description": {
+    "defaultMessage": "Resume solicitações e respostas antigas de ferramentas para economizar contexto. O limite é automático quando deixado em branco."
+  },
+  "settings.agentLoop.operations.toolPairCompaction.title": {
+    "defaultMessage": "Compactação de pares de ferramentas"
+  },
+  "settings.agentLoop.operations.turns.label": {
+    "defaultMessage": "Turnos"
+  },
+  "settings.agentLoop.title": {
+    "defaultMessage": "Loop do agente"
+  },
   "settings.appearance.description": {
     "defaultMessage": "Configure como o goose aparece no seu sistema"
   },
@@ -4192,6 +4573,144 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "Parâmetros obrigatórios em falta"
+  },
+  "storage.apply": {
+    "defaultMessage": "Apply location"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Artifacts and backups"
+  },
+  "storage.browse": {
+    "defaultMessage": "Choose folder"
+  },
+  "storage.cache": {
+    "defaultMessage": "Cache"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "storage.checking": {
+    "defaultMessage": "Checking storage…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Choose a dedicated folder for application storage."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Free verified previous transfer copies"
+  },
+  "storage.config": {
+    "defaultMessage": "Configuration"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Move storage and restart?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
+  },
+  "storage.copying": {
+    "defaultMessage": "Copying and verifying files…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Custom location"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
+  },
+  "storage.default": {
+    "defaultMessage": "Use the default location"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "System default location"
+  },
+  "storage.description": {
+    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
+  },
+  "storage.effective": {
+    "defaultMessage": "Current data location"
+  },
+  "storage.error": {
+    "defaultMessage": "Storage could not be changed: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Available space: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "There is not enough free space for a verified copy."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Choose an application storage folder."
+  },
+  "storage.logs": {
+    "defaultMessage": "Logs"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "A storage transfer is already running."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Choose a folder outside the current application storage."
+  },
+  "storage.permission": {
+    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
+  },
+  "storage.recovered": {
+    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
+  },
+  "storage.required": {
+    "defaultMessage": "Space required for a verified copy: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Move and restart"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Restarting with the new storage…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
+  },
+  "storage.retry": {
+    "defaultMessage": "Retry"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Return to previous storage"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
+  },
+  "storage.split": {
+    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Another process is using the storage. Close that app and retry."
+  },
+  "storage.title": {
+    "defaultMessage": "Application Storage"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "This location is already applied."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "A compatible filesystem is required for permanent application data."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Storage migration is currently available on Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Checking database integrity…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "O fornecedor {name} está configurado"
@@ -4640,199 +5159,439 @@
   "userMessage.removeImageFromEdit": {
     "defaultMessage": "Remover imagem da mensagem"
   },
-  "modelsBottomBar.recentModels": {
-    "defaultMessage": "Recentes"
+  "liveBrowser.areaDescriptionExample": {
+    "defaultMessage": "For example: the button needs more padding."
   },
-  "providerConfigurationModal.chooseModel": {
-    "defaultMessage": "Escolher modelo"
+  "liveBrowser.areaDescriptionHint": {
+    "defaultMessage": "This description is sent to AI with the selected area."
   },
-  "providerCard.deprecatedReplacement": {
-    "defaultMessage": "Obsoleto — use {replacement} em vez disso."
+  "liveBrowser.areaDescriptionLabel": {
+    "defaultMessage": "Problem description / what should be fixed"
   },
-  "acpReadinessPanel.adapterFound": {
-    "defaultMessage": "Adaptador ACP encontrado"
+  "liveBrowser.attachmentHasDescription": {
+    "defaultMessage": "Has description"
   },
-  "acpReadinessPanel.adapterNotFound": {
-    "defaultMessage": "Adaptador ACP não encontrado"
+  "liveBrowser.attachmentRegionsCount": {
+    "defaultMessage": "{count,plural,=0{no regions} one{# region} other{# regions}}"
   },
-  "acpReadinessPanel.authenticationHelp": {
-    "defaultMessage": "Inicie sessão através da CLI do fornecedor e verifique novamente."
+  "liveBrowser.cancel": {
+    "defaultMessage": "Cancel"
   },
-  "acpReadinessPanel.checkAgain": {
-    "defaultMessage": "Verificar novamente"
+  "liveBrowser.cannotUndo": {
+    "defaultMessage": "This cannot be undone."
   },
-  "acpReadinessPanel.checking": {
-    "defaultMessage": "A verificar..."
+  "liveBrowser.defaultAreaName": {
+    "defaultMessage": "Area {number}"
   },
-  "acpReadinessPanel.connected": {
-    "defaultMessage": "Ligação efetuada com sucesso"
+  "liveBrowser.deleteAll": {
+    "defaultMessage": "Delete all"
   },
-  "acpReadinessPanel.connectionNotChecked": {
-    "defaultMessage": "Verifique a ligação da sua conta antes de continuar."
+  "liveBrowser.deleteAllAreas": {
+    "defaultMessage": "Delete all areas"
   },
-  "providerConfigForm.deviceCodeAndEnter": {
-    "defaultMessage": "e insira:"
+  "liveBrowser.deleteAllAreasConfirm": {
+    "defaultMessage": "Delete all areas?"
   },
-  "providerConfigForm.deviceCodeCopy": {
-    "defaultMessage": "Copiar"
+  "liveBrowser.deleteAllAreasHistory": {
+    "defaultMessage": "{historyCount,plural,one{{captureCount,plural,one{It also removes {historyCount, number} history record and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history record and # saved screenshots. This cannot be undone.}}} other{{captureCount,plural,one{It also removes {historyCount, number} history records and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history records and # saved screenshots. This cannot be undone.}}}}"
   },
-  "providerConfigForm.deviceCodeVisit": {
-    "defaultMessage": "Acesse"
+  "liveBrowser.deleteAllAreasScope": {
+    "defaultMessage": "{areaCount,plural,one{{regionCount,plural,one{This removes {areaCount, number} area and # region from this chat only.} other{This removes {areaCount, number} area and # regions from this chat only.}}} other{{regionCount,plural,one{This removes {areaCount, number} areas and # region from this chat only.} other{This removes {areaCount, number} areas and # regions from this chat only.}}}}"
   },
-  "providerConfigurationModal.deviceCodeAndEnter": {
-    "defaultMessage": "e insira:"
+  "liveBrowser.elementNotFound": {
+    "defaultMessage": "Element not found or binding is stale"
   },
-  "providerConfigurationModal.deviceCodeCopy": {
-    "defaultMessage": "Copiar"
+  "liveBrowser.emptyAreas": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
   },
-  "providerConfigurationModal.deviceCodeVisit": {
-    "defaultMessage": "Acesse"
+  "liveBrowser.evidenceRecheck": {
+    "defaultMessage": "Recheck"
   },
-  "contextWindowIndicator.open": {
-    "defaultMessage": "{used} de {limit} tokens usados. Mostrar o que está na janela de contexto"
+  "liveBrowser.evidenceReselection": {
+    "defaultMessage": "Reselection"
   },
-  "contextXray.compactNow": {
-    "defaultMessage": "Compactar agora"
+  "liveBrowser.evidenceSelection": {
+    "defaultMessage": "Selection"
   },
-  "contextXray.free": {
-    "defaultMessage": "Livre"
+  "liveBrowser.findingElementOverlap": {
+    "defaultMessage": "Element overlap"
   },
-  "contextXray.loadError": {
-    "defaultMessage": "Não foi possível carregar o relatório de contexto."
+  "liveBrowser.findingHorizontalOverflow": {
+    "defaultMessage": "Horizontal overflow"
   },
-  "contextXray.modelSummary": {
-    "defaultMessage": "{model} · janela de contexto de {limit} tokens"
+  "liveBrowser.findingOutdated": {
+    "defaultMessage": "No longer detected · recheck"
   },
-  "contextXray.refresh": {
-    "defaultMessage": "Atualizar"
+  "liveBrowser.findingTextClipping": {
+    "defaultMessage": "Text clipping"
   },
-  "contextXray.retry": {
-    "defaultMessage": "Tentar novamente"
+  "liveBrowser.findingVerticalOverflow": {
+    "defaultMessage": "Vertical overflow"
   },
-  "contextXray.title": {
-    "defaultMessage": "Janela de contexto"
+  "liveBrowser.hideRegionMarkers": {
+    "defaultMessage": "Hide region markers"
   },
-  "contextXray.tokenizerNote": {
-    "defaultMessage": "A contagem de tokens é estimada com o tokenizador o200k."
+  "liveBrowser.inline.4k": {
+    "defaultMessage": "4K"
   },
-  "contextXray.usage": {
-    "defaultMessage": "de {limit} tokens · {percent} da janela de contexto"
+  "liveBrowser.inline.active-task": {
+    "defaultMessage": "Active task"
   },
-  "contextXray.category.additionalInstructions": {
-    "defaultMessage": "Instruções e dicas"
+  "liveBrowser.inline.add-region": {
+    "defaultMessage": "Add region"
   },
-  "contextXray.category.compactionSummary": {
-    "defaultMessage": "Resumo da compactação"
+  "liveBrowser.inline.agent-is-controlling-the-page": {
+    "defaultMessage": "Agent is controlling the page"
   },
-  "contextXray.category.extensionInstructions": {
-    "defaultMessage": "Instruções das extensões"
+  "liveBrowser.inline.apply-viewport": {
+    "defaultMessage": "Apply viewport"
   },
-  "contextXray.category.messages": {
-    "defaultMessage": "Conversa"
+  "liveBrowser.inline.area": {
+    "defaultMessage": "Area"
   },
-  "contextXray.category.systemPrompt": {
-    "defaultMessage": "Prompt do sistema"
+  "liveBrowser.inline.area-name": {
+    "defaultMessage": "Area name"
   },
-  "contextXray.category.toolDefinitions": {
-    "defaultMessage": "Definições de ferramentas"
+  "liveBrowser.inline.area-status": {
+    "defaultMessage": "Area status"
   },
-  "contextXray.category.turnContext": {
-    "defaultMessage": "Contexto do turno"
+  "liveBrowser.inline.areas": {
+    "defaultMessage": "Areas"
   },
-  "settings.agentLoop.operations.auto.placeholder": {
-    "defaultMessage": "Automático"
+  "liveBrowser.inline.attach-to-message": {
+    "defaultMessage": "Attach to message"
   },
-  "settings.agentLoop.operations.autoEffort.apiKey.configured": {
-    "defaultMessage": "Configurada"
+  "liveBrowser.inline.auto": {
+    "defaultMessage": "Auto"
   },
-  "settings.agentLoop.operations.autoEffort.apiKey.label": {
-    "defaultMessage": "Chave de API da TypeSafe"
+  "liveBrowser.inline.back": {
+    "defaultMessage": "Back"
   },
-  "settings.agentLoop.operations.autoEffort.apiKey.placeholder": {
-    "defaultMessage": "Insira a chave de API"
+  "liveBrowser.inline.bottom-inspector": {
+    "defaultMessage": "Bottom inspector"
   },
-  "settings.agentLoop.operations.autoEffort.apiKey.remove": {
-    "defaultMessage": "Remover chave"
+  "liveBrowser.inline.cancel": {
+    "defaultMessage": "Cancel"
   },
-  "settings.agentLoop.operations.autoEffort.apiKey.save": {
-    "defaultMessage": "Salvar chave"
+  "liveBrowser.inline.close-areas": {
+    "defaultMessage": "Close areas"
   },
-  "settings.agentLoop.operations.autoEffort.description": {
-    "defaultMessage": "Usa o Jev para escolher o nível de raciocínio de cada solicitação. O texto é enviado à TypeSafe AI; comandos de barra de habilidades e receitas incluem suas instruções locais expandidas."
+  "liveBrowser.inline.complete-task": {
+    "defaultMessage": "Complete task"
   },
-  "settings.agentLoop.operations.autoEffort.title": {
-    "defaultMessage": "Nível de raciocínio automático"
+  "liveBrowser.inline.completion-does-not-certify-a-fix": {
+    "defaultMessage": "Completion does not certify a fix"
   },
-  "settings.agentLoop.operations.blockLimit.label": {
-    "defaultMessage": "Limite de bloqueios"
+  "liveBrowser.inline.connected": {
+    "defaultMessage": "Connected"
   },
-  "settings.agentLoop.operations.contextCompaction.description": {
-    "defaultMessage": "Resume o histórico da conversa antes que a janela de contexto fique cheia."
+  "liveBrowser.inline.connecting": {
+    "defaultMessage": "Connecting"
   },
-  "settings.agentLoop.operations.contextCompaction.title": {
-    "defaultMessage": "Compactação de contexto"
+  "liveBrowser.inline.delete-all": {
+    "defaultMessage": "Delete all"
   },
-  "settings.agentLoop.operations.cutoff.label": {
-    "defaultMessage": "Limite"
+  "liveBrowser.inline.delete-all-areas": {
+    "defaultMessage": "Delete all areas"
   },
-  "settings.agentLoop.operations.enable": {
-    "defaultMessage": "Ativar {operation}"
+  "liveBrowser.inline.delete-all-areas-2": {
+    "defaultMessage": "Delete all areas?"
   },
-  "settings.agentLoop.operations.failureTimeout.label": {
-    "defaultMessage": "Tempo limite de falha"
+  "liveBrowser.inline.desktop": {
+    "defaultMessage": "Desktop"
   },
-  "settings.agentLoop.operations.heading": {
-    "defaultMessage": "Operações configuráveis"
+  "liveBrowser.inline.dispute-result": {
+    "defaultMessage": "Dispute result"
   },
-  "settings.agentLoop.operations.maxTurns.description": {
-    "defaultMessage": "Interrompe o trabalho autônomo e pergunta ao usuário antes de continuar."
+  "liveBrowser.inline.drag-to-pan": {
+    "defaultMessage": "Drag to pan"
   },
-  "settings.agentLoop.operations.maxTurns.title": {
-    "defaultMessage": "Máximo de turnos"
+  "liveBrowser.inline.drag-to-select-esc-to-cancel": {
+    "defaultMessage": "Drag to select • Esc to cancel"
   },
-  "settings.agentLoop.operations.recipeRetry.description": {
-    "defaultMessage": "Executa novamente as verificações da receita quando uma verificação de sucesso configurada falha."
+  "liveBrowser.inline.element-not-found-or-binding-is-stale": {
+    "defaultMessage": "Element not found or binding is stale"
   },
-  "settings.agentLoop.operations.recipeRetry.title": {
-    "defaultMessage": "Repetir receita"
+  "liveBrowser.inline.evidence-history": {
+    "defaultMessage": "Evidence & history"
   },
-  "settings.agentLoop.operations.retryTimeout.label": {
-    "defaultMessage": "Tempo limite de nova tentativa"
+  "liveBrowser.inline.expand": {
+    "defaultMessage": "Expand"
   },
-  "settings.agentLoop.operations.slashCommands.description": {
-    "defaultMessage": "Reconhece comandos como /compact, /skills e atalhos de receitas."
+  "liveBrowser.inline.find-area": {
+    "defaultMessage": "Find area"
   },
-  "settings.agentLoop.operations.slashCommands.title": {
-    "defaultMessage": "Comandos de barra"
+  "liveBrowser.inline.find-area-2": {
+    "defaultMessage": "Find area…"
   },
-  "settings.agentLoop.operations.stopHooks.description": {
-    "defaultMessage": "Permite que hooks bloqueiem a conclusão, evitando ciclos de parada infinitos."
+  "liveBrowser.inline.find-layout-candidates": {
+    "defaultMessage": "Find layout candidates"
   },
-  "settings.agentLoop.operations.stopHooks.title": {
-    "defaultMessage": "Hooks de parada"
+  "liveBrowser.inline.fit": {
+    "defaultMessage": "Fit"
   },
-  "settings.agentLoop.operations.threshold.label": {
-    "defaultMessage": "Limite %"
+  "liveBrowser.inline.for-example-the-button-needs-more-padding": {
+    "defaultMessage": "For example: the button needs more padding."
   },
-  "settings.agentLoop.operations.tokenLimit.label": {
-    "defaultMessage": "Limite de tokens"
+  "liveBrowser.inline.forward": {
+    "defaultMessage": "Forward"
   },
-  "settings.agentLoop.operations.toolPairCompaction.description": {
-    "defaultMessage": "Resume solicitações e respostas antigas de ferramentas para economizar contexto. O limite é automático quando deixado em branco."
+  "liveBrowser.inline.full-hd": {
+    "defaultMessage": "Full HD"
   },
-  "settings.agentLoop.operations.toolPairCompaction.title": {
-    "defaultMessage": "Compactação de pares de ferramentas"
+  "liveBrowser.inline.hide-browser": {
+    "defaultMessage": "Hide browser"
   },
-  "settings.agentLoop.operations.turns.label": {
-    "defaultMessage": "Turnos"
+  "liveBrowser.inline.hide-region-markers": {
+    "defaultMessage": "Hide region markers"
   },
-  "settings.agentLoop.title": {
-    "defaultMessage": "Loop do agente"
+  "liveBrowser.inline.historical-evidence-not-current-page-state": {
+    "defaultMessage": "Historical evidence, not current page state"
   },
-  "contextXray.providerManagesContext": {
-    "defaultMessage": "{provider} mantém o próprio histórico de conversa e recebe do goose apenas o prompt mais recente, portanto não há pedido para detalhar."
+  "liveBrowser.inline.historical-selection-not-current-page": {
+    "defaultMessage": "Historical selection, not current page"
   },
-  "contextXray.autoCompactionPending": {
-    "defaultMessage": "Limite de compactação automática ultrapassado: a conversa é compactada antes de o próximo pedido ser enviado."
+  "liveBrowser.inline.include-current-crop": {
+    "defaultMessage": "Include current crop"
+  },
+  "liveBrowser.inline.inspector-position": {
+    "defaultMessage": "Inspector position"
+  },
+  "liveBrowser.inline.interact-with-page": {
+    "defaultMessage": "Interact with page"
+  },
+  "liveBrowser.inline.interaction-mode": {
+    "defaultMessage": "Interaction mode"
+  },
+  "liveBrowser.inline.legacy-claim-unverified": {
+    "defaultMessage": "Legacy claim • unverified"
+  },
+  "liveBrowser.inline.mobile": {
+    "defaultMessage": "Mobile"
+  },
+  "liveBrowser.inline.no-areas-yet-select-the-part-of-the-page-you-want-the-ai-to-inspect": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
+  },
+  "liveBrowser.inline.no-matching-areas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.inline.no-potential-overflow-candidates-found": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.inline.no-project": {
+    "defaultMessage": "No project"
+  },
+  "liveBrowser.inline.no-project-bound-choose-a-project-in-session-settings": {
+    "defaultMessage": "No project bound. Choose a project in session settings."
+  },
+  "liveBrowser.inline.open-a-page-to-select": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.inline.open-an-address-above-select-a-region-when-you-need-the-agent-to-inspect-it": {
+    "defaultMessage": "Open an address above. Select a region when you need the agent to inspect it."
+  },
+  "liveBrowser.inline.open-page": {
+    "defaultMessage": "Open page"
+  },
+  "liveBrowser.inline.open-saved-page": {
+    "defaultMessage": "Open saved page"
+  },
+  "liveBrowser.inline.page-address": {
+    "defaultMessage": "Page address"
+  },
+  "liveBrowser.inline.page-interaction": {
+    "defaultMessage": "Page interaction"
+  },
+  "liveBrowser.inline.page-zoom": {
+    "defaultMessage": "Page zoom"
+  },
+  "liveBrowser.inline.page-zoom-changes-the-page-preview-changes-only-its-presentation-middle-drag-pans-the-whee": {
+    "defaultMessage": "Page zoom changes the page. Preview changes only its presentation. Middle drag pans; the wheel pans in Hand mode and scrolls the site in Interact mode."
+  },
+  "liveBrowser.inline.pan-preview-middle-drag-also-works": {
+    "defaultMessage": "Pan preview • middle drag also works"
+  },
+  "liveBrowser.inline.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.inline.potential-findings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.inline.potential-issue": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.inline.potential-layout-issue-the-scan-found-a-measurable-condition-it-does-not-prove-a-visual-de": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.inline.preview": {
+    "defaultMessage": "Preview"
+  },
+  "liveBrowser.inline.preview-scale": {
+    "defaultMessage": "Preview scale"
+  },
+  "liveBrowser.inline.problem-description-what-should-be-fixed": {
+    "defaultMessage": "Problem description / what should be fixed"
+  },
+  "liveBrowser.inline.recheck-text-fitting": {
+    "defaultMessage": "Recheck text fitting"
+  },
+  "liveBrowser.inline.reconnect": {
+    "defaultMessage": "Reconnect"
+  },
+  "liveBrowser.inline.reload": {
+    "defaultMessage": "Reload"
+  },
+  "liveBrowser.inline.remove-area": {
+    "defaultMessage": "Remove area"
+  },
+  "liveBrowser.inline.remove-region": {
+    "defaultMessage": "Remove region"
+  },
+  "liveBrowser.inline.reselect": {
+    "defaultMessage": "Reselect"
+  },
+  "liveBrowser.inline.reset-preview": {
+    "defaultMessage": "Reset preview"
+  },
+  "liveBrowser.inline.resize-areas": {
+    "defaultMessage": "Resize areas"
+  },
+  "liveBrowser.inline.resize-browser": {
+    "defaultMessage": "Resize browser"
+  },
+  "liveBrowser.inline.reveal": {
+    "defaultMessage": "Reveal"
+  },
+  "liveBrowser.inline.select-a-region-for-ai": {
+    "defaultMessage": "Select a region for AI"
+  },
+  "liveBrowser.inline.select-area": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.inline.show-on-page": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.inline.show-region-markers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.inline.show-this-element-on-the-page": {
+    "defaultMessage": "Show this element on the page"
+  },
+  "liveBrowser.inline.side-inspector": {
+    "defaultMessage": "Side inspector"
+  },
+  "liveBrowser.inline.split": {
+    "defaultMessage": "Split"
+  },
+  "liveBrowser.inline.tablet": {
+    "defaultMessage": "Tablet"
+  },
+  "liveBrowser.inline.task-workflow": {
+    "defaultMessage": "Task workflow"
+  },
+  "liveBrowser.inline.this-browser-is-attached-to-another-window-return-to-that-window-to-use-it": {
+    "defaultMessage": "This browser is attached to another window. Return to that window to use it."
+  },
+  "liveBrowser.inline.this-description-is-sent-to-ai-with-the-selected-area": {
+    "defaultMessage": "This description is sent to AI with the selected area."
+  },
+  "liveBrowser.inline.use-as-area": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.inline.view-saved-crop": {
+    "defaultMessage": "View saved crop"
+  },
+  "liveBrowser.inline.viewport": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.inline.viewport-height": {
+    "defaultMessage": "Viewport height"
+  },
+  "liveBrowser.inline.viewport-preset": {
+    "defaultMessage": "Viewport preset"
+  },
+  "liveBrowser.inline.viewport-width": {
+    "defaultMessage": "Viewport width"
+  },
+  "liveBrowser.inline.your-browser-workspace": {
+    "defaultMessage": "Your browser workspace"
+  },
+  "liveBrowser.noMatchingAreas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.noPotentialCandidates": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.noProjectBound": {
+    "defaultMessage": "No project linked to this chat"
+  },
+  "liveBrowser.openPageToSelect": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.potentialAreaName": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.potentialCandidateNotice": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.potentialFindings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.projectLinked": {
+    "defaultMessage": "Project linked to this chat"
+  },
+  "liveBrowser.removeAttachment": {
+    "defaultMessage": "Remove {name}"
+  },
+  "liveBrowser.selectArea": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.showOnPage": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.showRegionMarkers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.statusActive": {
+    "defaultMessage": "Active"
+  },
+  "liveBrowser.statusCompleted": {
+    "defaultMessage": "Completed"
+  },
+  "liveBrowser.statusConfirmed": {
+    "defaultMessage": "Confirmed"
+  },
+  "liveBrowser.statusDetected": {
+    "defaultMessage": "Detected"
+  },
+  "liveBrowser.statusDisputed": {
+    "defaultMessage": "Disputed"
+  },
+  "liveBrowser.statusFixed": {
+    "defaultMessage": "Fixed"
+  },
+  "liveBrowser.statusInProgress": {
+    "defaultMessage": "In progress"
+  },
+  "liveBrowser.statusUnresolved": {
+    "defaultMessage": "Unresolved"
+  },
+  "liveBrowser.statusVerified": {
+    "defaultMessage": "Verified"
+  },
+  "liveBrowser.useAsArea": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.visionLabel": {
+    "defaultMessage": "Vision"
+  },
+  "liveBrowser.visionOff": {
+    "defaultMessage": "Off"
+  },
+  "liveBrowser.visionOn": {
+    "defaultMessage": "On"
   }
 }

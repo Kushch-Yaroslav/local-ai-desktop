@@ -1,0 +1,76 @@
+After normal selector { phase: 'idle' }
+State {
+  phase: 'ready',
+  profileId: '2a6d244f-b8ef-4573-b0fa-0b2bd9f4bcbf',
+  args: [
+    '--model',
+    '/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '33149',
+    '--gpu-layers',
+    '24',
+    '--ctx-size',
+    '8192',
+    '--alias',
+    'local-gguf',
+    '--cache-type-k',
+    'q8_0',
+    '--cache-type-v',
+    'f16',
+    '--flash-attn',
+    'on',
+    '--threads',
+    '8',
+    '--batch-size',
+    '256',
+    '--ubatch-size',
+    '128',
+    '--n-cpu-moe',
+    '20'
+  ],
+  logPath: '/home/yaroslav/.local/share/local-ai-desktop-goose-dev/electron/gguf-2a6d244f-b8ef-4573-b0fa-0b2bd9f4bcbf.log'
+}
+Новый чат
+Рецепты
+Навыки
+Приложения
+Планировщик
+Расширения
+История сеансов
+ЧАТЫ
+New Chat
+CUDA_GOOSE_OK test
+New Chat
+New Chat
+Настройки
+goose
+New Chat
+
+Reply exactly MOE_PLACEMENT_OK. Do not use tools. /no_think
+
+18:03
+Изменить
+Копировать
+Thinking
+
+MOE_PLACEMENT_OK
+
+18:03
+Копировать
+1.35 tok/s
+·
+4.4k tok
+Qwen CUDA placement test · Работает
+Загрузить модель
+Выгрузить модель
+
+Стоп в чате отменяет генерацию. Выгрузка останавливает управляемый сервер. Закрытие приложения выгружает модель. При открытии приложения автозагрузки нет.
+
+Runtime и диагностика
+local-gguf
+yaroslav
+$0.00
+4.4k / 8.2k
+7

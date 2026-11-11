@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 // Local AI Desktop: real process/HTTP integration without allocating model weights.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, writeFile, rm, access, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, access, mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 vi.mock('electron', () => ({ app: {}, ipcMain: {}, BrowserWindow: { getAllWindows: () => [] } }));
 import { ManagedGguf } from './managedGguf';
@@ -24,7 +24,7 @@ beforeEach(async () => {
   await writeFile(
     executable,
     `#!/usr/bin/env node
-if(process.argv.includes('--help')){console.log('LLAMA_API_KEY --model --host --port --gpu-layers --ctx-size --alias --api-key --list-devices --threads --batch-size --ubatch-size --cache-type-k --cache-type-v f16 q8_0 --flash-attn --mmproj --cpu-moe --n-cpu-moe --override-tensor --jinja --chat-template --spec-type none,draft-simple,draft-mtp --spec-draft-n-max --spec-draft-n-min --spec-draft-model --gpu-layers-draft');process.exit(0);}
+if(process.argv.includes('--help')){console.log('LLAMA_API_KEY --verbose --model --host --port --gpu-layers --ctx-size --alias --api-key --list-devices --threads --batch-size --ubatch-size --cache-type-k --cache-type-v f16 q8_0 --flash-attn --mmproj --cpu-moe --n-cpu-moe --override-tensor --jinja --chat-template --spec-type none,draft-simple,draft-mtp --spec-draft-n-max --spec-draft-n-min --spec-draft-model --gpu-layers-draft');process.exit(0);}
 if(process.argv.includes('--version')){console.log('fixture 1');process.exit(0);}
 if(process.argv.includes('--list-devices')){console.log('Available devices: (none)');process.exit(0);}
 require('fs').appendFileSync(${JSON.stringify(marker)},'start\\n');
@@ -34,6 +34,7 @@ const server=http.createServer((req,res)=>{
  if(req.url==='/health'){res.end('{}');return;}
  if(req.url==='/v1/chat/completions'){
   const chunks=[];req.on('data',b=>chunks.push(b));req.on('end',()=>{const body=Buffer.concat(chunks);const parsed=JSON.parse(body);
+  if(parsed.max_tokens===64&&parsed.seed===42&&parsed.cache_prompt===false){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({choices:[{message:{role:'assistant',content:'synthetic, no actual MTP'}}]}));return;}
   if(parsed.testScenario==='echo'){res.setHeader('Content-Type','application/json');res.end(body);return;}
   if(parsed.testScenario==='stream-protocol'){res.writeHead(200,{'Content-Type':'text/event-stream'});const bytes=Buffer.from(parsed.fixtureSse);let i=0;const timer=setInterval(()=>{if(i>=bytes.length){clearInterval(timer);res.end();return;}res.write(bytes.subarray(i,i+7));i+=7;},1);return;}
   if(parsed.testScenario==='broken-stream'){res.writeHead(200,{'Content-Type':'text/event-stream'});res.write('data: {"choices":[{"delta":{"content":"synthetic"}}]}\\n\\n');setTimeout(()=>res.destroy(),50);return;}
@@ -43,6 +44,7 @@ const server=http.createServer((req,res)=>{
  res.writeHead(404).end();
 });
 const delay=process.argv.includes('--threads')&&process.argv[process.argv.indexOf('--threads')+1]==='2'?2500:0;
+if(process.argv.includes('--threads')&&process.argv[process.argv.indexOf('--threads')+1]==='3')console.error('current-child-startup-evidence:'+ 'x'.repeat(1024));
 setTimeout(()=>server.listen(Number(process.argv[process.argv.indexOf('--port')+1]),'127.0.0.1'),delay);
 `,
     { mode: 0o700 }
@@ -83,6 +85,23 @@ async function writeValidGguf(file: string, context = 131072) {
   await writeFile(file, Buffer.concat([Buffer.from('GGUF'), u32(3), u64(0), u64(fields.length), ...fields]));
 }
 describe('profile registry', () => {
+  it.each([16 * 1024 ** 2 - 64, 16 * 1024 ** 2, 16 * 1024 ** 2 + 64])(
+    'retains current-child startup evidence with %i bytes of existing diagnostic history',
+    async (previousBytes) => {
+      await writeValidGguf(base.model);
+      const profile = await service.save({ ...base, threads: 3 });
+      const log = join(dir, `gguf-${profile.id}.log`);
+      await writeFile(log, Buffer.alloc(previousBytes, '.'));
+      const endpoint = await service.activate(profile.id!);
+      expect(service.state.phase).toBe('ready');
+      expect(endpoint.args).toContain('--threads');
+      expect(await readFile(log, 'utf8')).toContain('current-child-startup-evidence:');
+      if (previousBytes > 16 * 1024 ** 2) expect((await readFile(log + '.1')).length).toBe(previousBytes);
+      await service.unload();
+      await service.activate(profile.id!);
+      expect((await readFile(log, 'utf8')).match(/current-child-startup-evidence:/g)?.length).toBe(previousBytes > 16 * 1024 ** 2 ? 2 : 1);
+    }
+  );
   it('saves multiple profiles without spawning weights, migrates legacy and never deletes external weights', async () => {
     const a = await service.save(base);
     const b = await service.save({ ...base, name: 'Second' });
@@ -449,4 +468,39 @@ it('does not advertise or accept embedded MTP for a target without a validated h
   expect((await service.capabilities(p.id!)).embeddedMtp).toBe(false);
   await expect(service.setEmbeddedMtp(p.id!,true)).rejects.toThrow('specBackend');
   await expect(access(marker)).rejects.toThrow();
+});
+
+it('never certifies MTP context when inference returned no actual draft activity',async()=>{
+ await writeFile(base.model,speculativeFixture());
+ const profile=await service.save({...base,context:4096,speculativeMode:'mtp-embedded',flashAttention:'on'});
+ const lease=await service.acquireRuntimeLease({id:999,once:()=>{}} as never);
+ await expect(service.runContextDiscovery(profile.id!,lease)).rejects.toThrow('No actual draft tokens generated');
+ expect(service.state.phase).toBe('idle');
+});
+
+it.each([false,true])('restores the original loaded=%s state after repeated failed probes and retains separate receipts',async(loaded)=>{
+ await writeFile(base.model,speculativeFixture());
+ const profile=await service.save({...base,context:4096,speculativeMode:'mtp-embedded',flashAttention:'on'});
+ if(loaded)await service.activate(profile.id!);
+ const originalArgs=service.state.args;
+ for(let i=0;i<3;i++){
+  const token=await service.acquireRuntimeLease({id:999,once:()=>{}} as never);
+  await expect(service.runContextDiscovery(profile.id!,token)).rejects.toThrow('No actual draft tokens generated');
+  expect(service.state.phase).toBe(loaded?'ready':'idle');
+  if(loaded){
+   const withoutPort=(args:string[]|undefined)=>args?.map((arg,index)=>args[index-1]==='--port'?'ephemeral-port':arg);
+   expect(withoutPort(service.state.args)).toEqual(withoutPort(originalArgs));
+  }
+ }
+ const runs=await readdir(join(dir,'discovery'));
+ expect(runs).toHaveLength(3);
+ const logs=new Set<string>();
+ for(const run of runs){
+  const receipt=JSON.parse(await readFile(join(dir,'discovery',run,'result.json'),'utf8'));
+  expect(receipt.initialState.phase).toBe(loaded?'ready':'idle');
+  expect(receipt.restoration).toBe(loaded?'reloaded':'left-unloaded');
+  expect(receipt.probes[0].stage).toBe('mtp');
+  logs.add(receipt.probes[0].logPath);
+ }
+ expect(logs.size).toBe(3);
 });

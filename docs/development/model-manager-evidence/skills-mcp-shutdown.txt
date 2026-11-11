@@ -1,0 +1,110 @@
+Ready before close {
+  phase: 'ready',
+  profileId: '2a6d244f-b8ef-4573-b0fa-0b2bd9f4bcbf',
+  args: [
+    '--model',
+    '/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '33149',
+    '--gpu-layers',
+    '24',
+    '--ctx-size',
+    '8192',
+    '--alias',
+    'local-gguf',
+    '--cache-type-k',
+    'q8_0',
+    '--cache-type-v',
+    'f16',
+    '--flash-attn',
+    'on',
+    '--threads',
+    '8',
+    '--batch-size',
+    '256',
+    '--ubatch-size',
+    '128',
+    '--n-cpu-moe',
+    '20'
+  ],
+  logPath: '/home/yaroslav/.local/share/local-ai-desktop-goose-dev/electron/gguf-2a6d244f-b8ef-4573-b0fa-0b2bd9f4bcbf.log'
+}
+Skills screen Новый чат
+Рецепты
+Навыки
+Приложения
+Планировщик
+Расширения
+История сеансов
+ЧАТЫ
+MOE_PLACEMENT_OK
+CUDA_GOOSE_OK test
+New Chat
+New Chat
+Настройки
+Навыки
+
+Просматривайте установленные навыки, расширяющие возможности Goose. Ctrl+F для поиска.
+
+goose-doc-guide
+
+Reference goose documentation to create, configure, or explain goose-specific features like recipes, extensions, sessions, and providers. You MUST read the relevant goose docs before answering. You MUST NOT rely on training data or assumptions for any goose-specific fields, values, names, syntax, or commands.
+
+web-search
+
+Search the web and extract page content using DuckDuckGo (no API key required), Tavily, or SearXNG. Use whenever the task needs current information, facts not in training data, or content from a specific URL.
+Extensions screen Новый чат
+Рецепты
+Навыки
+Приложения
+Планировщик
+Расширения
+История сеансов
+ЧАТЫ
+MOE_PLACEMENT_OK
+CUDA_GOOSE_OK test
+New Chat
+New Chat
+Настройки
+Расширения
+
+Эти расширения используют Model Context Protocol (MCP). Они расширяют возможности Goose с помощью трех основных компонентов: промптов, ресурсов и инструментов. Ctrl+F для поиска.
+
+Расширения, включенные здесь, используются по умолчанию для новых чатов. Активные расширения также можно переключать во время чата.
+
+Добавить пользовательское расширение
+Просмотреть расширения
+Расширения по умолчанию (7)
+Analyze
+Analyze code structure with tree-sitter: directory overviews, file details, symbol call graphs
+Apps
+Create and manage custom Goose apps through chat. Apps are HTML/CSS/JavaScript and run in sandboxed windows.
+Developer
+Write and edit files, and execute shell commands
+Extension Manager
+Enable extension management tools for discovering, enabling, and disabling extensions
+Skills
+Discover and provide skill instructions from filesystem and builtins
+Summon
+Load knowledge and delegate tasks to subagents
+Top Of Mind
+Inject custom context into every turn via GOOSE_MOIM_MESSAGE_TEXT and GOOSE_MOIM_MESSAGE_FILE environment variables
+Доступные расширения (8)
+Auto Visualiser
+Automatically see your data with this UI generation extension.
+Chat Recall
+Search past conversations and load session summaries for contextual memory
+Code Mode
+Goose will make extension calls through code execution, saving tokens
+Computer Controller
+General computer control tools that don't require you to be a developer or engineer.
+Memory
+Teach goose your preferences as you go.
+Summarize
+Load files/directories and get an LLM summary in a single call
+Todo
+Enable a todo list for goose so it can keep track of what it is doing
+Tutorial
+Access interactive tutorials and guides

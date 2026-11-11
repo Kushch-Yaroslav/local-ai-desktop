@@ -1401,13 +1401,19 @@
     "defaultMessage": "Manage existing GGUF files. Saving never loads weights. Select a profile in the chat model selector; the first request loads it."
   },
   "gguf.deviceMemory": {
-    "defaultMessage": "GPU memory allocation failed. Lower context/GPU offload, or run the vision projector on CPU, then reload."
+    "defaultMessage": "GPU memory allocation failed. Lower context/GPU offload or run the vision projector on CPU. For MTP, try one slot and smaller target/draft microbatches before rerunning discovery."
   },
   "gguf.devicesInaccessible": {
     "defaultMessage": "No GPU is visible to this executable. Check its CUDA libraries, device access and sandbox. CPU fallback: set GPU layers to 0."
   },
   "gguf.draft": {
     "defaultMessage": "Draft/MTP requires matching architecture, tokenizer, dimensions and backend validation. Not enabled in this version."
+  },
+  "gguf.draftCacheK": {
+    "defaultMessage": "MTP / draft KV K (default FP16)"
+  },
+  "gguf.draftCacheV": {
+    "defaultMessage": "MTP / draft KV V (default FP16)"
   },
   "gguf.draftCompatibility": {
     "defaultMessage": "Draft/MTP compatibility has not been verified; remove the draft setting to continue."
@@ -1423,6 +1429,9 @@
   },
   "gguf.draftTokens": {
     "defaultMessage": "Maximum draft tokens (1–16)"
+  },
+  "gguf.draftUbatch": {
+    "defaultMessage": "MTP / draft microbatch"
   },
   "gguf.duplicate": {
     "defaultMessage": "Duplicate"
@@ -1496,6 +1505,9 @@
   "gguf.moeNote": {
     "defaultMessage": "GPU Layers controls ordinary layers; CPU MoE controls expert weights. The GPU cache keeps selected CPU-resident experts in VRAM; speed depends on the model and workload."
   },
+  "gguf.mtpMemoryPreset": {
+    "defaultMessage": "Prepare MTP preset: 1 slot, 1 draft token, batch 512, microbatches 128 — review and save"
+  },
   "gguf.nCpuMoe": {
     "defaultMessage": "First N MoE layers on CPU"
   },
@@ -1528,6 +1540,9 @@
   },
   "gguf.on": {
     "defaultMessage": "On"
+  },
+  "gguf.parallel": {
+    "defaultMessage": "Parallel chat slots (1 uses less MTP memory)"
   },
   "gguf.placementIdentity": {
     "defaultMessage": "The GGUF identity for this placement is not confirmed. Review the inspected model and confirm it in Advanced settings."
@@ -2203,6 +2218,627 @@
   },
   "launcher.placeholder": {
     "defaultMessage": "Ask goose anything..."
+  },
+  "liveBrowser.agentAction": {
+    "defaultMessage": "Agent action: {detail}"
+  },
+  "liveBrowser.agentBusy": {
+    "defaultMessage": "Agent is working"
+  },
+  "liveBrowser.anchorsCount": {
+    "defaultMessage": "{count,plural,=0{no DOM anchors} one{# DOM anchor} other{# DOM anchors}}"
+  },
+  "liveBrowser.areaDescription": {
+    "defaultMessage": "Task / description"
+  },
+  "liveBrowser.areaDescriptionExample": {
+    "defaultMessage": "For example: the button needs more padding."
+  },
+  "liveBrowser.areaDescriptionHint": {
+    "defaultMessage": "This description is sent to AI with the selected area."
+  },
+  "liveBrowser.areaDescriptionLabel": {
+    "defaultMessage": "Problem description / what should be fixed"
+  },
+  "liveBrowser.areaName": {
+    "defaultMessage": "Name"
+  },
+  "liveBrowser.attachmentHasDescription": {
+    "defaultMessage": "Has description"
+  },
+  "liveBrowser.attachmentRegionsCount": {
+    "defaultMessage": "{count,plural,=0{no regions} one{# region} other{# regions}}"
+  },
+  "liveBrowser.auto": {
+    "defaultMessage": "Auto"
+  },
+  "liveBrowser.back": {
+    "defaultMessage": "Back"
+  },
+  "liveBrowser.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "liveBrowser.cannotUndo": {
+    "defaultMessage": "This cannot be undone."
+  },
+  "liveBrowser.captureFailed": {
+    "defaultMessage": "Could not capture the region: {error}"
+  },
+  "liveBrowser.closeBrowser": {
+    "defaultMessage": "Close browser session"
+  },
+  "liveBrowser.closePanel": {
+    "defaultMessage": "Hide panel (browser keeps running)"
+  },
+  "liveBrowser.confidenceLabel": {
+    "defaultMessage": "Confidence"
+  },
+  "liveBrowser.connecting": {
+    "defaultMessage": "Connecting to the browser runtime…"
+  },
+  "liveBrowser.createdLabel": {
+    "defaultMessage": "Created"
+  },
+  "liveBrowser.defaultAreaName": {
+    "defaultMessage": "Area {number}"
+  },
+  "liveBrowser.deleteAll": {
+    "defaultMessage": "Delete all"
+  },
+  "liveBrowser.deleteAllAreas": {
+    "defaultMessage": "Delete all areas"
+  },
+  "liveBrowser.deleteAllAreasConfirm": {
+    "defaultMessage": "Delete all areas?"
+  },
+  "liveBrowser.deleteAllAreasHistory": {
+    "defaultMessage": "{historyCount,plural,one{{captureCount,plural,one{It also removes {historyCount, number} history record and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history record and # saved screenshots. This cannot be undone.}}} other{{captureCount,plural,one{It also removes {historyCount, number} history records and # saved screenshot. This cannot be undone.} other{It also removes {historyCount, number} history records and # saved screenshots. This cannot be undone.}}}}"
+  },
+  "liveBrowser.deleteAllAreasScope": {
+    "defaultMessage": "{areaCount,plural,one{{regionCount,plural,one{This removes {areaCount, number} area and # region from this chat only.} other{This removes {areaCount, number} area and # regions from this chat only.}}} other{{regionCount,plural,one{This removes {areaCount, number} areas and # region from this chat only.} other{This removes {areaCount, number} areas and # regions from this chat only.}}}}"
+  },
+  "liveBrowser.deselectAll": {
+    "defaultMessage": "None"
+  },
+  "liveBrowser.diagnosticsLabel": {
+    "defaultMessage": "Diagnostics"
+  },
+  "liveBrowser.dprLabel": {
+    "defaultMessage": "DPR"
+  },
+  "liveBrowser.elementNotFound": {
+    "defaultMessage": "Element not found or binding is stale"
+  },
+  "liveBrowser.emptyAreas": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
+  },
+  "liveBrowser.evidenceRecheck": {
+    "defaultMessage": "Recheck"
+  },
+  "liveBrowser.evidenceReselection": {
+    "defaultMessage": "Reselection"
+  },
+  "liveBrowser.evidenceSelection": {
+    "defaultMessage": "Selection"
+  },
+  "liveBrowser.findingElementOverlap": {
+    "defaultMessage": "Element overlap"
+  },
+  "liveBrowser.findingHorizontalOverflow": {
+    "defaultMessage": "Horizontal overflow"
+  },
+  "liveBrowser.findingOutdated": {
+    "defaultMessage": "No longer detected · recheck"
+  },
+  "liveBrowser.findingTextClipping": {
+    "defaultMessage": "Text clipping"
+  },
+  "liveBrowser.findingVerticalOverflow": {
+    "defaultMessage": "Vertical overflow"
+  },
+  "liveBrowser.fit": {
+    "defaultMessage": "Fit"
+  },
+  "liveBrowser.forward": {
+    "defaultMessage": "Forward"
+  },
+  "liveBrowser.groundFailed": {
+    "defaultMessage": "Could not save the selection: {error}"
+  },
+  "liveBrowser.hideRegionMarkers": {
+    "defaultMessage": "Hide region markers"
+  },
+  "liveBrowser.historyLabel": {
+    "defaultMessage": "History"
+  },
+  "liveBrowser.iconTooltip": {
+    "defaultMessage": "Show / hide Live Browser panel"
+  },
+  "liveBrowser.includeInNext": {
+    "defaultMessage": "Include in next message"
+  },
+  "liveBrowser.inline.4k": {
+    "defaultMessage": "4K"
+  },
+  "liveBrowser.inline.active-task": {
+    "defaultMessage": "Active task"
+  },
+  "liveBrowser.inline.add-region": {
+    "defaultMessage": "Add region"
+  },
+  "liveBrowser.inline.agent-is-controlling-the-page": {
+    "defaultMessage": "Agent is controlling the page"
+  },
+  "liveBrowser.inline.apply-viewport": {
+    "defaultMessage": "Apply viewport"
+  },
+  "liveBrowser.inline.area": {
+    "defaultMessage": "Area"
+  },
+  "liveBrowser.inline.area-name": {
+    "defaultMessage": "Area name"
+  },
+  "liveBrowser.inline.area-status": {
+    "defaultMessage": "Area status"
+  },
+  "liveBrowser.inline.areas": {
+    "defaultMessage": "Areas"
+  },
+  "liveBrowser.inline.attach-to-message": {
+    "defaultMessage": "Attach to message"
+  },
+  "liveBrowser.inline.auto": {
+    "defaultMessage": "Auto"
+  },
+  "liveBrowser.inline.back": {
+    "defaultMessage": "Back"
+  },
+  "liveBrowser.inline.bottom-inspector": {
+    "defaultMessage": "Bottom inspector"
+  },
+  "liveBrowser.inline.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "liveBrowser.inline.close-areas": {
+    "defaultMessage": "Close areas"
+  },
+  "liveBrowser.inline.complete-task": {
+    "defaultMessage": "Complete task"
+  },
+  "liveBrowser.inline.completion-does-not-certify-a-fix": {
+    "defaultMessage": "Completion does not certify a fix"
+  },
+  "liveBrowser.inline.connected": {
+    "defaultMessage": "Connected"
+  },
+  "liveBrowser.inline.connecting": {
+    "defaultMessage": "Connecting"
+  },
+  "liveBrowser.inline.delete-all": {
+    "defaultMessage": "Delete all"
+  },
+  "liveBrowser.inline.delete-all-areas": {
+    "defaultMessage": "Delete all areas"
+  },
+  "liveBrowser.inline.delete-all-areas-2": {
+    "defaultMessage": "Delete all areas?"
+  },
+  "liveBrowser.inline.desktop": {
+    "defaultMessage": "Desktop"
+  },
+  "liveBrowser.inline.dispute-result": {
+    "defaultMessage": "Dispute result"
+  },
+  "liveBrowser.inline.drag-to-pan": {
+    "defaultMessage": "Drag to pan"
+  },
+  "liveBrowser.inline.drag-to-select-esc-to-cancel": {
+    "defaultMessage": "Drag to select • Esc to cancel"
+  },
+  "liveBrowser.inline.element-not-found-or-binding-is-stale": {
+    "defaultMessage": "Element not found or binding is stale"
+  },
+  "liveBrowser.inline.evidence-history": {
+    "defaultMessage": "Evidence & history"
+  },
+  "liveBrowser.inline.expand": {
+    "defaultMessage": "Expand"
+  },
+  "liveBrowser.inline.find-area": {
+    "defaultMessage": "Find area"
+  },
+  "liveBrowser.inline.find-area-2": {
+    "defaultMessage": "Find area…"
+  },
+  "liveBrowser.inline.find-layout-candidates": {
+    "defaultMessage": "Find layout candidates"
+  },
+  "liveBrowser.inline.fit": {
+    "defaultMessage": "Fit"
+  },
+  "liveBrowser.inline.for-example-the-button-needs-more-padding": {
+    "defaultMessage": "For example: the button needs more padding."
+  },
+  "liveBrowser.inline.forward": {
+    "defaultMessage": "Forward"
+  },
+  "liveBrowser.inline.full-hd": {
+    "defaultMessage": "Full HD"
+  },
+  "liveBrowser.inline.hide-browser": {
+    "defaultMessage": "Hide browser"
+  },
+  "liveBrowser.inline.hide-region-markers": {
+    "defaultMessage": "Hide region markers"
+  },
+  "liveBrowser.inline.historical-evidence-not-current-page-state": {
+    "defaultMessage": "Historical evidence, not current page state"
+  },
+  "liveBrowser.inline.historical-selection-not-current-page": {
+    "defaultMessage": "Historical selection, not current page"
+  },
+  "liveBrowser.inline.include-current-crop": {
+    "defaultMessage": "Include current crop"
+  },
+  "liveBrowser.inline.inspector-position": {
+    "defaultMessage": "Inspector position"
+  },
+  "liveBrowser.inline.interact-with-page": {
+    "defaultMessage": "Interact with page"
+  },
+  "liveBrowser.inline.interaction-mode": {
+    "defaultMessage": "Interaction mode"
+  },
+  "liveBrowser.inline.legacy-claim-unverified": {
+    "defaultMessage": "Legacy claim • unverified"
+  },
+  "liveBrowser.inline.mobile": {
+    "defaultMessage": "Mobile"
+  },
+  "liveBrowser.inline.no-areas-yet-select-the-part-of-the-page-you-want-the-ai-to-inspect": {
+    "defaultMessage": "No areas yet. Select the part of the page you want the AI to inspect."
+  },
+  "liveBrowser.inline.no-matching-areas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.inline.no-potential-overflow-candidates-found": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.inline.no-project": {
+    "defaultMessage": "No project"
+  },
+  "liveBrowser.inline.no-project-bound-choose-a-project-in-session-settings": {
+    "defaultMessage": "No project bound. Choose a project in session settings."
+  },
+  "liveBrowser.inline.open-a-page-to-select": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.inline.open-an-address-above-select-a-region-when-you-need-the-agent-to-inspect-it": {
+    "defaultMessage": "Open an address above. Select a region when you need the agent to inspect it."
+  },
+  "liveBrowser.inline.open-page": {
+    "defaultMessage": "Open page"
+  },
+  "liveBrowser.inline.open-saved-page": {
+    "defaultMessage": "Open saved page"
+  },
+  "liveBrowser.inline.page-address": {
+    "defaultMessage": "Page address"
+  },
+  "liveBrowser.inline.page-interaction": {
+    "defaultMessage": "Page interaction"
+  },
+  "liveBrowser.inline.page-zoom": {
+    "defaultMessage": "Page zoom"
+  },
+  "liveBrowser.inline.page-zoom-changes-the-page-preview-changes-only-its-presentation-middle-drag-pans-the-whee": {
+    "defaultMessage": "Page zoom changes the page. Preview changes only its presentation. Middle drag pans; the wheel pans in Hand mode and scrolls the site in Interact mode."
+  },
+  "liveBrowser.inline.pan-preview-middle-drag-also-works": {
+    "defaultMessage": "Pan preview • middle drag also works"
+  },
+  "liveBrowser.inline.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.inline.potential-findings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.inline.potential-issue": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.inline.potential-layout-issue-the-scan-found-a-measurable-condition-it-does-not-prove-a-visual-de": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.inline.preview": {
+    "defaultMessage": "Preview"
+  },
+  "liveBrowser.inline.preview-scale": {
+    "defaultMessage": "Preview scale"
+  },
+  "liveBrowser.inline.problem-description-what-should-be-fixed": {
+    "defaultMessage": "Problem description / what should be fixed"
+  },
+  "liveBrowser.inline.recheck-text-fitting": {
+    "defaultMessage": "Recheck text fitting"
+  },
+  "liveBrowser.inline.reconnect": {
+    "defaultMessage": "Reconnect"
+  },
+  "liveBrowser.inline.reload": {
+    "defaultMessage": "Reload"
+  },
+  "liveBrowser.inline.remove-area": {
+    "defaultMessage": "Remove area"
+  },
+  "liveBrowser.inline.remove-region": {
+    "defaultMessage": "Remove region"
+  },
+  "liveBrowser.inline.reselect": {
+    "defaultMessage": "Reselect"
+  },
+  "liveBrowser.inline.reset-preview": {
+    "defaultMessage": "Reset preview"
+  },
+  "liveBrowser.inline.resize-areas": {
+    "defaultMessage": "Resize areas"
+  },
+  "liveBrowser.inline.resize-browser": {
+    "defaultMessage": "Resize browser"
+  },
+  "liveBrowser.inline.reveal": {
+    "defaultMessage": "Reveal"
+  },
+  "liveBrowser.inline.select-a-region-for-ai": {
+    "defaultMessage": "Select a region for AI"
+  },
+  "liveBrowser.inline.select-area": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.inline.show-on-page": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.inline.show-region-markers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.inline.show-this-element-on-the-page": {
+    "defaultMessage": "Show this element on the page"
+  },
+  "liveBrowser.inline.side-inspector": {
+    "defaultMessage": "Side inspector"
+  },
+  "liveBrowser.inline.split": {
+    "defaultMessage": "Split"
+  },
+  "liveBrowser.inline.tablet": {
+    "defaultMessage": "Tablet"
+  },
+  "liveBrowser.inline.task-workflow": {
+    "defaultMessage": "Task workflow"
+  },
+  "liveBrowser.inline.this-browser-is-attached-to-another-window-return-to-that-window-to-use-it": {
+    "defaultMessage": "This browser is attached to another window. Return to that window to use it."
+  },
+  "liveBrowser.inline.this-description-is-sent-to-ai-with-the-selected-area": {
+    "defaultMessage": "This description is sent to AI with the selected area."
+  },
+  "liveBrowser.inline.use-as-area": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.inline.view-saved-crop": {
+    "defaultMessage": "View saved crop"
+  },
+  "liveBrowser.inline.viewport": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.inline.viewport-height": {
+    "defaultMessage": "Viewport height"
+  },
+  "liveBrowser.inline.viewport-preset": {
+    "defaultMessage": "Viewport preset"
+  },
+  "liveBrowser.inline.viewport-width": {
+    "defaultMessage": "Viewport width"
+  },
+  "liveBrowser.inline.your-browser-workspace": {
+    "defaultMessage": "Your browser workspace"
+  },
+  "liveBrowser.lastCheckLabel": {
+    "defaultMessage": "Last check"
+  },
+  "liveBrowser.liveCheck": {
+    "defaultMessage": "Re-check binding"
+  },
+  "liveBrowser.markFixed": {
+    "defaultMessage": "Mark fixed"
+  },
+  "liveBrowser.markUnresolved": {
+    "defaultMessage": "Mark unresolved"
+  },
+  "liveBrowser.markVerified": {
+    "defaultMessage": "Mark verified"
+  },
+  "liveBrowser.modeChatOnly": {
+    "defaultMessage": "Chat only"
+  },
+  "liveBrowser.modeExpanded": {
+    "defaultMessage": "Expanded"
+  },
+  "liveBrowser.modeSplit": {
+    "defaultMessage": "Split"
+  },
+  "liveBrowser.newArea": {
+    "defaultMessage": "New area"
+  },
+  "liveBrowser.noMatchingAreas": {
+    "defaultMessage": "No matching areas."
+  },
+  "liveBrowser.noPage": {
+    "defaultMessage": "No page open yet — enter a URL above."
+  },
+  "liveBrowser.noPotentialCandidates": {
+    "defaultMessage": "No potential overflow candidates found."
+  },
+  "liveBrowser.noProjectBound": {
+    "defaultMessage": "No project linked to this chat"
+  },
+  "liveBrowser.notInElectron": {
+    "defaultMessage": "Live Browser is available in the desktop app."
+  },
+  "liveBrowser.open": {
+    "defaultMessage": "Open"
+  },
+  "liveBrowser.openPageToSelect": {
+    "defaultMessage": "Open a page to select"
+  },
+  "liveBrowser.ownershipAgent": {
+    "defaultMessage": "Agent control"
+  },
+  "liveBrowser.ownershipUser": {
+    "defaultMessage": "Your control"
+  },
+  "liveBrowser.pageZoom": {
+    "defaultMessage": "Page zoom"
+  },
+  "liveBrowser.panelTitle": {
+    "defaultMessage": "Live Browser"
+  },
+  "liveBrowser.pendingNote": {
+    "defaultMessage": "{names} will be included in the next message to the agent"
+  },
+  "liveBrowser.potential": {
+    "defaultMessage": "Potential"
+  },
+  "liveBrowser.potentialAreaName": {
+    "defaultMessage": "Potential issue"
+  },
+  "liveBrowser.potentialCandidateNotice": {
+    "defaultMessage": "Potential layout issue. The scan found a measurable condition; it does not prove a visual defect."
+  },
+  "liveBrowser.potentialFindings": {
+    "defaultMessage": "Potential findings"
+  },
+  "liveBrowser.previewScale": {
+    "defaultMessage": "Preview scale"
+  },
+  "liveBrowser.projectLinked": {
+    "defaultMessage": "Project linked to this chat"
+  },
+  "liveBrowser.regionAdded": {
+    "defaultMessage": "Area saved"
+  },
+  "liveBrowser.regionsCount": {
+    "defaultMessage": "{count,plural,=0{no selections} one{# selection} other{# selections}}"
+  },
+  "liveBrowser.reload": {
+    "defaultMessage": "Reload"
+  },
+  "liveBrowser.removeArea": {
+    "defaultMessage": "Remove area"
+  },
+  "liveBrowser.removeAttachment": {
+    "defaultMessage": "Remove {name}"
+  },
+  "liveBrowser.removeRegion": {
+    "defaultMessage": "Remove selection"
+  },
+  "liveBrowser.retry": {
+    "defaultMessage": "Retry"
+  },
+  "liveBrowser.runtimeError": {
+    "defaultMessage": "Browser runtime error: {error}"
+  },
+  "liveBrowser.scrollLabel": {
+    "defaultMessage": "Scroll"
+  },
+  "liveBrowser.selectAll": {
+    "defaultMessage": "All"
+  },
+  "liveBrowser.selectArea": {
+    "defaultMessage": "Select area"
+  },
+  "liveBrowser.selectHint": {
+    "defaultMessage": "Drag a rectangle over the page to select an area"
+  },
+  "liveBrowser.sendingContext": {
+    "defaultMessage": "Next message will include: {names}"
+  },
+  "liveBrowser.sessionClosed": {
+    "defaultMessage": "Browser session closed"
+  },
+  "liveBrowser.showOnPage": {
+    "defaultMessage": "Show on page"
+  },
+  "liveBrowser.showRegionMarkers": {
+    "defaultMessage": "Show region markers"
+  },
+  "liveBrowser.staleBinding": {
+    "defaultMessage": "Binding is stale — original selection data preserved"
+  },
+  "liveBrowser.status": {
+    "defaultMessage": "Status"
+  },
+  "liveBrowser.statusActive": {
+    "defaultMessage": "Active"
+  },
+  "liveBrowser.statusCompleted": {
+    "defaultMessage": "Completed"
+  },
+  "liveBrowser.statusConfirmed": {
+    "defaultMessage": "Confirmed"
+  },
+  "liveBrowser.statusDetected": {
+    "defaultMessage": "Detected"
+  },
+  "liveBrowser.statusDisputed": {
+    "defaultMessage": "Disputed"
+  },
+  "liveBrowser.statusFixed": {
+    "defaultMessage": "Fixed"
+  },
+  "liveBrowser.statusInProgress": {
+    "defaultMessage": "In progress"
+  },
+  "liveBrowser.statusUnresolved": {
+    "defaultMessage": "Unresolved"
+  },
+  "liveBrowser.statusVerified": {
+    "defaultMessage": "Verified"
+  },
+  "liveBrowser.technicalData": {
+    "defaultMessage": "Technical data"
+  },
+  "liveBrowser.urlBlocked": {
+    "defaultMessage": "URL not allowed: {error}"
+  },
+  "liveBrowser.urlLabel": {
+    "defaultMessage": "URL"
+  },
+  "liveBrowser.urlPlaceholder": {
+    "defaultMessage": "https://example.com"
+  },
+  "liveBrowser.useAsArea": {
+    "defaultMessage": "Use as area"
+  },
+  "liveBrowser.viewportLabel": {
+    "defaultMessage": "Viewport"
+  },
+  "liveBrowser.visionLabel": {
+    "defaultMessage": "Vision"
+  },
+  "liveBrowser.visionOff": {
+    "defaultMessage": "Off"
+  },
+  "liveBrowser.visionOffNote": {
+    "defaultMessage": "Vision off: the model receives the text context (DOM, geometry, CSS, URL), not the image."
+  },
+  "liveBrowser.visionOn": {
+    "defaultMessage": "On"
+  },
+  "liveBrowser.visionOnNote": {
+    "defaultMessage": "Vision on: the model also receives the region screenshot."
+  },
+  "liveBrowser.zoom": {
+    "defaultMessage": "Zoom"
   },
   "liveVoice.connecting": {
     "defaultMessage": "Connecting Live voice"
@@ -4464,7 +5100,7 @@
     "defaultMessage": "{kv} could not be verified because runtime memory or inference evidence was incomplete."
   },
   "sessionSettings.discoveryFailed": {
-    "defaultMessage": "Context search failed. The previous runtime configuration was restored where possible."
+    "defaultMessage": "Context search failed."
   },
   "sessionSettings.discoveryMemoryChanged": {
     "defaultMessage": "Memory changed during probing; no safe context remained."
@@ -4487,14 +5123,32 @@
   "sessionSettings.exactContext": {
     "defaultMessage": "{tokens} tokens · {status}"
   },
+  "sessionSettings.failedRestore": {
+    "defaultMessage": "Restoration failed: {reason}"
+  },
+  "sessionSettings.failureDetails": {
+    "defaultMessage": "{stage} · {kv} · {context} tokens {reason} Runtime: {restoration} Diagnostics: {log}"
+  },
   "sessionSettings.fp16": {
     "defaultMessage": "FP16"
+  },
+  "sessionSettings.generationStage": {
+    "defaultMessage": "Probe generation"
+  },
+  "sessionSettings.healthStage": {
+    "defaultMessage": "Runtime health check"
   },
   "sessionSettings.high": {
     "defaultMessage": "High"
   },
   "sessionSettings.kvCache": {
     "defaultMessage": "KV Cache Precision"
+  },
+  "sessionSettings.loadStage": {
+    "defaultMessage": "Loading probe"
+  },
+  "sessionSettings.loadedRestore": {
+    "defaultMessage": "The previous loaded configuration was restored."
   },
   "sessionSettings.low": {
     "defaultMessage": "Low"
@@ -4505,6 +5159,9 @@
   "sessionSettings.max": {
     "defaultMessage": "Max"
   },
+  "sessionSettings.measurementStage": {
+    "defaultMessage": "Memory measurement"
+  },
   "sessionSettings.medium": {
     "defaultMessage": "Medium"
   },
@@ -4514,6 +5171,9 @@
   "sessionSettings.modeScope": {
     "defaultMessage": "Applies to this session"
   },
+  "sessionSettings.mtpStage": {
+    "defaultMessage": "MTP validation"
+  },
   "sessionSettings.noResults": {
     "defaultMessage": "No context size passed the memory checks."
   },
@@ -4522,6 +5182,12 @@
   },
   "sessionSettings.off": {
     "defaultMessage": "Off"
+  },
+  "sessionSettings.olderResults": {
+    "defaultMessage": "The last search failed. The results shown are from earlier measurements."
+  },
+  "sessionSettings.preparationStage": {
+    "defaultMessage": "Preparing discovery"
   },
   "sessionSettings.providerDefault": {
     "defaultMessage": "Provider default"
@@ -4580,8 +5246,14 @@
   "sessionSettings.unavailable": {
     "defaultMessage": "Could not apply this setting"
   },
+  "sessionSettings.unchangedRestore": {
+    "defaultMessage": "The original runtime was not changed."
+  },
   "sessionSettings.unconfirmed": {
     "defaultMessage": "Saved result · conditions need confirmation"
+  },
+  "sessionSettings.unloadedRestore": {
+    "defaultMessage": "Left unloaded, as before the search."
   },
   "sessionSettings.unsupportedMode": {
     "defaultMessage": "{kv}: {reason}"
@@ -5083,6 +5755,144 @@
   },
   "standaloneAppView.missingParams": {
     "defaultMessage": "Missing required parameters"
+  },
+  "storage.apply": {
+    "defaultMessage": "Apply location"
+  },
+  "storage.artifacts": {
+    "defaultMessage": "Artifacts and backups"
+  },
+  "storage.browse": {
+    "defaultMessage": "Choose folder"
+  },
+  "storage.cache": {
+    "defaultMessage": "Cache"
+  },
+  "storage.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "storage.checking": {
+    "defaultMessage": "Checking storage…"
+  },
+  "storage.chooseAppFolder": {
+    "defaultMessage": "Choose a dedicated folder for application storage."
+  },
+  "storage.cleanup": {
+    "defaultMessage": "Free verified previous transfer copies"
+  },
+  "storage.config": {
+    "defaultMessage": "Configuration"
+  },
+  "storage.confirm": {
+    "defaultMessage": "Move storage and restart?"
+  },
+  "storage.confirmText": {
+    "defaultMessage": "Open chats and model work will stop. The app will copy and verify your data, then restart. Original data is retained until the new storage is verified."
+  },
+  "storage.copying": {
+    "defaultMessage": "Copying and verifying files…"
+  },
+  "storage.custom": {
+    "defaultMessage": "Custom location"
+  },
+  "storage.databaseBusyOrInvalid": {
+    "defaultMessage": "A database is busy or failed its integrity check. The original data is retained."
+  },
+  "storage.default": {
+    "defaultMessage": "Use the default location"
+  },
+  "storage.defaultPath": {
+    "defaultMessage": "System default location"
+  },
+  "storage.description": {
+    "defaultMessage": "Choose where chat history, model profiles, cache and logs are stored. GGUF model files keep their existing locations."
+  },
+  "storage.destinationConflict": {
+    "defaultMessage": "The destination contains existing or incompatible data. Choose another folder."
+  },
+  "storage.effective": {
+    "defaultMessage": "Current data location"
+  },
+  "storage.error": {
+    "defaultMessage": "Storage could not be changed: {reason}"
+  },
+  "storage.free": {
+    "defaultMessage": "Available space: {space}"
+  },
+  "storage.insufficientSpace": {
+    "defaultMessage": "There is not enough free space for a verified copy."
+  },
+  "storage.invalidPath": {
+    "defaultMessage": "Choose an application storage folder."
+  },
+  "storage.logs": {
+    "defaultMessage": "Logs"
+  },
+  "storage.migrationBusy": {
+    "defaultMessage": "A storage transfer is already running."
+  },
+  "storage.nestedStorage": {
+    "defaultMessage": "Choose a folder outside the current application storage."
+  },
+  "storage.permission": {
+    "defaultMessage": "The app cannot write to this folder. Choose another folder or check its permissions."
+  },
+  "storage.recovered": {
+    "defaultMessage": "An interrupted transfer kept its original data. You can retry the operation."
+  },
+  "storage.recoveryRequired": {
+    "defaultMessage": "Restart the app to recover an interrupted transfer before retrying."
+  },
+  "storage.required": {
+    "defaultMessage": "Space required for a verified copy: {space}"
+  },
+  "storage.restart": {
+    "defaultMessage": "Move and restart"
+  },
+  "storage.restarting": {
+    "defaultMessage": "Restarting with the new storage…"
+  },
+  "storage.retained": {
+    "defaultMessage": "Previous data is retained for rollback. Historical migration sources and backups are preserved."
+  },
+  "storage.retry": {
+    "defaultMessage": "Retry"
+  },
+  "storage.rollback": {
+    "defaultMessage": "Return to previous storage"
+  },
+  "storage.sourceChanged": {
+    "defaultMessage": "Source data changed during verification. It has been retained; close other app instances and retry."
+  },
+  "storage.split": {
+    "defaultMessage": "This filesystem is used for cache, logs and artifacts. Chat history and sensitive state remain on a compatible filesystem, shown above."
+  },
+  "storage.storageInUse": {
+    "defaultMessage": "Another process is using the storage. Close that app and retry."
+  },
+  "storage.title": {
+    "defaultMessage": "Application Storage"
+  },
+  "storage.unavailable": {
+    "defaultMessage": "The selected disk is unavailable. Mount it and try again."
+  },
+  "storage.unchanged": {
+    "defaultMessage": "This location is already applied."
+  },
+  "storage.unidentifiedVolume": {
+    "defaultMessage": "The selected volume cannot be identified safely. Choose a local mounted disk."
+  },
+  "storage.unsafeDefault": {
+    "defaultMessage": "A compatible filesystem is required for permanent application data."
+  },
+  "storage.unsupportedPlatform": {
+    "defaultMessage": "Storage migration is currently available on Linux."
+  },
+  "storage.verifying": {
+    "defaultMessage": "Checking database integrity…"
+  },
+  "storage.weightsInsideStorage": {
+    "defaultMessage": "GGUF weights were found inside application storage. Keep models in a separate folder before moving storage."
   },
   "stringUtils.configuredProvider": {
     "defaultMessage": "{name} provider is configured"

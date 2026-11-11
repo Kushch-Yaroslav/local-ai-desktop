@@ -1,7 +1,13 @@
+// Modified for Local AI Desktop: responsive Live Browser workspace.
 // Modified for Local AI Desktop: expose managed-runtime memory state in chat.
 import { AppEvents } from '../constants/events';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Globe } from 'lucide-react';
 import { defineMessages, useIntl } from '../i18n';
+import { LiveBrowserPanel } from './liveBrowser/LiveBrowserPanel';
+import { PendingBrowserAttachments } from './liveBrowser/PendingBrowserAttachments';
+import { i18n as liveBrowserMessages } from './liveBrowser/i18n';
+import { useLiveBrowserWiring } from './liveBrowser/useLiveBrowserWiring';
 import { useLocation, useNavigate } from 'react-router';
 import { SearchView } from './conversation/SearchView';
 import LoadingGoose from './LoadingGoose';
@@ -60,6 +66,52 @@ const i18n = defineMessages({
 });
 
 const isUserMessage = (message: Message) => message.role === 'user';
+
+/**
+ * Live Browser panel UI state (per chat). The browser runtime itself is
+ * global and conversation-scoped on the server side; only the panel layout
+ * state is remembered per conversation, so each chat keeps its own
+ * Split/Expanded choice and panel width.
+ */
+type BrowserMode = 'chatOnly' | 'split' | 'expanded';
+
+interface BrowserUIState {
+  mode: BrowserMode;
+  panelWidth: number;
+}
+
+const BROWSER_DEFAULT_PANEL_WIDTH = 520;
+
+function browserUIStorageKey(sessionId: string): string {
+  return `lad-live-browser-ui-${sessionId}`;
+}
+
+function loadBrowserUIState(sessionId: string): BrowserUIState {
+  try {
+    const raw = window.localStorage.getItem(browserUIStorageKey(sessionId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<BrowserUIState>;
+      const mode: BrowserMode =
+        parsed.mode === 'split' || parsed.mode === 'expanded' ? parsed.mode : 'chatOnly';
+      const panelWidth =
+        typeof parsed.panelWidth === 'number' && Number.isFinite(parsed.panelWidth)
+          ? Math.min(3840, Math.max(320, Math.round(parsed.panelWidth)))
+          : BROWSER_DEFAULT_PANEL_WIDTH;
+      return { mode, panelWidth };
+    }
+  } catch {
+    // corrupted storage — fall through to defaults
+  }
+  return { mode: 'chatOnly', panelWidth: BROWSER_DEFAULT_PANEL_WIDTH };
+}
+
+function saveBrowserUIState(sessionId: string, state: BrowserUIState): void {
+  try {
+    window.localStorage.setItem(browserUIStorageKey(sessionId), JSON.stringify(state));
+  } catch {
+    // storage unavailable — non-fatal
+  }
+}
 
 interface BaseChatProps {
   setChat: (chat: ChatType) => void;
@@ -120,6 +172,26 @@ export default function BaseChat({
   const [quoteButtonPos, setQuoteButtonPos] = useState<{ x: number; y: number } | null>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
 
+  // Live Browser panel: per-chat layout state (Split/Expanded/ChatOnly + width).
+  const [browserMode, setBrowserMode] = useState<BrowserMode>(
+    () => loadBrowserUIState(sessionId).mode
+  );
+  const [browserPanelWidth, setBrowserPanelWidth] = useState(
+    () => loadBrowserUIState(sessionId).panelWidth
+  );
+
+  useEffect(() => {
+    setBrowserMode(loadBrowserUIState(sessionId).mode);
+    setBrowserPanelWidth(loadBrowserUIState(sessionId).panelWidth);
+  }, [sessionId]);
+
+  useEffect(() => {
+    saveBrowserUIState(sessionId, { mode: browserMode, panelWidth: browserPanelWidth });
+  }, [sessionId, browserMode, browserPanelWidth]);
+
+  // Start the Live Browser runtime once and register its MCP extension with
+  // Goose so the agent has browser_* tools even when the panel is closed.
+
   useEffect(() => {
     const handleMouseUp = () => {
       const sel = window.getSelection();
@@ -168,6 +240,12 @@ export default function BaseChat({
   const appendToChat = useCallback(
     (text: string) => handleSubmit({ msg: text, images: [] }),
     [handleSubmit]
+  );
+
+  useLiveBrowserWiring(
+    true,
+    sessionId,
+    [ChatState.Streaming, ChatState.Thinking, ChatState.Compacting].includes(chatState)
   );
 
   const sessionLoaded = session !== undefined;
@@ -237,7 +315,11 @@ export default function BaseChat({
         throw new Error('Cannot update working directory before ACP session is loaded');
       }
       await acpUpdateWorkingDir(session.id, newDir);
-      updateSession((currentSession) => ({ ...currentSession, working_dir: newDir }));
+      updateSession((currentSession) => ({
+        ...currentSession,
+        working_dir: newDir,
+        browser_project_root: newDir,
+      }));
     },
     [session, updateSession]
   );
@@ -461,158 +543,195 @@ export default function BaseChat({
       <div className="absolute right-24 top-3 z-10 max-w-[calc(100%-7rem)] pointer-events-none">
         <MemoryMonitor />
       </div>
-      <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
-        {/* Chat container with sticky recipe header */}
-        <div className="flex flex-col flex-1 min-h-0 relative">
-          <SessionActionsHeader session={session} onSessionChange={updateSession} />
-
-          <ScrollArea
-            ref={scrollRef}
-            className={`flex-1 min-h-0 relative ${contentClassName}`}
-            autoScroll
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            data-drop-zone="true"
-            paddingX={6}
-            paddingY={0}
+      {!isSubagentSession && (
+        <div className="absolute right-3 top-3 z-[100]">
+          <Button
+            variant={browserMode !== 'chatOnly' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="no-drag h-8 w-8 p-0"
+            title={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            aria-label={intl.formatMessage(liveBrowserMessages.iconTooltip)}
+            data-testid="browser-toggle"
+            data-mode={browserMode}
+            onClick={() => setBrowserMode((m) => (m === 'chatOnly' ? 'split' : 'chatOnly'))}
           >
-            {recipe?.title && (
-              <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
-                <RecipeHeader title={recipe.title} />
-              </div>
-            )}
+            <Globe className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      <div className="lb-workspace flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div
+          className={cn(
+            'lb-chat flex min-w-0 flex-1 flex-col overflow-hidden',
+            browserMode === 'expanded' && 'hidden'
+          )}
+        >
+          <MainPanelLayout backgroundColor={'bg-background-primary'} removeTopPadding={true}>
+            {/* Chat container with sticky recipe header */}
+            <div className="flex flex-col flex-1 min-h-0 relative">
+              <SessionActionsHeader session={session} onSessionChange={updateSession} />
 
-            {recipe && !isSubagentSession && (
-              <div className={hasStartedUsingRecipe ? 'mb-6' : ''}>
-                <RecipeActivities
-                  append={appendToChat}
-                  activities={Array.isArray(recipe.activities) ? recipe.activities : null}
-                />
-              </div>
-            )}
+              <ScrollArea
+                ref={scrollRef}
+                className={`flex-1 min-h-0 relative ${contentClassName}`}
+                autoScroll
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                data-drop-zone="true"
+                paddingX={6}
+                paddingY={0}
+              >
+                {recipe?.title && (
+                  <div className="sticky top-0 z-10 bg-background-primary px-0 -mx-6 mb-6 pt-6">
+                    <RecipeHeader title={recipe.title} />
+                  </div>
+                )}
 
-            {messages.length > 0 || recipe ? (
-              <>
-                <SearchView key={sessionId}>
-                  <div ref={conversationRef}>
-                    <MessageList
-                      messages={messages}
-                      sessionId={sessionId}
-                      toolCallNotifications={toolCallNotifications}
-                      append={isSubagentSession ? undefined : appendToChat}
-                      isUserMessage={isUserMessage}
-                      isStreamingMessage={chatState !== ChatState.Idle}
-                      onRenderingComplete={handleRenderingComplete}
-                      onMessageUpdate={isSubagentSession ? undefined : onMessageUpdate}
-                      submitElicitationResponse={submitElicitationResponse}
+                {recipe && !isSubagentSession && (
+                  <div className={hasStartedUsingRecipe ? 'mb-6' : ''}>
+                    <RecipeActivities
+                      append={appendToChat}
+                      activities={Array.isArray(recipe.activities) ? recipe.activities : null}
                     />
                   </div>
-                </SearchView>
+                )}
 
-                <div className="block h-8" />
-              </>
-            ) : null}
-          </ScrollArea>
+                {messages.length > 0 || recipe ? (
+                  <>
+                    <SearchView key={sessionId}>
+                      <div ref={conversationRef}>
+                        <MessageList
+                          messages={messages}
+                          sessionId={sessionId}
+                          toolCallNotifications={toolCallNotifications}
+                          append={isSubagentSession ? undefined : appendToChat}
+                          isUserMessage={isUserMessage}
+                          isStreamingMessage={chatState !== ChatState.Idle}
+                          onRenderingComplete={handleRenderingComplete}
+                          onMessageUpdate={isSubagentSession ? undefined : onMessageUpdate}
+                          submitElicitationResponse={submitElicitationResponse}
+                        />
+                      </div>
+                    </SearchView>
 
-          {chatState !== ChatState.Idle && (
-            <div className="absolute bottom-1 left-4 z-20 pointer-events-none">
-              <LoadingGoose chatState={chatState} message={progressMessage} />
+                    <div className="block h-8" />
+                  </>
+                ) : null}
+              </ScrollArea>
+
+              {chatState !== ChatState.Idle && (
+                <div className="absolute bottom-1 left-4 z-20 pointer-events-none">
+                  <LoadingGoose chatState={chatState} message={progressMessage} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {acpRecovering && (
-          <div role="status" className="mx-4 mb-2 text-sm text-text-secondary">
-            {intl.formatMessage(i18n.reconnecting)}
-          </div>
-        )}
-
-        {quoteButtonPos && !isSubagentSession && (
-          <button
-            className="fixed z-50 -translate-x-1/2 -translate-y-full rounded-md bg-background-inverse px-2 py-1 text-xs font-medium text-text-inverse shadow-md hover:opacity-90"
-            style={{ left: quoteButtonPos.x, top: quoteButtonPos.y }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              const sel = window.getSelection();
-              const text = sel?.toString().trim() ?? '';
-              if (text) {
-                setPendingQuote(text);
-                sel?.removeAllRanges();
-              }
-              setQuoteButtonPos(null);
-            }}
-          >
-            Add to message
-          </button>
-        )}
-
-        {isSubagentSession ? (
-          <SubagentSessionNotice
-            refreshing={chatState === ChatState.LoadingConversation}
-            onRefresh={() => void refreshSession()}
-          />
-        ) : (
-          <ChatInputCard
-            className={cn(
-              'relative z-30 mx-4 mb-4',
-              !disableAnimation && 'animate-[fadein_400ms_ease-in_forwards]'
+            {acpRecovering && (
+              <div role="status" className="mx-4 mb-2 text-sm text-text-secondary">
+                {intl.formatMessage(i18n.reconnecting)}
+              </div>
             )}
-          >
-            <ChatInput
-              inputRef={chatInputRef}
-              sessionId={sessionId}
-              handleSubmit={chatInputSubmit}
-              chatState={chatState}
-              hasActiveRun={hasActiveRun}
-              onStop={stopStreaming}
-              onSteerQueuedMessage={onSteerQueuedMessage}
-              pauseQueueOnStop={pauseQueueOnStop}
-              queueProcessingBlocked={queueProcessingBlocked || acpRecovering}
-              commandHistory={commandHistory}
-              initialValue={initialPrompt}
-              setView={setView}
-              totalTokens={tokenState?.totalTokens ?? session?.usage?.total_tokens ?? undefined}
-              contextLimit={tokenState?.contextLimit}
-              accumulatedInputTokens={
-                tokenState?.accumulatedInputTokens ??
-                session?.accumulated_usage?.input_tokens ??
-                undefined
-              }
-              accumulatedOutputTokens={
-                tokenState?.accumulatedOutputTokens ??
-                session?.accumulated_usage?.output_tokens ??
-                undefined
-              }
-              accumulatedCost={
-                tokenState?.accumulatedCost ?? session?.accumulated_cost ?? undefined
-              }
-              droppedFiles={droppedFiles}
-              onFilesProcessed={() => setDroppedFiles([])} // Clear dropped files after processing
-              messages={messages}
-              disableAnimation={disableAnimation}
-              recipe={recipe}
-              initialPrompt={initialPrompt}
-              sessionModel={sessionModel}
-              sessionProvider={sessionProvider}
-              sessionLoaded={sessionLoaded}
-              workingDir={session?.working_dir}
-              onWorkingDirChange={handleWorkingDirChange}
-              latestInference={latestInference}
-              liveVoice={{
-                availability: liveVoiceAvailability,
-                phase: ownsLiveVoice ? liveVoice.phase : 'idle',
-                muted: ownsLiveVoice ? liveVoice.muted : false,
-                activeInAnotherSession: liveVoiceActiveInAnotherSession,
-                start: () => startLiveVoice(),
-                stop: liveVoice.stop,
-                toggleMute: liveVoice.toggleMute,
-              }}
-              appendQuote={pendingQuote}
-              onAppendQuoteConsumed={() => setPendingQuote(null)}
-            />
-          </ChatInputCard>
+
+            {quoteButtonPos && !isSubagentSession && (
+              <button
+                className="fixed z-50 -translate-x-1/2 -translate-y-full rounded-md bg-background-inverse px-2 py-1 text-xs font-medium text-text-inverse shadow-md hover:opacity-90"
+                style={{ left: quoteButtonPos.x, top: quoteButtonPos.y }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const sel = window.getSelection();
+                  const text = sel?.toString().trim() ?? '';
+                  if (text) {
+                    setPendingQuote(text);
+                    sel?.removeAllRanges();
+                  }
+                  setQuoteButtonPos(null);
+                }}
+              >
+                Add to message
+              </button>
+            )}
+
+            <PendingBrowserAttachments conversationId={sessionId} />
+
+            {isSubagentSession ? (
+              <SubagentSessionNotice
+                refreshing={chatState === ChatState.LoadingConversation}
+                onRefresh={() => void refreshSession()}
+              />
+            ) : (
+              <ChatInputCard
+                className={cn(
+                  'relative z-30 mx-4 mb-4',
+                  !disableAnimation && 'animate-[fadein_400ms_ease-in_forwards]'
+                )}
+              >
+                <ChatInput
+                  inputRef={chatInputRef}
+                  sessionId={sessionId}
+                  handleSubmit={chatInputSubmit}
+                  chatState={chatState}
+                  hasActiveRun={hasActiveRun}
+                  onStop={stopStreaming}
+                  onSteerQueuedMessage={onSteerQueuedMessage}
+                  pauseQueueOnStop={pauseQueueOnStop}
+                  queueProcessingBlocked={queueProcessingBlocked || acpRecovering}
+                  commandHistory={commandHistory}
+                  initialValue={initialPrompt}
+                  setView={setView}
+                  totalTokens={tokenState?.totalTokens ?? session?.usage?.total_tokens ?? undefined}
+                  contextLimit={tokenState?.contextLimit}
+                  accumulatedInputTokens={
+                    tokenState?.accumulatedInputTokens ??
+                    session?.accumulated_usage?.input_tokens ??
+                    undefined
+                  }
+                  accumulatedOutputTokens={
+                    tokenState?.accumulatedOutputTokens ??
+                    session?.accumulated_usage?.output_tokens ??
+                    undefined
+                  }
+                  accumulatedCost={
+                    tokenState?.accumulatedCost ?? session?.accumulated_cost ?? undefined
+                  }
+                  droppedFiles={droppedFiles}
+                  onFilesProcessed={() => setDroppedFiles([])} // Clear dropped files after processing
+                  messages={messages}
+                  disableAnimation={disableAnimation}
+                  recipe={recipe}
+                  initialPrompt={initialPrompt}
+                  sessionModel={sessionModel}
+                  sessionProvider={sessionProvider}
+                  sessionLoaded={sessionLoaded}
+                  workingDir={session?.working_dir}
+                  onWorkingDirChange={handleWorkingDirChange}
+                  latestInference={latestInference}
+                  liveVoice={{
+                    availability: liveVoiceAvailability,
+                    phase: ownsLiveVoice ? liveVoice.phase : 'idle',
+                    muted: ownsLiveVoice ? liveVoice.muted : false,
+                    activeInAnotherSession: liveVoiceActiveInAnotherSession,
+                    start: () => startLiveVoice(),
+                    stop: liveVoice.stop,
+                    toggleMute: liveVoice.toggleMute,
+                  }}
+                  appendQuote={pendingQuote}
+                  onAppendQuoteConsumed={() => setPendingQuote(null)}
+                />
+              </ChatInputCard>
+            )}
+          </MainPanelLayout>
+        </div>
+        {browserMode !== 'chatOnly' && !isSubagentSession && (
+          <LiveBrowserPanel
+            sessionId={sessionId}
+            projectId={session?.browser_project_root ?? session?.project_id}
+            mode={browserMode === 'expanded' ? 'expanded' : 'split'}
+            onModeChange={(m) => setBrowserMode(m)}
+            panelWidth={browserPanelWidth}
+            onPanelWidthChange={(width) => setBrowserPanelWidth(width)}
+          />
         )}
-      </MainPanelLayout>
+      </div>
     </div>
   );
 }

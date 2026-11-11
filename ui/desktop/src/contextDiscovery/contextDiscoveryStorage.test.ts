@@ -147,3 +147,13 @@ describe('donor-compatible context discovery persistence', () => {
     expect(reopened.options.map((entry) => entry.contextWindow)).toEqual([65536, 98304]);
   });
 });
+
+it('retains verified 4K/8K MTP options across persistence instead of dropping them at the legacy 16K floor',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'lad-context-mtp-floor-'));
+ try{
+ const file=join(dir,'measurements.json');
+ await saveDiscoveryOptions(file,'mtp-identity','{"mode":"mtp"}',[option('f16',4096),option('q8_0',8192)]);
+ const restored=await loadDiscoveryOptions(file,{configKey:'mtp-identity',modelId:model,hardLimit:262144});
+ expect(restored.options.map(o=>[o.kvCacheType,o.contextWindow])).toEqual([['f16',4096],['q8_0',8192]]);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});

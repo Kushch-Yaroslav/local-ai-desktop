@@ -1,3 +1,4 @@
+import { classifyRuntimeFailure as classifyProbeRuntimeFailure } from './contextDiscovery/runtimeFailure';
 import { detectManagedReasoning } from './ggufReasoningCapabilities';
 import { attachOwnedMemoryScope, watchOwnedMemory } from './moe/memoryGuard';
 import { placementPreview } from './moe/placement';
@@ -13,7 +14,7 @@ import { createServer as createTcpServer } from 'node:net';
 import { createServer, type Server, type ServerResponse, type IncomingMessage } from 'node:http';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs/promises';
-import { openSync, closeSync, existsSync, fstatSync } from 'node:fs';
+import { openSync, closeSync, existsSync, fstatSync, writeSync } from 'node:fs';
 import path from 'node:path';
 import { buildArguments, inspectProfile, preflightLaunchProfile, probeRuntime, runtimeError, validateProfile } from './ggufConfig';
 import type {
@@ -69,9 +70,34 @@ interface RuntimeLease {
   inFlight: boolean;
 }
 export interface ManagedDiscoveryResult {
+  receiptPath?: string;
   result: import('./contextDiscovery/contextEstimator').ContextDiscoveryResult;
   restoredProcess: 'previous-runtime-reloaded' | 'left-unloaded';
   restoredProfileId?: string;
+}
+interface DiscoveryTrace {
+  runId: string;
+  directory: string;
+  startedAt: string;
+  stage: string;
+  initialState: RuntimeState;
+  selectedArguments?: string[];
+  runtimeVersion?: string;
+  restoration: 'unchanged' | 'pending' | 'left-unloaded' | 'reloaded' | 'failed';
+  failure?: string;
+  restoreError?: string;
+  probes: DiscoveryProbe['record'][];
+  result?: ManagedDiscoveryResult;
+}
+async function pruneDiscoveryDiagnostics(directory: string) {
+  const entries = await fs.readdir(directory, { withFileTypes: true });
+  const completed = await Promise.all(entries.filter(entry => entry.isDirectory() && /-[0-9a-f-]{36}$/.test(entry.name)).map(async entry => {
+    const file = path.join(directory, entry.name);
+    const receipt = await fs.stat(path.join(file, 'result.json')).catch(() => null);
+    return receipt ? { file, modified: receipt.mtimeMs } : null;
+  }));
+  const retained = completed.filter((entry): entry is { file: string; modified: number } => entry !== null).sort((a,b) => b.modified - a.modified);
+  for (const entry of retained.slice(20)) await fs.rm(entry.file, { recursive: true });
 }
 interface RuntimeOverride {
   context: number;
@@ -108,6 +134,7 @@ export class ManagedGguf {
   state: RuntimeState = { phase: 'idle' };
   private profiles: GgufProfile[] = [];
   private logStarts = new Map<string, number>();
+  private childClosed = new WeakMap<ChildProcess, Promise<void>>();
   private auditEnabled = false;
   private auditRecords: ProtocolSummary[] = [];
   protocolAudit(enabled?: boolean) {
@@ -438,6 +465,7 @@ export class ManagedGguf {
       hardLimit,
       gpu,
       hostReserveBytes: this.contextReserves().host,
+      deviceReserveBytes: this.contextReserves().device,
     });
     const key = contextDiscoveryKey(identity);
     const saved = await loadDiscoveryOptions(path.join(this.root, discoveryOptionsFile), {
@@ -496,7 +524,33 @@ export class ManagedGguf {
     const lease = this.assertLease(token);
     if (lease.inFlight) throw runtimeError('discoveryAlreadyRunning');
     lease.inFlight = true;
-    const run = this.discoverWithLease(profileId, lease).finally(() => {
+    const runId = randomUUID();
+    const trace: DiscoveryTrace = {
+      runId, startedAt: new Date().toISOString(), stage: 'prepare',
+      directory: path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, 'discovery', `${profileId.replace(/[^a-zA-Z0-9_-]/g, '_')}-${runId}`),
+      initialState: { ...this.state }, restoration: 'unchanged', probes: [],
+    };
+    const receiptPath = path.join(trace.directory, 'result.json');
+    const run = (async () => {
+      try {
+        await fs.mkdir(trace.directory, { recursive: true, mode: 0o700 });
+        const result = await this.discoverWithLease(profileId, lease, trace);
+        trace.result = { ...result, receiptPath };
+        return trace.result;
+      } catch (error) {
+        trace.failure = discoveryProbeError(error);
+        const probe = trace.probes.at(-1);
+        throw runtimeError('discoveryFailed', JSON.stringify({
+          runId, stage: probe?.stage ?? trace.stage, context: probe?.contextWindow,
+          kv: probe?.kvCacheType, reason: trace.failure, restoration: trace.restoration,
+          restoreError: trace.restoreError, logPath: probe?.logPath, receiptPath,
+        }));
+      } finally {
+        // Diagnostics never include endpoint credentials or prompt contents.
+        await fs.writeFile(receiptPath, JSON.stringify(trace, null, 2), { mode: 0o600 }).catch(() => {});
+        await pruneDiscoveryDiagnostics(path.dirname(trace.directory)).catch(() => {});
+      }
+    })().finally(() => {
       lease.inFlight = false;
       this.publishDiscovery({ busy: false, profileId, stage: '', probeCount: 0 });
       this.releaseRuntimeLease(token);
@@ -510,13 +564,16 @@ export class ManagedGguf {
   }
   private async discoverWithLease(
     profileId: string,
-    lease: RuntimeLease
+    lease: RuntimeLease,
+    trace: DiscoveryTrace
   ): Promise<ManagedDiscoveryResult> {
     const selected = await resolveFlashAttentionDefault(this.profile(profileId));
     if (selected.backend === 'native')
       throw runtimeError('nativeUnsupported', 'context discovery requires managed llama-server');
     if (selected.moeCacheMode === 'automatic') throw runtimeError('placement', 'Choose a fixed Manual cache size before discovery; Auto cache would change probe memory assumptions.');
     const capabilities = await probeRuntime(selected.executable);
+    trace.selectedArguments = buildArguments(selected, 0);
+    trace.runtimeVersion = capabilities.version;
     for (const flag of ['--ctx-size', '--cache-type-k', '--cache-type-v', '--verbose']) {
       if (!capabilities.flags.includes(flag)) throw runtimeError('unsupportedFlag', flag);
     }
@@ -528,7 +585,8 @@ export class ManagedGguf {
     const controller = lease.controller;
     const reserves = this.contextReserves();
     const catalog = await this.discoveryCatalog(profileId);
-    const logPath = path.join(this.root, `gguf-${profileId}.log`);
+    trace.stage = 'probe';
+    trace.restoration = 'pending';
     this.publishDiscovery({
       busy: true,
       profileId,
@@ -538,6 +596,9 @@ export class ManagedGguf {
     try {
       const result = await discoverContextBoundary({
         modelId: selected.model,
+        minimumContextTokens: selected.speculativeMode?.startsWith('mtp-') ? 4096 : undefined,
+        retainEquivalentKvOptions: selected.speculativeMode?.startsWith('mtp-'),
+        measureInitialGrowth: selected.speculativeMode?.startsWith('mtp-'),
         hardLimit: metadata.context,
         kvOffload: selected.kvOffload !== false,
         kvModes: capabilities.cacheTypes.filter(
@@ -569,6 +630,9 @@ export class ManagedGguf {
             memoryBaseline: null,
             elapsedMs: 0,
           };
+          trace.probes.push(record);
+          const logPath = path.join(trace.directory, `${String(trace.probes.length).padStart(2, '0')}-${kv}-${context}.log`);
+          record.logPath = logPath;
           const temp = {
             ...selected,
             context,
@@ -579,14 +643,18 @@ export class ManagedGguf {
           try {
             // llama.cpp emits the per-buffer allocation evidence only at verbose
             // levels. This flag is limited to these synthetic discovery probes.
-            const endpoint = await this.start(temp, controller.signal, true);
+            record.stage = 'loading';
+            const endpoint = await this.start(temp, controller.signal, true, logPath);
+            record.runtimePid = this.owned?.pid;
             record.startup = true;
+            record.stage = 'health';
             const health = await fetch(`${endpoint.url}/health`, {
               headers: { Authorization: `Bearer ${endpoint.key}` },
               signal: controller.signal,
             });
             record.health = health.ok;
             if (!health.ok) throw runtimeError('discoveryHealth', String(health.status));
+            record.stage = 'generation';
             const response = await fetch(`${endpoint.url}/v1/chat/completions`, {
               method: 'POST',
               headers: {
@@ -595,15 +663,27 @@ export class ManagedGguf {
               },
               body: JSON.stringify({
                 model: 'local-gguf',
-                messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
-                max_tokens: 2,
+                messages: [{ role: 'user', content: selected.speculativeMode?.startsWith('mtp-') ? 'Describe a sunrise over a lake in simple English. Write several sentences.' : 'Reply with the single word OK.' }],
+                max_tokens: selected.speculativeMode?.startsWith('mtp-') ? 64 : 2,
+                temperature: 0,
+                seed: 42,
+                cache_prompt: false,
+                chat_template_kwargs: { enable_thinking: false },
                 stream: false,
               }),
               signal: controller.signal,
             });
             if (!response.ok) throw runtimeError('discoveryInference', String(response.status));
-            await response.arrayBuffer();
+            const completion = await response.json();
+            if (selected.speculativeMode?.startsWith('mtp-')) {
+              record.stage = 'mtp';
+              const drafted = completion.timings?.draft_n;
+              if (!Number.isFinite(drafted) || drafted <= 0 || !completion.choices?.[0])
+                throw runtimeError('discoveryMtpInactive', 'No actual draft tokens generated; result cannot certify MTP On');
+              record.speculativeEvidence = { mode: selected.speculativeMode, drafted, accepted: completion.timings.draft_n_accepted ?? 0 };
+            }
             record.inference = true;
+            record.stage = 'measurement';
             const child = this.owned;
             if (!child?.pid) throw runtimeError('discoveryProcessMissing');
             const [hardware, vramBudget, residentBytes, modelFileSizeBytes] = await Promise.all([
@@ -612,6 +692,8 @@ export class ManagedGguf {
               currentResidentBytes(child.pid),
               fs.stat(selected.model).then((stat) => stat.size),
             ]);
+            record.residentBytes = residentBytes;
+            record.deviceResidentBytes = vramBudget.llmBytes;
             record.hardware = {
               ramTotalBytes: hardware.ramTotalBytes,
               ramUsedBytes: hardware.ramUsedBytes,
@@ -621,6 +703,7 @@ export class ManagedGguf {
             };
             record.vramBudget = vramBudget;
             record.args = endpoint.args;
+            const currentLog = (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8');
             const estimate = await collectRuntimeContextEstimate({
               backend: 'llama-cpp',
               modelId: selected.model,
@@ -643,7 +726,10 @@ export class ManagedGguf {
               hostReserveBytes: defaultContextHostReserveBytes,
               deviceReserveBytes: vramEstimatorMarginBytes,
               runtimeArguments: endpoint.args,
-            }, async () => ({ text: (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8') }));
+            }, async () => ({ text: currentLog }));
+            if (estimate.unknownReasons.length && currentLog.includes('[Local AI Desktop: runtime diagnostic limit reached]'))
+              throw runtimeError('discoveryDiagnosticsTruncated', 'Startup allocation evidence was truncated by the diagnostic log limit; this is not a memory rejection.');
+            record.allocationEvidence = estimate.allocationEvidence;
             if (estimate.unknownReasons.length) record.reason = estimate.unknownReasons.join("; ");
             if (estimate.memoryHeadroom) record.headroom = estimate.memoryHeadroom;
             if (estimate.memoryBaseline) record.memoryBaseline = estimate.memoryBaseline;
@@ -651,18 +737,33 @@ export class ManagedGguf {
             return { record, estimate: { ...estimate, vramBudget } };
           } catch (error) {
             record.reason = discoveryProbeError(error);
+            // Drain this owned child's stderr before classifying a crashed probe.
+            // Never let a new model overlap a failed probe or its pending output.
+            await this.stopChild();
+            const diagnostic = await fs.readFile(logPath).then(data => data.subarray(this.logStarts.get(profileId) ?? data.length).toString('utf8')).catch(() => '');
+            const failureKind = classifyProbeRuntimeFailure(diagnostic + '\n' + record.reason);
+            record.reason = `${failureKind} at ${record.stage}, ${kv}, context=${context}: ${record.reason}${this.state.error ? `; ${this.state.error}` : ''}${/failed to create MTP context/i.test(diagnostic) ? ' MTP draft context could not fit; try one parallel slot, smaller microbatches or explicit partial CPU offload, then rerun with MTP still enabled.' : ''}`;
             record.elapsedMs = Date.now() - started;
-            return { record, estimate: null };
+            return { record, estimate: null, failureKind };
           }
         },
         restore: async () => {
           // This runs even after cancellation and stays inside the lease.
-          await this.stopChild();
-          if (wasLoaded && original) {
-            const restored = await this.start(original, new AbortController().signal);
-            if (!restored) throw runtimeError('discoveryRestoreFailed');
-          } else {
-            this.publish({ phase: 'idle' });
+          trace.stage = 'restore';
+          try {
+            await this.stopChild();
+            if (wasLoaded && original) {
+              const restored = await this.start(original, new AbortController().signal);
+              if (!restored) throw runtimeError('discoveryRestoreFailed');
+              trace.restoration = 'reloaded';
+            } else {
+              this.publish({ phase: 'idle' });
+              trace.restoration = 'left-unloaded';
+            }
+          } catch (error) {
+            trace.restoration = 'failed';
+            trace.restoreError = discoveryProbeError(error);
+            throw error;
           }
         },
       });
@@ -1092,7 +1193,8 @@ export class ManagedGguf {
   private async start(
     profile: GgufProfile,
     signal: AbortSignal,
-    verboseDiagnostics = false
+    verboseDiagnostics = false,
+    diagnosticLogPath?: string
   ): Promise<GgufEndpoint> {
     profile = await resolveFlashAttentionDefault(profile);
     const id = profile.id!;
@@ -1122,7 +1224,11 @@ export class ManagedGguf {
         capabilities?.flags.includes('--spec-type')
       )
         args.push('--spec-type', 'none');
-      const logPath = path.join(this.root, `gguf-${id}.log`);
+      const logPath = diagnosticLogPath ?? path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, `gguf-${id}.log`);
+      await fs.mkdir(path.dirname(logPath), { recursive: true });
+      // Rotate between launches; never truncate a live runtime's open descriptor.
+      const previousSize = await fs.stat(logPath).then(s => s.size).catch(() => 0);
+      if (previousSize > 16 * 1024 * 1024) await fs.rename(logPath, logPath + '.1');
       const fd = openSync(logPath, 'a', 0o600);
       logStart = fstatSync(fd).size;
       this.logStarts.set(id, logStart);
@@ -1134,7 +1240,7 @@ export class ManagedGguf {
           protectedLinux ? '/usr/bin/setpriv' : profile.executable,
           protectedLinux ? ['--pdeathsig', 'KILL', profile.executable, ...args] : args,
           {
-            stdio: ['ignore', fd, fd],
+            stdio: ['ignore', 'pipe', 'pipe'],
             env: {
               ...process.env,
               LLAMA_API_KEY: key,
@@ -1145,9 +1251,30 @@ export class ManagedGguf {
             },
           }
         );
-      } finally {
+      } catch (error) {
         closeSync(fd);
+        throw error;
       }
+      // The quota belongs to this child, not the append-only history. A previous
+      // launch near the limit must not consume the next probe's startup evidence.
+      // Rotation above bounds the current append log to two launch budgets.
+      let logBytes = 0;
+      let logStopped = false;
+      const recordLog = (chunk: Buffer) => {
+        if (logStopped) return;
+        try {
+          if (logBytes + chunk.length > 16 * 1024 * 1024) {
+            writeSync(fd, '\n[Local AI Desktop: runtime diagnostic limit reached]\n');
+            logStopped = true;
+          } else { writeSync(fd, chunk); logBytes += chunk.length; }
+        } catch { logStopped = true; }
+      };
+      child.stdout?.on('data', recordLog);
+      child.stderr?.on('data', recordLog);
+      this.childClosed.set(child, new Promise<void>(resolve => child.once('close', () => {
+        closeSync(fd);
+        resolve();
+      })));
       this.owned = child;
       let failure: Error | undefined;
       const guardedPlacement = profile.gpuBlockIds !== undefined || !!launchConfiguration.moeCacheMiB;
@@ -1259,6 +1386,7 @@ export class ManagedGguf {
         resolve();
       } else child.kill('SIGTERM');
     });
+    await this.childClosed.get(child);
     if (this.owned === child) this.owned = undefined;
   }
   async unload(force = false) {
@@ -1286,6 +1414,7 @@ export class ManagedGguf {
   }
 }
 let service: ManagedGguf;
+export async function shutdownManagedGguf() { await service?.shutdown(); }
 export async function stopManagedGguf() {
   await service?.unload();
 }

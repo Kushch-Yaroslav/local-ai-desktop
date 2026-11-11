@@ -1,3 +1,5 @@
+import { getAcpClient } from './acp/acpConnection';
+// Modified for Local AI Desktop: route project revision requests to authenticated Goose ACP.
 import { useEffect, useState, useRef, type RefObject } from 'react';
 import { IpcRendererEvent } from 'electron';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router';
@@ -329,6 +331,25 @@ const ExtensionsRoute = () => {
 };
 
 export function AppInner() {
+  useEffect(
+    () =>
+      window.electron.liveBrowserSourceRevision?.(async ({ requestId, conversationId }) => {
+        try {
+          const client = await getAcpClient();
+          // Local product ACP extension, intentionally separate from upstream SDK methods.
+          const result = await client.connection.agent.request(
+            '_local_ai/live_browser/source_revision' as never,
+            { sessionId: conversationId } as never
+          );
+          window.electron.liveBrowserSourceRevisionResult(requestId, result);
+        } catch (error) {
+          window.electron.liveBrowserSourceRevisionResult(requestId, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }),
+    []
+  );
   const [fatalError, setFatalError] = useState<string | null>(null);
 
   const navigate = useNavigate();

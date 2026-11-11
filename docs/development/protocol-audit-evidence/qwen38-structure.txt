@@ -1,0 +1,73 @@
+{
+  "test": "Qwen3.8-27B actual Goose Developer/MCP roundtrip",
+  "toolUiObserved": true,
+  "requestSummaries": [
+    {
+      "roles": {
+        "system": 1,
+        "user": 1
+      },
+      "tools": 0,
+      "gooseInstructions": false,
+      "toolChoice": "absent",
+      "requestReasoning": false,
+      "assistantToolCalls": false,
+      "toolResults": 0,
+      "responseReasoning": true,
+      "responseToolCalls": false,
+      "finishReasons": [],
+      "done": false,
+      "truncated": false
+    },
+    {
+      "roles": {
+        "system": 1,
+        "user": 1
+      },
+      "tools": 17,
+      "gooseInstructions": true,
+      "toolChoice": "absent",
+      "requestReasoning": false,
+      "assistantToolCalls": false,
+      "toolResults": 0,
+      "responseReasoning": true,
+      "responseToolCalls": true,
+      "finishReasons": [
+        "tool_calls"
+      ],
+      "done": true,
+      "truncated": false
+    },
+    {
+      "roles": {
+        "system": 1,
+        "user": 1,
+        "assistant": 1,
+        "tool": 1
+      },
+      "tools": 17,
+      "gooseInstructions": true,
+      "toolChoice": "absent",
+      "requestReasoning": true,
+      "assistantToolCalls": true,
+      "toolResults": 1,
+      "responseReasoning": true,
+      "responseToolCalls": false,
+      "finishReasons": [
+        "stop"
+      ],
+      "done": true,
+      "truncated": false
+    }
+  ]
+}
+{
+  "template": {
+    "present": true,
+    "toolsReferenced": true,
+    "systemRoleReferenced": true,
+    "overrideConfigured": false,
+    "jinjaConfigured": "backend-default"
+  },
+  "phase": "ready"
+}

@@ -1,0 +1,66 @@
+{
+  "phase": "ready",
+  "args": [
+    "--model",
+    "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "40213",
+    "--gpu-layers",
+    "999",
+    "--ctx-size",
+    "16384",
+    "--alias",
+    "local-gguf",
+    "--mmproj",
+    "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+    "--cache-type-k",
+    "q8_0",
+    "--cache-type-v",
+    "q8_0",
+    "--flash-attn",
+    "on",
+    "--spec-type",
+    "draft-mtp",
+    "--spec-draft-n-max",
+    "2",
+    "--verbose"
+  ],
+  "context": 16384,
+  "unknownReasons": [],
+  "allocations": {
+    "weights": {
+      "host": 1646285293,
+      "device": 16084568638
+    },
+    "compute": {
+      "device": 168065762,
+      "host": 64183338
+    },
+    "output": {
+      "host": 7948208,
+      "device": 0
+    },
+    "kv": {
+      "device": 570425344,
+      "host": 0
+    },
+    "speculativeWeights": {
+      "host": 0,
+      "device": 0
+    },
+    "speculativeCompute": {
+      "device": 119558636,
+      "host": 37769708
+    },
+    "speculativeKv": {
+      "device": 67108864,
+      "host": 0
+    },
+    "ssm": {
+      "device": 1882718208,
+      "host": 0
+    }
+  }
+}

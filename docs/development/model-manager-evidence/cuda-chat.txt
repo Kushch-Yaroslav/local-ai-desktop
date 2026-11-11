@@ -1,0 +1,61 @@
+Before first request { phase: 'idle' }
+After response {
+  phase: 'ready',
+  profileId: 'e292c3c0-fdc3-43fb-8a28-2ed36d887432',
+  args: [
+    '--model',
+    '/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    '35805',
+    '--gpu-layers',
+    '24',
+    '--ctx-size',
+    '8192',
+    '--alias',
+    'local-gguf'
+  ],
+  logPath: '/home/yaroslav/.local/share/local-ai-desktop-goose-dev/electron/gguf-e292c3c0-fdc3-43fb-8a28-2ed36d887432.log'
+}
+New Chat
+Recipes
+Skills
+Apps
+Scheduler
+Extensions
+Session History
+CHATS
+New Chat
+New Chat
+New Chat
+Settings
+goose
+New Chat
+
+Reply with exactly CUDA_GOOSE_OK. Do not use tools. /no_think
+
+5:43 PM
+Edit
+Copy
+Thinking
+
+CUDA_GOOSE_OK
+
+5:43 PM
+Copy
+2.91 tok/s
+·
+4.5k tok
+Qwen CUDA Dev · Running
+Load model
+Unload model
+
+Stop in chat cancels generation. Unload stops the owned inference server. Closing the app unloads it. No automatic loading on app launch.
+
+Runtime and diagnostics
+local-gguf
+yaroslav
+$0.00
+4.5k / 128k
+7

@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: Chat Only hides all schemas and rejects unsolicited recipe tools.
 use anyhow::Result;
 use rmcp::model::{Annotations, Role, TextContent};
 use serde_json::Value;
@@ -7,7 +8,7 @@ use super::pipeline::{test_pipeline, MessageKind::Agent, MessageKind::ToolRespon
 use crate::agents::final_output_tool::{FINAL_OUTPUT_NOT_ALONE_MESSAGE, FINAL_OUTPUT_TOOL_NAME};
 use crate::agents::state_machine::ops_remaining_tool_calls::UNCLAIMED_TOOL_ERROR;
 use crate::agents::state_machine::ops_stop_hook::DENIED;
-use crate::agents::tool_execution::{CHAT_MODE_TOOL_SKIPPED_RESPONSE, DECLINED_RESPONSE};
+use crate::agents::tool_execution::DECLINED_RESPONSE;
 use crate::config::permission::PermissionLevel;
 use crate::config::GooseMode;
 use crate::conversation::message::{Message, MessageContent, SystemNotificationType};
@@ -1096,7 +1097,7 @@ async fn unadvertised_unknown_tool_is_not_intercepted_by_hooks() -> Result<()> {
 }
 
 #[tokio::test]
-async fn chat_mode_does_not_collect_skipped_recipe_final_output_or_run_hooks() -> Result<()> {
+async fn chat_mode_rejects_unadvertised_recipe_final_output_without_hooks() -> Result<()> {
     let env = RecordingHookEnv::new(&[
         ("PreToolUse", "", "pre.sh", RECORD_PRE_SCRIPT),
         ("PreToolUseResult", "", "result.sh", RECORD_RESULT_SCRIPT),
@@ -1115,17 +1116,17 @@ async fn chat_mode_does_not_collect_skipped_recipe_final_output_or_run_hooks() -
         .await
         .with_max_turns(2);
     pipeline.set_recipe(final_output_recipe()).await?;
-    api.on("produce the answer").call(
+    api.on("produce the answer").unadvertised_call(
         FINAL_OUTPUT_TOOL_NAME,
         serde_json::json!({ "answer": "done" }),
     );
-    api.on(CHAT_MODE_TOOL_SKIPPED_RESPONSE)
+    api.on("not available")
         .reply("continued without the final output tool");
 
     let result = pipeline.run(["produce the answer"]).await?;
 
     let messages = result.conversation().messages();
-    let emitted_chat_skip = messages
+    let emitted_rejection = messages
         .iter()
         .flat_map(|message| &message.content)
         .any(|content| match content {
@@ -1134,13 +1135,18 @@ async fn chat_mode_does_not_collect_skipped_recipe_final_output_or_run_hooks() -
                     result.content.iter().any(|content| {
                         content
                             .as_text()
-                            .is_some_and(|text| text.text == CHAT_MODE_TOOL_SKIPPED_RESPONSE)
+                            .is_some_and(|text| text.text.contains("not available"))
                     })
                 })
             }
             _ => false,
         });
-    assert!(emitted_chat_skip, "Chat mode must emit its skip response");
+    assert!(emitted_rejection, "Chat mode must reject unsolicited tools");
+    assert!(!api
+        .calls()
+        .last()
+        .unwrap()
+        .advertises_tool(FINAL_OUTPUT_TOOL_NAME));
     assert!(
         messages
             .iter()

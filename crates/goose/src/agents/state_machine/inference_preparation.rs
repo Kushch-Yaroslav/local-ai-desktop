@@ -1,4 +1,5 @@
 //! Goose-specific inference request preparation.
+// Modified for Local AI Desktop: Chat Only never advertises executable tools.
 
 use crate::agents::extension_manager::{ExtensionLease, ExtensionManager};
 use crate::agents::PromptManager;
@@ -57,8 +58,11 @@ impl InferenceRequestPreparer<Session> for GooseInferenceRequestPreparer<'_> {
             self.tool_inspection_manager
                 .apply_tool_annotations(&input.tools);
         }
-        let tools =
-            crate::agents::reply_parts::prepare_inference_tools(input.tools, code_execution_mode);
+        let tools = if goose_mode == GooseMode::Chat {
+            Vec::new()
+        } else {
+            crate::agents::reply_parts::prepare_inference_tools(input.tools, code_execution_mode)
+        };
         let system_prompt =
             PromptManager::new().build_system_prompt(session, input.prompt_parts, goose_mode)?;
         let turn = messages_since_kickoff(conversation)?;

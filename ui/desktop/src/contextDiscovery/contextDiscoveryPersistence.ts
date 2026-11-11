@@ -6,9 +6,9 @@ import { nonLlmBudgetBytes, vramChangeToleranceBytes, vramEstimatorMarginBytes, 
 /** Bump when the discovery algorithm or its acceptance policy changes in a way
  * that makes earlier calibrations incomparable. The numeric policy constants
  * below are folded into the key automatically. */
-export const contextDiscoveryPolicyVersion = 1;
+export const contextDiscoveryPolicyVersion = 2;
 const contextBucket = 4_096;
-const minimumContext = 16_384;
+const minimumContext = 4_096;
 
 /** Everything that materially changes what the discovery measured, and nothing volatile
  * (free VRAM, current usage, running context/cache mode). KV type and offload are the
@@ -25,6 +25,7 @@ export interface ContextDiscoveryIdentity {
   gpuName: string;
   vramTotalBytes: number;
   hostReserveBytes: number;
+  deviceReserveBytes?: number;
 }
 
 export function contextDiscoveryKey(identity: ContextDiscoveryIdentity): { key: string; serialized: string } {
@@ -33,7 +34,7 @@ export function contextDiscoveryKey(identity: ContextDiscoveryIdentity): { key: 
     modelId: identity.modelId, model: identity.model, projector: identity.projector, runtime: identity.runtime,
     arguments: identity.arguments, speculative: identity.speculative, hardLimit: identity.hardLimit,
     ...(identity.draft ? { draft: identity.draft } : {}),
-    gpuName: identity.gpuName, vramTotalBytes: identity.vramTotalBytes, hostReserveBytes: identity.hostReserveBytes,
+    gpuName: identity.gpuName, vramTotalBytes: identity.vramTotalBytes, hostReserveBytes: identity.hostReserveBytes, deviceReserveBytes: identity.deviceReserveBytes ?? vramEstimatorMarginBytes,
   });
   return { key: createHash('sha256').update(serialized).digest('hex'), serialized };
 }
@@ -76,7 +77,7 @@ export function mergeSavedDiscoveryOptions(fresh: readonly ContextDiscoveryOptio
     .sort((left, right) => left.contextWindow - right.contextWindow || left.kvCacheType.localeCompare(right.kvCacheType));
 }
 
-const valueArguments = new Set(['--ctx-size', '-c', '--cache-type-k', '--cache-type-v', '--cache-type-k-draft', '--cache-type-v-draft', '--host', '--port']);
+const valueArguments = new Set(['--ctx-size', '-c', '--cache-type-k', '--cache-type-v', '--host', '--port']);
 const flagArguments = new Set(['--kv-offload', '--no-kv-offload', '-kvo', '-nkvo', '--metrics']);
 
 /** Launch arguments minus what selects the context/KV mode being calibrated or only where the server listens / exposes read-only counters. */
@@ -92,10 +93,10 @@ export function stableRuntimeArguments(args: readonly string[]): string[] {
 
 export function buildContextDiscoveryIdentity(input: {
   modelId: string; modelFingerprint: string; projectorFingerprint: string | null; draftFingerprint?: string; runtimeFingerprint: string;
-  arguments: readonly string[]; speculative: string; hardLimit: number; gpu: { name: string; vramTotalBytes: number }; hostReserveBytes: number;
+  arguments: readonly string[]; speculative: string; hardLimit: number; gpu: { name: string; vramTotalBytes: number }; hostReserveBytes: number; deviceReserveBytes?: number;
 }): ContextDiscoveryIdentity {
   return { modelId: input.modelId, model: input.modelFingerprint, projector: input.projectorFingerprint, runtime: input.runtimeFingerprint,
     arguments: stableRuntimeArguments(input.arguments), speculative: input.speculative, hardLimit: input.hardLimit,
     ...(input.draftFingerprint ? { draft: input.draftFingerprint } : {}),
-    gpuName: input.gpu.name, vramTotalBytes: input.gpu.vramTotalBytes, hostReserveBytes: input.hostReserveBytes };
+    gpuName: input.gpu.name, vramTotalBytes: input.gpu.vramTotalBytes, hostReserveBytes: input.hostReserveBytes, deviceReserveBytes: input.deviceReserveBytes };
 }

@@ -1,0 +1,15 @@
+Advanced saved idle { phase: 'idle' }
+Profiles [
+  {
+    name: 'Goose Dev Qwen GGUF',
+    backend: 'external',
+    nCpuMoe: undefined
+  },
+  { name: 'Qwen CUDA Dev', backend: 'external', nCpuMoe: undefined },
+  { name: 'Native GGUF Dev', backend: 'native', nCpuMoe: undefined },
+  {
+    name: 'Qwen CUDA placement test',
+    backend: 'external',
+    nCpuMoe: 20
+  }
+]

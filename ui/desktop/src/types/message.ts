@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: typed browser attachments are not ordinary user prose.
 import type { TokenState } from './chat';
 
 type JsonObject = Record<string, unknown>;
@@ -331,6 +332,7 @@ export function getTextAndImageContent(message: Message): {
 
   for (const content of message.content) {
     if (content.type === 'text') {
+      if (content.text.startsWith('lad-browser-attachment:v1:')) continue;
       textContent += content.text;
     } else if (content.type === 'image') {
       imagePaths.push(`data:${content.mimeType};base64,${content.data}`);

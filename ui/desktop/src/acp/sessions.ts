@@ -1,5 +1,9 @@
 // Modified for Local AI Desktop: restore managed GGUF configuration on session operations.
-import { rememberSessionConfiguration } from './sessionConfiguration';
+import {
+  getSessionConfiguration,
+  getSessionModeRevision,
+  rememberSessionConfiguration,
+} from './sessionConfiguration';
 import {
   methods,
   type ForkSessionRequest,
@@ -20,8 +24,10 @@ interface GooseSessionInfoMeta {
   lastMessageAt?: string;
   archivedAt?: string;
   projectId?: string;
+  browserProjectRoot?: string;
   providerId?: string;
   modelId?: string;
+  gooseMode?: Session['goose_mode'];
   sessionType?: Session['session_type'];
   userSetName?: boolean;
   hasRecipe?: boolean;
@@ -51,6 +57,7 @@ export interface SessionListPage {
 }
 
 export interface LoadSessionMeta {
+  browserProjectRoot?: string;
   recipe?: Recipe | null;
   userRecipeValues?: Record<string, string> | null;
   extensionResults?: ExtensionLoadResult[] | null;
@@ -68,6 +75,8 @@ const inFlightSessionLoads = new Map<string, Promise<AcpLoadSessionResult>>();
 function parseSessionResponseMeta(rawMeta: unknown): LoadSessionMeta {
   const meta = (rawMeta ?? {}) as LoadSessionMeta;
   return {
+    browserProjectRoot:
+      typeof meta.browserProjectRoot === 'string' ? meta.browserProjectRoot : undefined,
     recipe: meta.recipe,
     userRecipeValues: meta.userRecipeValues,
     extensionResults: meta.extensionResults,
@@ -103,8 +112,10 @@ export function sessionInfoToSession(s: SessionInfo, loadMeta: LoadSessionMeta =
     last_message_at: meta.lastMessageAt,
     message_count: meta.messageCount ?? 0,
     extension_data: {},
+    goose_mode: getSessionConfiguration(String(s.sessionId))?.mode ?? meta.gooseMode,
     archived_at: meta.archivedAt,
     project_id: meta.projectId,
+    browser_project_root: loadMeta.browserProjectRoot ?? meta.browserProjectRoot,
     provider_name: meta.providerId,
     model_config: modelConfig,
     session_type: meta.sessionType,
@@ -208,6 +219,7 @@ export function isAcpSessionLoadInFlight(sessionId: string): boolean {
 
 async function loadAcpSession(sessionId: string): Promise<AcpLoadSessionResult> {
   const client = await getAcpClient();
+  const modeRevision = getSessionModeRevision(sessionId);
   const initialSessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
   const initialSessionInfo = initialSessionInfoResponse.session;
   const response = await client.connection.agent.request(methods.agent.session.load, {
@@ -215,7 +227,7 @@ async function loadAcpSession(sessionId: string): Promise<AcpLoadSessionResult> 
     cwd: initialSessionInfo.cwd,
     mcpServers: [],
   });
-  rememberSessionConfiguration(sessionId, response);
+  rememberSessionConfiguration(sessionId, response, modeRevision);
   // Loading can populate missing provider/model metadata.
   const sessionInfoResponse = await client.goose.sessionInfo_unstable({ sessionId });
 

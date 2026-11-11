@@ -1,0 +1,55 @@
+Initial runtime { phase: 'idle' }
+Existing profiles [
+  {
+    profile: {
+      name: 'Goose Dev Qwen GGUF',
+      model: '/media/yaroslav/DATA/llama-models/Qwen3.6-35B-A3B-Q4_K_M/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf',
+      executable: '/media/yaroslav/DATA/llama.cpp/build-cuda/bin/llama-server',
+      gpuLayers: 0,
+      context: 8192,
+      providerId: 'custom_goose_dev_qwen_gguf',
+      id: '1dace69e-c5a1-4a44-9f7d-e59c4fa20259',
+      backend: 'external'
+    },
+    available: true
+  }
+]
+After save runtime { phase: 'idle' }
+Saved [
+  {
+    name: 'Goose Dev Qwen GGUF',
+    id: '1dace69e-c5a1-4a44-9f7d-e59c4fa20259',
+    available: true
+  },
+  {
+    name: 'Qwen CUDA Dev',
+    id: 'e292c3c0-fdc3-43fb-8a28-2ed36d887432',
+    available: true
+  }
+]
+New Chat
+Recipes
+Skills
+Apps
+Scheduler
+Extensions
+Session History
+CHATS
+New Chat
+New Chat
+Settings
+5:42
+PM
+
+Good afternoon
+
+Qwen CUDA Dev · Unloaded
+Load model
+
+Stop in chat cancels generation. Unload stops the owned inference server. Closing the app unloads it. No automatic loading on app launch.
+
+local-gguf
+yaroslav
+$0.00
+0 / 128k
+7

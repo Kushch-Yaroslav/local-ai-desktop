@@ -1,0 +1,272 @@
+{
+  "initialFreeMiB": 23305,
+  "f16": {
+    "args": [
+      "--model",
+      "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "36165",
+      "--gpu-layers",
+      "999",
+      "--ctx-size",
+      "8192",
+      "--alias",
+      "local-gguf",
+      "--cache-type-k",
+      "f16",
+      "--cache-type-v",
+      "f16",
+      "--flash-attn",
+      "on",
+      "--threads",
+      "8",
+      "--batch-size",
+      "256",
+      "--ubatch-size",
+      "128",
+      "--verbose",
+      "--spec-type",
+      "none"
+    ],
+    "finishReason": "stop",
+    "faLogLines": [
+      "0.00.502.148 I llama_context: flash_attn            = enabled",
+      "0.02.785.618 I llama_context: flash_attn            = enabled"
+    ]
+  },
+  "q8": {
+    "args": [
+      "--model",
+      "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "39787",
+      "--gpu-layers",
+      "999",
+      "--ctx-size",
+      "8192",
+      "--alias",
+      "local-gguf",
+      "--cache-type-k",
+      "q8_0",
+      "--cache-type-v",
+      "q8_0",
+      "--flash-attn",
+      "on",
+      "--threads",
+      "8",
+      "--batch-size",
+      "256",
+      "--ubatch-size",
+      "128",
+      "--verbose",
+      "--spec-type",
+      "none"
+    ],
+    "finishReason": "stop",
+    "faLogLines": [
+      "0.00.492.935 I llama_context: flash_attn            = enabled",
+      "0.02.772.086 I llama_context: flash_attn            = enabled"
+    ]
+  },
+  "mcp": {
+    "markerMatched": true,
+    "toolCallsObserved": true,
+    "toolResultObserved": true,
+    "toolCounts": [
+      0,
+      0,
+      0,
+      2,
+      2
+    ],
+    "methods": "server/discover\ninitialize\nnotifications/initialized\ntools/list\ntools/call\n",
+    "extensionFailed": false
+  },
+  "mtp": {
+    "args": [
+      "--model",
+      "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "37211",
+      "--gpu-layers",
+      "999",
+      "--ctx-size",
+      "8192",
+      "--alias",
+      "local-gguf",
+      "--cache-type-k",
+      "q8_0",
+      "--cache-type-v",
+      "q8_0",
+      "--flash-attn",
+      "on",
+      "--threads",
+      "8",
+      "--batch-size",
+      "256",
+      "--ubatch-size",
+      "128",
+      "--spec-type",
+      "draft-mtp",
+      "--spec-draft-n-max",
+      "2",
+      "--verbose"
+    ],
+    "finishReason": "stop",
+    "faLogLines": [
+      "0.00.501.228 I llama_context: flash_attn            = enabled",
+      "0.00.864.185 I llama_context: flash_attn            = enabled",
+      "0.03.130.851 I llama_context: flash_attn            = enabled",
+      "0.03.227.890 I llama_context: flash_attn            = enabled"
+    ]
+  },
+  "discovery": {
+    "options": [
+      {
+        "kv": "f16",
+        "context": 102400,
+        "headroom": {
+          "hostBytes": 55460298752,
+          "deviceBytes": 916455424
+        }
+      },
+      {
+        "kv": "q8_0",
+        "context": 176128,
+        "headroom": {
+          "hostBytes": 55563427840,
+          "deviceBytes": 775946240
+        }
+      }
+    ],
+    "unsupported": [],
+    "probes": [
+      {
+        "context": 16384,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": false
+      },
+      {
+        "context": 73728,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 167936,
+        "kv": "f16",
+        "startup": false,
+        "health": false,
+        "inference": false,
+        "fits": false
+      },
+      {
+        "context": 118784,
+        "kv": "f16",
+        "startup": false,
+        "health": false,
+        "inference": false,
+        "fits": false
+      },
+      {
+        "context": 94208,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 106496,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 110592,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 102400,
+        "kv": "f16",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 16384,
+        "kv": "q8_0",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": false
+      },
+      {
+        "context": 98304,
+        "kv": "q8_0",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 180224,
+        "kv": "q8_0",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      },
+      {
+        "context": 221184,
+        "kv": "q8_0",
+        "startup": false,
+        "health": false,
+        "inference": false,
+        "fits": false
+      },
+      {
+        "context": 200704,
+        "kv": "q8_0",
+        "startup": false,
+        "health": false,
+        "inference": false,
+        "fits": false
+      },
+      {
+        "context": 188416,
+        "kv": "q8_0",
+        "startup": false,
+        "health": false,
+        "inference": false,
+        "fits": false
+      },
+      {
+        "context": 176128,
+        "kv": "q8_0",
+        "startup": true,
+        "health": true,
+        "inference": true,
+        "fits": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,669 @@
+{
+  "ceiling": 65536,
+  "savedMtp": "mtp-embedded",
+  "vision": true,
+  "result": {
+    "result": {
+      "modelId": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+      "probeContextTokens": 16384,
+      "hardLimit": 65536,
+      "options": [
+        {
+          "modelId": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+          "contextWindow": 53248,
+          "kvCacheType": "f16",
+          "kvOffload": true,
+          "discoveredAt": "2026-11-05T17:13:25.732Z",
+          "memoryBaseline": {
+            "hostAvailableBytes": 56717586109,
+            "deviceAvailableBytes": 22744567646
+          },
+          "measuredHeadroom": {
+            "hostBytes": 54886174720,
+            "deviceBytes": 722468864
+          },
+          "boundaryTokens": 57344,
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1023410176,
+            "llmBytes": 23544725504,
+            "freeBytes": 722468864,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "boundaryReason": "budget-guard"
+        },
+        {
+          "modelId": "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+          "contextWindow": 61440,
+          "kvCacheType": "q8_0",
+          "kvOffload": true,
+          "discoveredAt": "2026-11-05T17:13:46.165Z",
+          "memoryBaseline": {
+            "hostAvailableBytes": 56516994995,
+            "deviceAvailableBytes": 22754350860
+          },
+          "measuredHeadroom": {
+            "hostBytes": 54668533760,
+            "deviceBytes": 1863319552
+          },
+          "boundaryTokens": 61440,
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1012924416,
+            "llmBytes": 22414360576,
+            "freeBytes": 1863319552,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "boundaryReason": "bounded-search"
+        }
+      ],
+      "unsupported": [],
+      "restored": true,
+      "probes": [
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 16384,
+          "phase": "base",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": false,
+          "headroom": {
+            "hostBytes": 54873321472,
+            "deviceBytes": 3349151744
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56629235389,
+            "deviceAvailableBytes": 22728839006
+          },
+          "elapsedMs": 4819,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12448509952,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 21941452800,
+            "vramAvailableBytes": 3349151744
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1039138816,
+            "llmBytes": 20902313984,
+            "freeBytes": 3349151744,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "34783",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "16384",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "f16",
+            "--cache-type-v",
+            "f16",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 28672,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54222024704,
+            "deviceBytes": 2478833664
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56003104445,
+            "deviceAvailableBytes": 22739324766
+          },
+          "elapsedMs": 5324,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 13099806720,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 22811770880,
+            "vramAvailableBytes": 2478833664
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1028653056,
+            "llmBytes": 21783117824,
+            "freeBytes": 2478833664,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "34595",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "28672",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "f16",
+            "--cache-type-v",
+            "f16",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 49152,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 53999206400,
+            "deviceBytes": 1018167296
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 55822229181,
+            "deviceAvailableBytes": 22746664798
+          },
+          "elapsedMs": 5388,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 13322625024,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 24272437248,
+            "vramAvailableBytes": 1018167296
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1021313024,
+            "llmBytes": 23251124224,
+            "freeBytes": 1018167296,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "39811",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "49152",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "f16",
+            "--cache-type-v",
+            "f16",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 57344,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54608121856,
+            "deviceBytes": 435159040
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56447921853,
+            "deviceAvailableBytes": 22750859102
+          },
+          "elapsedMs": 5409,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12713709568,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 24855445504,
+            "vramAvailableBytes": 435159040
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1017118720,
+            "llmBytes": 23838326784,
+            "freeBytes": 435159040,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "45337",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "57344",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "f16",
+            "--cache-type-v",
+            "f16",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 61440,
+          "phase": "search",
+          "startup": false,
+          "health": false,
+          "inference": false,
+          "fits": false,
+          "reason": "Пропущено до запуска: расчётная память выходит за общий бюджет VRAM или за защитный порог фактически свободной памяти.",
+          "headroom": {
+            "hostBytes": 54599733248,
+            "deviceBytes": 141557760
+          },
+          "memoryBaseline": null,
+          "elapsedMs": 0
+        },
+        {
+          "kvCacheType": "f16",
+          "contextWindow": 53248,
+          "phase": "final",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54886174720,
+            "deviceBytes": 722468864
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56717586109,
+            "deviceAvailableBytes": 22744567646
+          },
+          "elapsedMs": 5261,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12435656704,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 24568135680,
+            "vramAvailableBytes": 722468864
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1023410176,
+            "llmBytes": 23544725504,
+            "freeBytes": 722468864,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "38727",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "53248",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "f16",
+            "--cache-type-v",
+            "f16",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "q8_0",
+          "contextWindow": 16384,
+          "phase": "base",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": false,
+          "headroom": {
+            "hostBytes": 54989824000,
+            "deviceBytes": 3861905408
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56746010547,
+            "deviceAvailableBytes": 22754350860
+          },
+          "elapsedMs": 5023,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12332007424,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 21428699136,
+            "vramAvailableBytes": 3861905408
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1012924416,
+            "llmBytes": 20415774720,
+            "freeBytes": 3861905408,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "40053",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "16384",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "q8_0",
+            "--cache-type-v",
+            "q8_0",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "q8_0",
+          "contextWindow": 36864,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54898364416,
+            "deviceBytes": 2939158528
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56696494003,
+            "deviceAvailableBytes": 22754350860
+          },
+          "elapsedMs": 4954,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12423467008,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 22351446016,
+            "vramAvailableBytes": 2939158528
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1012924416,
+            "llmBytes": 21338521600,
+            "freeBytes": 2939158528,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "39719",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "36864",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "q8_0",
+            "--cache-type-v",
+            "q8_0",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "q8_0",
+          "contextWindow": 53248,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54718959616,
+            "deviceBytes": 2200961024
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56550643635,
+            "deviceAvailableBytes": 22754350860
+          },
+          "elapsedMs": 5209,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12602871808,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 23089643520,
+            "vramAvailableBytes": 2200961024
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1012924416,
+            "llmBytes": 22076719104,
+            "freeBytes": 2200961024,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "37565",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "53248",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "q8_0",
+            "--cache-type-v",
+            "q8_0",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        },
+        {
+          "kvCacheType": "q8_0",
+          "contextWindow": 61440,
+          "phase": "search",
+          "startup": true,
+          "health": true,
+          "inference": true,
+          "fits": true,
+          "headroom": {
+            "hostBytes": 54668533760,
+            "deviceBytes": 1863319552
+          },
+          "memoryBaseline": {
+            "hostAvailableBytes": 56516994995,
+            "deviceAvailableBytes": 22754350860
+          },
+          "elapsedMs": 5247,
+          "hardware": {
+            "ramTotalBytes": 67321831424,
+            "ramUsedBytes": 12653297664,
+            "vramTotalBytes": 25769803776,
+            "vramUsedBytes": 23427284992,
+            "vramAvailableBytes": 1863319552
+          },
+          "vramBudget": {
+            "totalBytes": 25769803776,
+            "nonLlmBytes": 1012924416,
+            "llmBytes": 22414360576,
+            "freeBytes": 1863319552,
+            "driverReservedBytes": 479199232,
+            "backgroundBudgetBytes": 1625292800,
+            "marginBytes": 402653184,
+            "llmBudgetBytes": 23741857792,
+            "availableLlmBytes": 23741857792,
+            "backgroundOverBudget": false
+          },
+          "args": [
+            "--model",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-q4_K_M.gguf",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "46285",
+            "--gpu-layers",
+            "999",
+            "--ctx-size",
+            "61440",
+            "--alias",
+            "local-gguf",
+            "--mmproj",
+            "/media/yaroslav/DATA/llama-models/qwen3.8-27b-mmproj.gguf",
+            "--cache-type-k",
+            "q8_0",
+            "--cache-type-v",
+            "q8_0",
+            "--flash-attn",
+            "on",
+            "--spec-type",
+            "draft-mtp",
+            "--spec-draft-n-max",
+            "2",
+            "--verbose"
+          ]
+        }
+      ]
+    },
+    "restoredProcess": "left-unloaded"
+  }
+}

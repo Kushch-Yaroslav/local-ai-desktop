@@ -1,3 +1,5 @@
+// Modified for Local AI Desktop: native browser IPC and typed visual attachment support.
+import type { StorageChoice, StorageStatus, StoragePreview, StorageProgress } from './storageTypes';
 import type { MemorySnapshot } from './memoryTelemetryTypes';
 import type { ProtocolSummary } from './ggufProtocolAudit';
 // Modified for Local AI Desktop: managed GGUF IPC.
@@ -122,6 +124,13 @@ type ElectronAPI = {
   showNotification: (data: NotificationData) => void;
   showMessageBox: (options: MessageBoxOptions) => Promise<MessageBoxResponse>;
   showSaveDialog: (options: SaveDialogOptions) => Promise<SaveDialogResponse>;
+  storageStatus: () => Promise<StorageStatus>;
+  storageChoose: () => Promise<string | null>;
+  storagePreview: (choice: StorageChoice) => Promise<StoragePreview>;
+  storageApply: (choice: StorageChoice) => Promise<void>;
+  storageCleanup: () => Promise<void>;
+  storageRollback: () => Promise<void>;
+  storageProgress: (callback: (progress: StorageProgress) => void) => () => void;
   reloadApp: () => void;
   checkForOllama: () => Promise<boolean>;
   ggufList: () => Promise<ProfileEntry[]>;
@@ -130,13 +139,25 @@ type ElectronAPI = {
   ggufValidate: (profile: GgufProfile) => Promise<{ placementConfirmationRequired: boolean }>;
   memorySample: () => Promise<MemorySnapshot>;
   memoryCancel: () => void;
-  ggufDiagnostics: (id: string) => Promise<{ args?: string[]; accepted?: number; proposed?: number }>;
-  ggufSetVision: (id:string, enabled:boolean) => Promise<GgufProfile>;
-  ggufSetMtp: (id:string, enabled:boolean) => Promise<GgufProfile>;
-  ggufReloadProfile: (id:string, token:string) => Promise<GgufEndpoint>;
-  ggufCapabilities: (id: string) => Promise<{ visionSupported?: boolean; visionError?: string; embeddedMtp?: boolean; thinking: boolean; nativeEfforts?: boolean; reasoning?: import('./ggufReasoningCapabilities').ManagedReasoningCapabilities; vision: boolean }>;
+  ggufDiagnostics: (
+    id: string
+  ) => Promise<{ args?: string[]; accepted?: number; proposed?: number }>;
+  ggufSetVision: (id: string, enabled: boolean) => Promise<GgufProfile>;
+  ggufSetMtp: (id: string, enabled: boolean) => Promise<GgufProfile>;
+  ggufReloadProfile: (id: string, token: string) => Promise<GgufEndpoint>;
+  ggufCapabilities: (id: string) => Promise<{
+    visionSupported?: boolean;
+    visionError?: string;
+    embeddedMtp?: boolean;
+    thinking: boolean;
+    nativeEfforts?: boolean;
+    reasoning?: import('./ggufReasoningCapabilities').ManagedReasoningCapabilities;
+    vision: boolean;
+  }>;
   ggufRuntime: () => Promise<string>;
-  ggufPlacement: (profile: GgufProfile) => Promise<Awaited<ReturnType<typeof import('./moe/placement').placementPreview>>>;
+  ggufPlacement: (
+    profile: GgufProfile
+  ) => Promise<Awaited<ReturnType<typeof import('./moe/placement').placementPreview>>>;
   ggufProbe: (executable: string) => Promise<RuntimeProbe>;
   ggufPrepare: (id: string) => Promise<GgufEndpoint>;
   ggufStart: (id: string) => Promise<GgufEndpoint>;
@@ -144,13 +165,32 @@ type ElectronAPI = {
   ggufState: () => Promise<RuntimeState>;
   ggufOnState: (callback: (state: RuntimeState) => void) => () => void;
   ggufStop: () => Promise<void>;
-  ggufDiscoveryCatalog: (id: string) => Promise<{ modelId: string; hardLimit: number; identityKey: string; selectedContext: number; selectedKv: 'f16' | 'q8_0' | 'custom'; supportedKv: Array<'f16' | 'q8_0'>; options: ContextDiscoveryOption[]; previous: ContextDiscoveryOption[] }>;
+  ggufDiscoveryCatalog: (id: string) => Promise<{
+    modelId: string;
+    hardLimit: number;
+    identityKey: string;
+    selectedContext: number;
+    selectedKv: 'f16' | 'q8_0' | 'custom';
+    supportedKv: Array<'f16' | 'q8_0'>;
+    options: ContextDiscoveryOption[];
+    previous: ContextDiscoveryOption[];
+  }>;
   ggufDiscoveryAcquire: () => Promise<string>;
   ggufDiscoveryRelease: (token: string) => Promise<void>;
   ggufDiscoveryCancel: (token: string) => Promise<void>;
   ggufDiscoveryRun: (id: string, token: string) => Promise<ManagedDiscoveryResult>;
   ggufDiscoveryStatus: () => Promise<GgufDiscoveryProgress>;
-  ggufApplyContext: (id: string, context: number, kv: 'f16' | 'q8_0' | 'custom', token: string) => Promise<{ applied: boolean; loaded: boolean; context: number; kv: 'f16' | 'q8_0' | 'custom' }>;
+  ggufApplyContext: (
+    id: string,
+    context: number,
+    kv: 'f16' | 'q8_0' | 'custom',
+    token: string
+  ) => Promise<{
+    applied: boolean;
+    loaded: boolean;
+    context: number;
+    kv: 'f16' | 'q8_0' | 'custom';
+  }>;
   ggufOnDiscoveryProgress: (callback: (state: GgufDiscoveryProgress) => void) => () => void;
   selectFileOrDirectory: (defaultPath?: string) => Promise<string | null>;
   selectImportSessionFile: () => Promise<{
@@ -224,6 +264,78 @@ type ElectronAPI = {
   getGitBranchInfo: (dir: string) => Promise<{ branch: string } | null>;
   listGitBranches: (dir: string) => Promise<string[]>;
   switchGitBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
+  // Live Browser (Goose-based port). The main process spawns the runtime and
+  // hands the loopback endpoint + bearer token to the renderer.
+  liveBrowserStart: () => Promise<{
+    ok: boolean;
+    endpoint?: {
+      url: string;
+      port: number;
+      token: string;
+      dataDir: string;
+      headless: boolean;
+      chrome: string;
+    };
+    error?: string;
+  }>;
+  liveBrowserStatus: () => Promise<{
+    running: boolean;
+    endpoint: {
+      url: string;
+      port: number;
+      token: string;
+      dataDir: string;
+      headless: boolean;
+      chrome: string;
+    } | null;
+    node: string | null;
+    script: string | null;
+    pid: number | null;
+    error: string | null;
+  }>;
+  liveBrowserStop: () => Promise<{ ok: boolean }>;
+  liveBrowserTestWindow: (
+    width: number,
+    height: number
+  ) => Promise<{ x: number; y: number; width: number; height: number }>;
+  liveBrowserNativeTest: (
+    id: string,
+    method: string,
+    params: Record<string, unknown>
+  ) => Promise<unknown>;
+  liveBrowserAdopt: (from: string, to: string) => Promise<void>;
+  liveBrowserWorkspaceRead: (id: string) => Promise<{
+    viewport?: 'auto' | { width: number; height: number };
+    zoom?: number;
+    previewScale?: 'fit' | number;
+    pan?: { x: number; y: number };
+  } | null>;
+  liveBrowserWorkspace: (
+    callback: (value: {
+      conversationId: string;
+      viewport: { width: number; height: number };
+      zoom: number;
+    }) => void
+  ) => () => void;
+  liveBrowserPan: (
+    callback: (value: { conversationId: string; pan: { x: number; y: number } }) => void
+  ) => () => void;
+  liveBrowserSourceRevision: (
+    callback: (value: { requestId: string; conversationId: string }) => void
+  ) => () => void;
+  liveBrowserSourceRevisionResult: (requestId: string, result: unknown) => void;
+  liveBrowserChoice: (choice: {
+    x: number;
+    y: number;
+    value: string;
+    options: { value: string; label: string }[];
+  }) => Promise<string | null>;
+  liveBrowserRegister: (id: string) => Promise<void>;
+  liveBrowserView: (
+    id: string,
+    bounds: { x: number; y: number; width: number; height: number } | null,
+    settings: Record<string, unknown>
+  ) => Promise<void>;
 };
 
 type AppConfigAPI = {
@@ -251,6 +363,17 @@ const electronAPI: ElectronAPI = {
   showNotification: (data: NotificationData) => ipcRenderer.send('notify', data),
   showMessageBox: (options: MessageBoxOptions) => ipcRenderer.invoke('show-message-box', options),
   showSaveDialog: (options: SaveDialogOptions) => ipcRenderer.invoke('show-save-dialog', options),
+  storageStatus: () => ipcRenderer.invoke('storage-status'),
+  storageChoose: () => ipcRenderer.invoke('storage-choose'),
+  storagePreview: (choice: StorageChoice) => ipcRenderer.invoke('storage-preview', choice),
+  storageApply: (choice: StorageChoice) => ipcRenderer.invoke('storage-apply', choice),
+  storageCleanup: () => ipcRenderer.invoke('storage-cleanup'),
+  storageRollback: () => ipcRenderer.invoke('storage-rollback'),
+  storageProgress: (callback: (progress: StorageProgress) => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: StorageProgress) => callback(p);
+    ipcRenderer.on('storage-progress', listener);
+    return () => ipcRenderer.removeListener('storage-progress', listener);
+  },
   reloadApp: () => ipcRenderer.send('reload-app'),
   checkForOllama: () => ipcRenderer.invoke('check-ollama'),
 
@@ -261,9 +384,11 @@ const electronAPI: ElectronAPI = {
   memorySample: () => ipcRenderer.invoke('memory-sample'),
   memoryCancel: () => ipcRenderer.send('memory-cancel'),
   ggufDiagnostics: (id: string) => ipcRenderer.invoke('gguf-diagnostics', id),
-  ggufSetVision: (id:string, enabled:boolean) => ipcRenderer.invoke('gguf-set-vision',id,enabled),
-  ggufSetMtp: (id:string, enabled:boolean) => ipcRenderer.invoke('gguf-set-mtp',id,enabled),
-  ggufReloadProfile: (id:string, token:string) => ipcRenderer.invoke('gguf-reload-profile',id,token),
+  ggufSetVision: (id: string, enabled: boolean) =>
+    ipcRenderer.invoke('gguf-set-vision', id, enabled),
+  ggufSetMtp: (id: string, enabled: boolean) => ipcRenderer.invoke('gguf-set-mtp', id, enabled),
+  ggufReloadProfile: (id: string, token: string) =>
+    ipcRenderer.invoke('gguf-reload-profile', id, token),
   ggufCapabilities: (id: string) => ipcRenderer.invoke('gguf-capabilities', id),
   ggufRuntime: () => ipcRenderer.invoke('gguf-runtime'),
   ggufPlacement: (profile: GgufProfile) => ipcRenderer.invoke('gguf-placement', profile),
@@ -284,11 +409,14 @@ const electronAPI: ElectronAPI = {
   ggufDiscoveryAcquire: () => ipcRenderer.invoke('gguf-discovery-acquire'),
   ggufDiscoveryRelease: (token: string) => ipcRenderer.invoke('gguf-discovery-release', token),
   ggufDiscoveryCancel: (token: string) => ipcRenderer.invoke('gguf-discovery-cancel', token),
-  ggufDiscoveryRun: (id: string, token: string) => ipcRenderer.invoke('gguf-discovery-run', id, token),
+  ggufDiscoveryRun: (id: string, token: string) =>
+    ipcRenderer.invoke('gguf-discovery-run', id, token),
   ggufDiscoveryStatus: () => ipcRenderer.invoke('gguf-discovery-status'),
-  ggufApplyContext: (id: string, context: number, kv: 'f16' | 'q8_0' | 'custom', token: string) => ipcRenderer.invoke('gguf-apply-context', id, context, kv, token),
+  ggufApplyContext: (id: string, context: number, kv: 'f16' | 'q8_0' | 'custom', token: string) =>
+    ipcRenderer.invoke('gguf-apply-context', id, context, kv, token),
   ggufOnDiscoveryProgress: (callback: (state: GgufDiscoveryProgress) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: GgufDiscoveryProgress) => callback(state);
+    const listener = (_event: Electron.IpcRendererEvent, state: GgufDiscoveryProgress) =>
+      callback(state);
     ipcRenderer.on('gguf-discovery-progress', listener);
     return () => ipcRenderer.removeListener('gguf-discovery-progress', listener);
   },
@@ -424,6 +552,49 @@ const electronAPI: ElectronAPI = {
   listGitBranches: (dir: string) => ipcRenderer.invoke('list-git-branches', dir),
   switchGitBranch: (dir: string, branch: string) =>
     ipcRenderer.invoke('switch-git-branch', dir, branch),
+  liveBrowserSourceRevision: (callback) => {
+    const listener = (_event: unknown, value: { requestId: string; conversationId: string }) =>
+      callback(value);
+    ipcRenderer.on('live-browser:source-revision', listener);
+    return () => {
+      ipcRenderer.removeListener('live-browser:source-revision', listener);
+    };
+  },
+  liveBrowserSourceRevisionResult: (requestId, result) =>
+    ipcRenderer.send('live-browser:source-revision-result', requestId, result),
+  liveBrowserStart: () => ipcRenderer.invoke('live-browser:start'),
+  liveBrowserStatus: () => ipcRenderer.invoke('live-browser:status'),
+  liveBrowserStop: () => ipcRenderer.invoke('live-browser:stop'),
+  liveBrowserTestWindow: (width, height) =>
+    ipcRenderer.invoke('live-browser:test-window', width, height),
+  liveBrowserNativeTest: (id, method, params) =>
+    ipcRenderer.invoke('live-browser:test', id, method, params),
+  liveBrowserAdopt: (from, to) => ipcRenderer.invoke('live-browser:adopt', from, to),
+  liveBrowserWorkspaceRead: (id) => ipcRenderer.invoke('live-browser:workspace-read', id),
+  liveBrowserWorkspace: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      value: { conversationId: string; viewport: { width: number; height: number }; zoom: number }
+    ) => callback(value);
+    ipcRenderer.on('live-browser:workspace', listener);
+    return () => {
+      ipcRenderer.removeListener('live-browser:workspace', listener);
+    };
+  },
+  liveBrowserPan: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      value: { conversationId: string; pan: { x: number; y: number } }
+    ) => callback(value);
+    ipcRenderer.on('live-browser:pan', listener);
+    return () => {
+      ipcRenderer.removeListener('live-browser:pan', listener);
+    };
+  },
+  liveBrowserChoice: (choice) => ipcRenderer.invoke('live-browser:choice', choice),
+  liveBrowserRegister: (id) => ipcRenderer.invoke('live-browser:register', id),
+  liveBrowserView: (id, bounds, settings) =>
+    ipcRenderer.invoke('live-browser:view', id, bounds, settings),
 };
 
 function getAppLocale(): unknown {

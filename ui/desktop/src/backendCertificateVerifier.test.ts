@@ -77,7 +77,7 @@ function createFixture(initialPins: Record<string, string | null>) {
 
 describe('backend certificate verifier wiring', () => {
   it('covers the renderer session that opens ACP WebSockets', () => {
-    const source = fs.readFileSync(path.resolve('src/main.ts'), 'utf8');
+    const source = fs.readFileSync(path.resolve('src/desktopMain.ts'), 'utf8');
 
     expect(source).toMatch(
       /installBackendCertificateVerifiers\([\s\S]{0,200}session\.defaultSession[\s\S]{0,200}session\.fromPartition\('persist:goose'\)/

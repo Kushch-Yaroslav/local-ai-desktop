@@ -1,3 +1,5 @@
+import { pendingDescription } from '../components/liveBrowser/pendingContext';
+// Modified for Local AI Desktop: scope Live Browser context to its chat.
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { defineMessages, useIntl } from '../i18n';
 import { AppEvents } from '../constants/events';
@@ -25,6 +27,12 @@ import {
 } from '../acp/chatSessionStore';
 import { acpSteerSession } from '../acp/prompt';
 import { isAcpRecovering } from '../acp/acpConnection';
+import { attachmentBlock } from '../components/liveBrowser/attachments';
+import {
+  consumePendingSelection,
+  peekPendingSelection,
+  setPendingSelection,
+} from '../components/liveBrowser/pendingContext';
 
 const initialTokenState: TokenState = {
   inputTokens: 0,
@@ -137,13 +145,20 @@ export function useChatSession({
   );
 
   const submitToAcpSession = useCallback(
-    async (targetSessionId: string, userMessage: Message) => {
+    async (
+      targetSessionId: string,
+      userMessage: Message,
+      pending?: import('../components/liveBrowser/pendingContext').PendingSelection | null
+    ) => {
       await acpChatSessionController.submitMessage(targetSessionId, userMessage, {
         getCurrentSnapshot: () =>
           targetSessionId === sessionId
             ? getCurrentSnapshot()
             : acpChatSessionStore.getSnapshot(targetSessionId),
-        onFinish,
+        onFinish: (outcome) => {
+          if (outcome.status === 'failed' && pending) setPendingSelection(pending, targetSessionId);
+          return onFinish(outcome);
+        },
       });
     },
     [getCurrentSnapshot, onFinish, sessionId]
@@ -171,6 +186,19 @@ export function useChatSession({
       }
 
       const { msg: userMessage, images } = input;
+
+      // Live Browser: if the user marked areas "include in next message",
+      // attach the bounded structured context (text) + optional crops to this
+      // submission. Consumed exactly once here. The text carries URL,
+      // geometry, viewport/DPR, scroll, DOM anchors, diagnostics and the
+      // Canvas/SVG screenshot-only limits, so the agent understands what
+      // "fix this" refers to even with Vision Off.
+      const description = pendingDescription(sessionId);
+      const pendingSelection = consumePendingSelection(sessionId);
+      const descriptionOnly = !userMessage.trim() && Boolean(description);
+      const effectiveMessage = descriptionOnly ? description : userMessage;
+      const effectiveImages = images;
+
       const currentSnapshot = getCurrentSnapshot();
 
       if (
@@ -181,12 +209,15 @@ export function useChatSession({
         currentSnapshot.chatState === ChatState.Compacting ||
         currentSnapshot.pendingCancelPromptAttemptId !== null
       ) {
+        // Not a real send: put the pending selection back so the next
+        // successful submission carries it.
+        if (pendingSelection) setPendingSelection(pendingSelection);
         return;
       }
 
       const currentMessages = currentSnapshot.messages;
       const hasExistingMessages = currentMessages.length > 0;
-      const hasNewMessage = userMessage.trim().length > 0 || images.length > 0;
+      const hasNewMessage = effectiveMessage.trim().length > 0 || effectiveImages.length > 0;
       const clearsConversation = hasNewMessage && isClearCommand(userMessage);
 
       if (!hasNewMessage && !hasExistingMessages) {
@@ -205,7 +236,18 @@ export function useChatSession({
         return;
       }
 
-      const newMessage = hasNewMessage ? createUserMessage(userMessage, images) : lastMessage;
+      const newMessage = hasNewMessage
+        ? createUserMessage(effectiveMessage, effectiveImages)
+        : lastMessage;
+      if (descriptionOnly && hasNewMessage) {
+        // Persist visible user prose, while the registry projects the task once.
+        for (const block of newMessage.content)
+          if (block.type === 'text') block.annotations = { audience: ['user'] };
+      }
+      if (pendingSelection && hasNewMessage) {
+        for (const attachment of pendingSelection.attachments ?? [])
+          newMessage.content.push(attachmentBlock(attachment));
+      }
       const messagesForStore = clearsConversation
         ? []
         : hasNewMessage
@@ -216,7 +258,12 @@ export function useChatSession({
         acpChatSessionActions.setMessages(sessionId, messagesForStore);
       }
 
-      await submitToAcpSession(sessionId, newMessage);
+      try {
+        await submitToAcpSession(sessionId, newMessage, pendingSelection);
+      } catch (error) {
+        if (pendingSelection) setPendingSelection(pendingSelection, sessionId);
+        throw error;
+      }
     },
     [getCurrentSnapshot, sessionId, submitToAcpSession]
   );
@@ -248,7 +295,11 @@ export function useChatSession({
 
       try {
         const steeredMessage = createUserMessage(userMessage, images);
+        const draft = peekPendingSelection(sessionId);
+        for (const attachment of draft?.attachments ?? [])
+          steeredMessage.content.push(attachmentBlock(attachment));
         const response = await acpSteerSession(sessionId, steeredMessage, activeRunId);
+        if (draft) consumePendingSelection(sessionId);
         const localSteerMessage: Message = {
           ...steeredMessage,
           id: response.messageId,

@@ -1,0 +1,2 @@
+Available devices:
+  CUDA0: NVIDIA GeForce RTX 3090 (24118 MiB, 22786 MiB free)

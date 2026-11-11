@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: filter historical browser pixels using current chat policy.
 use anyhow::Result;
 use goose_providers::errors::ProviderError;
 use regex::Regex;
@@ -257,8 +258,12 @@ pub(crate) async fn stream_response_from_provider(
 ) -> Result<MessageStream, ProviderError> {
     let config = model_config.clone();
 
+    let browser_messages = crate::agents::browser_vision::project(
+        messages,
+        crate::agents::browser_vision::allowed(session_id).await,
+    );
     let projected_messages =
-        Conversation::new_unvalidated(messages.iter().cloned()).agent_visible_messages();
+        Conversation::new_unvalidated(browser_messages).agent_visible_messages();
     let (filtered_messages, _) =
         fix_conversation(Conversation::new_unvalidated(projected_messages));
     let filtered_messages = Conversation::new_unvalidated(merge_consecutive_messages_for_request(
