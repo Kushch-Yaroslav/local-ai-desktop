@@ -1,8 +1,11 @@
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 import {describe,it,expect} from 'vitest';
 import {cachePrecisionMismatch,parseLlamaAllocationLog} from './contextEstimate';
-const real=readFileSync('src/contextDiscovery/fixtures/qwen35-q8-mtp-f16.log','utf8');
-describe('independent target and MTP cache precision from real d1d3c33 allocation lines',()=>{
+const fixturePath='src/contextDiscovery/fixtures/qwen35-q8-mtp-f16.log';
+const hasLocalEvidence=existsSync(fixturePath);
+const real=hasLocalEvidence?readFileSync(fixturePath,'utf8'):'';
+// Sanitized host-run evidence logs are local-only and intentionally ignored by Git.
+describe.skipIf(!hasLocalEvidence)('independent target and MTP cache precision from real d1d3c33 allocation lines',()=>{
  const evidence=parseLlamaAllocationLog(real,['--spec-type','draft-mtp']);
  it('accepts Q8 target with default F16 MTP while retaining both allocations',()=>{
   expect(evidence.kvTypeK).toBe('q8_0');expect(evidence.speculativeKvTypeK).toBe('f16');
