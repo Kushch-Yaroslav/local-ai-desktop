@@ -4812,7 +4812,7 @@
     "defaultMessage": "최신 진행 상황 불러오기"
   },
   "subagentSessionNotice.notice": {
-    "defaultMessage": "하위 에이전트 진행 상황은 여기에 실시간으로 표시되지 않습니다."
+    "defaultMessage": "Saved subagent progress refreshes as execution events arrive."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "모델 목록으로 돌아가기"
@@ -5593,5 +5593,110 @@
   },
   "liveBrowser.visionOn": {
     "defaultMessage": "On"
+  },
+  "gguf.effectiveContext": {
+    "defaultMessage": "유효 요청 컨텍스트: {context} 토큰"
+  },
+  "gguf.inferenceQueue": {
+    "defaultMessage": "추론 대기열: 활성 {active}, 대기 {waiting}, 용량 {capacity}"
+  },
+  "gguf.lastRuntimeFailure": {
+    "defaultMessage": "최근 런타임 오류: {kind} {status}"
+  },
+  "gguf.slotStatus": {
+    "defaultMessage": "서버 슬롯: {slots}; 통합 KV: {unified}"
+  },
+  "navigationPanel.cancel": {
+    "defaultMessage": "Cancel"
+  },
+  "navigationPanel.deleteBusy": {
+    "defaultMessage": "A chat or subagent is still running. Stop generation before deleting it."
+  },
+  "navigationPanel.deleteChatAction": {
+    "defaultMessage": "Delete chat"
+  },
+  "navigationPanel.deleteChatMessage": {
+    "defaultMessage": "Delete the saved chat “{name}” and its subagent histories? This action cannot be undone."
+  },
+  "navigationPanel.deleteChatSuccess": {
+    "defaultMessage": "Chat and subagent histories deleted."
+  },
+  "navigationPanel.deleteChatTitle": {
+    "defaultMessage": "Delete chat?"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Delete"
+  },
+  "navigationPanel.deleteFailure": {
+    "defaultMessage": "Could not delete chat: {error}"
+  },
+  "navigationPanel.deletePartialFailure": {
+    "defaultMessage": "Deleted {deleted} of {total} chats. Remaining chats were kept: {error}"
+  },
+  "navigationPanel.deleteProjectAction": {
+    "defaultMessage": "Delete catalog and chats"
+  },
+  "navigationPanel.deleteProjectMessage": {
+    "defaultMessage": "{count,plural,one{Delete {count} saved chat from “{name}”, including their subagent histories? Project files will remain untouched.} other{Delete {count} saved chats from “{name}”, including their subagent histories? Project files will remain untouched.}}"
+  },
+  "navigationPanel.deleteProjectSuccess": {
+    "defaultMessage": "Deleted {count} chats and their subagent histories."
+  },
+  "navigationPanel.deleteProjectTitle": {
+    "defaultMessage": "Delete catalog and chats?"
+  },
+  "navigationPanel.deleteStale": {
+    "defaultMessage": "The chat list changed. Review the updated count and confirm again."
+  },
+  "navigationPanel.moreChatActions": {
+    "defaultMessage": "More chat actions"
+  },
+  "navigationPanel.moreProjectActions": {
+    "defaultMessage": "More catalog actions"
+  },
+  "navigationPanel.unknownProject": {
+    "defaultMessage": "Unknown directory"
+  },
+  "subagentMonitor.cancelled": {
+    "defaultMessage": "Cancelled"
+  },
+  "subagentMonitor.compacted": {
+    "defaultMessage": "Last compaction: {time}"
+  },
+  "subagentMonitor.compacting": {
+    "defaultMessage": "Compacting"
+  },
+  "subagentMonitor.completed": {
+    "defaultMessage": "Completed"
+  },
+  "subagentMonitor.failed": {
+    "defaultMessage": "Failed"
+  },
+  "subagentMonitor.free": {
+    "defaultMessage": "{tokens} free"
+  },
+  "subagentMonitor.logical": {
+    "defaultMessage": "Last reported session tokens; these are not physical KV or VRAM usage."
+  },
+  "subagentMonitor.main": {
+    "defaultMessage": "Main agent"
+  },
+  "subagentMonitor.numbered": {
+    "defaultMessage": "Subagent {number}"
+  },
+  "subagentMonitor.running": {
+    "defaultMessage": "Running"
+  },
+  "subagentMonitor.session": {
+    "defaultMessage": "Agent session"
+  },
+  "subagentMonitor.summary": {
+    "defaultMessage": "Subagents · {active} active"
+  },
+  "subagentMonitor.unknown": {
+    "defaultMessage": "Saved history"
+  },
+  "subagentMonitor.waiting": {
+    "defaultMessage": "Waiting"
   }
 }

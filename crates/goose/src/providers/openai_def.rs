@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: carry managed runtime capabilities through Goose.
 use anyhow::Result;
 use futures::future::BoxFuture;
 use goose_providers::base::ProviderDescriptor;
@@ -214,6 +215,21 @@ pub fn from_custom_config(
     let request_builder = session_id_request_builder_with_header_override(
         config.session_id_header_override.as_deref(),
     )?;
+    let request_builder = if config
+        .headers
+        .as_ref()
+        .and_then(|headers| headers.get("X-Local-AI-Managed-GGUF"))
+        .is_some_and(|value| value == "1")
+        || config
+            .headers
+            .as_ref()
+            .and_then(|headers| headers.get("X-Local-AI-Managed-Qwen"))
+            .is_some_and(|v| matches!(v.as_str(), "qwen35-v1" | "qwen35-toggle-v1"))
+    {
+        crate::session_context::managed_runtime_request_builder(request_builder)
+    } else {
+        request_builder
+    };
     goose_providers::openai::from_declarative_config(
         config,
         tls_config,

@@ -3,10 +3,10 @@
 #[path = "acp_common_tests/mod.rs"]
 mod common_tests;
 use agent_client_protocol::schema::v1::{
-    ContentBlock, ListSessionsRequest, ListSessionsResponse, McpServer, McpServerHttp,
-    NewSessionRequest, PromptRequest, SessionConfigKind, SessionConfigOptionCategory,
-    SessionConfigOptionValue, SessionInfo, SessionUpdate, SetSessionConfigOptionRequest,
-    StopReason, TextContent,
+    ContentBlock, ListSessionsRequest, ListSessionsResponse, LoadSessionRequest, McpServer,
+    McpServerHttp, NewSessionRequest, PromptRequest, SessionConfigKind,
+    SessionConfigOptionCategory, SessionConfigOptionValue, SessionInfo, SessionUpdate,
+    SetSessionConfigOptionRequest, StopReason, TextContent,
 };
 use agent_client_protocol::ErrorCode;
 use common_tests::fixtures::server::{
@@ -514,6 +514,10 @@ fn test_get_session_info() {
         assert_eq!(meta.get("userSetName"), Some(&serde_json::json!(false)));
         assert_eq!(meta.get("sessionType"), Some(&serde_json::json!("acp")));
         assert_eq!(meta.get("hasRecipe"), Some(&serde_json::json!(false)));
+        assert_eq!(
+            meta.get("goose").and_then(|goose| goose.get("active")),
+            Some(&serde_json::json!(false))
+        );
     });
 }
 
@@ -880,6 +884,38 @@ fn test_load_session_resumes_pending_approval_except_for_subagents() {
                 "{session_type:?}"
             );
         }
+    });
+}
+
+// Modified for Local AI Desktop: monitoring must not activate or reconfigure a delegate.
+#[test]
+fn test_load_subagent_is_read_only_even_with_client_activation_settings() {
+    run_test(async {
+        let data_root = tempfile::tempdir().unwrap();
+        let other_cwd = tempfile::tempdir().unwrap();
+        let id = seed_session_awaiting_approval(data_root.path(), SessionType::SubAgent).await;
+        let manager = SessionManager::new(data_root.path().to_path_buf());
+        let before = manager.get_session(&id, true).await.unwrap();
+        let conn = new_connection(data_root.path()).await;
+        let response = conn
+            .cx()
+            .send_request(
+                LoadSessionRequest::new(id.clone(), other_cwd.path()).mcp_servers(vec![
+                    McpServer::Http(McpServerHttp::new("viewer-only", "http://127.0.0.1:1/mcp")),
+                ]),
+            )
+            .block_task()
+            .await
+            .unwrap();
+        assert_eq!(response.meta.unwrap()["readOnly"], true);
+        let after = manager.get_session(&id, true).await.unwrap();
+        assert_eq!(before.working_dir, after.working_dir);
+        assert_eq!(before.provider_name, after.provider_name);
+        assert_eq!(
+            serde_json::to_value(before.extension_data).unwrap(),
+            serde_json::to_value(after.extension_data).unwrap(),
+        );
+        assert_eq!(before.conversation, after.conversation);
     });
 }
 

@@ -29,6 +29,7 @@ interface GooseSessionInfoMeta {
   modelId?: string;
   gooseMode?: Session['goose_mode'];
   sessionType?: Session['session_type'];
+  parentSessionId?: string;
   userSetName?: boolean;
   hasRecipe?: boolean;
   lastMessageSnippet?: string;
@@ -49,6 +50,7 @@ export interface SessionListItem {
   userSetName?: boolean;
   hasRecipe?: boolean;
   sessionType?: Session['session_type'];
+  parentSessionId?: string;
 }
 
 export interface SessionListPage {
@@ -143,6 +145,7 @@ function sessionInfoToListItem(s: SessionInfo): SessionListItem {
     userSetName: meta.userSetName,
     hasRecipe: meta.hasRecipe,
     sessionType: meta.sessionType,
+    parentSessionId: meta.parentSessionId,
   };
 }
 
@@ -176,6 +179,26 @@ export async function acpListSessions(
     sessions: response.sessions.map(sessionInfoToListItem),
     nextCursor: response.nextCursor ?? null,
   };
+}
+
+export async function acpListAllSessions(
+  filter: SessionListFilter = { includeAcp: false }
+): Promise<SessionListItem[]> {
+  const sessions: SessionListItem[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
+
+  do {
+    const page = await acpListSessions(cursor, filter);
+    sessions.push(...page.sessions);
+    cursor = page.nextCursor;
+    if (cursor && seenCursors.has(cursor)) {
+      throw new Error('The session list returned a repeated pagination cursor.');
+    }
+    if (cursor) seenCursors.add(cursor);
+  } while (cursor);
+
+  return sessions;
 }
 
 export async function acpListRecentSessions(maxSessions: number): Promise<SessionListItem[]> {
@@ -288,7 +311,100 @@ export async function acpNewSession(
 
 export async function acpDeleteSession(sessionId: string): Promise<void> {
   const client = await getAcpClient();
-  await client.connection.agent.request(methods.agent.session.delete, { sessionId });
+  try {
+    await client.connection.agent.request(methods.agent.session.delete, { sessionId });
+  } catch (error) {
+    if (!isSessionNotFoundError(error)) throw error;
+  }
+}
+
+export interface AcpSessionDeletionPlan {
+  sessionIds: string[];
+  activeSessionIds: string[];
+}
+
+export class ActiveSessionDeletionError extends Error {
+  constructor() {
+    super(
+      'A chat or one of its subagent sessions is still active. Stop generation before deleting it.'
+    );
+    this.name = 'ActiveSessionDeletionError';
+  }
+}
+
+function isSessionNotFoundError(error: unknown): boolean {
+  const candidate = error as { message?: unknown; data?: unknown };
+  const message = [candidate?.message, candidate?.data, error]
+    .map((value) => {
+      if (typeof value === 'string') return value;
+      try {
+        return JSON.stringify(value) ?? String(value);
+      } catch {
+        return String(value);
+      }
+    })
+    .join(' ');
+  return /(?:session|resource) not found/i.test(message);
+}
+
+function metadataObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+}
+
+/**
+ * Resolve the persisted subagent tree through Goose session/info. The eventual delete
+ * still goes through ACP session/delete; Goose removes the same tree transactionally.
+ */
+export async function acpGetSessionDeletionPlan(
+  rootSessionId: string
+): Promise<AcpSessionDeletionPlan> {
+  const client = await getAcpClient();
+  const sessionIds: string[] = [];
+  const activeSessionIds: string[] = [];
+  const visited = new Set<string>();
+
+  const visit = async (sessionId: string): Promise<void> => {
+    if (!sessionId || visited.has(sessionId)) return;
+    visited.add(sessionId);
+
+    let session: SessionInfo;
+    try {
+      ({ session } = await client.goose.sessionInfo_unstable({ sessionId }));
+    } catch (error) {
+      if (isSessionNotFoundError(error)) {
+        // Preserve the ID for stale UI/cache cleanup. The idempotent delete handles races.
+        sessionIds.push(sessionId);
+        return;
+      }
+      throw error;
+    }
+
+    sessionIds.push(sessionId);
+    const meta = metadataObject(session._meta);
+    const gooseMeta = metadataObject(meta.goose);
+    const subagentMeta = metadataObject(meta.subagent);
+    const active =
+      gooseMeta.active === true ||
+      (typeof gooseMeta.activeRunId === 'string' && gooseMeta.activeRunId.length > 0) ||
+      ['waiting', 'running', 'compacting'].includes(String(subagentMeta.status));
+    if (active) activeSessionIds.push(sessionId);
+
+    const children = Array.isArray(meta.children) ? meta.children : [];
+    for (const child of children) {
+      const childId = metadataObject(child).sessionId;
+      if (typeof childId === 'string' && childId.length > 0) await visit(childId);
+    }
+  };
+
+  await visit(rootSessionId);
+  return { sessionIds, activeSessionIds };
+}
+
+export async function acpDeleteSessionTree(rootSessionId: string): Promise<string[]> {
+  const plan = await acpGetSessionDeletionPlan(rootSessionId);
+  if (plan.activeSessionIds.length > 0) throw new ActiveSessionDeletionError();
+  await acpDeleteSession(rootSessionId);
+  return plan.sessionIds;
 }
 
 export async function acpCloseSession(sessionId: string): Promise<void> {

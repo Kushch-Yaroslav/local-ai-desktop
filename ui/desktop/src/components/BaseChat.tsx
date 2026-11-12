@@ -655,6 +655,7 @@ export default function BaseChat({
 
             {isSubagentSession ? (
               <SubagentSessionNotice
+                sessionId={sessionId}
                 refreshing={chatState === ChatState.LoadingConversation}
                 onRefresh={() => void refreshSession()}
               />

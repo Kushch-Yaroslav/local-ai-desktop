@@ -81,6 +81,7 @@ describe('ContextXrayDialog', () => {
     expect(screen.getByText('System prompt')).toBeInTheDocument();
     expect(screen.getByText('Tool definitions')).toBeInTheDocument();
     expect(screen.getByText('Conversation')).toBeInTheDocument();
+    expect(screen.getByText('Free')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Compact now' }));
     expect(props.onCompact).toHaveBeenCalledTimes(1);
@@ -115,5 +116,18 @@ describe('ContextXrayDialog', () => {
     expect(getContextReport).toHaveBeenLastCalledWith('session-2');
     expect(screen.queryByText('1.8k')).not.toBeInTheDocument();
     expect(screen.getByTestId('context-report-loading')).toBeInTheDocument();
+  });
+
+  it('keeps the parent context report and constrains the modal to a narrow viewport', async () => {
+    getContextReport.mockResolvedValue(report);
+    renderDialog();
+    await waitFor(() => expect(screen.getByText('1.8k')).toBeInTheDocument());
+    expect(screen.queryByRole('combobox', { name: 'Agent session' })).not.toBeInTheDocument();
+    expect(getContextReport).toHaveBeenCalledWith('session-1');
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'min-w-0',
+      'overflow-x-hidden',
+      'w-[calc(100vw-2rem)]'
+    );
   });
 });

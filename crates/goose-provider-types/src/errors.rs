@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: classify managed context and KV overflow errors.
 use reqwest::StatusCode;
 use std::time::Duration;
 use thiserror::Error;
@@ -61,6 +62,23 @@ pub enum ProviderError {
 }
 
 impl ProviderError {
+    /// Some OpenAI-compatible servers report context overflow as HTTP/SSE server errors.
+    pub fn server_error(message: impl Into<String>) -> Self {
+        let message = message.into();
+        let lower = message.to_ascii_lowercase();
+        if lower.contains("context size has been exceeded") {
+            return Self::ContextLengthExceeded(format!("KV pool capacity exceeded: {message}"));
+        }
+        if lower.contains("gguf:contextexceeded")
+            || ((lower.contains("context length") || lower.contains("context window"))
+                && lower.contains("exceed"))
+        {
+            Self::ContextLengthExceeded(message)
+        } else {
+            Self::ServerError(message)
+        }
+    }
+
     pub fn stream_decode_error(error: impl std::fmt::Display) -> Self {
         ProviderError::NetworkError(format!("Stream decode error: {error}"))
     }

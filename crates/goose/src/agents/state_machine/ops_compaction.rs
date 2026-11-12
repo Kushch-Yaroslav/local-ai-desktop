@@ -1,4 +1,5 @@
 //! Compacts conversation history when it is too large for the configured context window.
+// Modified for Local AI Desktop: stop automatic compaction when retained history cannot fit.
 
 use std::sync::Arc;
 
@@ -269,6 +270,20 @@ impl Operation<Session, GooseEffect> for CompactionOperation {
         .await
         {
             Ok(result) => {
+                let retained_threshold = if self.threshold > 0.0 && self.threshold < 1.0 {
+                    self.threshold
+                } else {
+                    // Disabling proactive compaction must not disable recovery
+                    // after a provider reports an actual context overflow.
+                    1.0
+                };
+                if self.context_limit > 0
+                    && result.retained_context_tokens as f64
+                        >= self.context_limit as f64 * retained_threshold
+                {
+                    let error = anyhow!("Compaction could not reduce retained history below the effective threshold (retained estimate: {}, effective limit: {})", result.retained_context_tokens, self.context_limit);
+                    return yielded_with([emit.message(compaction_failure_message(&error)).into()]);
+                }
                 let compacted = result.conversation;
                 let usage = result.usage;
                 record_chat_usage(&span, &usage);

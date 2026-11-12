@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getProjectLabel, groupSessionsByProject } from '../utils/projectSessions';
+import {
+  getProjectLabel,
+  groupSessionsByProject,
+  sessionsInProject,
+} from '../utils/projectSessions';
 import type { SessionListItem } from '../acp/sessions';
 
 function makeSession(overrides: Partial<SessionListItem> = {}): SessionListItem {
@@ -94,5 +98,29 @@ describe('getProjectLabel', () => {
     expect(getProjectLabel('/')).toBe('/');
     expect(getProjectLabel('')).toBe('Unknown');
     expect(getProjectLabel('C:\\Users\\me\\goose')).toBe('goose');
+  });
+});
+
+describe('sessionsInProject', () => {
+  it('matches only the normalized working directory and never similar project names', () => {
+    const sessions = [
+      makeSession({ id: 'one', workingDir: '/work/LOCAL-AI-DESKTOP-GOOSE-040/' }),
+      makeSession({ id: 'same', workingDir: '/work/LOCAL-AI-DESKTOP-GOOSE-040' }),
+      makeSession({ id: 'similar', workingDir: '/work/LOCAL-AI-DESKTOP-GOOSE-040-copy' }),
+      makeSession({ id: 'nested', workingDir: '/work/LOCAL-AI-DESKTOP-GOOSE-040/subproject' }),
+    ];
+
+    expect(
+      sessionsInProject(sessions, '/work/LOCAL-AI-DESKTOP-GOOSE-040/').map((s) => s.id)
+    ).toEqual(['one', 'same']);
+  });
+
+  it('supports an empty working-directory group without touching a filesystem path', () => {
+    const sessions = [
+      makeSession({ id: 'unknown-a', workingDir: '' }),
+      makeSession({ id: 'known' }),
+    ];
+
+    expect(sessionsInProject(sessions, '').map((session) => session.id)).toEqual(['unknown-a']);
   });
 });

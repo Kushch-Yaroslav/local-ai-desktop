@@ -2,8 +2,11 @@ import { methods, type SessionInfo } from '@agentclientprotocol/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAcpClient } from '../acpConnection';
 import {
+  acpDeleteSessionTree,
   acpGetSessionListItem,
+  acpListAllSessions,
   acpListSessions,
+  ActiveSessionDeletionError,
   acpLoadSession,
   acpNewSession,
   sessionInfoToSession,
@@ -230,5 +233,130 @@ describe('ACP sessions', () => {
       providerId: 'anthropic',
       modelId: 'claude-sonnet-4-5',
     });
+  });
+
+  it('deletes one saved chat through ACP session/delete', async () => {
+    const client = newSessionClient();
+
+    await expect(acpDeleteSessionTree('session-1')).resolves.toEqual(['session-1']);
+    expect(client.connection.agent.request).toHaveBeenCalledWith(methods.agent.session.delete, {
+      sessionId: 'session-1',
+    });
+  });
+
+  it('collects three subagent histories and deletes their parent tree once', async () => {
+    const childIds = ['subagent-1', 'subagent-2', 'subagent-3'];
+    const client = {
+      connection: { agent: { request: vi.fn().mockResolvedValue({}) } },
+      goose: {
+        sessionInfo_unstable: vi.fn(async ({ sessionId }: { sessionId: string }) => ({
+          session: sessionInfo({
+            sessionId,
+            _meta:
+              sessionId === 'parent'
+                ? { children: childIds.map((id) => ({ sessionId: id })) }
+                : { subagent: { status: 'completed' } },
+          }),
+        })),
+      },
+    };
+    vi.mocked(getAcpClient).mockResolvedValue(
+      client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+
+    await expect(acpDeleteSessionTree('parent')).resolves.toEqual(['parent', ...childIds]);
+    expect(client.goose.sessionInfo_unstable).toHaveBeenCalledTimes(4);
+    expect(client.connection.agent.request).toHaveBeenCalledTimes(1);
+    expect(client.connection.agent.request).toHaveBeenCalledWith(methods.agent.session.delete, {
+      sessionId: 'parent',
+    });
+  });
+
+  it('refuses an active parent or subagent before sending session/delete', async () => {
+    const client = newSessionClient();
+    client.goose.sessionInfo_unstable.mockResolvedValue({
+      session: sessionInfo({ _meta: { goose: { active: true } } }),
+    });
+
+    await expect(acpDeleteSessionTree('session-1')).rejects.toBeInstanceOf(
+      ActiveSessionDeletionError
+    );
+    expect(client.connection.agent.request).not.toHaveBeenCalled();
+  });
+
+  it('refuses an active child found in the persisted session tree', async () => {
+    const client = newSessionClient();
+    client.goose.sessionInfo_unstable
+      .mockResolvedValueOnce({
+        session: sessionInfo({
+          sessionId: 'parent',
+          _meta: { children: [{ sessionId: 'subagent-1' }] },
+        }),
+      })
+      .mockResolvedValueOnce({
+        session: sessionInfo({
+          sessionId: 'subagent-1',
+          _meta: { subagent: { status: 'compacting' } },
+        }),
+      });
+
+    await expect(acpDeleteSessionTree('parent')).rejects.toBeInstanceOf(ActiveSessionDeletionError);
+    expect(client.connection.agent.request).not.toHaveBeenCalled();
+  });
+
+  it('paginates all chats and detects a repeated cursor instead of looping forever', async () => {
+    const client = {
+      connection: {
+        agent: {
+          request: vi
+            .fn()
+            .mockResolvedValueOnce({
+              sessions: [sessionInfo({ sessionId: 'first' })],
+              nextCursor: 'p2',
+            })
+            .mockResolvedValueOnce({
+              sessions: [sessionInfo({ sessionId: 'second' })],
+              nextCursor: null,
+            }),
+        },
+      },
+    };
+    vi.mocked(getAcpClient).mockResolvedValue(
+      client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+
+    await expect(acpListAllSessions({ includeAcp: true })).resolves.toMatchObject([
+      { id: 'first' },
+      { id: 'second' },
+    ]);
+    expect(client.connection.agent.request).toHaveBeenNthCalledWith(2, methods.agent.session.list, {
+      cursor: 'p2',
+      _meta: { types: ['user', 'scheduled', 'acp'] },
+    });
+  });
+
+  it('handles missing and malformed child metadata idempotently', async () => {
+    const client = {
+      connection: {
+        agent: { request: vi.fn().mockRejectedValue(new Error('Session not found')) },
+      },
+      goose: {
+        sessionInfo_unstable: vi.fn(async ({ sessionId }: { sessionId: string }) => {
+          if (sessionId === 'missing-child') throw new Error('Session not found: missing-child');
+          return {
+            session: sessionInfo({
+              sessionId,
+              _meta: { children: [{ sessionId: 'missing-child' }, null, { sessionId: '' }] },
+            }),
+          };
+        }),
+      },
+    };
+    vi.mocked(getAcpClient).mockResolvedValue(
+      client as unknown as Awaited<ReturnType<typeof getAcpClient>>
+    );
+
+    await expect(acpDeleteSessionTree('parent')).resolves.toEqual(['parent', 'missing-child']);
+    expect(client.connection.agent.request).toHaveBeenCalledTimes(1);
   });
 });

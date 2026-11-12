@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: apply managed runtime context capabilities per session.
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex as StdMutex};
@@ -1096,9 +1097,12 @@ impl StateMachineServices {
             );
         }
 
-        let context_limit =
-            crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name)
-                .await?;
+        let is_subagent = session.session_type == crate::session::SessionType::SubAgent;
+        let context_limit = crate::session_context::with_managed_subagent(
+            is_subagent,
+            crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name),
+        )
+        .await?;
         let steer_queue = self.runtime.steer_queue(&session_id);
         let machine = self
             .create_state_machine(
@@ -1119,13 +1123,13 @@ impl StateMachineServices {
                 let result = {
                     let run = crate::session_context::with_session_id(
                         Some(session_id.clone()),
-                        run_goose(
+                        crate::session_context::with_managed_subagent(is_subagent, run_goose(
                             &machine,
                             session_manager.as_ref(),
                             &self.hook_manager,
                             &session_id,
                             &emit,
-                        ),
+                        )),
                     );
                     tokio::pin!(run);
                     loop {

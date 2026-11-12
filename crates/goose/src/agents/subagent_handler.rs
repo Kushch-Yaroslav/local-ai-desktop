@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: effective managed context, durable status and error details.
 use crate::{
     agents::{
         final_output_tool::FinalOutputTool,
@@ -69,6 +70,21 @@ pub(crate) async fn prepare_subagent(
         .switch_provider(session_id, provider_name, model_config.clone())
         .await?;
 
+    let provider = services.provider(session_id).await?;
+    let limit = crate::session_context::with_managed_subagent(
+        true,
+        crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name),
+    )
+    .await?;
+    anyhow::ensure!(limit > 0, "Effective subagent context is unavailable; update/reload the managed Desktop provider before delegation");
+    super::subagent_monitor::publish(
+        &services.session_manager,
+        session_id,
+        "waiting",
+        Some(limit),
+        false,
+    )
+    .await;
     let subagent_prompt = build_subagent_prompt(services, max_turns, session_id).await?;
     services
         .session_manager
@@ -107,7 +123,13 @@ impl ForegroundSubagentRunner {
         cancel: CancellationToken,
     ) -> BoxStream<'static, SubagentUpdate> {
         let (to_parent, from_subagent) = mpsc::unbounded_channel();
-        spawn_run(self.clone().run(subagent, cancel, to_parent), from_subagent)
+        let span = tracing::info_span!("subagent", subagent_session_id = %subagent.id, parent_session_id = ?subagent.parent_session_id);
+        spawn_run(
+            self.clone()
+                .run(subagent, cancel, to_parent)
+                .instrument(span),
+            from_subagent,
+        )
     }
 
     async fn run_to_end(
@@ -122,16 +144,68 @@ impl ForegroundSubagentRunner {
             .ok_or_else(|| anyhow!("Subagent {} has no parent", subagent.id))?;
         let session_config = prepare_subagent(&self.services, subagent).await?;
         let mut events = self.services.run_subagent_turn(session_config, cancel)?;
+        let mut status = "running";
+        super::subagent_monitor::publish(self.session_manager(), &subagent.id, status, None, false)
+            .await;
         while let Some(event) = events.next().await {
-            if let AgentEvent::Message(message) = event? {
-                if asks_for_a_decision(&message) {
-                    let _ = to_parent.send(forwarded(
-                        message,
-                        parent_id,
-                        &subagent.id,
-                        self.session_manager(),
-                    ));
+            match event? {
+                AgentEvent::Message(message) => {
+                    let compacting = message.content.iter().any(|content| matches!(content,
+                        MessageContent::SystemNotification(note) if note.msg == "goose is compacting the conversation..."));
+                    if compacting {
+                        status = "compacting";
+                    }
+                    if compacting
+                        || message.content.iter().any(|content| {
+                            matches!(
+                                content,
+                                MessageContent::ToolRequest(_)
+                                    | MessageContent::ToolResponse(_)
+                                    | MessageContent::Error(_)
+                            )
+                        })
+                    {
+                        super::subagent_monitor::publish(
+                            self.session_manager(),
+                            &subagent.id,
+                            status,
+                            None,
+                            false,
+                        )
+                        .await;
+                    }
+                    if asks_for_a_decision(&message) {
+                        let _ = to_parent.send(forwarded(
+                            message,
+                            parent_id,
+                            &subagent.id,
+                            self.session_manager(),
+                        ));
+                    }
                 }
+                AgentEvent::HistoryReplaced(_) => {
+                    let compacted = status == "compacting";
+                    status = "running";
+                    super::subagent_monitor::publish(
+                        self.session_manager(),
+                        &subagent.id,
+                        status,
+                        None,
+                        compacted,
+                    )
+                    .await;
+                }
+                AgentEvent::Usage(_) => {
+                    super::subagent_monitor::publish(
+                        self.session_manager(),
+                        &subagent.id,
+                        status,
+                        None,
+                        false,
+                    )
+                    .await
+                }
+                _ => {}
             }
         }
         Ok(())
@@ -148,6 +222,14 @@ impl ForegroundSubagentRunner {
             subagent_id: subagent.id.clone(),
             ended: false,
         };
+        super::subagent_monitor::publish(
+            self.session_manager(),
+            &subagent.id,
+            "waiting",
+            None,
+            false,
+        )
+        .await;
         let run_result = self.run_to_end(&subagent, cancel.clone(), &to_parent).await;
         ending.end().await;
         let stopped = cancel.is_cancelled();
@@ -156,23 +238,117 @@ impl ForegroundSubagentRunner {
             Err(error) => return SubagentOutcome::Failed(error.to_string()),
         };
         let messages = subagent.conversation.as_ref().map(Conversation::messages);
-        if let Some(output) =
+        let outcome = if let Some(output) =
             messages.and_then(|messages| FinalOutputTool::successful_output(messages))
         {
-            return SubagentOutcome::Completed(output);
-        }
-        if stopped {
-            return SubagentOutcome::Cancelled;
-        }
-        if let Err(error) = run_result {
-            return SubagentOutcome::Failed(error.to_string());
-        }
-        if let Some(error) = subagent.conversation.as_ref().and_then(trailing_error) {
-            return SubagentOutcome::Failed(format!("{error:?}"));
-        }
-        SubagentOutcome::Failed(failure_reason(
-            messages.map(Vec::as_slice).unwrap_or_default(),
-        ))
+            SubagentOutcome::Completed(output)
+        } else if stopped {
+            SubagentOutcome::Cancelled
+        } else if let Err(error) = run_result {
+            SubagentOutcome::Failed(classified_subagent_failure(&error.to_string()))
+        } else if subagent
+            .conversation
+            .as_ref()
+            .and_then(trailing_error)
+            .is_some()
+        {
+            let detail = messages
+                .into_iter()
+                .flatten()
+                .rev()
+                .flat_map(|message| message.content.iter())
+                .find_map(|content| {
+                    if let MessageContent::Error(error) = content {
+                        Some(error.message.clone())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| "Subagent failed without provider error details".to_string());
+            SubagentOutcome::Failed(classified_subagent_failure(&detail))
+        } else {
+            SubagentOutcome::Failed(missing_final_output_reason(
+                messages.map(Vec::as_slice).unwrap_or_default(),
+            ))
+        };
+        let status = match &outcome {
+            SubagentOutcome::Completed(_) => "completed",
+            SubagentOutcome::Cancelled => "cancelled",
+            SubagentOutcome::Failed(_) => "failed",
+        };
+        super::subagent_monitor::publish(self.session_manager(), &subagent.id, status, None, false)
+            .await;
+        outcome
+    }
+}
+
+fn missing_final_output_reason(messages: &[Message]) -> String {
+    let reason = failure_reason(messages);
+    if reason.starts_with("max turns reached") {
+        reason
+    } else {
+        format!("missing_final_output: {reason}")
+    }
+}
+
+fn classified_subagent_failure(detail: &str) -> String {
+    let kind = subagent_error_kind(detail);
+    if kind == "provider_or_tool_error" {
+        detail.to_string()
+    } else {
+        format!("{kind}: {detail}")
+    }
+}
+
+fn subagent_error_kind(detail: &str) -> &'static str {
+    let lower = detail.to_ascii_lowercase();
+    if lower.contains("trying to compact")
+        || lower.contains("failed to compact")
+        || lower.contains("compaction could not")
+    {
+        "compaction_failed"
+    } else if lower.contains("kv pool capacity exceeded")
+        || lower.contains("context size has been exceeded")
+        || lower.contains("gguf:kvcapacityexceeded")
+    {
+        "kv_capacity_exceeded"
+    } else if lower.contains("invalid tool call")
+        || lower.contains("malformed tool call")
+        || lower.contains("tool call arguments")
+            && (lower.contains("invalid") || lower.contains("parse"))
+    {
+        "invalid_tool_call"
+    } else if lower.contains("gguf:contextexceeded")
+        || lower.contains("contextlengthexceeded")
+        || lower.contains("context length exceeded")
+    {
+        "context_exceeded"
+    } else if lower.contains("gguf:contextunavailable") {
+        "context_unavailable"
+    } else if lower.contains("gguf:devicememory") || lower.contains("out of vram") {
+        "device_memory"
+    } else if lower.contains("gguf:hostmemory") || lower.contains("out of memory") {
+        "host_memory"
+    } else if lower.contains("gguf:timeout") || lower.contains("timed out") {
+        "timeout"
+    } else if lower.contains("gguf:streamaborted")
+        || lower.contains("stream decode error")
+        || lower.contains("error decoding response body")
+        || lower.contains("stream ended")
+    {
+        "stream_interrupted"
+    } else if lower.contains("gguf:serverunavailable") || lower.contains("gguf:servererror") {
+        "llama_server_error"
+    } else if lower.contains("server error:")
+        || lower.contains("servererror(")
+        || lower.contains("bad request (4")
+        || lower.contains("request failed with status")
+        || lower.contains("http 4")
+        || lower.contains("http 5")
+    {
+        "upstream_http_error"
+    } else {
+        "provider_or_tool_error"
     }
 }
 
@@ -217,7 +393,17 @@ impl Drop for SubagentEnding {
         };
         let services = Arc::clone(&self.services);
         let subagent_id = std::mem::take(&mut self.subagent_id);
-        runtime.spawn(async move { end_subagent(&services, &subagent_id).await });
+        runtime.spawn(async move {
+            super::subagent_monitor::publish(
+                &services.session_manager,
+                &subagent_id,
+                "cancelled",
+                None,
+                false,
+            )
+            .await;
+            end_subagent(&services, &subagent_id).await;
+        });
     }
 }
 
@@ -318,7 +504,7 @@ mod tests {
 
     use futures::StreamExt;
 
-    use super::{failure_reason, spawn_run};
+    use super::{failure_reason, missing_final_output_reason, spawn_run, subagent_error_kind};
     use crate::agents::state_machine::MAX_TURNS_MESSAGE;
     use crate::conversation::message::Message;
     use goose_agent::subagent::{SubagentOutcome, SubagentUpdate};
@@ -415,5 +601,51 @@ mod tests {
         for (messages, expected) in cases {
             assert_eq!(failure_reason(&messages), expected);
         }
+    }
+
+    #[test]
+    fn subagent_error_kind_labels_runtime_and_tool_failures_without_hiding_details() {
+        assert_eq!(
+            subagent_error_kind("GGUF:contextExceeded:"),
+            "context_exceeded"
+        );
+        assert_eq!(
+            subagent_error_kind("ContextLengthExceeded(\"prompt too long\")"),
+            "context_exceeded"
+        );
+        assert_eq!(
+            subagent_error_kind("GGUF:contextUnavailable:"),
+            "context_unavailable"
+        );
+        assert_eq!(
+            subagent_error_kind("invalid tool call arguments"),
+            "invalid_tool_call"
+        );
+        assert_eq!(
+            subagent_error_kind("GGUF:streamAborted:"),
+            "stream_interrupted"
+        );
+        assert_eq!(
+            subagent_error_kind(
+                "NetworkError(\"Stream decode error: error decoding response body\")"
+            ),
+            "stream_interrupted"
+        );
+        assert_eq!(
+            subagent_error_kind("HTTP 503 from local server"),
+            "upstream_http_error"
+        );
+        assert_eq!(
+            subagent_error_kind("GGUF:serverUnavailable:"),
+            "llama_server_error"
+        );
+    }
+
+    #[test]
+    fn subagent_without_successful_final_output_has_a_distinct_diagnostic() {
+        assert_eq!(
+            missing_final_output_reason(&[]),
+            "missing_final_output: stopped without final output"
+        );
     }
 }

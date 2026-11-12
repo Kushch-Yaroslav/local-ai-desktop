@@ -1,3 +1,6 @@
+// Modified for Local AI Desktop: inspect each agent's logical context and persisted status.
+import { useSubagentFamily } from '../../acp/subagentSessions';
+import { SubagentSummary } from '../SubagentRows';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw, ScrollText } from 'lucide-react';
 import { defineMessages, useIntl } from '../../i18n';
@@ -91,6 +94,8 @@ export function ContextXrayDialog({
   compactDisabled,
 }: ContextXrayDialogProps) {
   const intl = useIntl();
+  const family = useSubagentFamily(open ? sessionId : '');
+  const subagentUpdates = family.children.map((child) => child.updatedAt ?? '').join('|');
   const [report, setReport] = useState<ContextReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -123,7 +128,7 @@ export function ContextXrayDialog({
 
   useEffect(() => {
     if (open) void fetchReport();
-  }, [open, totalTokens, fetchReport]);
+  }, [open, totalTokens, subagentUpdates, fetchReport]);
 
   const handleCompact = () => {
     onCompact();
@@ -134,8 +139,8 @@ export function ContextXrayDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-xl">
-        <DialogHeader>
+      <DialogContent className="flex w-[calc(100vw-2rem)] min-w-0 max-h-[85vh] flex-col overflow-x-hidden sm:max-w-xl">
+        <DialogHeader className="min-w-0">
           <DialogTitle className="flex items-center gap-2">
             {intl.formatMessage(i18n.title)}
             <Button
@@ -151,7 +156,7 @@ export function ContextXrayDialog({
               <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
             </Button>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="min-w-0 break-words">
             {report
               ? intl.formatMessage(i18n.modelSummary, {
                   model: report.model.modelName,
@@ -160,7 +165,7 @@ export function ContextXrayDialog({
               : ' '}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
           <div className="flex flex-col gap-6">
             {error && (
               <div className="flex items-center gap-3">
@@ -201,6 +206,7 @@ export function ContextXrayDialog({
                 )}
                 <CapacityMeter report={report} />
                 <BreakdownList report={report} />
+                <SubagentSummary parentId={family.parentId} />
                 <p className="text-xs text-text-tertiary">
                   {intl.formatMessage(i18n.tokenizerNote)}
                 </p>

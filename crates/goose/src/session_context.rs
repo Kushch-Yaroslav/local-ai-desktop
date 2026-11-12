@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: scope managed context capabilities to child requests.
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use reqwest::header::{HeaderName, HeaderValue};
@@ -9,6 +10,29 @@ pub const WORKING_DIR_HEADER: &str = "agent-working-dir";
 
 tokio::task_local! {
     pub static SESSION_ID: Option<String>;
+}
+
+// Managed GGUF uses this transient role only for runtime admission and context discovery.
+tokio::task_local! { static MANAGED_SUBAGENT: bool; }
+
+pub async fn with_managed_subagent<F: std::future::Future>(child: bool, future: F) -> F::Output {
+    MANAGED_SUBAGENT.scope(child, future).await
+}
+
+pub fn managed_runtime_request_builder(
+    decorate: goose_providers::api_client::RequestBuilderDecorator,
+) -> goose_providers::api_client::RequestBuilderDecorator {
+    std::sync::Arc::new(move |request| {
+        let request = decorate(request)?;
+        Ok(request.header(
+            "X-Local-AI-Agent-Role",
+            if MANAGED_SUBAGENT.try_with(|v| *v).unwrap_or(false) {
+                "subagent"
+            } else {
+                "main"
+            },
+        ))
+    })
 }
 
 pub async fn with_session_id<F>(session_id: Option<String>, f: F) -> F::Output
@@ -87,6 +111,31 @@ pub fn session_host() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn managed_role_headers_are_scoped_for_context_and_inference_requests() {
+        let decorator = managed_runtime_request_builder(session_id_request_builder());
+        with_managed_subagent(true, async {
+            let request =
+                decorator(reqwest::Client::new().get("http://localhost/v1/models?context_limit=1"))
+                    .unwrap()
+                    .build()
+                    .unwrap();
+            assert_eq!(request.headers()["X-Local-AI-Agent-Role"], "subagent");
+        })
+        .await;
+        let request =
+            decorator(reqwest::Client::new().post("http://localhost/v1/chat/completions"))
+                .unwrap()
+                .build()
+                .unwrap();
+        assert_eq!(request.headers()["X-Local-AI-Agent-Role"], "main");
+        let external = session_id_request_builder()(reqwest::Client::new().get("http://localhost"))
+            .unwrap()
+            .build()
+            .unwrap();
+        assert!(!external.headers().contains_key("X-Local-AI-Agent-Role"));
+    }
 
     #[tokio::test]
     async fn test_session_id_available_when_set() {

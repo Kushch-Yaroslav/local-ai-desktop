@@ -1439,6 +1439,9 @@
   "gguf.edit": {
     "defaultMessage": "Edit"
   },
+  "gguf.effectiveContext": {
+    "defaultMessage": "Effective request context: {context} tokens"
+  },
   "gguf.error": {
     "defaultMessage": "Local runtime error"
   },
@@ -1469,6 +1472,9 @@
   "gguf.idle": {
     "defaultMessage": "Unloaded"
   },
+  "gguf.inferenceQueue": {
+    "defaultMessage": "Inference queue: {active} active, {waiting} waiting, capacity {capacity}"
+  },
   "gguf.invalidValue": {
     "defaultMessage": "Invalid configuration value."
   },
@@ -1477,6 +1483,9 @@
   },
   "gguf.language": {
     "defaultMessage": "Interface language"
+  },
+  "gguf.lastRuntimeFailure": {
+    "defaultMessage": "Last runtime failure: {kind} {status}"
   },
   "gguf.load": {
     "defaultMessage": "Load model"
@@ -1600,6 +1609,9 @@
   },
   "gguf.simple": {
     "defaultMessage": "Simple mode"
+  },
+  "gguf.slotStatus": {
+    "defaultMessage": "Server slots: {slots}; unified KV: {unified}"
   },
   "gguf.specAcceptance": {
     "defaultMessage": "Draft accepted/proposed"
@@ -3557,8 +3569,50 @@
   "navigation.itemSkills": {
     "defaultMessage": "Skills"
   },
+  "navigationPanel.cancel": {
+    "defaultMessage": "Cancel"
+  },
   "navigationPanel.chats": {
     "defaultMessage": "Chats"
+  },
+  "navigationPanel.deleteBusy": {
+    "defaultMessage": "A chat or subagent is still running. Stop generation before deleting it."
+  },
+  "navigationPanel.deleteChatAction": {
+    "defaultMessage": "Delete chat"
+  },
+  "navigationPanel.deleteChatMessage": {
+    "defaultMessage": "Delete the saved chat “{name}” and its subagent histories? This action cannot be undone."
+  },
+  "navigationPanel.deleteChatSuccess": {
+    "defaultMessage": "Chat and subagent histories deleted."
+  },
+  "navigationPanel.deleteChatTitle": {
+    "defaultMessage": "Delete chat?"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Delete"
+  },
+  "navigationPanel.deleteFailure": {
+    "defaultMessage": "Could not delete chat: {error}"
+  },
+  "navigationPanel.deletePartialFailure": {
+    "defaultMessage": "Deleted {deleted} of {total} chats. Remaining chats were kept: {error}"
+  },
+  "navigationPanel.deleteProjectAction": {
+    "defaultMessage": "Delete catalog and chats"
+  },
+  "navigationPanel.deleteProjectMessage": {
+    "defaultMessage": "{count,plural,one{Delete {count} saved chat from “{name}”, including their subagent histories? Project files will remain untouched.} other{Delete {count} saved chats from “{name}”, including their subagent histories? Project files will remain untouched.}}"
+  },
+  "navigationPanel.deleteProjectSuccess": {
+    "defaultMessage": "Deleted {count} chats and their subagent histories."
+  },
+  "navigationPanel.deleteProjectTitle": {
+    "defaultMessage": "Delete catalog and chats?"
+  },
+  "navigationPanel.deleteStale": {
+    "defaultMessage": "The chat list changed. Review the updated count and confirm again."
   },
   "navigationPanel.loadingChats": {
     "defaultMessage": "Loading chats…"
@@ -3578,6 +3632,12 @@
   "navigationPanel.metaUpdated": {
     "defaultMessage": "Updated"
   },
+  "navigationPanel.moreChatActions": {
+    "defaultMessage": "More chat actions"
+  },
+  "navigationPanel.moreProjectActions": {
+    "defaultMessage": "More catalog actions"
+  },
   "navigationPanel.noChats": {
     "defaultMessage": "No recent chats"
   },
@@ -3592,6 +3652,9 @@
   },
   "navigationPanel.statusUnread": {
     "defaultMessage": "Unread activity"
+  },
+  "navigationPanel.unknownProject": {
+    "defaultMessage": "Unknown directory"
   },
   "navigationPanel.untitledSession": {
     "defaultMessage": "Untitled session"
@@ -5990,11 +6053,53 @@
   "subRecipeModal.subtitle": {
     "defaultMessage": "Configure a subrecipe that can be called as a tool during recipe execution"
   },
+  "subagentMonitor.cancelled": {
+    "defaultMessage": "Cancelled"
+  },
+  "subagentMonitor.compacted": {
+    "defaultMessage": "Last compaction: {time}"
+  },
+  "subagentMonitor.compacting": {
+    "defaultMessage": "Compacting"
+  },
+  "subagentMonitor.completed": {
+    "defaultMessage": "Completed"
+  },
+  "subagentMonitor.failed": {
+    "defaultMessage": "Failed"
+  },
+  "subagentMonitor.free": {
+    "defaultMessage": "{tokens} free"
+  },
+  "subagentMonitor.logical": {
+    "defaultMessage": "Last reported session tokens; these are not physical KV or VRAM usage."
+  },
+  "subagentMonitor.main": {
+    "defaultMessage": "Main agent"
+  },
+  "subagentMonitor.numbered": {
+    "defaultMessage": "Subagent {number}"
+  },
+  "subagentMonitor.running": {
+    "defaultMessage": "Running"
+  },
+  "subagentMonitor.session": {
+    "defaultMessage": "Agent session"
+  },
+  "subagentMonitor.summary": {
+    "defaultMessage": "Subagents · {active} active"
+  },
+  "subagentMonitor.unknown": {
+    "defaultMessage": "Saved history"
+  },
+  "subagentMonitor.waiting": {
+    "defaultMessage": "Waiting"
+  },
   "subagentSessionNotice.loadLatestProgress": {
     "defaultMessage": "Load latest progress"
   },
   "subagentSessionNotice.notice": {
-    "defaultMessage": "Subagent progress isn't shown live here."
+    "defaultMessage": "Saved subagent progress refreshes as execution events arrive."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "Back to model list"

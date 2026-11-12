@@ -1,4 +1,5 @@
 //! Covers `StateMachineServices::reply`, the entry point the CLI and desktop reach.
+// Modified for Local AI Desktop: durable child lifecycle and parallel-delegation regressions.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -1429,6 +1430,24 @@ async fn cancelling_the_parent_ends_a_waiting_subagent() -> Result<()> {
     })
     .await?;
     assert_ne!(subagent_id, session_id);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let child = services
+                .session_manager
+                .get_session(&subagent_id, false)
+                .await
+                .unwrap();
+            if child
+                .extension_data
+                .get_extension_state("subagent_monitor", "v1")
+                .is_some_and(|state| state["status"] == "cancelled")
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await?;
     Ok(())
 }
 
@@ -1734,5 +1753,76 @@ async fn a_finished_turn_gives_its_place_to_the_session_opened_meanwhile() -> Re
     }
     assert!(services.runtime.is_attached("newer", 1));
     assert!(!services.runtime.is_attached(&session_id, 1));
+    Ok(())
+}
+
+#[tokio::test]
+async fn three_delegated_sessions_finish_with_final_output_and_persist_monitoring() -> Result<()> {
+    let (services, api, session_id, _temp_dir) = agent_with_dummy_api().await?;
+    let host = api.uri();
+    let _guard = env_lock::lock_env([
+        ("OPENAI_API_KEY", Some("fake-openai-no-keyring")),
+        ("OPENAI_HOST", Some(host.as_str())),
+        ("OPENAI_BASE_PATH", Some("chat/completions")),
+        ("OPENAI_CUSTOM_HEADERS", Some("")),
+    ]);
+    enable_summon(&services, &session_id).await?;
+    api.on("hand three off").calls([
+        (
+            "one",
+            "delegate",
+            json!({"instructions": "assigned-one", "max_turns": 3}),
+        ),
+        (
+            "two",
+            "delegate",
+            json!({"instructions": "assigned-two", "max_turns": 3}),
+        ),
+        (
+            "three",
+            "delegate",
+            json!({"instructions": "assigned-three", "max_turns": 3}),
+        ),
+    ]);
+    for task in ["one", "two", "three"] {
+        api.on(format!("assigned-{task}")).call(
+            crate::agents::final_output_tool::FINAL_OUTPUT_TOOL_NAME,
+            json!({"summary": format!("finished-{task}")}),
+        );
+    }
+    api.on("finished-").reply("all child results received");
+    reply_approving(&services, &session_id, "hand three off", None).await?;
+    let children = services
+        .session_manager
+        .list_sessions_by_types(&[crate::session::SessionType::SubAgent])
+        .await?;
+    let children: Vec<_> = children
+        .into_iter()
+        .filter(|child| child.parent_session_id.as_deref() == Some(&session_id))
+        .collect();
+    assert_eq!(children.len(), 3);
+    for child in children {
+        assert_eq!(
+            child
+                .extension_data
+                .get_extension_state("subagent_monitor", "v1")
+                .unwrap()["status"],
+            "completed"
+        );
+        let loaded = services
+            .session_manager
+            .get_session(&child.id, true)
+            .await?;
+        assert!(
+            crate::agents::final_output_tool::FinalOutputTool::successful_output(
+                loaded.conversation.as_ref().unwrap().messages()
+            )
+            .is_some()
+        );
+    }
+    assert!(parent_texts(&services, &session_id)
+        .await?
+        .iter()
+        .any(|text| text.contains("all child results received")));
     Ok(())
 }

@@ -1,4 +1,5 @@
 //! Format-agnostic HTTP status → `ProviderError` mapping.
+// Modified for Local AI Desktop: recognize managed context/KV overflow responses.
 //!
 //! Used by providers regardless of their wire format (OpenAI, Anthropic,
 //! Google, etc.). Parses both `{"error":{"message":"..."}}` and
@@ -146,6 +147,7 @@ fn is_context_length_exceeded_message(text: &str) -> bool {
 
     let direct_context_phrases = [
         "context length",
+        "context size has been exceeded",
         "context_length_exceeded",
         "context window",
         "context_window_exceeded",
@@ -322,7 +324,7 @@ pub fn map_http_error(
             details: extract_message(),
             retry_delay: None,
         },
-        _ if status.is_server_error() => ProviderError::ServerError(format!(
+        _ if status.is_server_error() => ProviderError::server_error(format!(
             "Server error ({}) at {url}: {}",
             status,
             extract_message()

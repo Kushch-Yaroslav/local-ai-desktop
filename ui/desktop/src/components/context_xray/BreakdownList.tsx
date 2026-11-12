@@ -29,7 +29,7 @@ function Chevron({ open }: { open: boolean }) {
 
 function ContentPreview({ text }: { text: string }) {
   return (
-    <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-background-secondary p-2 font-mono text-xs text-text-secondary">
+    <pre className="max-h-48 min-w-0 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-all rounded-md bg-background-secondary p-2 font-mono text-xs text-text-secondary">
       {text}
     </pre>
   );
@@ -38,10 +38,12 @@ function ContentPreview({ text }: { text: string }) {
 function PartRow({ part }: { part: ContextPart }) {
   const [open, setOpen] = useState(false);
   const row = (
-    <div className="flex w-full items-center gap-2 py-0.5">
+    <div className="flex w-full min-w-0 items-center gap-2 py-0.5">
       {part.contentPreview ? <Chevron open={open} /> : <span className="w-3 shrink-0" />}
-      <span className="truncate text-xs text-text-primary">{part.label}</span>
-      {part.source && <span className="truncate text-xs text-text-tertiary">{part.source}</span>}
+      <span className="min-w-0 truncate text-xs text-text-primary">{part.label}</span>
+      {part.source && (
+        <span className="min-w-0 truncate text-xs text-text-tertiary">{part.source}</span>
+      )}
       <span className="ml-auto shrink-0 font-mono text-xs text-text-primary/70">
         {formatTokenCount(part.tokenCount)}
       </span>

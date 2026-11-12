@@ -46,6 +46,7 @@ pub const OPEN_AI_DEFAULT_BASE_PATH: &str = "v1/chat/completions";
 pub const OPEN_AI_VERSIONLESS_BASE_PATH: &str = "chat/completions";
 const OPEN_AI_DEFAULT_RESPONSES_PATH: &str = "v1/responses";
 const OPEN_AI_DEFAULT_MODELS_PATH: &str = "v1/models";
+const MANAGED_GGUF_HEADER: &str = "X-Local-AI-Managed-GGUF";
 const N_CTX_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const N_CTX_FAILURE_TTL: Duration = Duration::from_secs(60);
 
@@ -545,6 +546,14 @@ impl OpenAiProvider {
             .is_some_and(|v| matches!(v.as_str(), "qwen35-v1" | "qwen35-toggle-v1"))
     }
 
+    fn managed_gguf(&self) -> bool {
+        self.custom_headers
+            .as_ref()
+            .and_then(|headers| headers.get(MANAGED_GGUF_HEADER))
+            .is_some_and(|value| value == "1")
+            || self.managed_qwen()
+    }
+
     fn managed_qwen_native_effort(&self) -> bool {
         self.custom_headers
             .as_ref()
@@ -707,9 +716,19 @@ impl OpenAiProvider {
     /// llama.cpp and Ollama expose the actual allocated context window in the
     /// non-standard `meta.n_ctx` field of `/v1/models`. Returns `None` when absent
     /// (e.g. real OpenAI).
-    async fn fetch_n_ctx_from_api(&self, model_name: &str) -> Result<Option<usize>, ProviderError> {
-        let models_path =
+    async fn fetch_n_ctx_from_api(
+        &self,
+        model_name: &str,
+        managed_runtime: bool,
+    ) -> Result<Option<usize>, ProviderError> {
+        let mut models_path =
             Self::map_base_path(&self.base_path, "models", OPEN_AI_DEFAULT_MODELS_PATH);
+        if managed_runtime {
+            // This private gateway query activates the selected managed process and
+            // returns its live /props slot context. GGUF metadata and cached limits
+            // are not the effective window of the currently running server.
+            models_path.push_str("?context_limit=1");
+        }
         let response = self.api_client.request(&models_path).response_get().await?;
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(None);
@@ -882,6 +901,30 @@ impl Provider for OpenAiProvider {
     }
 
     async fn get_context_limit(&self, model: &str, override_limit: Option<usize>) -> usize {
+        if self.managed_gguf() {
+            let discovered = tokio::time::timeout(
+                self.api_client.timeout(),
+                self.fetch_n_ctx_from_api(model, true),
+            )
+            .await;
+            return match discovered {
+                Ok(Ok(Some(limit))) if limit > 0 => override_limit
+                    .map(|requested| requested.min(limit))
+                    .unwrap_or(limit),
+                Ok(Ok(Some(_)) | Ok(None)) => 0,
+                Ok(Err(_)) | Err(_) => {
+                    // Do not fall back to model metadata, a previous process's cache,
+                    // or the provider's generic default for an owned GGUF runtime.
+                    tracing::warn!(
+                        provider = self.name,
+                        model,
+                        "Managed GGUF runtime context is unavailable"
+                    );
+                    0
+                }
+            };
+        }
+
         let configured_limits = self
             .custom_models
             .iter()
@@ -904,7 +947,7 @@ impl Provider for OpenAiProvider {
 
                 let probed = match tokio::time::timeout(
                     N_CTX_PROBE_TIMEOUT,
-                    self.fetch_n_ctx_from_api(model),
+                    self.fetch_n_ctx_from_api(model, false),
                 )
                 .await
                 {
@@ -1762,6 +1805,16 @@ mod tests {
     }
 
     #[test]
+    fn parse_n_ctx_preserves_large_runtime_contexts() {
+        for limit in [70 * 1024, 112 * 1024, 170 * 1024] {
+            let body = json!({
+                "data": [{ "id": "local-gguf", "meta": { "n_ctx": limit } }]
+            });
+            assert_eq!(parse_n_ctx_from_models(&body, "local-gguf"), Some(limit));
+        }
+    }
+
+    #[test]
     fn derive_base_path_not_removing_api_path() {
         let r = derive_base_path("https://opencode.ai/zen/go");
         assert_eq!(r, "https://opencode.ai/zen/go/v1/chat/completions");
@@ -1876,6 +1929,121 @@ mod tests {
             provider.get_context_limit("unknown-model", None).await,
             crate::model::DEFAULT_CONTEXT_LIMIT
         );
+    }
+
+    #[tokio::test]
+    async fn legacy_managed_qwen_uses_live_child_context_instead_of_cached_main_context() {
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        let mut provider = make_provider_with_custom_models(
+            &server.uri(),
+            "v1/chat/completions",
+            vec!["local-gguf".into()],
+        );
+        provider.custom_headers = Some(HashMap::from([(
+            "X-Local-AI-Managed-Qwen".into(),
+            "qwen35-v1".into(),
+        )]));
+        provider.n_ctx_cache.lock().unwrap().insert(
+            "local-gguf".into(),
+            CachedContextLimit::Success(Some(114688)),
+        );
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .and(query_param("context_limit", "1"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"data":[{"id":"local-gguf","meta":{"n_ctx":28672}}]})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert_eq!(provider.get_context_limit("local-gguf", None).await, 28672);
+    }
+
+    #[tokio::test]
+    async fn managed_gguf_context_is_fresh_and_capped_by_live_runtime() {
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        let mut provider = make_provider_with_custom_models(
+            &server.uri(),
+            "v1/chat/completions",
+            vec!["local-gguf".to_string()],
+        );
+        provider.custom_headers = Some(HashMap::from([(
+            MANAGED_GGUF_HEADER.to_string(),
+            "1".to_string(),
+        )]));
+        provider.n_ctx_cache.lock().unwrap().insert(
+            "local-gguf".to_string(),
+            CachedContextLimit::Success(Some(4096)),
+        );
+
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .and(query_param("context_limit", "1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": [{ "id": "local-gguf", "meta": { "n_ctx": 70 * 1024 } }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert_eq!(
+            provider.get_context_limit("local-gguf", None).await,
+            70 * 1024
+        );
+
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .and(query_param("context_limit", "1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": [{ "id": "local-gguf", "meta": { "n_ctx": 170 * 1024 } }]
+            })))
+            .expect(2)
+            .mount(&server)
+            .await;
+        assert_eq!(
+            provider
+                .get_context_limit("local-gguf", Some(200 * 1024))
+                .await,
+            170 * 1024
+        );
+        assert_eq!(
+            provider
+                .get_context_limit("local-gguf", Some(32 * 1024))
+                .await,
+            32 * 1024
+        );
+    }
+
+    #[tokio::test]
+    async fn managed_gguf_does_not_guess_context_when_runtime_probe_fails() {
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .and(query_param("context_limit", "1"))
+            .respond_with(ResponseTemplate::new(503))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let mut provider = make_provider_with_custom_models(
+            &server.uri(),
+            "v1/chat/completions",
+            vec!["local-gguf".to_string()],
+        );
+        provider.custom_headers = Some(HashMap::from([(
+            MANAGED_GGUF_HEADER.to_string(),
+            "1".to_string(),
+        )]));
+        assert_eq!(provider.get_context_limit("local-gguf", None).await, 0);
     }
 
     #[tokio::test]

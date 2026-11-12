@@ -1,3 +1,4 @@
+import { ManagedSseObservation } from './managedSseObservation';
 import { classifyRuntimeFailure as classifyProbeRuntimeFailure } from './contextDiscovery/runtimeFailure';
 import { detectManagedReasoning } from './ggufReasoningCapabilities';
 import { attachOwnedMemoryScope, watchOwnedMemory } from './moe/memoryGuard';
@@ -16,7 +17,14 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { openSync, closeSync, existsSync, fstatSync, writeSync } from 'node:fs';
 import path from 'node:path';
-import { buildArguments, inspectProfile, preflightLaunchProfile, probeRuntime, runtimeError, validateProfile } from './ggufConfig';
+import {
+  buildArguments,
+  inspectProfile,
+  preflightLaunchProfile,
+  probeRuntime,
+  runtimeError,
+  validateProfile,
+} from './ggufConfig';
 import type {
   GgufProfile,
   GgufEndpoint,
@@ -47,6 +55,8 @@ import {
 } from './contextDiscovery/contextEstimate';
 import { vramEstimatorMarginBytes } from './contextDiscovery/vramBudget';
 import { LlamaServerReadinessTimeout, waitForLlamaServerReadiness } from './managedGgufStartup';
+import { GgufInferenceQueue } from './ggufInferenceQueue';
+import { GgufKvScheduler, GgufContextBudgetError, boundGgufGeneration } from './ggufKvScheduler';
 export type { GgufProfile } from './ggufTypes';
 function runtimeFingerprint(profile: GgufProfile) {
   return JSON.stringify({
@@ -60,6 +70,157 @@ interface Gateway {
   port: number;
   key: string;
   server?: Server;
+}
+interface RuntimeInferenceContext {
+  profileId: string;
+  contextTokens: number;
+  totalSlots: number;
+  kvUnified: boolean | null;
+  maxConcurrentRequests: number;
+}
+
+function kvPolicyFromArguments(args: readonly string[]): boolean | null {
+  if (args.includes('--kv-unified')) return true;
+  if (args.includes('--no-kv-unified')) return false;
+  return null;
+}
+
+export function parseLlamaServerRuntimeContext(
+  profileId: string,
+  props: unknown,
+  args: readonly string[]
+): RuntimeInferenceContext | null {
+  if (!props || typeof props !== 'object') return null;
+  const value = props as {
+    total_slots?: unknown;
+    default_generation_settings?: { n_ctx?: unknown };
+  };
+  const contextTokens = value.default_generation_settings?.n_ctx;
+  const totalSlots = value.total_slots;
+  if (
+    typeof contextTokens !== 'number' ||
+    !Number.isSafeInteger(contextTokens) ||
+    contextTokens < 1 ||
+    typeof totalSlots !== 'number' ||
+    !Number.isSafeInteger(totalSlots) ||
+    totalSlots < 1
+  )
+    return null;
+
+  const kvUnified = kvPolicyFromArguments(args);
+  return {
+    profileId,
+    contextTokens,
+    totalSlots,
+    kvUnified,
+    // Unified KV is one shared pool: parallel admission requires explicit
+    // reservations and slot erasure support, otherwise preserve serialization.
+    // Independent slot KV has one dedicated context per server slot.
+    maxConcurrentRequests:
+      kvUnified === false || (kvUnified === true && args.includes('--slot-save-path'))
+        ? totalSlots
+        : 1,
+  };
+}
+
+function parseLlamaServerStartupContext(
+  profileId: string,
+  log: string
+): RuntimeInferenceContext | null {
+  const match = log.match(
+    /initializing, n_slots\s*=\s*(\d+), n_ctx_slot\s*=\s*(\d+), kv_unified\s*=\s*'(true|false)'/i
+  );
+  if (!match) return null;
+  const totalSlots = Number(match[1]);
+  const contextTokens = Number(match[2]);
+  if (
+    !Number.isSafeInteger(totalSlots) ||
+    totalSlots < 1 ||
+    !Number.isSafeInteger(contextTokens) ||
+    contextTokens < 1
+  )
+    return null;
+  const kvUnified = match[3].toLowerCase() === 'true';
+  return {
+    profileId,
+    contextTokens,
+    totalSlots,
+    kvUnified,
+    maxConcurrentRequests: kvUnified ? 1 : totalSlots,
+  };
+}
+
+export function classifyManagedGatewayFailure(
+  error: unknown,
+  signal: AbortSignal,
+  streaming: boolean
+): string {
+  if (signal.aborted) return 'GGUF:cancelled:';
+  const message = error instanceof Error ? error.message : String(error);
+  if (/context size has been exceeded|GGUF:kvCapacityExceeded:/i.test(message))
+    return 'GGUF:kvCapacityExceeded:';
+  if (message.includes('GGUF:unsupportedBudget:')) return 'GGUF:unsupportedBudget:';
+  if (/context.{0,40}(?:unavailable|not reported)|contextunavailable/i.test(message))
+    return 'GGUF:contextUnavailable:';
+  if (/context.{0,40}(?:exceed|limit|length)|(?:exceed|limit|length).{0,40}context/i.test(message))
+    return 'GGUF:contextExceeded:';
+  if (/cuda|vram|gpu memory|device memory/i.test(message) && /alloc|memory|out of/i.test(message))
+    return 'GGUF:deviceMemory:';
+  if (/out of memory|bad_alloc|failed to allocate|kv cache.*alloc|not enough memory/i.test(message))
+    return 'GGUF:hostMemory:';
+  if (/timed? ?out|timeout/i.test(message)) return 'GGUF:timeout:';
+  if (streaming) return 'GGUF:streamAborted:';
+  if (/GGUF:processExit|llama-server.*(?:exit|stopped|crash)/i.test(message))
+    return 'GGUF:serverError:';
+  if (/ECONNREFUSED|ECONNRESET|fetch failed|socket/i.test(message))
+    return 'GGUF:serverUnavailable:';
+  return 'GGUF:upstreamError:';
+}
+
+async function upstreamFailureKind(response: Response): Promise<string> {
+  if (response.status === 408 || response.status === 504) return 'timeout';
+  const reader = response.clone().body?.getReader();
+  if (!reader) return 'upstreamHttpError';
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  const timeout = setTimeout(() => void reader.cancel().catch(() => {}), 500);
+  try {
+    while (length < 8192) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      const limited = value.subarray(0, 8192 - length);
+      chunks.push(limited);
+      length += limited.length;
+    }
+  } catch {
+    // The original response remains untouched and is forwarded below.
+  } finally {
+    clearTimeout(timeout);
+    await reader.cancel().catch(() => {});
+  }
+  const detail = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
+    .toString('utf8')
+    .toLowerCase();
+  if (detail.includes('context size has been exceeded')) return 'kvCapacityExceeded';
+  if (/context.{0,40}(?:exceed|limit|length)|(?:exceed|limit|length).{0,40}context/.test(detail))
+    return 'contextExceeded';
+  if (
+    /invalid.{0,30}tool.?call|malformed.{0,30}tool.?call|tool.?call.{0,30}(?:invalid|malformed)/.test(
+      detail
+    )
+  )
+    return 'invalidToolCall';
+  if (/cuda|vram|gpu memory|device memory/.test(detail) && /alloc|memory|out of/.test(detail))
+    return 'deviceMemory';
+  if (/out of memory|bad_alloc|failed to allocate|not enough memory/.test(detail))
+    return 'hostMemory';
+  return 'upstreamHttpError';
+}
+
+interface RuntimeFailureDiagnostic {
+  kind: string;
+  at: string;
+  httpStatus?: number;
 }
 interface RuntimeLease {
   token: string;
@@ -91,12 +252,18 @@ interface DiscoveryTrace {
 }
 async function pruneDiscoveryDiagnostics(directory: string) {
   const entries = await fs.readdir(directory, { withFileTypes: true });
-  const completed = await Promise.all(entries.filter(entry => entry.isDirectory() && /-[0-9a-f-]{36}$/.test(entry.name)).map(async entry => {
-    const file = path.join(directory, entry.name);
-    const receipt = await fs.stat(path.join(file, 'result.json')).catch(() => null);
-    return receipt ? { file, modified: receipt.mtimeMs } : null;
-  }));
-  const retained = completed.filter((entry): entry is { file: string; modified: number } => entry !== null).sort((a,b) => b.modified - a.modified);
+  const completed = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory() && /-[0-9a-f-]{36}$/.test(entry.name))
+      .map(async (entry) => {
+        const file = path.join(directory, entry.name);
+        const receipt = await fs.stat(path.join(file, 'result.json')).catch(() => null);
+        return receipt ? { file, modified: receipt.mtimeMs } : null;
+      })
+  );
+  const retained = completed
+    .filter((entry): entry is { file: string; modified: number } => entry !== null)
+    .sort((a, b) => b.modified - a.modified);
   for (const entry of retained.slice(20)) await fs.rm(entry.file, { recursive: true });
 }
 interface RuntimeOverride {
@@ -152,6 +319,9 @@ export class ManagedGguf {
   private owned?: ChildProcess;
   private effectiveProfile?: GgufProfile;
   private runtimeOverrides = new Map<string, RuntimeOverride>();
+  private runtimeInferenceContext?: RuntimeInferenceContext;
+  private readonly inferenceQueue = new GgufInferenceQueue();
+  private readonly kvScheduler = new GgufKvScheduler();
   private runtimeRequestCount = 0;
   private runtimeLease?: RuntimeLease;
   private discoveryProgress: GgufDiscoveryProgress = { busy: false, stage: '', probeCount: 0 };
@@ -162,6 +332,7 @@ export class ManagedGguf {
   private flight?: Promise<GgufEndpoint>;
   private flightId?: string;
   private requests = new Map<string, number>();
+  private runtimeFailures = new Map<string, RuntimeFailureDiagnostic>();
   private writes = Promise.resolve();
   private initialized?: Promise<void>;
   constructor(
@@ -272,6 +443,63 @@ export class ManagedGguf {
       signal?.addEventListener('abort', abort, { once: true });
     });
   }
+  private telemetryWrites = Promise.resolve();
+  private recordInference(event: Record<string, unknown>) {
+    const update = { at: new Date().toISOString(), ...event };
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed?.()) win.webContents.send('gguf-inference-update', update);
+    }
+    const record = JSON.stringify(update) + '\n';
+    const file = path.join(
+      this.root,
+      `gguf-inference-${new Date().toISOString().slice(0, 10)}.jsonl`
+    );
+    this.telemetryWrites = this.telemetryWrites
+      .then(() => fs.appendFile(file, record, { mode: 0o600 }))
+      .catch(() => {});
+  }
+  private async eraseKvSlot(endpoint: GgufEndpoint, slot: number) {
+    const response = await fetch(`${endpoint.url}/slots/${slot}?action=erase`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${endpoint.key}`, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw runtimeError('serverError', 'Server failed to clear slot KV');
+    await response.arrayBuffer();
+  }
+  private async inspectRuntimeInferenceContext(
+    profileId: string,
+    endpoint: GgufEndpoint,
+    args: string[],
+    logPath: string,
+    signal: AbortSignal
+  ): Promise<RuntimeInferenceContext> {
+    try {
+      const response = await fetch(`${endpoint.url}/props`, {
+        headers: { Authorization: `Bearer ${endpoint.key}` },
+        signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
+      });
+      if (response.ok) {
+        const context = parseLlamaServerRuntimeContext(profileId, await response.json(), args);
+        if (context) return context;
+      }
+    } catch {
+      // Some older llama-server builds do not expose all /props fields.
+      // Their startup line reports the allocated slot context and KV mode.
+    }
+    const start = this.logStarts.get(profileId) ?? 0;
+    const log = await fs
+      .readFile(logPath)
+      .then((contents) => contents.subarray(start).toString('utf8'))
+      .catch(() => '');
+    const context = parseLlamaServerStartupContext(profileId, log);
+    if (context) return context;
+    throw runtimeError(
+      'contextUnavailable',
+      'llama-server did not report its allocated request context and KV mode'
+    );
+  }
   private async atomic(file: string, value: unknown) {
     await fs.mkdir(this.root, { recursive: true, mode: 0o700 });
     const temp = path.join(this.root, `${file}.${randomUUID()}.tmp`);
@@ -364,7 +592,27 @@ export class ManagedGguf {
       } finally {
         await log.close();
       }
-    return { args: active ? this.state.args : undefined, accepted, proposed };
+    const runtimeContext =
+      active && this.runtimeInferenceContext?.profileId === profileId
+        ? {
+            contextTokens: this.runtimeInferenceContext.contextTokens,
+            totalSlots: this.runtimeInferenceContext.totalSlots,
+            kvUnified: this.runtimeInferenceContext.kvUnified,
+          }
+        : undefined;
+    return {
+      args: active ? this.state.args : undefined,
+      accepted,
+      proposed,
+      runtimeContext,
+      inferenceQueue: active
+        ? this.runtimeInferenceContext?.kvUnified === true &&
+          this.runtimeInferenceContext.maxConcurrentRequests > 1
+          ? this.kvScheduler.snapshot()
+          : this.inferenceQueue.snapshot()
+        : { capacity: 0, active: 0, waiting: 0 },
+      lastFailure: this.runtimeFailures.get(profileId),
+    };
   }
   async setEmbeddedMtp(id: string, enabled: boolean) {
     if (typeof enabled !== 'boolean') throw runtimeError('invalidValue', 'MTP');
@@ -375,10 +623,10 @@ export class ManagedGguf {
     return saved;
   }
   async setVision(id: string, enabled: boolean) {
-    if (typeof enabled !== 'boolean') throw runtimeError('invalidValue','visionEnabled');
+    if (typeof enabled !== 'boolean') throw runtimeError('invalidValue', 'visionEnabled');
     const profile = this.profile(id);
     if (enabled && !(await this.capabilities(id)).visionSupported) throw runtimeError('visionPair');
-    const saved = await this.save({...profile,visionEnabled:enabled});
+    const saved = await this.save({ ...profile, visionEnabled: enabled });
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send('gguf-profiles-changed');
     return saved;
   }
@@ -398,7 +646,9 @@ export class ManagedGguf {
     const p = this.profile(profileId);
     const meta = await inspectGguf(p.model);
     const runtime = await probeRuntime(p.executable);
-    const template = !p.chatTemplate ? await readSpeculativeMetadata(p.model).catch(() => undefined) : undefined;
+    const template = !p.chatTemplate
+      ? await readSpeculativeMetadata(p.model).catch(() => undefined)
+      : undefined;
     const reasoning = detectManagedReasoning(template, runtime, !!p.chatTemplate);
     const embeddedMtp =
       p.backend !== 'native' &&
@@ -412,18 +662,30 @@ export class ManagedGguf {
     if (p.projector) {
       try {
         const projector = await inspectGguf(p.projector);
-        visionSupported = ['qwen35','qwen35moe'].includes(meta.architecture ?? '') && projector.architecture === 'clip' && !!meta.embedding && projector.projectorDimension === meta.embedding && runtime.flags.includes('--mmproj');
+        visionSupported =
+          ['qwen35', 'qwen35moe'].includes(meta.architecture ?? '') &&
+          projector.architecture === 'clip' &&
+          !!meta.embedding &&
+          projector.projectorDimension === meta.embedding &&
+          runtime.flags.includes('--mmproj');
         if (!visionSupported) visionError = 'GGUF:visionPair:';
-      } catch { visionError = 'GGUF:missingFile:'; }
+      } catch {
+        visionError = 'GGUF:missingFile:';
+      }
     }
     return {
-      visionSupported, visionError,
+      visionSupported,
+      visionError,
       embeddedMtp,
       reasoning,
       // Compatibility aliases for the existing Goose managed-provider adapter.
       thinking: reasoning.thinkingToggleSupported,
       nativeEfforts: reasoning.reasoningEffortSupported,
-      vision: visionSupported && (this.state.profileId === profileId && this.state.phase === 'ready' ? this.state.args?.includes('--mmproj') === true : p.visionEnabled !== false),
+      vision:
+        visionSupported &&
+        (this.state.profileId === profileId && this.state.phase === 'ready'
+          ? this.state.args?.includes('--mmproj') === true
+          : p.visionEnabled !== false),
     };
   }
   private async discoveryCatalog(profileId: string) {
@@ -431,17 +693,19 @@ export class ManagedGguf {
     const metadata = await inspectGguf(profile.model);
     const hardLimit = metadata.context ?? 0;
     if (!hardLimit) throw runtimeError('modelContextUnknown', profile.model);
-    const args = buildArguments(profile, 0);
     const [modelFingerprint, projectorFingerprint, draftFingerprint, runtimeProbe, gpu] =
       await Promise.all([
         fileFingerprint(profile.model),
-        profile.projector && profile.visionEnabled !== false ? fileFingerprint(profile.projector) : Promise.resolve(null),
+        profile.projector && profile.visionEnabled !== false
+          ? fileFingerprint(profile.projector)
+          : Promise.resolve(null),
         profile.draft && profile.speculativeMode && profile.speculativeMode !== 'off'
           ? fileFingerprint(profile.draft)
           : Promise.resolve(undefined),
         probeRuntime(profile.executable),
         getGpuIdentity(),
       ]);
+    const args = buildArguments(profile, 0, runtimeProbe);
     const identity = buildContextDiscoveryIdentity({
       modelId: profile.model,
       modelFingerprint,
@@ -526,9 +790,17 @@ export class ManagedGguf {
     lease.inFlight = true;
     const runId = randomUUID();
     const trace: DiscoveryTrace = {
-      runId, startedAt: new Date().toISOString(), stage: 'prepare',
-      directory: path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, 'discovery', `${profileId.replace(/[^a-zA-Z0-9_-]/g, '_')}-${runId}`),
-      initialState: { ...this.state }, restoration: 'unchanged', probes: [],
+      runId,
+      startedAt: new Date().toISOString(),
+      stage: 'prepare',
+      directory: path.join(
+        process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root,
+        'discovery',
+        `${profileId.replace(/[^a-zA-Z0-9_-]/g, '_')}-${runId}`
+      ),
+      initialState: { ...this.state },
+      restoration: 'unchanged',
+      probes: [],
     };
     const receiptPath = path.join(trace.directory, 'result.json');
     const run = (async () => {
@@ -540,14 +812,25 @@ export class ManagedGguf {
       } catch (error) {
         trace.failure = discoveryProbeError(error);
         const probe = trace.probes.at(-1);
-        throw runtimeError('discoveryFailed', JSON.stringify({
-          runId, stage: probe?.stage ?? trace.stage, context: probe?.contextWindow,
-          kv: probe?.kvCacheType, reason: trace.failure, restoration: trace.restoration,
-          restoreError: trace.restoreError, logPath: probe?.logPath, receiptPath,
-        }));
+        throw runtimeError(
+          'discoveryFailed',
+          JSON.stringify({
+            runId,
+            stage: probe?.stage ?? trace.stage,
+            context: probe?.contextWindow,
+            kv: probe?.kvCacheType,
+            reason: trace.failure,
+            restoration: trace.restoration,
+            restoreError: trace.restoreError,
+            logPath: probe?.logPath,
+            receiptPath,
+          })
+        );
       } finally {
         // Diagnostics never include endpoint credentials or prompt contents.
-        await fs.writeFile(receiptPath, JSON.stringify(trace, null, 2), { mode: 0o600 }).catch(() => {});
+        await fs
+          .writeFile(receiptPath, JSON.stringify(trace, null, 2), { mode: 0o600 })
+          .catch(() => {});
         await pruneDiscoveryDiagnostics(path.dirname(trace.directory)).catch(() => {});
       }
     })().finally(() => {
@@ -570,9 +853,13 @@ export class ManagedGguf {
     const selected = await resolveFlashAttentionDefault(this.profile(profileId));
     if (selected.backend === 'native')
       throw runtimeError('nativeUnsupported', 'context discovery requires managed llama-server');
-    if (selected.moeCacheMode === 'automatic') throw runtimeError('placement', 'Choose a fixed Manual cache size before discovery; Auto cache would change probe memory assumptions.');
+    if (selected.moeCacheMode === 'automatic')
+      throw runtimeError(
+        'placement',
+        'Choose a fixed Manual cache size before discovery; Auto cache would change probe memory assumptions.'
+      );
     const capabilities = await probeRuntime(selected.executable);
-    trace.selectedArguments = buildArguments(selected, 0);
+    trace.selectedArguments = buildArguments(selected, 0, capabilities);
     trace.runtimeVersion = capabilities.version;
     for (const flag of ['--ctx-size', '--cache-type-k', '--cache-type-v', '--verbose']) {
       if (!capabilities.flags.includes(flag)) throw runtimeError('unsupportedFlag', flag);
@@ -631,7 +918,10 @@ export class ManagedGguf {
             elapsedMs: 0,
           };
           trace.probes.push(record);
-          const logPath = path.join(trace.directory, `${String(trace.probes.length).padStart(2, '0')}-${kv}-${context}.log`);
+          const logPath = path.join(
+            trace.directory,
+            `${String(trace.probes.length).padStart(2, '0')}-${kv}-${context}.log`
+          );
           record.logPath = logPath;
           const temp = {
             ...selected,
@@ -663,7 +953,14 @@ export class ManagedGguf {
               },
               body: JSON.stringify({
                 model: 'local-gguf',
-                messages: [{ role: 'user', content: selected.speculativeMode?.startsWith('mtp-') ? 'Describe a sunrise over a lake in simple English. Write several sentences.' : 'Reply with the single word OK.' }],
+                messages: [
+                  {
+                    role: 'user',
+                    content: selected.speculativeMode?.startsWith('mtp-')
+                      ? 'Describe a sunrise over a lake in simple English. Write several sentences.'
+                      : 'Reply with the single word OK.',
+                  },
+                ],
                 max_tokens: selected.speculativeMode?.startsWith('mtp-') ? 64 : 2,
                 temperature: 0,
                 seed: 42,
@@ -679,8 +976,15 @@ export class ManagedGguf {
               record.stage = 'mtp';
               const drafted = completion.timings?.draft_n;
               if (!Number.isFinite(drafted) || drafted <= 0 || !completion.choices?.[0])
-                throw runtimeError('discoveryMtpInactive', 'No actual draft tokens generated; result cannot certify MTP On');
-              record.speculativeEvidence = { mode: selected.speculativeMode, drafted, accepted: completion.timings.draft_n_accepted ?? 0 };
+                throw runtimeError(
+                  'discoveryMtpInactive',
+                  'No actual draft tokens generated; result cannot certify MTP On'
+                );
+              record.speculativeEvidence = {
+                mode: selected.speculativeMode,
+                drafted,
+                accepted: completion.timings.draft_n_accepted ?? 0,
+              };
             }
             record.inference = true;
             record.stage = 'measurement';
@@ -703,34 +1007,45 @@ export class ManagedGguf {
             };
             record.vramBudget = vramBudget;
             record.args = endpoint.args;
-            const currentLog = (await fs.readFile(logPath)).subarray(this.logStarts.get(profileId) ?? 0).toString('utf8');
-            const estimate = await collectRuntimeContextEstimate({
-              backend: 'llama-cpp',
-              modelId: selected.model,
-              configuredMaxTokens: context,
-              contextPresets: [context],
-              hardware,
-              runtime: {
+            const currentLog = (await fs.readFile(logPath))
+              .subarray(this.logStarts.get(profileId) ?? 0)
+              .toString('utf8');
+            const estimate = await collectRuntimeContextEstimate(
+              {
                 backend: 'llama-cpp',
                 modelId: selected.model,
-                activeContextTokens: context,
-                modelPath: selected.model,
-                modelTrainContextTokens: metadata.context,
-                modelFileSizeBytes,
-                residentBytes,
-                deviceResidentBytes: vramBudget.llmBytes,
-                kvCacheType: kv,
-                kvOffload: selected.kvOffload !== false,
+                configuredMaxTokens: context,
+                contextPresets: [context],
+                hardware,
+                runtime: {
+                  backend: 'llama-cpp',
+                  modelId: selected.model,
+                  activeContextTokens: context,
+                  modelPath: selected.model,
+                  modelTrainContextTokens: metadata.context,
+                  modelFileSizeBytes,
+                  residentBytes,
+                  deviceResidentBytes: vramBudget.llmBytes,
+                  kvCacheType: kv,
+                  kvOffload: selected.kvOffload !== false,
+                },
+                startupLogPath: logPath,
+                hostReserveBytes: defaultContextHostReserveBytes,
+                deviceReserveBytes: vramEstimatorMarginBytes,
+                runtimeArguments: endpoint.args,
               },
-              startupLogPath: logPath,
-              hostReserveBytes: defaultContextHostReserveBytes,
-              deviceReserveBytes: vramEstimatorMarginBytes,
-              runtimeArguments: endpoint.args,
-            }, async () => ({ text: currentLog }));
-            if (estimate.unknownReasons.length && currentLog.includes('[Local AI Desktop: runtime diagnostic limit reached]'))
-              throw runtimeError('discoveryDiagnosticsTruncated', 'Startup allocation evidence was truncated by the diagnostic log limit; this is not a memory rejection.');
+              async () => ({ text: currentLog })
+            );
+            if (
+              estimate.unknownReasons.length &&
+              currentLog.includes('[Local AI Desktop: runtime diagnostic limit reached]')
+            )
+              throw runtimeError(
+                'discoveryDiagnosticsTruncated',
+                'Startup allocation evidence was truncated by the diagnostic log limit; this is not a memory rejection.'
+              );
             record.allocationEvidence = estimate.allocationEvidence;
-            if (estimate.unknownReasons.length) record.reason = estimate.unknownReasons.join("; ");
+            if (estimate.unknownReasons.length) record.reason = estimate.unknownReasons.join('; ');
             if (estimate.memoryHeadroom) record.headroom = estimate.memoryHeadroom;
             if (estimate.memoryBaseline) record.memoryBaseline = estimate.memoryBaseline;
             record.elapsedMs = Date.now() - started;
@@ -740,7 +1055,12 @@ export class ManagedGguf {
             // Drain this owned child's stderr before classifying a crashed probe.
             // Never let a new model overlap a failed probe or its pending output.
             await this.stopChild();
-            const diagnostic = await fs.readFile(logPath).then(data => data.subarray(this.logStarts.get(profileId) ?? data.length).toString('utf8')).catch(() => '');
+            const diagnostic = await fs
+              .readFile(logPath)
+              .then((data) =>
+                data.subarray(this.logStarts.get(profileId) ?? data.length).toString('utf8')
+              )
+              .catch(() => '');
             const failureKind = classifyProbeRuntimeFailure(diagnostic + '\n' + record.reason);
             record.reason = `${failureKind} at ${record.stage}, ${kv}, context=${context}: ${record.reason}${this.state.error ? `; ${this.state.error}` : ''}${/failed to create MTP context/i.test(diagnostic) ? ' MTP draft context could not fit; try one parallel slot, smaller microbatches or explicit partial CPU offload, then rerun with MTP still enabled.' : ''}`;
             record.elapsedMs = Date.now() - started;
@@ -878,7 +1198,10 @@ export class ManagedGguf {
     await this.initialize();
     return Promise.all(
       this.profiles.map(async (stored) => {
-        const profile = this.canonicalRuntime && stored.backend !== 'native' ? { ...stored, executable: this.canonicalRuntime } : stored;
+        const profile =
+          this.canonicalRuntime && stored.backend !== 'native'
+            ? { ...stored, executable: this.canonicalRuntime }
+            : stored;
         let inaccessible = profile.model;
         try {
           for (const file of [
@@ -902,7 +1225,8 @@ export class ManagedGguf {
   async save(profile: GgufProfile): Promise<GgufProfile> {
     await this.initialize();
     profile = withGpuLayerDefault(profile);
-    if (this.canonicalRuntime && profile.backend !== 'native') profile = { ...profile, executable: this.canonicalRuntime };
+    if (this.canonicalRuntime && profile.backend !== 'native')
+      profile = { ...profile, executable: this.canonicalRuntime };
     if (!profile.id) profile = await resolveFlashAttentionDefault(profile);
     await validateProfile(profile);
     if (
@@ -944,7 +1268,9 @@ export class ManagedGguf {
   private profile(id: string) {
     const profile = this.profiles.find((p) => p.id === id);
     if (!profile) throw runtimeError('profileMissing', id);
-    return this.canonicalRuntime && profile.backend !== 'native' ? { ...profile, executable: this.canonicalRuntime } : profile;
+    return this.canonicalRuntime && profile.backend !== 'native'
+      ? { ...profile, executable: this.canonicalRuntime }
+      : profile;
   }
   private async persistGateways() {
     await this.atomic(
@@ -985,9 +1311,42 @@ export class ManagedGguf {
   }
   private async route(id: string, req: IncomingMessage, res: ServerResponse) {
     const controller = new AbortController();
+    const requestId = randomUUID();
+    const sessionHeader = req.headers['agent-session-id'];
+    const sessionId =
+      typeof sessionHeader === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(sessionHeader)
+        ? sessionHeader
+        : undefined;
+    const diagnostic = (phase: string, extra: Record<string, unknown> = {}) =>
+      this.recordInference({ requestId, sessionId, profileId: id, phase, ...extra });
     let counted = false;
     let leaveRuntimeRequest: (() => void) | undefined;
+    let releaseInference: (() => void) | undefined;
+    let kvLease: { slot: number; release: () => void } | undefined;
+    let kvEndpoint: GgufEndpoint | undefined;
+    let kvCleanupSlots: number[] = [];
     let observation: ProtocolObservation | undefined;
+    const sseObservation = new ManagedSseObservation();
+    let streamFailureKind: string | undefined;
+    let streamDone = false;
+    let streamTail = Buffer.alloc(0);
+    const cleanupKv = async () => {
+      const lease = kvLease;
+      kvLease = undefined;
+      if (lease) {
+        try {
+          if (kvEndpoint && this.endpoint === kvEndpoint)
+            for (const slot of kvCleanupSlots) await this.eraseKvSlot(kvEndpoint, slot);
+        } catch {
+          // Never reuse a reservation while its KV might still occupy the pool.
+          if (this.endpoint === kvEndpoint) await this.stopChild();
+          this.runtimeFailures.set(id, { kind: 'kvCleanupFailed', at: new Date().toISOString() });
+        } finally {
+          lease.release();
+          diagnostic('released', { slot: lease.slot, ...this.kvScheduler.snapshot() });
+        }
+      }
+    };
     res.on('close', () => {
       if (!res.writableEnded) controller.abort();
       if (counted) {
@@ -1005,11 +1364,21 @@ export class ManagedGguf {
         res.writeHead(401).end();
         return;
       }
-      const profile = this.profile(id);
-      const effective =
-        this.effectiveProfile?.id === id ? this.effectiveProfile : this.launchProfile(profile);
-      if (req.method === 'GET' && ['/v1/models', '/models'].includes(req.url ?? '')) {
-        const metadata = await inspectGguf(profile.model).catch(() => ({ context: undefined }));
+      this.profile(id);
+      const requestUrl = new URL(req.url ?? '/', 'http://127.0.0.1');
+      if (req.method === 'GET' && ['/v1/models', '/models'].includes(requestUrl.pathname)) {
+        const requiresLiveContext = requestUrl.searchParams.get('context_limit') === '1';
+        if (requiresLiveContext) {
+          leaveRuntimeRequest = await this.enterRuntimeRequest(controller.signal);
+          await this.activate(id, true, controller.signal);
+          if (controller.signal.aborted) return;
+          counted = true;
+          this.requests.set(id, (this.requests.get(id) ?? 0) + 1);
+        }
+        const runtimeContext =
+          this.runtimeInferenceContext?.profileId === id ? this.runtimeInferenceContext : undefined;
+        if (requiresLiveContext && !runtimeContext)
+          throw runtimeError('contextUnavailable', 'No live llama-server context was reported');
         res.setHeader('Content-Type', 'application/json');
         res.end(
           JSON.stringify({
@@ -1019,11 +1388,41 @@ export class ManagedGguf {
                 id: 'local-gguf',
                 object: 'model',
                 owned_by: 'local',
-                context_window: effective.context,
-                meta: {
-                  n_ctx: effective.context,
-                  n_ctx_train: metadata.context ?? effective.context,
-                },
+                ...(runtimeContext
+                  ? {
+                      context_window:
+                        req.headers['x-local-ai-agent-role'] === 'subagent' &&
+                        runtimeContext.kvUnified === true &&
+                        runtimeContext.maxConcurrentRequests > 1
+                          ? Math.floor(
+                              runtimeContext.contextTokens / runtimeContext.totalSlots / 256
+                            ) * 256
+                          : runtimeContext.contextTokens,
+                      meta: {
+                        n_ctx:
+                          req.headers['x-local-ai-agent-role'] === 'subagent' &&
+                          runtimeContext.kvUnified === true &&
+                          runtimeContext.maxConcurrentRequests > 1
+                            ? Math.floor(
+                                runtimeContext.contextTokens / runtimeContext.totalSlots / 256
+                              ) * 256
+                            : runtimeContext.contextTokens,
+                        kv_reservation_pool_tokens:
+                          runtimeContext.kvUnified === true
+                            ? runtimeContext.contextTokens
+                            : undefined,
+                        child_context_tokens:
+                          runtimeContext.kvUnified === true &&
+                          runtimeContext.maxConcurrentRequests > 1
+                            ? Math.floor(
+                                runtimeContext.contextTokens / runtimeContext.totalSlots / 256
+                              ) * 256
+                            : runtimeContext.contextTokens,
+                        total_slots: runtimeContext.totalSlots,
+                        kv_unified: runtimeContext.kvUnified,
+                      },
+                    }
+                  : {}),
               },
             ],
           })
@@ -1032,7 +1431,7 @@ export class ManagedGguf {
       }
       if (
         req.method !== 'POST' ||
-        !['/v1/chat/completions', '/chat/completions'].includes(req.url ?? '')
+        !['/v1/chat/completions', '/chat/completions'].includes(requestUrl.pathname)
       ) {
         res.writeHead(404).end();
         return;
@@ -1052,19 +1451,119 @@ export class ManagedGguf {
         this.auditRecords.push(observation.summary);
         if (this.auditRecords.length > 32) this.auditRecords.shift();
       }
-      const endpoint = await this.activate(id, true, controller.signal);
+      await this.activate(id, true, controller.signal);
+      if (controller.signal.aborted) return;
+      const context = this.runtimeInferenceContext!;
+      let body = Buffer.concat(chunks);
+      if (context.kvUnified === true && context.maxConcurrentRequests > 1) {
+        const originalPayload = JSON.parse(body.toString('utf8'));
+        if (originalPayload.n !== undefined && originalPayload.n !== 1)
+          throw runtimeError(
+            'unsupportedBudget',
+            'Multiple completions require separate reservations'
+          );
+        const child = req.headers['x-local-ai-agent-role'] === 'subagent';
+        const budget = child
+          ? Math.floor(context.contextTokens / context.totalSlots / 256) * 256
+          : context.contextTokens;
+        diagnostic('waiting', {
+          role: child ? 'subagent' : 'main',
+          effectiveLimit: budget,
+          ...this.kvScheduler.snapshot(),
+        });
+        kvLease = await this.kvScheduler.acquire(budget, !child, controller.signal);
+        diagnostic('admitted', {
+          slot: kvLease.slot,
+          effectiveLimit: budget,
+          ...this.kvScheduler.snapshot(),
+        });
+        kvEndpoint = await this.activate(id, true, controller.signal);
+        if (this.runtimeInferenceContext !== context)
+          throw runtimeError('serverError', 'Runtime changed while waiting for KV capacity');
+        kvCleanupSlots = child
+          ? [kvLease.slot]
+          : Array.from({ length: context.totalSlots }, (_, slot) => slot);
+        for (const slot of kvCleanupSlots) await this.eraseKvSlot(kvEndpoint, slot);
+        if (child) {
+          const payload = originalPayload;
+          const headers = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${kvEndpoint.key}`,
+          };
+          const rendered = await fetch(kvEndpoint.url + '/apply-template', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          if (!rendered.ok)
+            throw runtimeError(
+              'unsupportedBudget',
+              'Server cannot render request for KV accounting'
+            );
+          const { prompt } = await rendered.json();
+          if (
+            typeof prompt !== 'string' ||
+            payload.messages?.some(
+              (message: { content?: unknown }) =>
+                Array.isArray(message.content) &&
+                message.content.some((part: { type?: string }) => part.type !== 'text')
+            )
+          )
+            throw runtimeError(
+              'unsupportedBudget',
+              'Multimodal KV accounting is not supported by this runtime policy'
+            );
+          const tokenized = await fetch(kvEndpoint.url + '/tokenize', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ content: prompt, add_special: true, parse_special: true }),
+            signal: controller.signal,
+          });
+          if (!tokenized.ok) throw runtimeError('unsupportedBudget', 'Server tokenization failed');
+          const { tokens } = await tokenized.json();
+          if (!Array.isArray(tokens))
+            throw runtimeError('unsupportedBudget', 'Invalid server token count');
+          diagnostic('prompt_counted', {
+            slot: kvLease.slot,
+            promptTokens: tokens.length,
+            effectiveLimit: budget,
+          });
+          body = Buffer.from(
+            JSON.stringify({
+              ...boundGgufGeneration(payload, tokens.length, budget),
+              id_slot: kvLease.slot,
+            })
+          );
+        }
+      } else {
+        releaseInference = await this.inferenceQueue.acquire(controller.signal);
+      }
+      const endpoint = kvEndpoint ?? (await this.activate(id, true, controller.signal));
       if (controller.signal.aborted) return;
       counted = true;
       this.requests.set(id, (this.requests.get(id) ?? 0) + 1);
       const response = await fetch(endpoint.url + '/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${endpoint.key}` },
-        body: Buffer.concat(chunks),
+        body,
         signal: controller.signal,
       });
+      diagnostic('upstream_response', { httpStatus: response.status, slot: kvLease?.slot });
+      const isEventStream = /text\/event-stream/i.test(response.headers.get('content-type') ?? '');
+      let responseErrorKind: string | undefined;
+      if (!response.ok) {
+        responseErrorKind = await upstreamFailureKind(response);
+        this.runtimeFailures.set(id, {
+          kind: responseErrorKind,
+          at: new Date().toISOString(),
+          httpStatus: response.status,
+        });
+      }
       res.writeHead(response.status, {
         'Content-Type': response.headers.get('content-type') ?? 'application/json',
         'Cache-Control': 'no-store',
+        ...(responseErrorKind ? { 'X-Local-AI-GGUF-Error': responseErrorKind } : {}),
       });
       if (response.body) {
         const reader = response.body.getReader();
@@ -1073,6 +1572,27 @@ export class ManagedGguf {
             const { done, value } = await reader.read();
             if (done) break;
             observation?.chunk(value);
+            if (isEventStream)
+              for (const event of sseObservation.feed(value)) {
+                diagnostic(String(event.phase), {
+                  ...event,
+                  slot: kvLease?.slot,
+                  httpStatus: response.status,
+                });
+                if (event.phase === 'stream_error') {
+                  streamFailureKind = String(event.kind);
+                  this.runtimeFailures.set(id, {
+                    kind: streamFailureKind,
+                    at: new Date().toISOString(),
+                    httpStatus: response.status,
+                  });
+                }
+              }
+            if (isEventStream && !streamDone) {
+              const probe = Buffer.concat([streamTail, Buffer.from(value)]);
+              streamDone = probe.includes(Buffer.from('data: [DONE]'));
+              streamTail = probe.subarray(Math.max(0, probe.length - 32));
+            }
             if (!res.write(value))
               await new Promise<void>((resolve) => {
                 res.once('drain', resolve);
@@ -1083,27 +1603,75 @@ export class ManagedGguf {
           await reader.cancel().catch(() => {});
         }
       }
+      if (
+        response.ok &&
+        isEventStream &&
+        !streamDone &&
+        !streamFailureKind &&
+        !controller.signal.aborted
+      ) {
+        this.runtimeFailures.set(id, { kind: 'streamAborted', at: new Date().toISOString() });
+        res.destroy(
+          new Error('GGUF:streamAborted: llama-server closed the event stream before [DONE]')
+        );
+        return;
+      }
+      if (response.ok && !streamFailureKind) this.runtimeFailures.delete(id);
+      await cleanupKv();
       res.end();
-    } catch {
+    } catch (error) {
+      if (controller.signal.aborted) {
+        diagnostic('cancelled', { slot: kvLease?.slot });
+        this.runtimeFailures.set(id, { kind: 'cancelled', at: new Date().toISOString() });
+        return;
+      }
+      const failureCode = classifyManagedGatewayFailure(error, controller.signal, res.headersSent);
+      // Only this local typed error contains safe measured numbers. Arbitrary
+      // upstream/transport messages can contain private input and stay redacted.
+      const budgetDetails =
+        error instanceof GgufContextBudgetError
+          ? {
+              effectiveLimit: error.effectiveLimit,
+              promptTokens: error.promptTokens,
+            }
+          : {};
+      diagnostic('error', {
+        kind: failureCode,
+        slot: kvLease?.slot,
+        streaming: res.headersSent,
+        ...budgetDetails,
+      });
+      this.runtimeFailures.set(id, {
+        kind: failureCode.slice('GGUF:'.length).replace(/:$/, ''),
+        at: new Date().toISOString(),
+      });
       if (!res.destroyed) {
         if (res.headersSent) {
-          // Once SSE starts, abort the transport instead of corrupting it with a JSON error.
-          res.destroy();
+          // Once SSE starts, close the stream so Goose can classify a truncated response.
+          res.destroy(error instanceof Error ? error : undefined);
         } else {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.writeHead(
+            failureCode === 'GGUF:contextExceeded:'
+              ? 413
+              : failureCode === 'GGUF:unsupportedBudget:'
+                ? 422
+                : 503,
+            { 'Content-Type': 'application/json' }
+          );
           res.end(
             JSON.stringify({
               error: {
-                message: this.state.error?.includes('GGUF:deviceMemory:')
-                  ? 'GGUF:deviceMemory:'
-                  : 'GGUF:upstreamFailure:',
+                message: error instanceof GgufContextBudgetError ? error.message : failureCode,
                 type: 'local_runtime_error',
+                ...budgetDetails,
               },
             })
           );
         }
       }
     } finally {
+      await cleanupKv();
+      releaseInference?.();
       observation?.finish();
       if (counted) {
         counted = false;
@@ -1205,7 +1773,9 @@ export class ManagedGguf {
       const capabilities =
         profile.backend === 'native' ? undefined : await probeRuntime(profile.executable);
       if (!capabilities) await validateProfile(profile);
-      const launchConfiguration = capabilities ? await preflightLaunchProfile(profile, capabilities) : profile;
+      const launchConfiguration = capabilities
+        ? await preflightLaunchProfile(profile, capabilities)
+        : profile;
       signal.throwIfAborted();
       if (profile.backend === 'native') throw runtimeError('nativeUnsupported', 'external process');
       const port = await new Promise<number>((resolve, reject) => {
@@ -1217,17 +1787,28 @@ export class ManagedGguf {
         });
       });
       const key = randomBytes(32).toString('hex');
-      const args = buildArguments(launchConfiguration, port);
+      const args = buildArguments(launchConfiguration, port, capabilities);
+      if (args.includes('--kv-unified') && capabilities?.flags.includes('--slot-save-path')) {
+        const slotDirectory = path.join(this.root, 'runtime-slots');
+        await fs.mkdir(slotDirectory, { recursive: true, mode: 0o700 });
+        args.push('--slot-save-path', slotDirectory);
+        if (capabilities.flags.includes('--no-context-shift')) args.push('--no-context-shift');
+      }
       if (verboseDiagnostics) args.push('--verbose');
       if (
         (profile.speculativeMode ?? 'off') === 'off' &&
         capabilities?.flags.includes('--spec-type')
       )
         args.push('--spec-type', 'none');
-      const logPath = diagnosticLogPath ?? path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, `gguf-${id}.log`);
+      const logPath =
+        diagnosticLogPath ??
+        path.join(process.env.LOCAL_AI_DESKTOP_LOG_DIR ?? this.root, `gguf-${id}.log`);
       await fs.mkdir(path.dirname(logPath), { recursive: true });
       // Rotate between launches; never truncate a live runtime's open descriptor.
-      const previousSize = await fs.stat(logPath).then(s => s.size).catch(() => 0);
+      const previousSize = await fs
+        .stat(logPath)
+        .then((s) => s.size)
+        .catch(() => 0);
       if (previousSize > 16 * 1024 * 1024) await fs.rename(logPath, logPath + '.1');
       const fd = openSync(logPath, 'a', 0o600);
       logStart = fstatSync(fd).size;
@@ -1266,26 +1847,43 @@ export class ManagedGguf {
           if (logBytes + chunk.length > 16 * 1024 * 1024) {
             writeSync(fd, '\n[Local AI Desktop: runtime diagnostic limit reached]\n');
             logStopped = true;
-          } else { writeSync(fd, chunk); logBytes += chunk.length; }
-        } catch { logStopped = true; }
+          } else {
+            writeSync(fd, chunk);
+            logBytes += chunk.length;
+          }
+        } catch {
+          logStopped = true;
+        }
       };
       child.stdout?.on('data', recordLog);
       child.stderr?.on('data', recordLog);
-      this.childClosed.set(child, new Promise<void>(resolve => child.once('close', () => {
-        closeSync(fd);
-        resolve();
-      })));
+      this.childClosed.set(
+        child,
+        new Promise<void>((resolve) =>
+          child.once('close', () => {
+            closeSync(fd);
+            resolve();
+          })
+        )
+      );
       this.owned = child;
       let failure: Error | undefined;
-      const guardedPlacement = profile.gpuBlockIds !== undefined || !!launchConfiguration.moeCacheMiB;
+      const guardedPlacement =
+        profile.gpuBlockIds !== undefined || !!launchConfiguration.moeCacheMiB;
       let stopMemoryWatch: (() => void) | undefined;
       if (guardedPlacement) {
-        try { await attachOwnedMemoryScope(child.pid!); } catch (error) { child.kill('SIGTERM'); throw error; }
+        try {
+          await attachOwnedMemoryScope(child.pid!);
+        } catch (error) {
+          child.kill('SIGTERM');
+          throw error;
+        }
         stopMemoryWatch = watchOwnedMemory(() => {
           if (this.owned !== child) return;
           failure = runtimeError('placement', 'Memory safety stop: 7 GiB RAM reserve unavailable');
           this.publish({ phase: 'failed', profileId: id, args, logPath, error: failure.message });
-          this.endpoint = undefined; this.currentFingerprint = undefined;
+          this.endpoint = undefined;
+          this.currentFingerprint = undefined;
           child.kill('SIGTERM');
         });
         child.once('exit', () => stopMemoryWatch?.());
@@ -1300,6 +1898,8 @@ export class ManagedGguf {
           this.endpoint = undefined;
           this.currentFingerprint = undefined;
           this.effectiveProfile = undefined;
+          this.runtimeInferenceContext = undefined;
+          this.inferenceQueue.setCapacity(1);
           if (this.state.phase !== 'stopping' && !signal.aborted)
             this.publish({
               phase: 'failed',
@@ -1344,7 +1944,29 @@ export class ManagedGguf {
         throw error;
       }
       signal.throwIfAborted();
-      this.endpoint = { url: `http://127.0.0.1:${port}`, key, args, logPath };
+      const endpoint = { url: `http://127.0.0.1:${port}`, key, args, logPath };
+      const runtimeInferenceContext = await this.inspectRuntimeInferenceContext(
+        id,
+        endpoint,
+        args,
+        logPath,
+        signal
+      );
+      signal.throwIfAborted();
+      this.endpoint = endpoint;
+      if (
+        runtimeInferenceContext.kvUnified === true &&
+        runtimeInferenceContext.maxConcurrentRequests > 1
+      ) {
+        for (let slot = 0; slot < runtimeInferenceContext.totalSlots; slot++)
+          await this.eraseKvSlot(endpoint, slot);
+        this.kvScheduler.configure(
+          runtimeInferenceContext.totalSlots,
+          runtimeInferenceContext.contextTokens
+        );
+      }
+      this.runtimeInferenceContext = runtimeInferenceContext;
+      this.inferenceQueue.setCapacity(runtimeInferenceContext.maxConcurrentRequests);
       this.currentFingerprint = runtimeFingerprint(profile);
       this.effectiveProfile = { ...profile };
       this.publish({ phase: 'ready', profileId: id, args, logPath });
@@ -1373,6 +1995,8 @@ export class ManagedGguf {
     this.endpoint = undefined;
     this.currentFingerprint = undefined;
     this.effectiveProfile = undefined;
+    this.runtimeInferenceContext = undefined;
+    this.inferenceQueue.setCapacity(1);
     if (!child) return;
     this.publish({ ...this.state, phase: 'stopping' });
     await new Promise<void>((resolve) => {
@@ -1404,6 +2028,7 @@ export class ManagedGguf {
     if (lease && !lease.inFlight) this.releaseRuntimeLease(lease.token);
     await this.discoveryFlight?.catch(() => {});
     await this.unload(true);
+    await this.telemetryWrites;
     for (const gateway of this.gateways.values()) {
       gateway.server?.closeAllConnections();
       gateway.server?.close();
@@ -1414,15 +2039,23 @@ export class ManagedGguf {
   }
 }
 let service: ManagedGguf;
-export async function shutdownManagedGguf() { await service?.shutdown(); }
+export async function shutdownManagedGguf() {
+  await service?.shutdown();
+}
 export async function stopManagedGguf() {
   await service?.unload();
 }
 export function registerManagedGguf() {
-  const canonical = app.isPackaged ? path.join(process.resourcesPath, 'llama', 'llama-server') : path.resolve(app.getAppPath(), '../../runtime/llama/llama-server');
-  service = new ManagedGguf(app.getPath('userData'), (state) => {
-    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('gguf-state', state);
-  }, canonical);
+  const canonical = app.isPackaged
+    ? path.join(process.resourcesPath, 'llama', 'llama-server')
+    : path.resolve(app.getAppPath(), '../../runtime/llama/llama-server');
+  service = new ManagedGguf(
+    app.getPath('userData'),
+    (state) => {
+      for (const win of BrowserWindow.getAllWindows()) win.webContents.send('gguf-state', state);
+    },
+    canonical
+  );
   ipcMain.handle('gguf-runtime', () => canonical);
   ipcMain.handle('gguf-list', () => service.list());
   const profilesChanged = () => {
@@ -1437,9 +2070,13 @@ export function registerManagedGguf() {
     await service.delete(id);
     profilesChanged();
   });
-  ipcMain.handle('gguf-validate', (_event, profile: GgufProfile) => inspectProfile(profile.backend === 'native' ? profile : { ...profile, executable: canonical }));
+  ipcMain.handle('gguf-validate', (_event, profile: GgufProfile) =>
+    inspectProfile(profile.backend === 'native' ? profile : { ...profile, executable: canonical })
+  );
   ipcMain.handle('gguf-diagnostics', (_event, id: string) => service.diagnostics(id));
-  ipcMain.handle('gguf-set-vision', (_event,id:string,enabled:boolean) => service.setVision(id,enabled));
+  ipcMain.handle('gguf-set-vision', (_event, id: string, enabled: boolean) =>
+    service.setVision(id, enabled)
+  );
   ipcMain.handle('gguf-set-mtp', (_event, id: string, enabled: boolean) =>
     service.setEmbeddedMtp(id, enabled)
   );
@@ -1447,7 +2084,9 @@ export function registerManagedGguf() {
     service.reloadProfile(id, token)
   );
   ipcMain.handle('gguf-capabilities', (_event, id: string) => service.capabilities(id));
-  ipcMain.handle('gguf-placement', async (_event, profile: GgufProfile) => placementPreview({ ...profile, executable: canonical }, await probeRuntime(canonical)));
+  ipcMain.handle('gguf-placement', async (_event, profile: GgufProfile) =>
+    placementPreview({ ...profile, executable: canonical }, await probeRuntime(canonical))
+  );
   ipcMain.handle('gguf-probe', (_event, _executable: string) => probeRuntime(canonical));
   ipcMain.handle('gguf-discovery-catalog', (_event, id: string) => service.getDiscoveryCatalog(id));
   ipcMain.handle('gguf-discovery-acquire', (event) => service.acquireRuntimeLease(event.sender));

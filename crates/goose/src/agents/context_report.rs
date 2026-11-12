@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: report the managed subagent's effective context.
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -82,10 +83,13 @@ impl StateMachineServices {
         let session = self.session_manager.get_session(session_id, true).await?;
         let provider = self.provider(session_id).await?;
         let model_config = self.effective_model_config_for_session(session_id).await?;
-        let context_limit =
-            crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name)
-                .await
-                .unwrap_or_else(|_| model_config.context_limit());
+        let is_subagent = session.session_type == crate::session::SessionType::SubAgent;
+        let context_limit = crate::session_context::with_managed_subagent(
+            is_subagent,
+            crate::context_limit::get_context_limit(provider.as_ref(), &model_config.model_name),
+        )
+        .await
+        .unwrap_or_else(|_| model_config.context_limit());
         let model = ContextReportModel {
             provider: session.provider_name.clone(),
             model_name: model_config.model_name.clone(),
@@ -102,11 +106,14 @@ impl StateMachineServices {
             .conversation
             .clone()
             .unwrap_or_else(Conversation::empty);
-        let auto_compaction_pending = crate::context_mgmt::check_if_compaction_needed(
-            provider.as_ref(),
-            &persisted,
-            None,
-            &session,
+        let auto_compaction_pending = crate::session_context::with_managed_subagent(
+            is_subagent,
+            crate::context_mgmt::check_if_compaction_needed(
+                provider.as_ref(),
+                &persisted,
+                None,
+                &session,
+            ),
         )
         .await?;
 

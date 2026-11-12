@@ -28,9 +28,15 @@ export async function probeRuntime(executable: string): Promise<RuntimeProbe> {
     const help = await execute(executable, ['--help'], { timeout: 10000, maxBuffer: 2 ** 20 });
     const text = help.stdout + help.stderr;
     const flags = [...new Set(text.match(/--[a-z][a-z0-9-]+/g) ?? [])];
-    const cacheTypes = flags.includes('--cache-type-k') && flags.includes('--cache-type-v')
-      ? ['f16', ...new Set(text.match(/\b(?:q8_0|q4_0|q5_0|q5_1|q5_k|q6_k|q4_k|q3_k|q2_k|bf16|f32)\b/g) ?? [])]
-      : [];
+    const cacheTypes =
+      flags.includes('--cache-type-k') && flags.includes('--cache-type-v')
+        ? [
+            'f16',
+            ...new Set(
+              text.match(/\b(?:q8_0|q4_0|q5_0|q5_1|q5_k|q6_k|q4_k|q3_k|q2_k|bf16|f32)\b/g) ?? []
+            ),
+          ]
+        : [];
     const version = await execute(executable, ['--version'], { timeout: 10000 });
     let devices = '';
     if (flags.includes('--list-devices')) {
@@ -61,9 +67,17 @@ export async function probeRuntime(executable: string): Promise<RuntimeProbe> {
     throw runtimeError('probeFailed', String(error));
   }
 }
-export async function resolveFlashAttentionDefault(profile: GgufProfile, probe?: RuntimeProbe): Promise<GgufProfile> {
-  if (profile.backend === 'native' || profile.flashAttention !== undefined || profile.gpuLayers <= 0) return profile;
-  const capabilities = probe ?? await probeRuntime(profile.executable);
+export async function resolveFlashAttentionDefault(
+  profile: GgufProfile,
+  probe?: RuntimeProbe
+): Promise<GgufProfile> {
+  if (
+    profile.backend === 'native' ||
+    profile.flashAttention !== undefined ||
+    profile.gpuLayers <= 0
+  )
+    return profile;
+  const capabilities = probe ?? (await probeRuntime(profile.executable));
   const metadata = await inspectGguf(profile.model).catch(() => ({ architecture: undefined }));
   return compatibleFlashAttentionDefault(profile, capabilities, metadata);
 }
@@ -119,9 +133,23 @@ export async function validateProfile(
   ];
   if (!profile || Object.keys(profile).some((key) => !allowed.includes(key)))
     throw runtimeError('unsupportedSetting');
-  if (profile.moeCacheMode !== undefined && !['standard','automatic','manual'].includes(profile.moeCacheMode)) throw runtimeError('invalidValue','moeCacheMode');
-  if (profile.gpuBlockIds !== undefined && (!Array.isArray(profile.gpuBlockIds) || profile.gpuBlockIds.length > 4096 || profile.gpuBlockIds.some(n => !Number.isInteger(n) || n < 0 || n >= 4096))) throw runtimeError('invalidValue','gpuBlockIds');
-  if (profile.placementIdentity !== undefined && (typeof profile.placementIdentity !== 'string' || profile.placementIdentity.length > 256)) throw runtimeError('invalidValue','placementIdentity');
+  if (
+    profile.moeCacheMode !== undefined &&
+    !['standard', 'automatic', 'manual'].includes(profile.moeCacheMode)
+  )
+    throw runtimeError('invalidValue', 'moeCacheMode');
+  if (
+    profile.gpuBlockIds !== undefined &&
+    (!Array.isArray(profile.gpuBlockIds) ||
+      profile.gpuBlockIds.length > 4096 ||
+      profile.gpuBlockIds.some((n) => !Number.isInteger(n) || n < 0 || n >= 4096))
+  )
+    throw runtimeError('invalidValue', 'gpuBlockIds');
+  if (
+    profile.placementIdentity !== undefined &&
+    (typeof profile.placementIdentity !== 'string' || profile.placementIdentity.length > 256)
+  )
+    throw runtimeError('invalidValue', 'placementIdentity');
   if (!profile.name?.trim() || profile.name.length > 120) throw runtimeError('nameRequired');
   if (profile.id && !/^[a-zA-Z0-9_-]{1,80}$/.test(profile.id))
     throw runtimeError('invalidValue', 'id');
@@ -142,7 +170,11 @@ export async function validateProfile(
     if (value !== undefined && (!Number.isInteger(value) || value < min || value > max))
       throw runtimeError('invalidValue', key);
   }
-  if ((cacheRequested || profile.gpuBlockIds !== undefined) && profile.parallel !== undefined && profile.parallel !== 1)
+  if (
+    (cacheRequested || profile.gpuBlockIds !== undefined) &&
+    profile.parallel !== undefined &&
+    profile.parallel !== 1
+  )
     throw runtimeError('invalidValue', 'MoE cache/placement requires parallel=1');
   if (profile.gpuLayers === undefined || profile.context === undefined)
     throw runtimeError('invalidValue', 'gpuLayers/context');
@@ -151,15 +183,22 @@ export async function validateProfile(
       throw runtimeError('invalidValue', key);
   if (profile.flashAttention && !['auto', 'on', 'off'].includes(profile.flashAttention))
     throw runtimeError('invalidValue', 'flashAttention');
-  if (profile.visionEnabled !== undefined && typeof profile.visionEnabled !== 'boolean') throw runtimeError('invalidValue', 'visionEnabled');
-  if (profile.projectorCpu !== undefined && typeof profile.projectorCpu !== 'boolean') throw runtimeError('invalidValue', 'projectorCpu');
+  if (profile.visionEnabled !== undefined && typeof profile.visionEnabled !== 'boolean')
+    throw runtimeError('invalidValue', 'visionEnabled');
+  if (profile.projectorCpu !== undefined && typeof profile.projectorCpu !== 'boolean')
+    throw runtimeError('invalidValue', 'projectorCpu');
   if ((profile.cpuMoe || cacheRequested) && profile.nCpuMoe !== undefined)
     throw runtimeError('conflictingMoe');
   if (profile.ubatch && profile.batch && profile.ubatch > profile.batch)
     throw runtimeError('invalidValue', 'ubatch > batch');
-  if (profile.kvOffload === false && profile.backend !== 'native' && !probe?.flags.includes('--no-kv-offload')) {
+  if (
+    profile.kvOffload === false &&
+    profile.backend !== 'native' &&
+    !probe?.flags.includes('--no-kv-offload')
+  ) {
     const capabilities = probe ?? (await probeRuntime(profile.executable));
-    if (!capabilities.flags.includes('--no-kv-offload')) throw runtimeError('unsupportedFlag', '--no-kv-offload');
+    if (!capabilities.flags.includes('--no-kv-offload'))
+      throw runtimeError('unsupportedFlag', '--no-kv-offload');
   }
   const speculation = profile.speculativeMode ?? 'off';
   if (profile.draft && profile.speculativeMode === undefined) throw runtimeError('specDraftMode');
@@ -170,7 +209,10 @@ export async function validateProfile(
   if (typeof profile.model !== 'string' || !profile.model) throw runtimeError('absolutePath');
   if (profile.backend !== 'native' && typeof profile.executable !== 'string')
     throw runtimeError('absolutePath');
-  for (const file of [profile.model, profile.visionEnabled === false ? undefined : profile.projector].filter(Boolean) as string[]) {
+  for (const file of [
+    profile.model,
+    profile.visionEnabled === false ? undefined : profile.projector,
+  ].filter(Boolean) as string[]) {
     if (!path.isAbsolute(file)) throw runtimeError('absolutePath', file);
     let handle;
     try {
@@ -210,16 +252,36 @@ export async function validateProfile(
   if (profile.gpuBlockIds !== undefined || usesMoeExpertCache(profile)) {
     if (cacheMode(profile) !== 'standard' && !capabilities.flags.includes('--moe-cache-mib'))
       throw runtimeError('unsupportedFlag', '--moe-cache-mib');
-    for (const flag of ['--parallel','--override-tensor','--fit','--load-mode','--no-host','--no-repack','--lazy-mode']) if (!capabilities.flags.includes(flag)) throw runtimeError('unsupportedFlag',flag);
+    for (const flag of [
+      '--parallel',
+      '--override-tensor',
+      '--fit',
+      '--load-mode',
+      '--no-host',
+      '--no-repack',
+      '--lazy-mode',
+    ])
+      if (!capabilities.flags.includes(flag)) throw runtimeError('unsupportedFlag', flag);
     const { inspectPlacement, blockOverrides } = await import('./moe/placement');
     const metadata = await inspectPlacement(profile.model);
-    if (options.requirePlacementIdentity !== false) assertPlacementIdentity(profile, metadata.identity);
+    if (options.requirePlacementIdentity !== false)
+      assertPlacementIdentity(profile, metadata.identity);
     if (profile.gpuBlockIds !== undefined) blockOverrides(profile, metadata.layers ?? 0);
   }
   profile = await resolveFlashAttentionDefault(profile, capabilities);
   if (profile.projector && profile.visionEnabled !== false) {
-    const [target, projector] = await Promise.all([inspectGguf(profile.model), inspectGguf(profile.projector)]);
-    if (target.architecture === 'qwen35' && (projector.architecture !== 'clip' || target.embedding && projector.projectorDimension && target.embedding !== projector.projectorDimension)) throw runtimeError('visionPair');
+    const [target, projector] = await Promise.all([
+      inspectGguf(profile.model),
+      inspectGguf(profile.projector),
+    ]);
+    if (
+      target.architecture === 'qwen35' &&
+      (projector.architecture !== 'clip' ||
+        (target.embedding &&
+          projector.projectorDimension &&
+          target.embedding !== projector.projectorDimension))
+    )
+      throw runtimeError('visionPair');
   }
   await validateSpeculation(profile, capabilities);
   if (!capabilities.apiKeyEnvironment) throw runtimeError('credentialUnsupported');
@@ -239,7 +301,7 @@ export async function validateProfile(
     // checkbox is deliberately not rewritten in the saved profile.
     if (key === 'cpuMoe') continue;
     if (key === 'moeCacheMiB' && !cacheRequested) continue;
-    if (profile.visionEnabled === false && ['projector','projectorCpu'].includes(key)) continue;
+    if (profile.visionEnabled === false && ['projector', 'projectorCpu'].includes(key)) continue;
     const value = profile[key as keyof GgufProfile];
     if (
       value !== undefined &&
@@ -253,7 +315,8 @@ export async function validateProfile(
     throw runtimeError('unsupportedFlag', '--cpu-moe');
   for (const key of ['cacheK', 'cacheV', 'draftCacheK', 'draftCacheV'] as const) {
     const value = profile[key];
-    if (value && !capabilities.cacheTypes.includes(value)) throw runtimeError('unsupportedValue', `${key}=${value}`);
+    if (value && !capabilities.cacheTypes.includes(value))
+      throw runtimeError('unsupportedValue', `${key}=${value}`);
   }
   if (
     (profile.gpuLayers > 0 ||
@@ -279,7 +342,11 @@ export async function validateProfile(
   if (profile.tensorOverride && !/^[^\r\n\0]{1,4096}$/.test(profile.tensorOverride))
     throw runtimeError('invalidValue', 'tensorOverride');
 }
-export function buildArguments(profile: GgufProfile, port: number): string[] {
+export function buildArguments(
+  profile: GgufProfile,
+  port: number,
+  capabilities?: RuntimeProbe
+): string[] {
   const cacheRequested = usesMoeExpertCache(profile);
   if (cacheRequested && profile.nCpuMoe !== undefined) throw runtimeError('conflictingMoe');
   const effectiveProfile =
@@ -302,15 +369,24 @@ export function buildArguments(profile: GgufProfile, port: number): string[] {
   if (effectiveCpuMoe(effectiveProfile)) args.push('--cpu-moe');
   for (const [key, flag] of Object.entries(settingsFlags)) {
     if (key === 'cpuMoe') continue;
-    if (effectiveProfile.visionEnabled === false && ['projector','projectorCpu'].includes(key)) continue;
+    if (effectiveProfile.visionEnabled === false && ['projector', 'projectorCpu'].includes(key))
+      continue;
     const value = effectiveProfile[key as keyof GgufProfile];
     if (value === undefined || value === '' || value === false) continue;
     args.push(flag);
     if (value !== true) args.push(String(value));
   }
+  // Preserve llama.cpp's existing slot behavior while making its KV policy
+  // explicit whenever this runtime supports the corresponding option. Auto
+  // slots use unified KV; an explicitly selected slot count keeps independent
+  // slot contexts. The runtime's /props response remains the source of truth.
+  if (capabilities?.flags.includes('--kv-unified')) {
+    if (profile.parallel === undefined) args.push('--kv-unified');
+    else if (capabilities.flags.includes('--no-kv-unified')) args.push('--no-kv-unified');
+  }
   if (effectiveProfile.moeCacheMiB || profile.gpuBlockIds !== undefined) {
-    args.push('--fit','off','--load-mode','mmap');
-    if (profile.parallel === undefined) args.push('--parallel','1');
+    args.push('--fit', 'off', '--load-mode', 'mmap');
+    if (profile.parallel === undefined) args.push('--parallel', '1');
     args.push('--no-host', '--no-repack', '--lazy-mode', 'off');
     if (!profile.batch) args.push('--batch-size', '512');
     if (!profile.ubatch) args.push('--ubatch-size', '128');
@@ -322,11 +398,14 @@ export function buildArguments(profile: GgufProfile, port: number): string[] {
 // Inspection is allowed before confirmation; save and launch retain strict validation.
 export async function inspectProfile(profile: GgufProfile) {
   await validateProfile(profile, undefined, { requirePlacementIdentity: false });
-  const { requiresPlacementIdentity, needsPlacementIdentityConfirmation } = await import('./moe/placementIdentity');
+  const { requiresPlacementIdentity, needsPlacementIdentityConfirmation } =
+    await import('./moe/placementIdentity');
   if (!requiresPlacementIdentity(profile)) return { placementConfirmationRequired: false };
   const { inspectPlacement } = await import('./moe/placement');
   const inspection = await inspectPlacement(profile.model);
-  return { placementConfirmationRequired: needsPlacementIdentityConfirmation(profile, inspection.identity) };
+  return {
+    placementConfirmationRequired: needsPlacementIdentityConfirmation(profile, inspection.identity),
+  };
 }
 
 export async function preflightLaunchProfile(profile: GgufProfile, probe: RuntimeProbe) {

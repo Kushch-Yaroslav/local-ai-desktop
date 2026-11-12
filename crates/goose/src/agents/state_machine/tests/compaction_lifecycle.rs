@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: child-budget and bounded-compaction regressions.
 use anyhow::Result;
 use goose_providers::conversation::token_usage::{ProviderUsage, Usage as ProviderTokenUsage};
 use rmcp::model::{CallToolRequestParams, CallToolResult, ContentBlock};
@@ -578,5 +579,57 @@ async fn a_small_model_compacts_a_large_tool_result_out_of_the_conversation() ->
         .iter()
         .any(|message| message.as_concat_text().contains(&large_result)));
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn effective_child_budget_compacts_with_the_standard_pipeline_and_keeps_the_assignment(
+) -> Result<()> {
+    let (pipeline, api) = test_pipeline().await?;
+    let pipeline = pipeline
+        .with_model_config(
+            goose_providers::model::ModelConfig::new("gpt-4.1").with_context_limit(Some(28672)),
+        )
+        .await;
+    pipeline
+        .seed([Message::user().with_text(
+            "Read chapters 1-8, lines 77-2446; preserve findings and finish the assignment",
+        )])
+        .await?;
+    pipeline.set_total_tokens(24000).await;
+    api.on(SUMMARIZE_HISTORY)
+        .reply("Assignment: chapters 1-8, lines 77-2446. Findings preserved. Continue reading.");
+    api.on("Your context was compacted")
+        .reply("continued after child-budget compaction");
+    let result = pipeline.run(["continue the assigned reading"]).await?;
+    result.assert_message(-1, Agent, "continued after child-budget compaction");
+    assert_eq!(result.history_replacements(), 1);
+    assert!(api
+        .calls()
+        .iter()
+        .any(|call| call.input_contains("chapters 1-8")
+            && call.input_contains("Your context was compacted")));
+    assert!(result.session.usage.total_tokens.unwrap() < 24000);
+    Ok(())
+}
+
+#[tokio::test]
+async fn an_oversized_compaction_result_stops_without_an_automatic_retry_loop() -> Result<()> {
+    let (pipeline, api) = test_pipeline().await?;
+    let pipeline = pipeline
+        .with_model_config(
+            goose_providers::model::ModelConfig::new("gpt-4.1").with_context_limit(Some(28672)),
+        )
+        .await;
+    pipeline
+        .seed([Message::user().with_text("Keep the assigned chapters")])
+        .await?;
+    pipeline.set_total_tokens(24000).await;
+    api.on(SUMMARIZE_HISTORY)
+        .reply("retained token ".repeat(30000));
+    let failed = pipeline.run(["continue"]).await?;
+    failed.assert_message(-1, Error, "Compaction could not reduce retained history");
+    assert_eq!(failed.history_replacements(), 0);
+    assert_eq!(api.call_count(), 1);
     Ok(())
 }

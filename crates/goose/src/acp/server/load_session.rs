@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: viewing a subagent never activates its execution session.
 use super::message_meta::{
     content_chunk_for_message, merge_message_meta, populate_output_token_limit_content,
 };
@@ -382,6 +383,24 @@ impl AcpConnection {
                 agent_client_protocol::Error::resource_not_found(Some(session_id_str.clone()))
                     .data(format!("Session not found: {}", session_id_str))
             })?;
+
+        // Delegation owns this session's provider, extensions and lifecycle. A viewer
+        // only replays persisted messages, including while the delegate is running.
+        if session.session_type == SessionType::SubAgent {
+            let replayed_from = replay_conversation_to_client(
+                cx,
+                &session,
+                self.supports_goose_custom_notifications(),
+                self.requests_tool_call_label_enrichment(),
+                replay_tail_from_meta(args.meta.as_ref()),
+            )?;
+            let mut meta = session_response_meta(&session, &[]);
+            meta.insert("readOnly".to_string(), true.into());
+            if replayed_from > 0 {
+                meta.insert("replaySkipped".to_string(), replayed_from.into());
+            }
+            return Ok(LoadSessionResponse::new().meta(meta));
+        }
 
         let cwd = effective_session_cwd(self.session_cwd.as_deref(), &args.cwd);
         validate_absolute_cwd(&cwd)?;

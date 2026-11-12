@@ -101,8 +101,9 @@ export function useNavigationSessions() {
     if (recentSessions.some((s) => s.id === activeSessionId)) return;
 
     acpGetSessionListItem(activeSessionId)
-      .then((item) => {
-        setRecentSessions((prev) => prependUnique(prev, item));
+      .then(async (item) => {
+        const row = item.parentSessionId ? await acpGetSessionListItem(item.parentSessionId) : item;
+        setRecentSessions((prev) => prependUnique(prev, row));
       })
       .catch((error) => {
         console.error('Failed to fetch active session:', error);
@@ -158,18 +159,21 @@ export function useNavigationSessions() {
     let fetchVersion = 0;
 
     const handleSessionDeleted = (event: Event) => {
-      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+      const detail = (event as CustomEvent<{ sessionId?: string; sessionIds?: string[] }>).detail;
+      const deletedIds = new Set(detail?.sessionIds ?? []);
+      if (detail?.sessionId) deletedIds.add(detail.sessionId);
+      if (deletedIds.size === 0) return;
 
-      setRecentSessions((prev) => prev.filter((session) => session.id !== sessionId));
+      setRecentSessions((prev) => prev.filter((session) => !deletedIds.has(session.id)));
 
-      if (lastSessionIdRef.current === sessionId) {
+      if (lastSessionIdRef.current && deletedIds.has(lastSessionIdRef.current)) {
         lastSessionIdRef.current = null;
       }
       const version = ++fetchVersion;
       acpListRecentSessions(MAX_RECENT_SESSIONS)
         .then((sessions) => {
           if (version !== fetchVersion) return;
-          setRecentSessions(sessions.filter((session) => session.id !== sessionId));
+          setRecentSessions(sessions.filter((session) => !deletedIds.has(session.id)));
         })
         .catch((error) => console.error('Failed to fetch sessions:', error));
     };

@@ -5559,7 +5559,7 @@
     "defaultMessage": "Загрузить последний прогресс"
   },
   "subagentSessionNotice.notice": {
-    "defaultMessage": "Прогресс субагента здесь не отображается в реальном времени."
+    "defaultMessage": "Сохранённый прогресс субагента обновляется по мере поступления событий выполнения."
   },
   "switchModelModal.backToModelList": {
     "defaultMessage": "Назад к списку моделей"
@@ -6361,5 +6361,110 @@
   },
   "liveBrowser.visionOn": {
     "defaultMessage": "Включено"
+  },
+  "gguf.effectiveContext": {
+    "defaultMessage": "Фактический лимит одного запроса: {context} токенов"
+  },
+  "gguf.inferenceQueue": {
+    "defaultMessage": "Очередь inference: активно {active}, ожидают {waiting}, лимит {capacity}"
+  },
+  "gguf.lastRuntimeFailure": {
+    "defaultMessage": "Последняя ошибка runtime: {kind} {status}"
+  },
+  "gguf.slotStatus": {
+    "defaultMessage": "Слоты сервера: {slots}; общий KV-кэш: {unified}"
+  },
+  "navigationPanel.cancel": {
+    "defaultMessage": "Отмена"
+  },
+  "navigationPanel.deleteBusy": {
+    "defaultMessage": "Чат или субагент ещё выполняется. Остановите генерацию перед удалением."
+  },
+  "navigationPanel.deleteChatAction": {
+    "defaultMessage": "Удалить чат"
+  },
+  "navigationPanel.deleteChatMessage": {
+    "defaultMessage": "Удалить сохранённый чат «{name}» и историю его субагентов? Это действие нельзя отменить."
+  },
+  "navigationPanel.deleteChatSuccess": {
+    "defaultMessage": "Чат и истории субагентов удалены."
+  },
+  "navigationPanel.deleteChatTitle": {
+    "defaultMessage": "Удалить чат?"
+  },
+  "navigationPanel.deleteConfirm": {
+    "defaultMessage": "Удалить"
+  },
+  "navigationPanel.deleteFailure": {
+    "defaultMessage": "Не удалось удалить чат: {error}"
+  },
+  "navigationPanel.deletePartialFailure": {
+    "defaultMessage": "Удалено чатов: {deleted} из {total}. Остальные сохранены: {error}"
+  },
+  "navigationPanel.deleteProjectAction": {
+    "defaultMessage": "Удалить каталог и чаты"
+  },
+  "navigationPanel.deleteProjectMessage": {
+    "defaultMessage": "{count, plural, one {Удалить {count} сохранённый чат из «{name}» вместе с историей субагентов? Файлы проекта останутся нетронутыми.} few {Удалить {count} сохранённых чата из «{name}» вместе с их историями субагентов? Файлы проекта останутся нетронутыми.} many {Удалить {count} сохранённых чатов из «{name}» вместе с их историями субагентов? Файлы проекта останутся нетронутыми.} other {Удалить {count} сохранённых чатов из «{name}» вместе с их историями субагентов? Файлы проекта останутся нетронутыми.}}"
+  },
+  "navigationPanel.deleteProjectSuccess": {
+    "defaultMessage": "Удалено чатов: {count}. Истории субагентов также удалены."
+  },
+  "navigationPanel.deleteProjectTitle": {
+    "defaultMessage": "Удалить каталог и чаты?"
+  },
+  "navigationPanel.deleteStale": {
+    "defaultMessage": "Список чатов изменился. Проверьте новое количество и подтвердите удаление ещё раз."
+  },
+  "navigationPanel.moreChatActions": {
+    "defaultMessage": "Другие действия с чатом"
+  },
+  "navigationPanel.moreProjectActions": {
+    "defaultMessage": "Другие действия с каталогом"
+  },
+  "navigationPanel.unknownProject": {
+    "defaultMessage": "Неизвестный каталог"
+  },
+  "subagentMonitor.cancelled": {
+    "defaultMessage": "Отменён"
+  },
+  "subagentMonitor.compacted": {
+    "defaultMessage": "Последнее сжатие: {time}"
+  },
+  "subagentMonitor.compacting": {
+    "defaultMessage": "Сжатие контекста"
+  },
+  "subagentMonitor.completed": {
+    "defaultMessage": "Завершён"
+  },
+  "subagentMonitor.failed": {
+    "defaultMessage": "Ошибка"
+  },
+  "subagentMonitor.free": {
+    "defaultMessage": "Свободно: {tokens}"
+  },
+  "subagentMonitor.logical": {
+    "defaultMessage": "Последнее зарегистрированное число токенов сессии. Это не физическое использование KV или VRAM."
+  },
+  "subagentMonitor.main": {
+    "defaultMessage": "Основной агент"
+  },
+  "subagentMonitor.numbered": {
+    "defaultMessage": "Субагент {number}"
+  },
+  "subagentMonitor.running": {
+    "defaultMessage": "Выполняется"
+  },
+  "subagentMonitor.session": {
+    "defaultMessage": "Сессия агента"
+  },
+  "subagentMonitor.summary": {
+    "defaultMessage": "Субагенты · {active} активных"
+  },
+  "subagentMonitor.unknown": {
+    "defaultMessage": "Сохранённая история"
+  },
+  "subagentMonitor.waiting": {
+    "defaultMessage": "Ожидает"
   }
 }

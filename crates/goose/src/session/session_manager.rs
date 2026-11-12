@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: safely delete parent sessions and their child histories.
 use crate::agents::Container;
 use crate::config::paths::Paths;
 use crate::config::ExtensionConfig;
@@ -22,7 +23,7 @@ use rmcp::model::Role;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use sqlx::{AssertSqlSafe, Pool, Sqlite};
+use sqlx::{AssertSqlSafe, Pool, QueryBuilder, Sqlite};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -2529,31 +2530,61 @@ impl SessionStorage {
     async fn delete_session(&self, session_id: &str) -> Result<()> {
         let pool = self.pool().await?;
         let mut tx = pool.begin_with("BEGIN IMMEDIATE").await?;
+        let session_ids = sqlx::query_scalar::<_, String>(
+            r#"
+            WITH RECURSIVE session_tree(id) AS (
+                SELECT id FROM sessions WHERE id = ?
+                UNION
+                SELECT child.id
+                FROM sessions child
+                JOIN session_tree parent ON child.parent_session_id = parent.id
+            )
+            SELECT id FROM session_tree
+            "#,
+        )
+        .bind(session_id)
+        .fetch_all(&mut *tx)
+        .await?;
 
-        let exists =
-            sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)")
-                .bind(session_id)
-                .fetch_one(&mut *tx)
-                .await?;
-
-        if !exists {
+        if session_ids.is_empty() {
             return Err(anyhow::anyhow!("Session not found"));
         }
 
-        sqlx::query("DELETE FROM messages WHERE session_id = ?")
-            .bind(session_id)
-            .execute(&mut *tx)
-            .await?;
+        // Keep statements under SQLite's bind-variable limit while deleting the complete
+        // parent/subagent tree in the same transaction. Parent links are data, not paths.
+        for chunk in session_ids.chunks(900) {
+            let mut messages =
+                QueryBuilder::<Sqlite>::new("DELETE FROM messages WHERE session_id IN (");
+            {
+                let mut separated = messages.separated(", ");
+                for id in chunk {
+                    separated.push_bind(id);
+                }
+                separated.push_unseparated(")");
+            }
+            messages.build().execute(&mut *tx).await?;
 
-        sqlx::query("DELETE FROM usage_ledger WHERE session_id = ?")
-            .bind(session_id)
-            .execute(&mut *tx)
-            .await?;
+            let mut usage =
+                QueryBuilder::<Sqlite>::new("DELETE FROM usage_ledger WHERE session_id IN (");
+            {
+                let mut separated = usage.separated(", ");
+                for id in chunk {
+                    separated.push_bind(id);
+                }
+                separated.push_unseparated(")");
+            }
+            usage.build().execute(&mut *tx).await?;
 
-        sqlx::query("DELETE FROM sessions WHERE id = ?")
-            .bind(session_id)
-            .execute(&mut *tx)
-            .await?;
+            let mut sessions = QueryBuilder::<Sqlite>::new("DELETE FROM sessions WHERE id IN (");
+            {
+                let mut separated = sessions.separated(", ");
+                for id in chunk {
+                    separated.push_bind(id);
+                }
+                separated.push_unseparated(")");
+            }
+            sessions.build().execute(&mut *tx).await?;
+        }
 
         tx.commit().await?;
         Ok(())
@@ -5423,6 +5454,74 @@ mod tests {
 
         sm.delete_session(&id).await.unwrap();
         assert!(sm.get_session(&id, false).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn deleting_a_chat_removes_its_subagent_tree_but_keeps_project_files_and_other_chats() {
+        let temp_dir = TempDir::new().unwrap();
+        let sm = SessionManager::new(temp_dir.path().to_path_buf());
+        let project = temp_dir.path().join("project");
+        std::fs::create_dir_all(&project).unwrap();
+        let project_file = project.join("source.txt");
+        std::fs::write(&project_file, "keep project data").unwrap();
+
+        let parent = new_session(&sm).await;
+        let child_one = new_session(&sm).await;
+        let child_two = new_session(&sm).await;
+        let unrelated = new_session(&sm).await;
+        sm.update(&parent)
+            .working_dir(project.clone())
+            .apply()
+            .await
+            .unwrap();
+        sm.update(&child_one)
+            .parent_session_id(Some(parent.clone()))
+            .apply()
+            .await
+            .unwrap();
+        sm.update(&child_two)
+            .parent_session_id(Some(child_one.clone()))
+            .apply()
+            .await
+            .unwrap();
+
+        for id in [&parent, &child_one, &child_two, &unrelated] {
+            sm.add_message(id, &Message::user().with_text("temporary test history"))
+                .await
+                .unwrap();
+        }
+        seed_ledger(&sm, &child_two, &message_usage(9, 3, 0.01, false))
+            .await
+            .unwrap();
+
+        sm.delete_session(&parent).await.unwrap();
+
+        for id in [&parent, &child_one, &child_two] {
+            assert!(
+                sm.get_session(id, true).await.is_err(),
+                "{id} should be removed"
+            );
+            let message_count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE session_id = ?")
+                    .bind(id)
+                    .fetch_one(sm.storage().pool().await.unwrap())
+                    .await
+                    .unwrap();
+            assert_eq!(message_count, 0);
+        }
+        assert!(sm.get_session(&unrelated, true).await.is_ok());
+        assert_eq!(
+            std::fs::read_to_string(&project_file).unwrap(),
+            "keep project data"
+        );
+
+        let ledger_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM usage_ledger WHERE session_id = ?")
+                .bind(&child_two)
+                .fetch_one(sm.storage().pool().await.unwrap())
+                .await
+                .unwrap();
+        assert_eq!(ledger_count, 0);
     }
 
     #[tokio::test]

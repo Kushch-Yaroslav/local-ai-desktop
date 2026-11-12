@@ -77,6 +77,42 @@ pub(super) fn session_meta(session: &Session) -> serde_json::Map<String, serde_j
         Ok(serde_json::Value::Object(meta)) => meta,
         _ => serde_json::Map::new(),
     };
+    if let Some(parent) = &session.parent_session_id {
+        meta.insert("parentSessionId".to_string(), parent.clone().into());
+    }
+    if let Some(state) = session
+        .extension_data
+        .get_extension_state("subagent_monitor", "v1")
+    {
+        let mut state = state.clone();
+        if matches!(
+            state["status"].as_str(),
+            Some("waiting" | "running" | "compacting")
+        ) && state["owner"].as_str() != Some(crate::agents::subagent_monitor::owner())
+        {
+            state["status"] = "unknown".into();
+        }
+        meta.insert("subagent".to_string(), state);
+    } else if let Some(parent) = &session.parent_session_id {
+        let status = session
+            .conversation
+            .as_ref()
+            .map(|conversation| {
+                if crate::agents::final_output_tool::FinalOutputTool::successful_output(
+                    conversation.messages(),
+                )
+                .is_some()
+                {
+                    "completed"
+                } else if crate::agents::state_machine::trailing_error(conversation).is_some() {
+                    "failed"
+                } else {
+                    "unknown"
+                }
+            })
+            .unwrap_or("unknown");
+        meta.insert("subagent".to_string(), serde_json::json!({"id": session.id, "parentId": parent, "title": session.name, "status": status, "totalTokens": session.usage.total_tokens}));
+    }
     if let Some(root) = session
         .extension_data
         .extension_states

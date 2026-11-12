@@ -38,6 +38,16 @@ export function getProjectLabel(workingDir: string): string {
   return parts[parts.length - 1] || normalized;
 }
 
+export function sessionsInProject(
+  sessions: SessionListItem[],
+  projectPath: string
+): SessionListItem[] {
+  const normalizedProjectPath = normalizeProjectPath(projectPath);
+  return sessions.filter(
+    (session) => normalizeProjectPath(session.workingDir) === normalizedProjectPath
+  );
+}
+
 export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGroup[] {
   const groups = new Map<string, SessionListItem[]>();
 
@@ -61,7 +71,9 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
       path,
       label: getProjectLabel(path),
       sessions: sortedSessions,
-      lastActivityAt: getSessionActivityTime(sortedSessions[0] ?? { updatedAt: '' } as SessionListItem),
+      lastActivityAt: getSessionActivityTime(
+        sortedSessions[0] ?? ({ updatedAt: '' } as SessionListItem)
+      ),
     };
   });
 
@@ -78,9 +90,7 @@ export function groupSessionsByProject(sessions: SessionListItem[]): ProjectGrou
           ? getDisambiguatedProjectLabel(group.path)
           : group.label,
     }))
-    .sort(
-      (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime()
-    );
+    .sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
 }
 
 function getDisambiguatedProjectLabel(workingDir: string): string {

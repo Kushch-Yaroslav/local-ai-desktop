@@ -3,9 +3,32 @@ import { defineMessages } from './i18n';
 import type { IntlShape } from 'react-intl';
 export const ggufMessages = defineMessages({
   specPending: { id: 'gguf.specPending', defaultMessage: 'MTP changes are not saved.' },
-  runtimeContext: { id: 'gguf.runtimeContext', defaultMessage: 'Runtime override: {context} tokens. Change it in session Context controls.' },
+  runtimeContext: {
+    id: 'gguf.runtimeContext',
+    defaultMessage: 'Runtime override: {context} tokens. Change it in session Context controls.',
+  },
   specAcceptance: { id: 'gguf.specAcceptance', defaultMessage: 'Draft accepted/proposed' },
-  visionPair: { id: 'gguf.visionPair', defaultMessage: 'The projector architecture or projection dimension is incompatible with this Qwen model.' },
+  effectiveContext: {
+    id: 'gguf.effectiveContext',
+    defaultMessage: 'Effective request context: {context} tokens',
+  },
+  slotStatus: {
+    id: 'gguf.slotStatus',
+    defaultMessage: 'Server slots: {slots}; unified KV: {unified}',
+  },
+  inferenceQueue: {
+    id: 'gguf.inferenceQueue',
+    defaultMessage: 'Inference queue: {active} active, {waiting} waiting, capacity {capacity}',
+  },
+  lastRuntimeFailure: {
+    id: 'gguf.lastRuntimeFailure',
+    defaultMessage: 'Last runtime failure: {kind} {status}',
+  },
+  visionPair: {
+    id: 'gguf.visionPair',
+    defaultMessage:
+      'The projector architecture or projection dimension is incompatible with this Qwen model.',
+  },
   placementIdentity: {
     id: 'gguf.placementIdentity',
     defaultMessage:
@@ -13,9 +36,16 @@ export const ggufMessages = defineMessages({
   },
   specSaved: { id: 'gguf.specSaved', defaultMessage: 'Saved MTP' },
   specActive: { id: 'gguf.specActive', defaultMessage: 'Active CLI mode' },
-  reloadRequired: { id: 'gguf.reloadRequired', defaultMessage: 'Reload required to apply changes.' },
+  reloadRequired: {
+    id: 'gguf.reloadRequired',
+    defaultMessage: 'Reload required to apply changes.',
+  },
   projectorCpu: { id: 'gguf.projectorCpu', defaultMessage: 'Run vision projector on CPU' },
-  deviceMemory: { id: 'gguf.deviceMemory', defaultMessage: 'GPU memory allocation failed. Lower context/GPU offload or run the vision projector on CPU. For MTP, try one slot and smaller target/draft microbatches before rerunning discovery.' },
+  deviceMemory: {
+    id: 'gguf.deviceMemory',
+    defaultMessage:
+      'GPU memory allocation failed. Lower context/GPU offload or run the vision projector on CPU. For MTP, try one slot and smaller target/draft microbatches before rerunning discovery.',
+  },
   specDraftGpuEmbedded: {
     id: 'gguf.specDraftGpuEmbedded',
     defaultMessage:
@@ -156,7 +186,10 @@ export const ggufMessages = defineMessages({
   native: { id: 'gguf.native', defaultMessage: 'Native Goose inference' },
   browse: { id: 'gguf.browse', defaultMessage: 'Browse' },
   gpuLayers: { id: 'gguf.gpuLayers', defaultMessage: 'GPU Layers' },
-  gpuLayersHelp: { id: 'gguf.gpuLayersHelp', defaultMessage: '0 = CPU · 999 = all available GPU layers' },
+  gpuLayersHelp: {
+    id: 'gguf.gpuLayersHelp',
+    defaultMessage: '0 = CPU · 999 = all available GPU layers',
+  },
   context: { id: 'gguf.context', defaultMessage: 'Context tokens' },
   simple: { id: 'gguf.simple', defaultMessage: 'Simple mode' },
   advanced: { id: 'gguf.advanced', defaultMessage: 'Advanced mode' },
@@ -200,7 +233,11 @@ export const ggufMessages = defineMessages({
   draftCacheK: { id: 'gguf.draftCacheK', defaultMessage: 'MTP / draft KV K (default FP16)' },
   draftCacheV: { id: 'gguf.draftCacheV', defaultMessage: 'MTP / draft KV V (default FP16)' },
   draftUbatch: { id: 'gguf.draftUbatch', defaultMessage: 'MTP / draft microbatch' },
-  mtpMemoryPreset: { id: 'gguf.mtpMemoryPreset', defaultMessage: 'Prepare MTP preset: 1 slot, 1 draft token, batch 512, microbatches 128 — review and save' },
+  mtpMemoryPreset: {
+    id: 'gguf.mtpMemoryPreset',
+    defaultMessage:
+      'Prepare MTP preset: 1 slot, 1 draft token, batch 512, microbatches 128 — review and save',
+  },
   threads: { id: 'gguf.threads', defaultMessage: 'CPU threads' },
   batch: { id: 'gguf.batch', defaultMessage: 'Batch size' },
   ubatch: { id: 'gguf.ubatch', defaultMessage: 'Microbatch size' },

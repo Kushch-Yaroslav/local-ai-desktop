@@ -12,7 +12,10 @@ export default function SpeculativeSettings({
   onChange,
   onProbe,
   onValidate,
-  savedMode, savedTokens, activeMode, activeTokens,
+  savedMode,
+  savedTokens,
+  activeMode,
+  activeTokens,
 }: {
   profile: GgufProfile;
   probe?: RuntimeProbe;
@@ -20,10 +23,20 @@ export default function SpeculativeSettings({
   onChange: (profile: GgufProfile) => void;
   onProbe: () => void;
   onValidate: () => void;
-  savedMode?: string; savedTokens?: number; activeMode?: string; activeTokens?: string;
+  savedMode?: string;
+  savedTokens?: number;
+  activeMode?: string;
+  activeTokens?: string;
 }) {
   const intl = useIntl();
-  const [diagnostics, setDiagnostics] = useState<{args?: string[]; accepted?: number; proposed?: number}>();
+  const [diagnostics, setDiagnostics] = useState<{
+    args?: string[];
+    accepted?: number;
+    proposed?: number;
+    runtimeContext?: { contextTokens: number; totalSlots: number; kvUnified: boolean | null };
+    inferenceQueue?: { capacity: number; active: number; waiting: number };
+    lastFailure?: { kind: string; at: string; httpStatus?: number };
+  }>();
   const t = (key: keyof typeof messages) => intl.formatMessage(messages[key]);
   const modes = profile.backend === 'native' ? [] : (probe?.speculativeModes ?? []);
   const mode = profile.speculativeMode ?? 'off';
@@ -37,15 +50,83 @@ export default function SpeculativeSettings({
     onChange({ ...profile, [key]: value });
   return (
     <div className="space-y-4 text-sm">
-      {profile.id && <p className="text-xs text-text-secondary">{t('specSaved')}: {savedMode === 'mtp-embedded' ? t('specEmbedded') : !savedMode || savedMode === 'off' ? t('off') : savedMode} · {t('specActive')}: {activeMode ?? t('idle')}{activeTokens ? ` · ${activeTokens}` : ''}</p>}
-      {profile.id && (mode !== (savedMode ?? 'off') || (profile.draftTokens ?? 2) !== (savedTokens ?? 2)) && <p className="text-xs text-text-secondary">{t('specPending')}</p>}
-      {activeMode && (activeMode !== (mode === 'mtp-embedded' ? 'draft-mtp' : 'none') || enabled && activeTokens !== String(profile.draftTokens ?? 2)) && <p className="text-xs text-text-secondary">{t('reloadRequired')}</p>}
+      {profile.id && (
+        <p className="text-xs text-text-secondary">
+          {t('specSaved')}:{' '}
+          {savedMode === 'mtp-embedded'
+            ? t('specEmbedded')
+            : !savedMode || savedMode === 'off'
+              ? t('off')
+              : savedMode}{' '}
+          · {t('specActive')}: {activeMode ?? t('idle')}
+          {activeTokens ? ` · ${activeTokens}` : ''}
+        </p>
+      )}
+      {profile.id &&
+        (mode !== (savedMode ?? 'off') || (profile.draftTokens ?? 2) !== (savedTokens ?? 2)) && (
+          <p className="text-xs text-text-secondary">{t('specPending')}</p>
+        )}
+      {activeMode &&
+        (activeMode !== (mode === 'mtp-embedded' ? 'draft-mtp' : 'none') ||
+          (enabled && activeTokens !== String(profile.draftTokens ?? 2))) && (
+          <p className="text-xs text-text-secondary">{t('reloadRequired')}</p>
+        )}
       <p className="text-text-secondary">{t('specTradeoff')}</p>
-      {profile.id && <details onToggle={event => { if (event.currentTarget.open) void window.electron.ggufDiagnostics(profile.id!).then(setDiagnostics).catch(() => setDiagnostics(undefined)); }}>
-        <summary className="cursor-pointer text-xs text-text-secondary">{t('runtime')}</summary>
-        <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs">{diagnostics?.args?.join(' ') ?? '—'}</pre>
-        <p className="text-xs text-text-secondary">{t('specAcceptance')}: {diagnostics?.accepted !== undefined && diagnostics.proposed ? `${diagnostics.accepted}/${diagnostics.proposed} (${(100*diagnostics.accepted/diagnostics.proposed).toFixed(1)}%)` : '—'}</p>
-      </details>}
+      {profile.id && (
+        <details
+          onToggle={(event) => {
+            if (event.currentTarget.open)
+              void window.electron
+                .ggufDiagnostics(profile.id!)
+                .then(setDiagnostics)
+                .catch(() => setDiagnostics(undefined));
+          }}
+        >
+          <summary className="cursor-pointer text-xs text-text-secondary">{t('runtime')}</summary>
+          <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all text-xs">
+            {diagnostics?.args?.join(' ') ?? '—'}
+          </pre>
+          {diagnostics?.runtimeContext && (
+            <p className="text-xs text-text-secondary">
+              {intl.formatMessage(messages.effectiveContext, {
+                context: diagnostics.runtimeContext.contextTokens.toLocaleString(),
+              })}
+            </p>
+          )}
+          {diagnostics?.runtimeContext && (
+            <p className="text-xs text-text-secondary">
+              {intl.formatMessage(messages.slotStatus, {
+                slots: diagnostics.runtimeContext.totalSlots,
+                unified:
+                  diagnostics.runtimeContext.kvUnified === null
+                    ? 'unknown'
+                    : diagnostics.runtimeContext.kvUnified
+                      ? 'yes'
+                      : 'no',
+              })}
+            </p>
+          )}
+          {diagnostics?.inferenceQueue && (
+            <p className="text-xs text-text-secondary">
+              {intl.formatMessage(messages.inferenceQueue, diagnostics.inferenceQueue)}
+            </p>
+          )}
+          {diagnostics?.lastFailure && (
+            <p className="text-xs text-text-secondary">
+              {intl.formatMessage(messages.lastRuntimeFailure, {
+                kind: diagnostics.lastFailure.kind,
+                status: diagnostics.lastFailure.httpStatus ?? '',
+              })}
+            </p>
+          )}
+          <p className="text-xs text-text-secondary">
+            {t('specAcceptance')}:{' '}
+            {diagnostics?.accepted !== undefined && diagnostics.proposed
+              ? `${diagnostics.accepted}/${diagnostics.proposed} (${((100 * diagnostics.accepted) / diagnostics.proposed).toFixed(1)}%)`
+              : '—'}
+          </p>
+        </details>
+      )}
 
       {!probe && (
         <Button

@@ -427,10 +427,13 @@ export function AppInner() {
     };
 
     const handleSessionDeleted = (event: Event) => {
-      const { sessionId } = (event as CustomEvent<{ sessionId: string }>).detail;
+      const detail = (event as CustomEvent<{ sessionId?: string; sessionIds?: string[] }>).detail;
+      const deletedIds = new Set(detail?.sessionIds ?? []);
+      if (detail?.sessionId) deletedIds.add(detail.sessionId);
+      if (deletedIds.size === 0) return;
 
       setActiveSessions((prev) => {
-        return prev.filter((session) => session.sessionId !== sessionId);
+        return prev.filter((session) => !deletedIds.has(session.sessionId));
       });
     };
 

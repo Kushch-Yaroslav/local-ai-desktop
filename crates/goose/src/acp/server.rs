@@ -1,4 +1,5 @@
 // Modified for Local AI Desktop: durable visual attachments and model-only browser context.
+// Modified for Local AI Desktop: publish subagent monitoring metadata over ACP.
 use crate::acp::custom_notifications::*;
 use crate::acp::custom_requests::*;
 pub(super) use crate::acp::response_builder::{
@@ -322,6 +323,7 @@ pub struct AcpConnection {
     client_supports_recipe_param_requests: OnceCell<bool>,
     client_requests_tool_call_label_enrichment: OnceCell<bool>,
     client_cx: OnceCell<ConnectionTo<Client>>,
+    subagent_monitor_task: std::sync::OnceLock<tokio_util::task::AbortOnDropHandle<()>>,
     session_name_update_tx:
         std::sync::OnceLock<mpsc::UnboundedSender<crate::session::SessionNameUpdate>>,
     thinking_effort_update_tx: mpsc::UnboundedSender<String>,
@@ -959,6 +961,7 @@ impl AcpConnection {
             client_requests_tool_call_label_enrichment: OnceCell::new(),
             client_cx: OnceCell::new(),
             session_name_update_tx: std::sync::OnceLock::new(),
+            subagent_monitor_task: std::sync::OnceLock::new(),
             thinking_effort_update_tx,
             thinking_effort_update_rx: Mutex::new(Some(thinking_effort_update_rx)),
             config_dir: options.config_dir,
@@ -1020,6 +1023,39 @@ impl AcpConnection {
     }
 
     fn session_attachment(&self, cx: &ConnectionTo<Client>) -> Attachment {
+        self.subagent_monitor_task.get_or_init(|| {
+            let cx = cx.clone();
+            let mut updates = crate::agents::subagent_monitor::subscribe();
+            tokio_util::task::AbortOnDropHandle::new(tokio::spawn(async move {
+                loop {
+                    match updates.recv().await {
+                        Ok(state) => {
+                            let Some(parent) = state["parentId"].as_str().map(str::to_string)
+                            else {
+                                continue;
+                            };
+                            let meta: Meta = serde_json::from_value(
+                                serde_json::json!({ "goose": { "subagent": state } }),
+                            )
+                            .unwrap_or_default();
+                            if cx
+                                .send_notification(SessionNotification::new(
+                                    SessionId::new(parent.to_string()),
+                                    SessionUpdate::SessionInfoUpdate(
+                                        SessionInfoUpdate::new().meta(meta),
+                                    ),
+                                ))
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(_) => break,
+                    }
+                }
+            }))
+        });
         let session_names = (!self.services.disable_session_naming).then(|| {
             self.session_name_update_tx
                 .get_or_init(|| spawn_session_name_update_notifier(cx.clone()))

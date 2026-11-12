@@ -1,3 +1,4 @@
+import { receiveSubagent } from './subagentSessions';
 // Modified for Local AI Desktop: retain session configuration across provider/model notifications.
 import { rememberSessionConfiguration } from './sessionConfiguration';
 import type {
@@ -12,14 +13,25 @@ import { acpChatSessionActions, acpChatSessionStore } from './chatSessionStore';
 import { publishLiveVoiceInteractionEnded } from './liveVoiceNotifications';
 
 export function handleAcpSessionNotification(notification: SessionNotification): Promise<void> {
+  if (notification.update.sessionUpdate === 'session_info_update') {
+    const meta = notification.update._meta as { goose?: { subagent?: unknown } } | undefined;
+    if (meta?.goose?.subagent) {
+      receiveSubagent(meta.goose.subagent);
+      return Promise.resolve();
+    }
+  }
   const sessionNameBeforeNotification = acpChatSessionStore.getSnapshot(notification.sessionId)
     ?.session?.name;
   const updatedName =
     notification.update.sessionUpdate === 'session_info_update'
       ? notification.update.title
       : undefined;
-  if (notification.update.sessionUpdate === 'current_mode_update') rememberSessionConfiguration(notification.sessionId, { modes: { currentModeId: notification.update.currentModeId } });
-  if (notification.update.sessionUpdate === 'config_option_update') rememberSessionConfiguration(notification.sessionId, notification.update);
+  if (notification.update.sessionUpdate === 'current_mode_update')
+    rememberSessionConfiguration(notification.sessionId, {
+      modes: { currentModeId: notification.update.currentModeId },
+    });
+  if (notification.update.sessionUpdate === 'config_option_update')
+    rememberSessionConfiguration(notification.sessionId, notification.update);
   acpChatSessionActions.applyAcpSessionNotification(notification);
   maybeHandleLivePlatformEvent(notification);
 

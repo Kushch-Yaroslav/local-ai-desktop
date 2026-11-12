@@ -133,15 +133,23 @@ type ElectronAPI = {
   storageProgress: (callback: (progress: StorageProgress) => void) => () => void;
   reloadApp: () => void;
   checkForOllama: () => Promise<boolean>;
+  ggufOnInference?: (
+    callback: (event: { sessionId?: string; phase: string }) => void
+  ) => () => void;
   ggufList: () => Promise<ProfileEntry[]>;
   ggufSave: (profile: GgufProfile) => Promise<GgufProfile>;
   ggufDelete: (id: string) => Promise<void>;
   ggufValidate: (profile: GgufProfile) => Promise<{ placementConfirmationRequired: boolean }>;
   memorySample: () => Promise<MemorySnapshot>;
   memoryCancel: () => void;
-  ggufDiagnostics: (
-    id: string
-  ) => Promise<{ args?: string[]; accepted?: number; proposed?: number }>;
+  ggufDiagnostics: (id: string) => Promise<{
+    args?: string[];
+    accepted?: number;
+    proposed?: number;
+    runtimeContext?: { contextTokens: number; totalSlots: number; kvUnified: boolean | null };
+    inferenceQueue?: { capacity: number; active: number; waiting: number };
+    lastFailure?: { kind: string; at: string; httpStatus?: number };
+  }>;
   ggufSetVision: (id: string, enabled: boolean) => Promise<GgufProfile>;
   ggufSetMtp: (id: string, enabled: boolean) => Promise<GgufProfile>;
   ggufReloadProfile: (id: string, token: string) => Promise<GgufEndpoint>;
@@ -377,6 +385,14 @@ const electronAPI: ElectronAPI = {
   reloadApp: () => ipcRenderer.send('reload-app'),
   checkForOllama: () => ipcRenderer.invoke('check-ollama'),
 
+  ggufOnInference: (callback: (event: { sessionId?: string; phase: string }) => void) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      update: { sessionId?: string; phase: string }
+    ) => callback(update);
+    ipcRenderer.on('gguf-inference-update', listener);
+    return () => ipcRenderer.removeListener('gguf-inference-update', listener);
+  },
   ggufList: () => ipcRenderer.invoke('gguf-list'),
   ggufSave: (profile: GgufProfile) => ipcRenderer.invoke('gguf-save', profile),
   ggufDelete: (id: string) => ipcRenderer.invoke('gguf-delete', id),

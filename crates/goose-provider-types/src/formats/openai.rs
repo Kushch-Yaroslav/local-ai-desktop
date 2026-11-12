@@ -1,3 +1,4 @@
+// Modified for Local AI Desktop: preserve context overflow classification in SSE errors.
 use crate::base::ThinkingPreservationFormat;
 use crate::conversation::message::{Message, MessageContentBlock, ProviderMetadata};
 use crate::conversation::token_usage::{CostSource, ProviderUsage, Usage};
@@ -1199,7 +1200,7 @@ fn classify_choiceless_frame(value: &Value) -> Option<ProviderError> {
             Some(s) => format!("Gateway returned status {s} mid-stream"),
             None => "Unknown server error".to_string(),
         });
-    Some(ProviderError::ServerError(details))
+    Some(ProviderError::server_error(details))
 }
 
 /// Parse one SSE `data:` payload.
@@ -1227,7 +1228,7 @@ fn parse_streaming_chunk(line: &str) -> Result<Option<StreamingChunk>, ProviderE
             .get("message")
             .and_then(|m| m.as_str())
             .unwrap_or("Unknown server error");
-        return Err(ProviderError::ServerError(message.to_string()));
+        return Err(ProviderError::server_error(message));
     }
 
     if value.get("object").and_then(|o| o.as_str()) == Some("error") {
@@ -1235,7 +1236,7 @@ fn parse_streaming_chunk(line: &str) -> Result<Option<StreamingChunk>, ProviderE
             .get("message")
             .and_then(|m| m.as_str())
             .unwrap_or("Unknown server error");
-        return Err(ProviderError::ServerError(message.to_string()));
+        return Err(ProviderError::server_error(message));
     }
 
     if value
@@ -5994,5 +5995,26 @@ data: [DONE]"#;
                 "turn-context must appear exactly once, on its source message"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod managed_context_error_tests {
+    use super::*;
+    #[test]
+    fn llama_context_error_frames_are_recoverable_context_errors() {
+        for line in [
+            r#"{"error":{"message":"Context size has been exceeded."}}"#,
+            r#"{"object":"error","message":"Context size has been exceeded."}"#,
+        ] {
+            assert!(matches!(
+                parse_streaming_chunk(line),
+                Err(ProviderError::ContextLengthExceeded(_))
+            ));
+        }
+        assert!(matches!(
+            parse_streaming_chunk(r#"{"error":{"message":"GPU unavailable"}}"#),
+            Err(ProviderError::ServerError(_))
+        ));
     }
 }
